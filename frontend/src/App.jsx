@@ -1416,7 +1416,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> },
     { label:'Total Files', val: loadingData ? null : String(fileCount), sub:'in your projects', accent:C.amber, page:'library',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13,2 13,9 20,9"/></svg> },
-    { label:'Collaborators', val:'—', sub:'across projects', accent:C.pink, page:'collaborators',
+    { label:'Collaborators', val: loadingData ? null : String(overview.collaborators ?? '—'), sub:'across projects', accent:C.pink, page:'collaborators',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg> },
   ]
 
@@ -1863,7 +1863,8 @@ function PageCollaborators({ openModal, user }) {
   const [loading,    setLoading]    = useState(true)
   const [actingId,   setActingId]   = useState(null)
   const [removingId, setRemovingId] = useState(null)
-  const [ownedIds,   setOwnedIds]   = useState(new Set()) // project IDs the user owns
+  const [ownedIds,   setOwnedIds]   = useState(new Set())
+  const [overview,   setOverview]   = useState({})
 
   const removeCollab = async (collabId) => {
     if (!confirm('Remove this collaborator from the project?')) return
@@ -1878,6 +1879,7 @@ function PageCollaborators({ openModal, user }) {
 
   const loadData = () => {
     setLoading(true)
+    analyticsApi.overview().then(r => setOverview(r.data || {})).catch(() => {})
     Promise.all([
       projectsApi.list().catch(() => ({ data: [] })),
       invitationsApi.list().catch(() => ({ data: [] })),
@@ -2006,8 +2008,8 @@ function PageCollaborators({ openModal, user }) {
         {[
           { label:'Total Members', val: loading ? null : collabs.length,  color:C.coral },
           { label:'Unique Roles',  val: loading ? null : roles.length,    color:C.amber },
-          { label:'Projects',      val: '—', color:'#3b82f6' },
-          { label:'Files Shared',  val: '—', color:'#8b5cf6' },
+          { label:'Projects',      val: loading ? null : String(overview.projects     ?? ownedIds.size), color:'#3b82f6' },
+          { label:'Files Shared',  val: loading ? null : String(overview.sharedFiles  ?? '—'),            color:'#8b5cf6' },
         ].map(s => (
           <Card key={s.label} style={{ padding:'16px 18px' }}>
             <div style={{ fontSize:11, color:'#aaa', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{s.label}</div>
