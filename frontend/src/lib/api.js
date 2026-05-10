@@ -134,6 +134,9 @@ export const analytics = {
   project:    (id) => get(`/analytics/projects/${id}`),
 }
 
+// ── Smart Bounce ──────────────────────────────────────────────────────────────
+export const smartBounce = (projectId) => post(`/projects/${projectId}/smart-bounce`, {})
+
 // ── Messages ──────────────────────────────────────────────────────────────────
 export const messagesApi = {
   conversation: (userId) => get(`/messages/${userId}`),

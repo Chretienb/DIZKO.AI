@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -291,6 +291,56 @@ function Avatar({ name, url, size = 36, color = C.coral, border, style: extra })
       display:'flex', alignItems:'center', justifyContent:'center',
       fontSize:fs, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
       {initials(name || '')}
+    </div>
+  )
+}
+
+// Toast notification — stacks at top-right, auto-dismisses
+function useToasts() {
+  const [toasts, setToasts] = React.useState([])
+  const add = React.useCallback((msg, opts = {}) => {
+    const id = Date.now() + Math.random()
+    setToasts(t => [...t, { id, msg, type: opts.type || 'info', action: opts.action }])
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), opts.duration || 6000)
+  }, [])
+  const remove = React.useCallback(id => setToasts(t => t.filter(x => x.id !== id)), [])
+  return { toasts, add, remove }
+}
+
+function ToastContainer({ toasts, remove }) {
+  if (!toasts.length) return null
+  return (
+    <div style={{ position:'fixed', top:16, right:16, zIndex:9999, display:'flex', flexDirection:'column', gap:8 }}>
+      {toasts.map(t => {
+        const colors = {
+          info:    { bg:'#1a1a1a', border:'rgba(255,255,255,.12)', icon:'#6366f1' },
+          success: { bg:'#052e16', border:'rgba(34,197,94,.3)',    icon:'#22c55e' },
+          new:     { bg:'#0c1a2e', border:`rgba(244,147,122,.3)`, icon:C.coral   },
+        }[t.type] || {}
+        return (
+          <div key={t.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
+            background: colors.bg, borderRadius:14, border:`1px solid ${colors.border}`,
+            boxShadow:'0 8px 32px rgba(0,0,0,.4)', minWidth:280, maxWidth:360,
+            animation:'slideIn .2s ease' }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:colors.icon,
+              flexShrink:0, marginTop:4, boxShadow:`0 0 8px ${colors.icon}` }}/>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, color:'#fff', lineHeight:1.45 }}>{t.msg}</div>
+              {t.action && (
+                <button onClick={() => { t.action.fn(); remove(t.id) }} style={{
+                  marginTop:6, fontSize:12, fontWeight:700, color:colors.icon,
+                  background:'none', border:'none', cursor:'pointer', padding:0 }}>
+                  {t.action.label} →
+                </button>
+              )}
+            </div>
+            <button onClick={() => remove(t.id)} style={{ background:'none', border:'none',
+              cursor:'pointer', color:'rgba(255,255,255,.3)', fontSize:16, padding:0, flexShrink:0 }}>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -2935,7 +2985,7 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
 }
 
 // ─── PAGE: STUDIO ──────────────────────────────────────────────────────────
-function PageStudio({ openModal, playTrack }) {
+function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,    setProjects]    = useState([])
   const [activeId,    setActiveId]    = useState(null)
   const [stems,       setStems]       = useState([])
@@ -2947,6 +2997,9 @@ function PageStudio({ openModal, playTrack }) {
   const [soloId,      setSoloId]      = useState(null)
   const [mutedIds,    setMutedIds]    = useState(new Set())
   const [loadingPct,  setLoadingPct]  = useState({})  // { stemId: 0-100 }
+  const [smartMixUrl,  setSmartMixUrl]  = useState(null)   // latest auto-bounce URL
+  const [smartMixing,  setSmartMixing]  = useState(false)  // manual smart mix in progress
+  const [smartMixInfo, setSmartMixInfo] = useState(null)   // { contributors, stem_count }
   const audioRefs    = useRef({})
   const ctxRef       = useRef(null)
   const startAtRef   = useRef(0)
@@ -2999,6 +3052,60 @@ function PageStudio({ openModal, playTrack }) {
   }, [activeId])
 
   useEffect(() => () => { stopAll(); cancelAnimationFrame(rafRef.current) }, [])
+
+  // ── Supabase Realtime — listen for new stems in the active project ──────────
+  useEffect(() => {
+    if (!activeId) return
+    const channel = supabase
+      .channel(`studio:${activeId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stems' }, async payload => {
+        const s = payload.new
+        if (!s?.id) return
+
+        if (s.instrument === 'smart_bounce') {
+          // Auto-bounce completed — update smart mix panel
+          setSmartMixUrl(s.file_url)
+          try {
+            const notes = JSON.parse(s.notes || '{}')
+            setSmartMixInfo({ contributors: notes.contributors || [], stem_count: notes.stem_count || 0 })
+          } catch {}
+          addToast?.(
+            <><strong style={{color:'#fff'}}>Smart Mix updated</strong> — all latest takes mixed in</>,
+            { type:'success', duration:7000,
+              action:{ label:'Listen', fn: () => playTrack(s) } }
+          )
+          return
+        }
+
+        // A collaborator uploaded a regular stem — refresh + notify
+        const isOwn = s.uploaded_by === user?.id
+        if (!isOwn) {
+          // Fetch uploader name
+          const token = localStorage.getItem('disco_token')
+          let uploaderName = 'A collaborator'
+          try {
+            const r = await fetch(`/api/users/${s.uploaded_by}`, { headers:{ Authorization:`Bearer ${token}` } })
+            if (r.ok) { const j = await r.json(); uploaderName = j.data?.full_name || j.data?.email?.split('@')[0] || uploaderName }
+          } catch {}
+          addToast?.(
+            <><strong style={{color:'#fff'}}>{uploaderName}</strong> uploaded a new <strong style={{color:C.coral}}>{s.instrument || 'stem'}</strong> — smart mix updating…</>,
+            { type:'new', duration:8000 }
+          )
+        }
+
+        // Refresh stems list
+        setStems(prev => {
+          if (prev.find(x => x.id === s.id)) return prev
+          return [s, ...prev]
+        })
+        // Add to bounce selection if it's a real stem
+        if (s.file_url && s.instrument !== 'original') {
+          setSelectedIds(prev => new Set([...prev, s.id]))
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [activeId, user?.id])
 
   const stopAll = () => {
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
@@ -3589,6 +3696,52 @@ function PageStudio({ openModal, playTrack }) {
 
         {/* Right actions */}
         <div style={{ marginLeft:'auto', display:'flex', gap: 8, alignItems:'center' }}>
+
+          {/* Smart Mix button / player */}
+          {smartMixUrl ? (
+            <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+              <button onClick={() => playTrack({ file_url: smartMixUrl, suggested_name: 'Smart Mix', instrument:'smart_bounce' })}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'0 12px', height:36,
+                  borderRadius:10, border:`1px solid ${C.coral}55`, background:`${C.coral}12`,
+                  color:C.coral, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                Smart Mix
+                {smartMixInfo?.stem_count && (
+                  <span style={{ fontSize:10, opacity:.7 }}>· {smartMixInfo.stem_count} tracks</span>
+                )}
+              </button>
+              <a href={smartMixUrl} download="smart_mix.wav"
+                style={{ width:32, height:32, borderRadius:9, border:`1px solid ${C.coral}33`,
+                  background:`${C.coral}08`, display:'flex', alignItems:'center', justifyContent:'center',
+                  color:C.coral, textDecoration:'none' }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+              </a>
+            </div>
+          ) : (
+            <button onClick={async () => {
+              if (!activeId || smartMixing) return
+              setSmartMixing(true)
+              try {
+                const r = await smartBounceApi(activeId)
+                setSmartMixUrl(r.data?.bounce_url)
+                setSmartMixInfo({ contributors: r.data?.contributors || [], stem_count: r.data?.stem_count })
+              } catch (e) {
+                addToast?.('Not enough stems to create a smart mix yet.', { type:'info' })
+              }
+              setSmartMixing(false)
+            }} disabled={smartMixing || stems.filter(s=>s.instrument!=='original').length < 2}
+              style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:36,
+                borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer',
+                background:'rgba(255,255,255,.06)', border:`1px solid ${S.border}`,
+                color:S.text2, transition:'all .15s' }}>
+              {smartMixing
+                ? <><Spinner size={11} color={S.text2}/> Mixing…</>
+                : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> Smart Mix</>}
+            </button>
+          )}
+
+          <div style={{ width:1, height:22, background:S.border }}/>
+
           {bounceUrl ? (
             <>
               {/* Preview player */}
@@ -3665,6 +3818,47 @@ function PageStudio({ openModal, playTrack }) {
             <span style={{ fontSize: 10, fontWeight: 700, color: S.text3,
               textTransform:'uppercase', letterSpacing:'.1em' }}>Tracks</span>
           </div>
+
+          {/* Latest Takes summary — one chip per collaborator × role */}
+          {(() => {
+            const takeMap = new Map()
+            for (const s of stems) {
+              if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') continue
+              const key = `${s.uploaded_by}::${s.instrument}`
+              const ex  = takeMap.get(key)
+              if (!ex || new Date(s.created_at) > new Date(ex.created_at)) takeMap.set(key, s)
+            }
+            const latest = [...takeMap.values()]
+            if (!latest.length) return null
+            const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
+            return (
+              <div style={{ padding:'8px 10px', borderBottom:`1px solid ${S.border}` }}>
+                <div style={{ fontSize:8.5, fontWeight:700, color:S.text3, textTransform:'uppercase',
+                  letterSpacing:'.08em', marginBottom:5 }}>Latest Takes</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                  {latest.map(s => {
+                    const col  = stemColor[s.instrument] || '#aaa'
+                    const upl  = uploaders[s.uploaded_by]
+                    const who  = upl?.full_name?.split(' ')[0] || upl?.email?.split('@')[0] || '?'
+                    return (
+                      <div key={s.id} title={`${who} · ${s.instrument} · ${timeAgo(s.created_at)}`}
+                        style={{ display:'flex', alignItems:'center', gap:3, padding:'2px 6px',
+                          borderRadius:6, background:`${col}18`, border:`1px solid ${col}33`,
+                          cursor:'pointer' }}
+                        onClick={() => playTrack(s)}>
+                        <Avatar name={upl?.full_name || who} url={upl?.avatar_url}
+                          size={12} color={col} border="none"/>
+                        <span style={{ fontSize:9, fontWeight:700, color:col,
+                          textTransform:'uppercase', letterSpacing:'.04em' }}>
+                          {s.instrument.slice(0,3)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {loading || loadingStems ? (
             <div style={{ display:'flex', justifyContent:'center', padding: 24 }}>
@@ -4548,6 +4742,7 @@ function MiniPlayer({ track, onClose }) {
 }
 
 export default function App({ onLogout, user, onProfileUpdate }) {
+  const { toasts, add: addToast, remove: removeToast } = useToasts()
   const navigate               = useNavigate()
   const location               = useLocation()
   const [playing, setPlay]     = useState(false)
@@ -4726,7 +4921,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Routes>
             <Route path="/"              element={<PageDashboard playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} />} />
-            <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} />} />
+            <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} />} />
             <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} user={user} />} />
             <Route path="/analytics"     element={<PageAnalytics />} />
@@ -4751,6 +4946,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  onClose={closeModal} />}
       {modal?.type==='new-release' && <ModalNewRelease onClose={closeModal} />}
       {modal?.type==='schedule'    && <ModalSchedule   release={modal.data}           onClose={closeModal} />}
+      <ToastContainer toasts={toasts} remove={removeToast} />
     </div>
   )
 }

@@ -16,6 +16,7 @@ import fileRoutes from './routes/files'
 import analyticsRoutes from './routes/analytics'
 import distributionRoutes from './routes/distribution'
 import messageRoutes from './routes/messages'
+import { runSmartBounce } from './lib/smartBounce'
 
 import type { HonoVariables } from './types'
 
@@ -107,8 +108,33 @@ app.onError((err, c) => {
 
 // ── Supabase Realtime — file upload events ────────────────────────────────────
 
-subscribeToFileEvents((payload) => {
-  console.log('[realtime] stem inserted:', payload)
+subscribeToFileEvents(async (payload) => {
+  const stem = (payload as any).new
+  if (!stem?.id) return
+  // Skip originals and smart bounces to avoid infinite loops
+  if (stem.instrument === 'original' || stem.instrument === 'smart_bounce') return
+
+  // Find the project this stem belongs to
+  const { data: track } = await supabase
+    .from('tracks').select('project_id').eq('id', stem.track_id).single()
+  if (!track) return
+
+  const projectId = (track as any).project_id
+  console.log(`[realtime] new ${stem.instrument} stem in project ${projectId} — triggering smart bounce`)
+
+  // Run async, don't block the realtime handler
+  runSmartBounce(projectId, stem.uploaded_by).catch(e =>
+    console.error('[smartBounce] auto-trigger error:', e)
+  )
+})
+
+// ── POST /projects/:id/smart-bounce — manual trigger ─────────────────────────
+app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
+  const projectId = c.req.param('id')
+  const user      = c.var.user as { id: string }
+  const result    = await runSmartBounce(projectId, user.id)
+  if (!result) return c.json({ data: null, error: 'Not enough stems to mix', status: 400 }, 400)
+  return c.json({ data: result, error: null, status: 200 })
 })
 
 // ── Start ─────────────────────────────────────────────────────────────────────
