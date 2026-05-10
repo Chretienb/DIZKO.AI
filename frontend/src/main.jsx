@@ -2,10 +2,11 @@ import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './index.css'
-import App     from './App.jsx'
-import Login   from './Login.jsx'
-import Splash  from './Splash.jsx'
-import Welcome from './Welcome.jsx'
+import App           from './App.jsx'
+import Login         from './Login.jsx'
+import Splash        from './Splash.jsx'
+import Welcome       from './Welcome.jsx'
+import ResetPassword from './ResetPassword.jsx'
 import { auth, setToken } from './lib/api'
 
 function userFromToken() {
@@ -77,6 +78,7 @@ function Root() {
           <Login onLogin={handleLogin} />
         </RequireGuest>
       } />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />

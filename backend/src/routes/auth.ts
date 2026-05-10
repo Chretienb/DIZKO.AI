@@ -175,6 +175,30 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
   return c.json({ data: { ...collaborator, invited: true }, error: null, status: 201 }, 201)
 })
 
+// ── POST /auth/forgot-password — send Supabase recovery email ────────────────
+auth.post('/forgot-password', sanitize, async (c) => {
+  const { email } = c.var.body as { email?: string }
+  if (!email?.trim()) return c.json({ data: null, error: 'email required', status: 400 }, 400)
+
+  const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+  await anonClient.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${frontendOrigin}/reset-password`,
+  })
+  // Always return success — never reveal whether email exists
+  return c.json({ data: { sent: true }, error: null, status: 200 })
+})
+
+// ── POST /auth/update-password — set a new password (called after recovery) ──
+auth.post('/update-password', requireAuth, sanitize, async (c) => {
+  const { password } = c.var.body as { password?: string }
+  if (!password || password.length < 8)
+    return c.json({ data: null, error: 'Password must be at least 8 characters', status: 400 }, 400)
+
+  const { error } = await supabase.auth.admin.updateUserById(c.var.user.id, { password })
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { updated: true }, error: null, status: 200 })
+})
+
 // ── PATCH /auth/profile — update display name and/or avatar_url ──────────────
 auth.patch('/profile', requireAuth, sanitize, async (c) => {
   const user = c.var.user

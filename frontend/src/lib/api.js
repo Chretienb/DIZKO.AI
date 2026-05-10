@@ -48,7 +48,9 @@ export const auth = {
   login:         (email, password)           => post('/auth/login',    { email, password }),
   register:      (email, password, fullName) => post('/auth/register', { email, password, fullName }),
   logout:        ()                          => post('/auth/logout').finally(() => setToken(null)),
-  updateProfile: (body)                      => request('PATCH', '/auth/profile', body),
+  updateProfile:    (body)       => request('PATCH', '/auth/profile', body),
+  forgotPassword:   (email)      => post('/auth/forgot-password', { email }),
+  updatePassword:   (password)   => post('/auth/update-password', { password }),
   uploadAvatar:  (file) => {
     const token = getToken()
     const form  = new FormData()

@@ -51,7 +51,7 @@ const SOCIALS = [
 ]
 
 export default function Login({ onLogin }) {
-  const [tab, setTab]              = useState('signin')
+  const [tab, setTab]              = useState('signin')  // 'signin' | 'signup' | 'forgot' | 'forgot-sent'
   const [name, setName]            = useState('')
   const [email, setEmail]          = useState('')
   const [password, setPass]        = useState('')
@@ -65,6 +65,12 @@ export default function Login({ onLogin }) {
     setError('')
     setLoading(true)
     try {
+      if (tab === 'forgot') {
+        await auth.forgotPassword(email)
+        setTab('forgot-sent')
+        setLoading(false)
+        return
+      }
       const isNewUser = tab === 'signup'
       const res = isNewUser
         ? await auth.register(email, password, name)
@@ -81,7 +87,6 @@ export default function Login({ onLogin }) {
 
   const socialLogin = id => {
     setSocial(id)
-    // Social OAuth requires a redirect flow — stub for now
     setTimeout(() => { setSocial(null) }, 1200)
   }
 
@@ -156,17 +161,30 @@ export default function Login({ onLogin }) {
           {/* Header */}
           <div style={{ marginBottom:28 }}>
             <h2 style={{ margin:'0 0 7px', fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.1px' }}>
-              {tab === 'signin' ? 'Welcome back.' : 'Get started.'}
+              {tab === 'signin'      ? 'Welcome back.'        :
+               tab === 'signup'     ? 'Get started.'         :
+               tab === 'forgot'     ? 'Reset password.'      :
+                                      'Check your inbox.'}
             </h2>
             <p style={{ margin:0, fontSize:13.5, color:'#aaa', lineHeight:1.5 }}>
-              {tab === 'signin'
-                ? 'Sign in to your workspace.'
-                : 'Create your free account in seconds.'}
+              {tab === 'signin'      ? 'Sign in to your workspace.'             :
+               tab === 'signup'     ? 'Create your free account in seconds.'   :
+               tab === 'forgot'     ? "Enter your email and we'll send a link." :
+                                      `We sent a reset link to ${email || 'your email'}.`}
             </p>
           </div>
 
-          {/* Tab toggle */}
-          <div style={{ display:'flex', background:'#f2f2f2', borderRadius:10, padding:3, marginBottom:24 }}>
+          {/* Tab toggle — hidden on forgot screens */}
+          {(tab === 'forgot' || tab === 'forgot-sent') && (
+            <button onClick={() => { setTab('signin'); setError('') }}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
+                color:'#aaa', fontSize:13, cursor:'pointer', marginBottom:24, padding:0 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+              Back to sign in
+            </button>
+          )}
+          <div style={{ display:'flex', background:'#f2f2f2', borderRadius:10, padding:3, marginBottom:24,
+            ...(tab === 'forgot' || tab === 'forgot-sent' ? { display:'none' } : {}) }}>
             {[['signin','Sign in'],['signup','Create account']].map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)} style={{
                 flex:1, padding:'8px 12px', borderRadius:8, border:'none', cursor:'pointer',
@@ -178,8 +196,9 @@ export default function Login({ onLogin }) {
             ))}
           </div>
 
-          {/* Social login buttons — 2 × 2 grid */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:24 }}>
+          {/* Social login buttons — hidden on forgot screens */}
+          <div style={{ display: tab === 'forgot' || tab === 'forgot-sent' ? 'none' : 'grid',
+            gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:24 }}>
             {SOCIALS.map(s => {
               const busy = socialLoading === s.id
               return (
@@ -208,8 +227,9 @@ export default function Login({ onLogin }) {
             })}
           </div>
 
-          {/* Divider */}
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:22 }}>
+          {/* Divider — hidden on forgot screens */}
+          <div style={{ display: tab === 'forgot' || tab === 'forgot-sent' ? 'none' : 'flex',
+            alignItems:'center', gap:12, marginBottom:22 }}>
             <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
             <span style={{ fontSize:11, color:'#ccc', fontWeight:500, letterSpacing:'.5px' }}>
               {tab === 'signin' ? 'OR SIGN IN WITH EMAIL' : 'OR SIGN UP WITH EMAIL'}
@@ -217,16 +237,51 @@ export default function Login({ onLogin }) {
             <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
           </div>
 
-          {/* Email / password form */}
+          {/* Email / password form — or forgot-sent confirmation */}
+          {tab === 'forgot-sent' ? (
+            <div>
+              <div style={{ padding:'20px 18px', borderRadius:14,
+                background:'rgba(34,197,94,.06)', border:'1px solid rgba(34,197,94,.2)',
+                marginBottom:20, display:'flex', alignItems:'flex-start', gap:12 }}>
+                <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, marginTop:1 }}>
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.09a16 16 0 006 6l.41-.41a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                </svg>
+                <div>
+                  <div style={{ fontSize:13.5, fontWeight:700, color:'#15803d', marginBottom:4 }}>
+                    Reset link sent
+                  </div>
+                  <div style={{ fontSize:12.5, color:'#16a34a', lineHeight:1.55 }}>
+                    Check your inbox at <strong>{email}</strong> and click the link to set a new password. The link expires in 1 hour.
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => { setTab('signin'); setError('') }} style={{
+                width:'100%', padding:'13px', borderRadius:12, border:`1.5px solid rgba(0,0,0,.1)`,
+                background:'transparent', color:'#555', fontSize:14, fontWeight:600,
+                cursor:'pointer' }}>
+                Back to sign in
+              </button>
+              <p style={{ textAlign:'center', fontSize:12, color:'#bbb', marginTop:14 }}>
+                Didn't get it?{' '}
+                <button onClick={() => { setTab('forgot'); setError('') }}
+                  style={{ background:'none', border:'none', fontSize:12, color:C.coral,
+                    fontWeight:600, cursor:'pointer', padding:0 }}>
+                  Resend
+                </button>
+              </p>
+            </div>
+          ) : (
           <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {tab === 'signup' && field('name','text','Full name', name, setName)}
             {field('email','email','Email address', email, setEmail)}
-            {field('pw','password','Password', password, setPass)}
+            {tab !== 'forgot' && field('pw','password','Password', password, setPass)}
 
             {tab === 'signin' && (
               <div style={{ textAlign:'right', marginTop:-4 }}>
-                <button type="button" style={{ background:'none', border:'none', fontSize:12,
-                  color:C.coral, fontWeight:600, cursor:'pointer', padding:0 }}>
+                <button type="button"
+                  onClick={() => { setTab('forgot'); setError('') }}
+                  style={{ background:'none', border:'none', fontSize:12,
+                    color:C.coral, fontWeight:600, cursor:'pointer', padding:0 }}>
                   Forgot password?
                 </button>
               </div>
@@ -252,10 +307,14 @@ export default function Login({ onLogin }) {
                     strokeWidth={2.5} strokeLinecap="round"
                     style={{ animation:'spin .9s linear infinite' }}>
                     <path d="M12 3a9 9 0 019 9"/>
-                  </svg>{tab === 'signin' ? 'Signing in…' : 'Creating account…'}</>
-                : tab === 'signin' ? 'Sign in →' : 'Create account →'}
+                  </svg>
+                  {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating account…'}</>
+                : tab === 'forgot' ? 'Send reset link →'
+                : tab === 'signin' ? 'Sign in →'
+                : 'Create account →'}
             </button>
           </form>
+          )}
 
           <p style={{ margin:'18px 0 0', textAlign:'center', fontSize:13, color:'#bbb' }}>
             {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
