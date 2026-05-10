@@ -1262,6 +1262,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
   const [projectFiles,  setFiles]     = useState([])
   const [projectCollabs,setCollabs]   = useState([])
   const [loadingDetail, setLoadingDet]= useState(false)
+  const [uploaderNames, setUploaderNames] = useState({}) // { userId: displayName }
 
   useEffect(() => {
     setLoading(true)
@@ -1282,8 +1283,23 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
       filesApi.list(firstProjectId).catch(() => ({ data: [] })),
       collabsApi.listByProject(firstProjectId).catch(() => ({ data: [] })),
     ]).then(([fRes, cRes]) => {
-      setFiles(fRes.data || [])
+      const files = fRes.data || []
+      setFiles(files)
       setCollabs(cRes.data || [])
+      // Resolve uploader IDs → display names
+      const ids = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
+      const token = localStorage.getItem('disco_token')
+      ids.forEach(uid => {
+        fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.ok ? r.json() : null)
+          .then(j => {
+            if (!j?.data) return
+            const u = j.data
+            const name = u.full_name || u.email?.split('@')[0] || 'Someone'
+            setUploaderNames(prev => ({ ...prev, [uid]: name }))
+          })
+          .catch(() => {})
+      })
     }).finally(() => setLoadingDet(false))
   }, [firstProjectId])
 
@@ -1581,7 +1597,8 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <p style={{ margin:0, fontSize:12.5, color:'#333', lineHeight:1.45, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        <strong style={{ fontWeight:700, color:'#111' }}>uploaded</strong>{' '}{fileLabel(f)}
+                        <strong style={{ fontWeight:700, color:'#111' }}>{uploaderNames[f.uploaded_by] || 'Someone'}</strong>
+                        {' uploaded '}{fileLabel(f)}
                       </p>
                       <p style={{ margin:'3px 0 0', fontSize:11, color:'#bbb', fontWeight:500 }}>{timeAgo(f.created_at)}</p>
                     </div>
