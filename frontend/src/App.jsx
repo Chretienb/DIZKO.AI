@@ -58,14 +58,19 @@ function fileMeta(f) {
 }
 
 function collabInitials(c) {
-  const name = c?.user?.full_name || c?.full_name || c?.user?.email || c?.email || ''
-  if (!name) return '?'
-  if (name.includes('@')) return name[0].toUpperCase()
-  return initials(name) || '?'
+  return initials(collabName(c)) || '?'
 }
 
 function collabName(c) {
-  return c?.user?.full_name || c?.full_name || c?.user?.email || c?.email || 'Collaborator'
+  const raw = c?.user?.full_name || c?.full_name
+  if (raw) {
+    // Title-case names stored in all-lowercase
+    return raw === raw.toLowerCase() ? raw.replace(/\b\w/g, l => l.toUpperCase()) : raw
+  }
+  // Fall back to the part before @ in email, title-cased
+  const email = c?.user?.email || c?.email || ''
+  if (email) return email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  return 'Collaborator'
 }
 
 function collabEmail(c) {
