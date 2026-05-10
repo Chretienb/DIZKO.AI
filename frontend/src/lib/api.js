@@ -118,6 +118,13 @@ export const analytics = {
   project:    (id) => get(`/analytics/projects/${id}`),
 }
 
+// ── Messages ──────────────────────────────────────────────────────────────────
+export const messagesApi = {
+  conversation: (userId) => get(`/messages/${userId}`),
+  send:         (toUserId, text) => post('/messages', { to_user_id: toUserId, text }),
+  unread:       () => get('/messages'),
+}
+
 // ── Distribution ──────────────────────────────────────────────────────────────
 export const distribution = {
   list:   (projectId)       => get(`/distribution/projects/${projectId}`),

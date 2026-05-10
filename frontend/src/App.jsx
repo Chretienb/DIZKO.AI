@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi } from './lib/api'
+import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
 // Module-level cache: url → ArrayBuffer
@@ -818,51 +819,97 @@ function ModalInvite({ project: initialProject, onClose }) {
 }
 
 // ─── MODAL: MESSAGE ────────────────────────────────────────────────────────
-function ModalMessage({ collab, onClose }) {
-  const name      = collabName(collab)
-  const firstName = name.split(' ')[0]
+function ModalMessage({ collab, onClose, currentUserId }) {
+  const name        = collabName(collab)
+  const firstName   = name.split(' ')[0]
+  const otherId     = collab.user_id || collab.user?.id
   const [msg, setMsg]   = useState('')
   const [msgs, setMsgs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const bottomRef   = useRef(null)
 
-  const send = () => {
-    if (!msg.trim()) return
-    setMsgs(m => [...m, { from:'me', text:msg.trim(), t: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) }])
-    setMsg('')
+  // Load conversation
+  useEffect(() => {
+    if (!otherId) { setLoading(false); return }
+    messagesApi.conversation(otherId)
+      .then(r => setMsgs(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [otherId])
+
+  // Realtime — listen for new messages in this conversation
+  useEffect(() => {
+    if (!otherId || !currentUserId) return
+    const channel = supabase
+      .channel(`messages:${[currentUserId, otherId].sort().join('-')}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        const m = payload.new
+        const inConv = (m.from_user_id === currentUserId && m.to_user_id === otherId) ||
+                       (m.from_user_id === otherId       && m.to_user_id === currentUserId)
+        if (inConv) setMsgs(prev => [...prev, m])
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [otherId, currentUserId])
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs])
+
+  const send = async () => {
+    if (!msg.trim() || !otherId || sending) return
+    setSending(true)
+    try {
+      await messagesApi.send(otherId, msg.trim())
+      setMsg('')
+    } catch {}
+    setSending(false)
   }
+
+  const fmt = t => new Date(t).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
 
   return (
     <Modal title={`Message ${name}`} sub={`${collab.role || 'Collaborator'} · ${collabEmail(collab)}`} onClose={onClose} width={480}>
-      <div style={{ height:260, overflowY:'auto', display:'flex', flexDirection:'column', gap:10, marginBottom:16, padding:'4px 0' }}>
-        {msgs.length === 0 && (
+      <div style={{ height:300, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, marginBottom:16, padding:'4px 0' }}>
+        {loading ? (
+          <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}><Spinner size={20} color={C.coral}/></div>
+        ) : msgs.length === 0 ? (
           <div style={{ textAlign:'center', padding:'40px 0', color:'#ccc', fontSize:13 }}>
             Start a conversation with {firstName}
           </div>
-        )}
-        {msgs.map((m,i) => (
-          <div key={i} style={{ display:'flex', justifyContent: m.from==='me' ? 'flex-end' : 'flex-start' }}>
-            <div style={{ maxWidth:'72%' }}>
-              <div style={{ padding:'10px 14px', borderRadius: m.from==='me' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                background: m.from==='me' ? C.grad : 'rgba(0,0,0,.06)',
-                color: m.from==='me' ? '#fff' : '#111', fontSize:13.5, lineHeight:1.45 }}>{m.text}</div>
-              <div style={{ fontSize:10, color:'#ccc', marginTop:3, textAlign: m.from==='me' ? 'right' : 'left', fontWeight:500 }}>{m.t}</div>
+        ) : msgs.map((m) => {
+          const isMe = m.from_user_id === currentUserId
+          return (
+            <div key={m.id} style={{ display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+              <div style={{ maxWidth:'72%' }}>
+                <div style={{ padding:'10px 14px', borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  background: isMe ? C.grad : 'rgba(0,0,0,.06)',
+                  color: isMe ? '#fff' : '#111', fontSize:13.5, lineHeight:1.45 }}>{m.text}</div>
+                <div style={{ fontSize:10, color:'#ccc', marginTop:3, textAlign: isMe ? 'right' : 'left', fontWeight:500 }}>{fmt(m.created_at)}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
+        <div ref={bottomRef} />
       </div>
       <div style={{ display:'flex', gap:8 }}>
         <input value={msg} onChange={e => setMsg(e.target.value)}
-          onKeyDown={e => e.key==='Enter' && send()}
+          onKeyDown={e => e.key==='Enter' && !e.shiftKey && send()}
           placeholder={`Message ${firstName}…`}
           style={{ flex:1, padding:'11px 14px', borderRadius:12, border:'1.5px solid rgba(0,0,0,.1)',
             outline:'none', fontSize:13.5, fontFamily:'inherit', background:'#f9f9f9', transition:'border .15s' }}
           onFocus={e => e.target.style.borderColor=C.coral}
           onBlur={e => e.target.style.borderColor='rgba(0,0,0,.1)'} />
-        <button onClick={send} style={{ width:42, height:42, borderRadius:12, background:C.grad,
-          border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          boxShadow:`0 4px 12px ${C.coral}40` }}>
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
-          </svg>
+        <button onClick={send} disabled={sending || !msg.trim()} style={{ width:42, height:42, borderRadius:12, background:C.grad,
+          border:'none', cursor: sending ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:`0 4px 12px ${C.coral}40`, opacity: sending ? .6 : 1 }}>
+          {sending
+            ? <Spinner size={14} color="#fff"/>
+            : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+              </svg>}
         </button>
       </div>
     </Modal>
@@ -4060,7 +4107,7 @@ export default function App({ onLogout, user }) {
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
       {modal?.type==='invite'      && <ModalInvite     onClose={closeModal} />}
-      {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} />}
+      {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
       {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  onClose={closeModal} />}
