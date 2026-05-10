@@ -134,10 +134,11 @@ export const files = {
   create: (projectId, body) => post(`/projects/${projectId}/files`, body),
   get:    (id)              => get(`/files/${id}`),
   update: (id, body)        => patch(`/files/${id}`, body),
-  delete: (id)              => del(`/files/${id}`),
+  delete:        (id)        => del(`/files/${id}`),
+  separateStems: (id)        => post(`/files/${id}/separate-stems`, {}),
 
-  // Send raw audio to the backend pipeline (stem separation + AI naming).
-  // Returns 202 immediately; stems appear via Supabase Realtime when ready.
+  // Upload audio to the session. AI analyzes BPM/key and updates the Smart Mix.
+  // Returns 201 immediately. Stem separation is separate and user-triggered.
   upload: (file, projectId, { artistName, trackNumber, takeNumber } = {}) => {
     const token = getToken()
     const form  = new FormData()

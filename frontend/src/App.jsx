@@ -1289,14 +1289,14 @@ function ModalUpload({ project, onClose }) {
   }
 
   if (allDone) return (
-    <Modal title="Processing…" sub={`${doneCount} file${doneCount > 1 ? 's' : ''} sent to Dizko.Ai`} onClose={onClose}>
+    <Modal title="Added to session" sub={`${doneCount} file${doneCount > 1 ? 's' : ''} sent to Dizko.Ai`} onClose={onClose}>
       <div style={{ textAlign:'center', padding:'12px 0 4px' }}>
         <div style={{ width:60, height:60, borderRadius:'50%', background:`${C.coral}12`,
           border:`2px solid ${C.coral}22`, display:'flex', alignItems:'center',
           justifyContent:'center', margin:'0 auto 18px' }}>
           <Spinner size={26} color={C.coral}/>
         </div>
-        <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:6 }}>Stems separating…</div>
+        <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:6 }}>AI analyzing…</div>
         <p style={{ color:'#aaa', fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>
           <strong style={{ color:'#111' }}>Dizko.Ai</strong> is splitting your audio into vocals, drums, bass and other.
           Stems will appear in your project in a few minutes.
@@ -2029,7 +2029,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                     const stemCount = projectFiles.filter(f => f.instrument && f.instrument !== 'original' && f.instrument !== 'smart_bounce').length
                     const processing = projectFiles.filter(f => f.instrument === 'original' && (() => { try { return JSON.parse(f.notes||'{}').status === 'processing' } catch { return false } })()).length
                     if (stemCount === 0 && processing > 0) return (
-                      <><Spinner size={10} color={C.coral}/> AI separating stems…</>
+                      <><Spinner size={10} color={C.coral}/> AI updating session…</>
                     )
                     return <>{stemCount} stem{stemCount !== 1 ? 's' : ''} · {projects[0]?.status || 'Draft'}{processing > 0 ? ` · ${processing} processing` : ''}</>
                   })()}
@@ -2069,7 +2069,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                           {f.original_name}
                         </div>
                         <div style={{ fontSize:10.5, color:C.amber, marginTop:2, fontWeight:600 }}>
-                          Dizko.ai separating stems — takes a few minutes…
+                          Dizko.ai analyzing audio…
                         </div>
                       </div>
                     </div>
@@ -2731,10 +2731,24 @@ function PageLibrary({ openModal, playTrack, user }) {
   const [loading,      setLoading]      = useState(true)
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [drag,         setDrag]         = useState(false)
-  const [deletingId,   setDeletingId]   = useState(null)
+  const [deletingId,    setDeletingId]    = useState(null)
+  const [separatingId,  setSeparatingId]  = useState(null)
 
   const activeProject = projects.find(p => p.id === activeId)
   const isOwner = user?.id && activeProject?.owner_id === user.id
+
+  const separateStems = async (fileId) => {
+    setSeparatingId(fileId)
+    try {
+      await filesApi.separateStems(fileId)
+      // Optimistically update notes to show separating state
+      setFiles(prev => prev.map(f => f.id === fileId
+        ? { ...f, notes: JSON.stringify({ ...(() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })(), separating: true }) }
+        : f
+      ))
+    } catch (e) { alert(e.message) }
+    setSeparatingId(null)
+  }
 
   const deleteFile = async (fileId) => {
     if (!confirm('Delete this file from the project?')) return
@@ -2885,7 +2899,7 @@ function PageLibrary({ openModal, playTrack, user }) {
                           </span>
                           {separating && (
                             <span style={{ fontSize:10, color:C.amber, fontWeight:700, display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                              <Spinner size={10} color={C.amber} /> Dizko.Ai separating stems…
+                              <Spinner size={10} color={C.amber} /> Dizko.ai analyzing…
                             </span>
                           )}
                           {hasChildren && (
@@ -2905,6 +2919,24 @@ function PageLibrary({ openModal, playTrack, user }) {
                         }}>
                           <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                         </button>
+                        {/* Separate Stems — utility button, user-triggered only */}
+                        {!hasChildren && !separating && (
+                          <button onClick={() => separateStems(f.id)}
+                            disabled={separatingId === f.id} title="Separate into individual stems"
+                            style={{ height:28, padding:'0 9px', borderRadius:8, fontSize:10.5, fontWeight:700,
+                              border:`1px solid ${C.coral}35`, background:`${C.coral}08`,
+                              color:C.coral, cursor:'pointer', display:'flex', alignItems:'center', gap:5,
+                              whiteSpace:'nowrap' }}>
+                            {separatingId === f.id
+                              ? <><Spinner size={9} color={C.coral}/> Separating…</>
+                              : <>
+                                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                                    <line x1="12" y1="20" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/>
+                                  </svg>
+                                  Separate Stems
+                                </>}
+                          </button>
+                        )}
                         {isOwner && (
                           <button onClick={() => deleteFile(f.id)} disabled={deletingId === f.id} title="Delete"
                             style={{ width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
@@ -3814,7 +3846,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                       </span>
                     </div>
                     <div style={{ fontSize:10, color:C.amber, fontWeight:600, marginBottom:6 }}>
-                      Separating stems — a few minutes
+                      AI analyzing…
                     </div>
                     <div style={{ height:2, background: S.border, borderRadius:1, overflow:'hidden' }}>
                       <div style={{ height:'100%', width:'60%', borderRadius:1, background:C.amber, opacity:.4,
@@ -3826,7 +3858,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
               {mixerStems.length === 0 && stems.filter(s => s.instrument === 'original').length === 0 && (
                 <div style={{ padding:'32px 20px', textAlign:'center', color: S.text3, fontSize:13, lineHeight:1.8 }}>
-                  No tracks yet.<br/>Upload audio to start.
+                  No takes yet.<br/>Upload a recording to start.
                 </div>
               )}
               </>
