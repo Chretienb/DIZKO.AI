@@ -3012,7 +3012,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const beatTimerRef = useRef(null)       // setInterval handle for beat flash
   const bpmSaveTimer = useRef(null)       // debounce handle for project PATCH
 
-  const TRACK_H = 52
+  const TRACK_H = 72
   const LABEL_W = 160
   const PPS = 40      // pixels per second in arrangement
   const stemColors = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
@@ -3549,18 +3549,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   // total arrangement width
   const arrangementW = Math.max(800, (duration || 30) * PPS + 200)
 
-  // Studio palette
+  // Studio palette — dark but not pitch-black, warm tones
   const S = {
-    bg:      '#080810',
-    surface: '#0d0d14',
-    panel:   '#0a0a12',
-    border:  'rgba(255,255,255,.06)',
-    border2: 'rgba(255,255,255,.12)',
+    bg:      '#0e0e1a',
+    surface: '#13132a',
+    panel:   '#111120',
+    border:  'rgba(255,255,255,.07)',
+    border2: 'rgba(255,255,255,.13)',
     accent:  C.coral,
     green:   '#22c55e',
-    text:    'rgba(255,255,255,.9)',
-    text2:   'rgba(255,255,255,.4)',
-    text3:   'rgba(255,255,255,.2)',
+    text:    'rgba(255,255,255,.92)',
+    text2:   'rgba(255,255,255,.45)',
+    text3:   'rgba(255,255,255,.22)',
     grad:    `linear-gradient(135deg, ${C.coral}, #a855f7)`,
   }
 
@@ -3579,16 +3579,17 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const stemCol = i => ({ vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[i] || '#7c7c8a')
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 72px)',
+    <div style={{ display:'flex', flexDirection:'column',
+      height:'calc(100vh - 52px)',   /* fill everything below the 52px header */
+      margin:'-24px -24px -24px -24px',  /* bleed out of the content padding */
       background: S.bg, fontFamily:"-apple-system,BlinkMacSystemFont,'Inter',sans-serif",
-      borderRadius:16, overflow:'hidden', userSelect:'none',
-      border:`1px solid ${S.border}` }}>
+      overflow:'hidden', userSelect:'none' }}>
 
       {/* ══ TRANSPORT ═══════════════════════════════════════════════════════ */}
-      <div style={{ height:64, flexShrink:0, background: S.surface,
+      <div style={{ height:72, flexShrink:0, background: S.surface,
         borderBottom:`1px solid ${S.border}`,
         display:'grid', gridTemplateColumns:'1fr auto 1fr',
-        alignItems:'center', padding:'0 20px', gap:16 }}>
+        alignItems:'center', padding:'0 32px', gap:24 }}>
 
         {/* Left — project + switcher */}
         <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
@@ -3617,47 +3618,54 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
         {/* Centre — transport controls */}
         <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent:'center' }}>
-          <button onClick={stop} style={{ width:32, height:32, borderRadius:9,
+          {/* Stop */}
+          <button onClick={stop} style={{ width:36, height:36, borderRadius:10,
             border:`1px solid ${S.border}`, background:'rgba(255,255,255,.05)',
             display:'flex', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', color: S.text2 }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
+            cursor:'pointer', color: S.text2, transition:'background .12s' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.1)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.05)'}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
           </button>
 
+          {/* Play / loading ring */}
           {Object.keys(loadingPct).length > 0 ? (
             <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-              size={44} stroke={3} color={C.coral} bg="rgba(255,255,255,.08)">
-              <span style={{ fontSize:10, fontWeight:800, color:'#fff' }}>
+              size={52} stroke={3.5} color={C.coral} bg="rgba(255,255,255,.08)">
+              <span style={{ fontSize:11, fontWeight:800, color:'#fff' }}>
                 {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
               </span>
             </ProgressRing>
           ) : (
             <button onClick={playing ? pause : playAll} style={{
-              width:44, height:44, borderRadius:14, border:'none', background: S.grad,
+              width:52, height:52, borderRadius:16, border:'none', background: S.grad,
               display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-              boxShadow: playing ? `0 0 24px ${C.coral}60` : '0 4px 16px rgba(0,0,0,.5)',
-              transition:'box-shadow .2s' }}>
+              boxShadow: playing ? `0 0 28px ${C.coral}55, 0 8px 20px rgba(0,0,0,.4)` : '0 6px 20px rgba(0,0,0,.5)',
+              transition:'box-shadow .2s, transform .1s' }}
+              onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
+              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
               {playing
-                ? <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
-                : <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
+                ? <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+                : <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
             </button>
           )}
 
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ background:'rgba(0,0,0,.5)', border:`1px solid ${S.border}`,
-              borderRadius:9, padding:'5px 12px', fontFamily:"'SF Mono','Fira Code',monospace",
-              fontSize:15, color:C.coral, letterSpacing:'0.1em', fontWeight:700,
-              display:'flex', alignItems:'center', gap:3 }}>
+          {/* Timecode + beat */}
+          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ background:'rgba(0,0,0,.45)', border:`1px solid ${S.border}`,
+              borderRadius:10, padding:'6px 16px', fontFamily:"'SF Mono','Fira Code',monospace",
+              fontSize:18, color:C.coral, letterSpacing:'0.12em', fontWeight:700,
+              display:'flex', alignItems:'center', gap:4 }}>
               <span>{String(bar).padStart(2,'0')}</span>
-              <span style={{ color: S.text3 }}>:</span>
+              <span style={{ color: S.text3, fontSize:14 }}>:</span>
               <span>{beat}</span>
-              <span style={{ color: S.text3 }}>:</span>
-              <span style={{ fontSize:12, opacity:.6 }}>{tick}</span>
+              <span style={{ color: S.text3, fontSize:14 }}>:</span>
+              <span style={{ fontSize:14, opacity:.55 }}>{tick}</span>
             </div>
-            <span style={{ fontSize:11, color: S.text3, fontFamily:'monospace', minWidth:36 }}>{fmt(currentTime)}</span>
-            <div style={{ width:7, height:7, borderRadius:'50%',
-              background: beatFlash ? C.coral : 'rgba(255,255,255,.08)',
-              boxShadow: beatFlash ? `0 0 10px ${C.coral}` : 'none',
+            <span style={{ fontSize:12, color: S.text3, fontFamily:'monospace' }}>{fmt(currentTime)}</span>
+            <div style={{ width:8, height:8, borderRadius:'50%',
+              background: beatFlash ? C.coral : 'rgba(255,255,255,.1)',
+              boxShadow: beatFlash ? `0 0 12px ${C.coral}` : 'none',
               transition: beatFlash ? 'none' : 'background .15s' }}/>
           </div>
         </div>
@@ -3805,24 +3813,24 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
         {/* ── LEFT PANEL ─────────────────────────────────────────────────── */}
-        <div style={{ width:220, flexShrink:0, background: S.panel,
+        <div style={{ width:260, flexShrink:0, background: S.panel,
           borderRight:`1px solid ${S.border}`, display:'flex', flexDirection:'column' }}>
 
           {/* Panel header */}
-          <div style={{ height:36, display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'0 12px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
-            <span style={{ fontSize:9.5, fontWeight:700, color: S.text3,
+          <div style={{ height:44, display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'0 18px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
+            <span style={{ fontSize:10, fontWeight:700, color: S.text3,
               textTransform:'uppercase', letterSpacing:'.1em' }}>Tracks</span>
             <button onClick={() => openModal('upload', { project: activeProject })}
-              style={{ fontSize:10, fontWeight:700, color:C.coral, background:`${C.coral}15`,
-                border:'none', borderRadius:5, padding:'3px 8px', cursor:'pointer' }}>+ Upload</button>
+              style={{ fontSize:11, fontWeight:700, color:C.coral, background:`${C.coral}15`,
+                border:'none', borderRadius:7, padding:'4px 11px', cursor:'pointer' }}>+ Upload</button>
           </div>
 
           {/* Latest Takes chips */}
           {latestTakes.length > 0 && (
-            <div style={{ padding:'8px 12px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
-              <div style={{ fontSize:8.5, fontWeight:700, color: S.text3, textTransform:'uppercase',
-                letterSpacing:'.08em', marginBottom:6 }}>Latest Takes</div>
+            <div style={{ padding:'12px 18px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
+              <div style={{ fontSize:9, fontWeight:700, color: S.text3, textTransform:'uppercase',
+                letterSpacing:'.1em', marginBottom:8 }}>Latest Takes</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
                 {latestTakes.map(s => {
                   const col = stemCol(s.instrument)
@@ -3872,7 +3880,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
             return (
               <div key={s.id} onClick={() => setExpandedId(isSelected ? null : s.id)}
-                style={{ borderBottom:`1px solid ${S.border}`, padding:'10px 12px 8px',
+                style={{ borderBottom:`1px solid ${S.border}`, padding:'12px 16px 10px',
                   cursor:'pointer', transition:'background .12s',
                   background: isSelected ? `${color}0a` : 'transparent',
                   borderLeft: `3px solid ${isSelected ? color : 'transparent'}`,
@@ -4077,7 +4085,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           <div style={{ minWidth: arrangementW, position:'relative' }}>
 
             {/* Ruler */}
-            <div style={{ height: 32, background: S.surface, borderBottom:`1px solid ${S.border}`,
+            <div style={{ height: 40, background: S.surface, borderBottom:`1px solid ${S.border}`,
               position:'sticky', top: 0, zIndex: 3 }}>
               {Array.from({ length: Math.ceil((duration || 30) / secsPerBar) + 2 }, (_, bar) => {
                 const x = Math.round(bar * secsPerBar * PPS)
@@ -4143,25 +4151,25 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     const hasTrim = trim.start > 0.01 || trim.end < 0.99
 
                     return (
-                      <div key={s.id} style={{ height: 64, borderBottom:`1px solid ${S.border}`,
+                      <div key={s.id} style={{ height: 72, borderBottom:`1px solid ${S.border}`,
                         position:'relative',
                         background: i % 2 === 0 ? 'rgba(255,255,255,.015)' : 'transparent',
                         opacity: isMuted ? 0.18 : !isActive ? 0.12 : 1 }}>
 
                         {/* Faded-out regions outside trim */}
                         {trim.start > 0.01 && (
-                          <div style={{ position:'absolute', top: 6, left: 0, width: clipLeft,
+                          <div style={{ position:'absolute', top: 8, left: 0, width: clipLeft,
                             height: 52, background:'rgba(0,0,0,.45)', zIndex: 2, pointerEvents:'none',
                             borderRadius:'10px 0 0 10px' }}/>
                         )}
                         {trim.end < 0.99 && (
-                          <div style={{ position:'absolute', top: 6, left: clipLeft + clipW,
+                          <div style={{ position:'absolute', top: 8, left: clipLeft + clipW,
                             right: 0, height: 52, background:'rgba(0,0,0,.45)', zIndex: 2,
                             pointerEvents:'none', borderRadius:'0 10px 10px 0' }}/>
                         )}
 
                         {/* Clip block */}
-                        <div style={{ position:'absolute', top: 6, left: clipLeft, width: clipW, height: 52,
+                        <div style={{ position:'absolute', top: 8, left: clipLeft, width: clipW, height: 56,
                           borderRadius: 10, overflow:'visible', cursor:'pointer',
                           border:`1px solid rgba(${r},${g},${b},${hasTrim ? .6 : .35})`,
                           background:`rgba(${r},${g},${b},.12)`,
