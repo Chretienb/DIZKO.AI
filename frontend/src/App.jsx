@@ -3578,528 +3578,274 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const latestTakes = [...takeMap.values()]
   const stemCol = i => ({ vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[i] || '#7c7c8a')
 
+  // Filtered stems (exclude originals + smart bounces from the mixer view)
+  const mixerStems = stems.filter(s => s.instrument !== 'original' && s.instrument !== 'smart_bounce')
+
   return (
     <div style={{ display:'flex', flexDirection:'column',
-      height:'calc(100vh - 52px)',   /* fill everything below the 52px header */
-      margin:'-24px -24px -24px -24px',  /* bleed out of the content padding */
+      height:'calc(100vh - 52px)', margin:'-24px',
       background: S.bg, fontFamily:"-apple-system,BlinkMacSystemFont,'Inter',sans-serif",
       overflow:'hidden', userSelect:'none' }}>
 
-      {/* ══ TRANSPORT ═══════════════════════════════════════════════════════ */}
-      <div style={{ height:72, flexShrink:0, background: S.surface,
+      {/* ══ TRANSPORT ═══════════════════════════════════════════════════ */}
+      <div style={{ height:64, flexShrink:0, background: S.surface,
         borderBottom:`1px solid ${S.border}`,
-        display:'grid', gridTemplateColumns:'1fr auto 1fr',
-        alignItems:'center', padding:'0 32px', gap:24 }}>
+        display:'flex', alignItems:'center', padding:'0 28px', gap:20 }}>
 
-        {/* Left — project + switcher */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:14, fontWeight:800, color: S.text, letterSpacing:'-.4px',
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:180 }}>
-              {activeProject?.title || 'Studio'}
-            </div>
-            <div style={{ fontSize:10.5, color: S.text3, marginTop:1 }}>
-              {loading || loadingStems ? '…' : `${stems.filter(s=>s.instrument!=='original'&&s.instrument!=='smart_bounce').length} stems`}
-            </div>
+        {/* Project name */}
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:13.5, fontWeight:800, color: S.text, letterSpacing:'-.3px',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200 }}>
+            {activeProject?.title || 'Studio'}
           </div>
-          {projects.length > 1 && projects.map(p => (
-            <button key={p.id} onClick={() => setActiveId(p.id)} style={{
-              padding:'4px 10px', borderRadius:100, fontSize:11, fontWeight:600, cursor:'pointer',
-              background: activeId === p.id ? `${C.coral}20` : 'rgba(0,0,0,.04)',
-              border: `1px solid ${activeId === p.id ? C.coral+'50' : S.border}`,
-              color: activeId === p.id ? C.coral : S.text2 }}>
-              {p.title}
-            </button>
-          ))}
+          <div style={{ fontSize:10.5, color: S.text3, marginTop:1 }}>
+            {mixerStems.length} stem{mixerStems.length !== 1 ? 's' : ''}
+          </div>
         </div>
 
-        {/* — nothing where divider was — */}
-        <div/>
+        {projects.length > 1 && projects.map(p => (
+          <button key={p.id} onClick={() => setActiveId(p.id)} style={{
+            padding:'4px 11px', borderRadius:100, fontSize:11.5, fontWeight:600, cursor:'pointer',
+            background: activeId === p.id ? `${C.coral}15` : 'transparent',
+            border: `1px solid ${activeId === p.id ? C.coral+'40' : S.border}`,
+            color: activeId === p.id ? C.coral : S.text2 }}>
+            {p.title}
+          </button>
+        ))}
 
-        {/* Centre — transport controls */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent:'center' }}>
-          {/* Stop */}
-          <button onClick={stop} style={{ width:36, height:36, borderRadius:10,
-            border:`1px solid ${S.border}`, background:'rgba(0,0,0,.04)',
+        <div style={{ flex:1 }}/>
+
+        {/* ── Playback controls ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <button onClick={stop} style={{ width:34, height:34, borderRadius:10,
+            border:`1px solid ${S.border}`, background: S.surface,
             display:'flex', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', color: S.text2, transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.08)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.04)'}>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
+            cursor:'pointer', color: S.text3, transition:'all .12s' }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=S.border2; e.currentTarget.style.color=S.text }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor=S.border;  e.currentTarget.style.color=S.text3 }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
           </button>
 
-          {/* Play / loading ring */}
           {Object.keys(loadingPct).length > 0 ? (
             <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-              size={52} stroke={3.5} color={C.coral} bg="rgba(0,0,0,.06)">
-              <span style={{ fontSize:11, fontWeight:800, color:'#fff' }}>
+              size={44} stroke={3} color={C.coral} bg={S.border}>
+              <span style={{ fontSize:10, fontWeight:800, color:C.coral }}>
                 {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
               </span>
             </ProgressRing>
           ) : (
             <button onClick={playing ? pause : playAll} style={{
-              width:52, height:52, borderRadius:16, border:'none', background: S.grad,
+              width:44, height:44, borderRadius:14, border:'none', background: S.grad,
               display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-              boxShadow: playing ? `0 0 28px ${C.coral}55, 0 8px 20px rgba(0,0,0,.06)` : '0 6px 20px rgba(0,0,0,.08)',
+              boxShadow: playing ? `0 0 20px ${C.coral}40, 0 4px 12px rgba(0,0,0,.15)` : '0 4px 12px rgba(0,0,0,.12)',
               transition:'box-shadow .2s, transform .1s' }}
-              onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
-              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+              onMouseEnter={e=>e.currentTarget.style.transform='scale(1.05)'}
+              onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
               {playing
-                ? <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
-                : <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
+                ? <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+                : <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
             </button>
           )}
 
-          {/* Timecode + beat */}
-          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-            <div style={{ background:'rgba(0,0,0,.18)', border:`1px solid ${S.border}`,
-              borderRadius:10, padding:'6px 16px', fontFamily:"'SF Mono','Fira Code',monospace",
-              fontSize:18, color:C.coral, letterSpacing:'0.12em', fontWeight:700,
-              display:'flex', alignItems:'center', gap:4 }}>
-              <span>{String(bar).padStart(2,'0')}</span>
-              <span style={{ color: S.text3, fontSize:14 }}>:</span>
-              <span>{beat}</span>
-              <span style={{ color: S.text3, fontSize:14 }}>:</span>
-              <span style={{ fontSize:14, opacity:.55 }}>{tick}</span>
-            </div>
-            <span style={{ fontSize:12, color: S.text3, fontFamily:'monospace' }}>{fmt(currentTime)}</span>
-            <div style={{ width:8, height:8, borderRadius:'50%',
-              background: beatFlash ? C.coral : 'rgba(0,0,0,.08)',
-              boxShadow: beatFlash ? `0 0 12px ${C.coral}` : 'none',
-              transition: beatFlash ? 'none' : 'background .15s' }}/>
+          {/* Timecode */}
+          <div style={{ background: S.bg, border:`1px solid ${S.border}`, borderRadius:9,
+            padding:'5px 13px', fontFamily:"'SF Mono','Fira Code',monospace",
+            fontSize:16, color: C.coral, letterSpacing:'0.1em', fontWeight:700,
+            display:'flex', alignItems:'center', gap:3 }}>
+            <span>{String(bar).padStart(2,'0')}</span>
+            <span style={{ color: S.text3, fontSize:13 }}>:</span>
+            <span>{beat}</span>
+            <span style={{ color: S.text3, fontSize:13 }}>:</span>
+            <span style={{ fontSize:13, opacity:.55 }}>{tick}</span>
           </div>
+
+          <span style={{ fontSize:11.5, color: S.text3, fontFamily:'monospace', minWidth:32 }}>{fmt(currentTime)}</span>
+          <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
+            background: beatFlash ? C.coral : S.border,
+            boxShadow: beatFlash ? `0 0 10px ${C.coral}` : 'none',
+            transition: beatFlash ? 'none' : 'background .15s' }}/>
         </div>
 
-        {/* Right — BPM */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent:'flex-end' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6,
-            background:'rgba(0,0,0,.06)', border:`1px solid ${S.border}`, borderRadius:9, padding:'5px 11px' }}>
-            <span style={{ fontSize:9, color: S.text3, textTransform:'uppercase', letterSpacing:'.1em' }}>BPM</span>
+        <div style={{ flex:1 }}/>
+
+        {/* ── BPM ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, background: S.bg,
+            border:`1px solid ${S.border}`, borderRadius:9, padding:'5px 12px' }}>
+            <span style={{ fontSize:9, fontWeight:700, color: S.text3, textTransform:'uppercase', letterSpacing:'.1em' }}>BPM</span>
             <input type="number" min={40} max={250} value={bpm} step={1}
               onChange={e => handleBpmChange(e.target.value)}
-              style={{ width:40, background:'none', border:'none', outline:'none',
+              style={{ width:38, background:'none', border:'none', outline:'none',
                 fontSize:15, fontWeight:800, color: S.text, fontFamily:'monospace',
                 textAlign:'center', padding:0 }}/>
           </div>
           <input type="range" min={40} max={250} value={bpm} step={1}
             onChange={e => handleBpmChange(e.target.value)}
-            style={{ width:60, accentColor:C.coral, cursor:'pointer', opacity:.45 }}/>
+            style={{ width:56, accentColor: C.coral, cursor:'pointer', opacity:.5 }}/>
           <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
-            style={{ height:29, padding:'0 10px', borderRadius:8, fontSize:11, fontWeight:700,
-              background: detectingBpm ? 'rgba(0,0,0,.03)' : `${C.coral}15`,
-              border: `1px solid ${detectingBpm ? S.border : C.coral+'40'}`,
+            style={{ height:30, padding:'0 11px', borderRadius:8, fontSize:11.5, fontWeight:600,
+              background: detectingBpm ? S.bg : `${C.coral}12`,
+              border: `1px solid ${detectingBpm ? S.border : C.coral+'35'}`,
               color: detectingBpm ? S.text3 : C.coral,
               cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
-              display:'flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
+              display:'flex', alignItems:'center', gap:5 }}>
             {detectingBpm
               ? <><Spinner size={9} color={S.text3}/> Detecting…</>
               : <><svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/></svg>Detect</>}
           </button>
         </div>
-
-
-        {/* Right actions */}
-        <div style={{ marginLeft:'auto', display:'flex', gap: 8, alignItems:'center' }}>
-
-          {/* Smart Mix button / player */}
-          {smartMixUrl ? (
-            <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-              <button onClick={() => playTrack({ file_url: smartMixUrl, suggested_name: 'Smart Mix', instrument:'smart_bounce' })}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'0 12px', height:36,
-                  borderRadius:10, border:`1px solid ${C.coral}55`, background:`${C.coral}12`,
-                  color:C.coral, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-                Smart Mix
-                {smartMixInfo?.stem_count && (
-                  <span style={{ fontSize:10, opacity:.7 }}>· {smartMixInfo.stem_count} tracks</span>
-                )}
-              </button>
-              <a href={smartMixUrl} download="smart_mix.wav"
-                style={{ width:32, height:32, borderRadius:9, border:`1px solid ${C.coral}33`,
-                  background:`${C.coral}08`, display:'flex', alignItems:'center', justifyContent:'center',
-                  color:C.coral, textDecoration:'none' }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
-              </a>
-            </div>
-          ) : (
-            <button onClick={async () => {
-              if (!activeId || smartMixing) return
-              setSmartMixing(true)
-              try {
-                const r = await smartBounceApi(activeId)
-                setSmartMixUrl(r.data?.bounce_url)
-                setSmartMixInfo({ contributors: r.data?.contributors || [], stem_count: r.data?.stem_count })
-              } catch (e) {
-                addToast?.('Not enough stems to create a smart mix yet.', { type:'info' })
-              }
-              setSmartMixing(false)
-            }} disabled={smartMixing || stems.filter(s=>s.instrument!=='original').length < 2}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:36,
-                borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer',
-                background:'rgba(0,0,0,.05)', border:`1px solid ${S.border}`,
-                color:S.text2, transition:'all .15s' }}>
-              {smartMixing
-                ? <><Spinner size={11} color={S.text2}/> Mixing…</>
-                : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> Smart Mix</>}
-            </button>
-          )}
-
-          <div style={{ width:1, height:22, background:S.border }}/>
-
-          {bounceUrl ? (
-            <>
-              {/* Preview player */}
-              <div style={{ display:'flex', alignItems:'center', gap: 8, background:'rgba(34,197,94,.08)',
-                border:'1px solid #22c55e33', borderRadius: 10, padding:'0 12px', height: 36 }}>
-                <button onClick={toggleBouncePlayer} style={{ background:'none', border:'none', cursor:'pointer',
-                  color:'#22c55e', display:'flex', alignItems:'center', padding: 0 }}>
-                  {bouncePlaying
-                    ? <svg width={14} height={14} viewBox="0 0 24 24" fill="#22c55e"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                    : <svg width={14} height={14} viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>}
-                </button>
-                <div onClick={e => {
-                  if (!bouncePlayerRef.current || !bounceDur) return
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  bouncePlayerRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * bounceDur
-                }} style={{ width: 100, height: 4, background:'rgba(34,197,94,.2)', borderRadius: 2, cursor:'pointer', position:'relative' }}>
-                  <div style={{ position:'absolute', left: 0, top: 0, height:'100%', borderRadius: 2,
-                    width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%', background:'#22c55e' }}/>
-                </div>
-                <span style={{ fontSize: 11, color:'#22c55e', fontVariantNumeric:'tabular-nums', minWidth: 36 }}>
-                  {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
-                </span>
-              </div>
-              {/* Download */}
-              <a href={bounceUrl} download={`${activeProject?.title || 'mix'}_bounce.wav`} style={{
-                padding:'0 14px', height: 36, borderRadius: 10, border:'1px solid #22c55e44',
-                background:'rgba(34,197,94,.12)', color:'#22c55e', fontSize: 13, fontWeight: 700,
-                display:'flex', alignItems:'center', gap: 6, textDecoration:'none' }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
-                Download
-              </a>
-              {/* Save to project */}
-              <button onClick={saveBounce} disabled={savingBounce} style={{
-                padding:'0 14px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 700,
-                background:'rgba(99,102,241,.12)', border:'1px solid rgba(99,102,241,.35)',
-                color:'#818cf8', cursor: savingBounce ? 'default' : 'pointer',
-                display:'flex', alignItems:'center', gap: 6 }}>
-                {savingBounce ? <Spinner size={12} color="#818cf8"/> : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>}
-                Save
-              </button>
-              {/* Discard */}
-              <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }} style={{
-                width: 36, height: 36, borderRadius: 10, border:`1px solid ${S.border}`,
-                background:'rgba(0,0,0,.03)', color: S.text3, cursor:'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </>
-          ) : (
-            <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0} style={{
-              padding:'0 16px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 700,
-              background: bouncing ? 'rgba(0,0,0,.05)' : `${C.coral}18`,
-              border: `1px solid ${bouncing ? S.border : C.coral+'44'}`,
-              color: bouncing ? S.text3 : C.coral, cursor: bouncing ? 'default' : 'pointer',
-              display:'flex', alignItems:'center', gap: 7, transition:'all .15s' }}>
-              {bouncing
-                ? <><Spinner size={12} color={S.text3}/> {bounceProgress}%</>
-                : <><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg> Bounce ({selectedIds.size})</>}
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* ══ BODY ════════════════════════════════════════════════════════════ */}
+      {/* ══ BODY ═══════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
-        {/* ── LEFT PANEL ─────────────────────────────────────────────────── */}
-        <div style={{ width:260, flexShrink:0, background: S.panel,
+        {/* ── TRACK LIST (left) ──────────────────────────────────────── */}
+        <div style={{ width:240, flexShrink:0, background: S.surface,
           borderRight:`1px solid ${S.border}`, display:'flex', flexDirection:'column' }}>
 
-          {/* Panel header */}
-          <div style={{ height:44, display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'0 18px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
+          {/* Header */}
+          <div style={{ height:40, display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'0 16px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
             <span style={{ fontSize:10, fontWeight:700, color: S.text3,
-              textTransform:'uppercase', letterSpacing:'.1em' }}>Tracks</span>
+              textTransform:'uppercase', letterSpacing:'.1em' }}>
+              {mixerStems.length} Track{mixerStems.length !== 1 ? 's' : ''}
+            </span>
             <button onClick={() => openModal('upload', { project: activeProject })}
-              style={{ fontSize:11, fontWeight:700, color:C.coral, background:`${C.coral}15`,
-                border:'none', borderRadius:7, padding:'4px 11px', cursor:'pointer' }}>+ Upload</button>
+              style={{ fontSize:11, fontWeight:700, color: C.coral, background:`${C.coral}12`,
+                border:'none', borderRadius:7, padding:'4px 11px', cursor:'pointer' }}>
+              + Upload
+            </button>
           </div>
 
-          {/* Latest Takes chips */}
-          {latestTakes.length > 0 && (
-            <div style={{ padding:'12px 18px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
-              <div style={{ fontSize:9, fontWeight:700, color: S.text3, textTransform:'uppercase',
-                letterSpacing:'.1em', marginBottom:8 }}>Latest Takes</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                {latestTakes.map(s => {
-                  const col = stemCol(s.instrument)
-                  const upl = uploaders[s.uploaded_by]
-                  const who = upl?.full_name?.split(' ')[0] || upl?.email?.split('@')[0] || '?'
-                  return (
-                    <div key={s.id} onClick={() => playTrack(s)}
-                      title={`${who} · ${s.instrument} · ${timeAgo(s.created_at)}`}
-                      style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 7px',
-                        borderRadius:6, background:`${col}15`, border:`1px solid ${col}25`,
-                        cursor:'pointer', transition:'background .12s' }}
-                      onMouseEnter={e => e.currentTarget.style.background=`${col}28`}
-                      onMouseLeave={e => e.currentTarget.style.background=`${col}15`}>
-                      <Avatar name={upl?.full_name||who} url={upl?.avatar_url} size={14} color={col} border="none"/>
-                      <span style={{ fontSize:9, fontWeight:700, color:col,
-                        textTransform:'uppercase', letterSpacing:'.05em' }}>{s.instrument.slice(0,3)}</span>
+          {/* Track rows */}
+          <div style={{ flex:1, overflowY:'auto' }}>
+            {loading || loadingStems ? (
+              <div style={{ display:'flex', justifyContent:'center', paddingTop:32 }}>
+                <Spinner size={22} color={C.coral}/>
+              </div>
+            ) : mixerStems.length === 0 ? (
+              <div style={{ padding:'32px 20px', textAlign:'center', color: S.text3, fontSize:13, lineHeight:1.8 }}>
+                No tracks yet.<br/>Upload audio to start.
+              </div>
+            ) : mixerStems.map((s, i) => {
+              const color      = trackColor(s, i)
+              const isMuted    = mutedIds.has(s.id)
+              const isSolo     = soloId === s.id
+              const label      = s.suggested_name || s.original_name || `Track ${i + 1}`
+              const stemType   = s.instrument || parsedNotes(s).stem_type || ''
+              const vol        = getVolume(s.id)
+              const isSelected = expandedId === s.id
+              const isDeleting = deletingId === s.id
+              const uploader   = uploaders[s.uploaded_by]
+              const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
+
+              return (
+                <div key={s.id} onClick={() => setExpandedId(isSelected ? null : s.id)}
+                  style={{ display:'flex', alignItems:'center', gap:0,
+                    borderBottom:`1px solid ${S.border}`, cursor:'pointer',
+                    background: isSelected ? `${color}08` : isMuted ? 'rgba(0,0,0,.02)' : 'transparent',
+                    opacity: isMuted && !isSelected ? 0.4 : 1,
+                    transition:'background .12s' }}
+                  onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background=`${color}06` }}
+                  onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background='transparent' }}>
+
+                  {/* Colour accent bar */}
+                  <div style={{ width:4, alignSelf:'stretch', background: color,
+                    opacity: isMuted ? 0.3 : 1, flexShrink:0 }}/>
+
+                  <div style={{ flex:1, padding:'10px 12px 10px 10px' }}>
+                    {/* Loading bar */}
+                    {loadingPct[s.id] != null && loadingPct[s.id] < 100 && (
+                      <div style={{ height:2, background: S.border, borderRadius:1, overflow:'hidden', marginBottom:6 }}>
+                        <div style={{ height:'100%', width:`${loadingPct[s.id]}%`, background: color, transition:'width .15s' }}/>
+                      </div>
+                    )}
+
+                    {/* Row 1: checkbox + name */}
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+                      <input type="checkbox" checked={selectedIds.has(s.id)}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n=new Set(prev); e.target.checked?n.add(s.id):n.delete(s.id); return n }) }}
+                        style={{ accentColor: color, width:13, height:13, cursor:'pointer', flexShrink:0 }}/>
+                      <span style={{ fontSize:12.5, fontWeight:600, color: S.text,
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{label}</span>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
-          {/* Scrollable track list */}
-          <div style={{ flex:1, overflowY:'auto', overflowX:'hidden' }}>
+                    {/* Row 2: type + uploader + controls */}
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      {stemType && (
+                        <span style={{ fontSize:9.5, fontWeight:700, color, textTransform:'uppercase',
+                          letterSpacing:'.08em', background:`${color}15`,
+                          padding:'1px 6px', borderRadius:4 }}>{stemType}</span>
+                      )}
+                      <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
+                      <span style={{ fontSize:10.5, color: S.text3, flex:1 }}>{uploaderName}</span>
 
-          {loading || loadingStems ? (
-            <div style={{ display:'flex', justifyContent:'center', padding:24 }}>
-              <Spinner size={22} color={C.coral}/>
-            </div>
-          ) : stems.length === 0 ? (
-            <div style={{ padding:'32px 16px', fontSize:12, color: S.text3,
-              textAlign:'center', lineHeight:1.8 }}>
-              No tracks yet.<br/>Upload audio to begin.
-            </div>
-          ) : stems.map((s, i) => {
-            const color      = trackColor(s, i)
-            const isMuted    = mutedIds.has(s.id)
-            const isSolo     = soloId === s.id
-            const label      = s.suggested_name || s.original_name || s.label || `Track ${i+1}`
-            const stemType   = s.instrument || parsedNotes(s).stem_type || ''
-            const vol        = getVolume(s.id)
-            const isSelected = expandedId === s.id
-            const isDeleting = deletingId === s.id
-            const uploader   = uploaders[s.uploaded_by]
-            const uploaderName = uploader?.full_name || uploader?.email?.split('@')[0] || '?'
+                      {/* M / S */}
+                      <button onClick={e => { e.stopPropagation(); toggleMute(s.id) }}
+                        style={{ width:22, height:18, borderRadius:4, fontSize:9, fontWeight:800, cursor:'pointer',
+                          background: isMuted ? '#f59e0b18' : S.bg,
+                          border: `1px solid ${isMuted ? '#f59e0b55' : S.border}`,
+                          color: isMuted ? '#b45309' : S.text3 }}>M</button>
+                      <button onClick={e => { e.stopPropagation(); toggleSolo(s.id) }}
+                        style={{ width:22, height:18, borderRadius:4, fontSize:9, fontWeight:800, cursor:'pointer',
+                          background: isSolo ? '#3b82f618' : S.bg,
+                          border: `1px solid ${isSolo ? '#3b82f655' : S.border}`,
+                          color: isSolo ? '#2563eb' : S.text3 }}>S</button>
 
-            return (
-              <div key={s.id} onClick={() => setExpandedId(isSelected ? null : s.id)}
-                style={{ borderBottom:`1px solid ${S.border}`, padding:'12px 16px 10px',
-                  cursor:'pointer', transition:'background .12s',
-                  background: isSelected ? `${color}0a` : 'transparent',
-                  borderLeft: `3px solid ${isSelected ? color : 'transparent'}`,
-                  opacity: isMuted ? 0.35 : 1 }}>
-
-                {/* Name row */}
-                <div style={{ display:'flex', alignItems:'center', gap: 7, marginBottom: 6 }}>
-                  <input type="checkbox" checked={selectedIds.has(s.id)} onClick={e => e.stopPropagation()}
-                    onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n }) }}
-                    style={{ accentColor: color, width: 13, height: 13, cursor:'pointer', flexShrink: 0 }}/>
-                  <div style={{ width: 10, height: 10, borderRadius: 3,
-                    background: color, flexShrink: 0, boxShadow:`0 0 6px ${color}80` }}/>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: S.text,
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex: 1 }}>{label}</div>
-                </div>
-
-                {/* Loading progress bar */}
-                {loadingPct[s.id] != null && loadingPct[s.id] < 100 && (
-                  <div style={{ marginBottom: 6 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: 8.5, color, fontWeight: 700, textTransform:'uppercase', letterSpacing:'.06em' }}>
-                        Loading…
-                      </span>
-                      <span style={{ fontSize: 9, color, fontWeight: 800, fontVariantNumeric:'tabular-nums' }}>
-                        {loadingPct[s.id]}%
-                      </span>
+                      {/* Delete */}
+                      <button onClick={e => { e.stopPropagation(); deleteStem(s.id) }} disabled={isDeleting}
+                        style={{ width:20, height:18, borderRadius:4, border:'none', cursor:'pointer',
+                          background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.65)',
+                          display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {isDeleting ? <Spinner size={7} color="#ef4444"/>
+                          : <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>}
+                      </button>
                     </div>
-                    <div style={{ height: 3, background:'rgba(0,0,0,.06)', borderRadius: 3, overflow:'hidden' }}>
-                      <div style={{ height:'100%', borderRadius: 3, transition:'width .15s linear',
-                        width: `${loadingPct[s.id]}%`,
-                        background: `linear-gradient(90deg, ${color}88, ${color})` }}/>
-                    </div>
+
+                    {/* Expanded: volume slider */}
+                    {isSelected && (
+                      <div onClick={e => e.stopPropagation()}
+                        style={{ marginTop:8, display:'flex', alignItems:'center', gap:7 }}>
+                        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                        <input type="range" min={0} max={1} step={0.01} value={vol}
+                          onChange={e => setVolumes(v => ({ ...v, [s.id]: parseFloat(e.target.value) }))}
+                          style={{ flex:1, accentColor: color, cursor:'pointer' }}/>
+                        <span style={{ fontSize:10, color: S.text3, minWidth:30, textAlign:'right' }}>
+                          {Math.round(vol*100)}%
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {/* Stem type */}
-                {stemType && !loadingPct[s.id] && (
-                  <div style={{ fontSize: 9, fontWeight: 800, color, textTransform:'uppercase',
-                    letterSpacing:'.1em', marginBottom: 5 }}>{stemType}</div>
-                )}
-
-                {/* Controls row */}
-                <div style={{ display:'flex', alignItems:'center', gap: 4 }}>
-                  <button onClick={e => { e.stopPropagation(); toggleMute(s.id) }}
-                    style={{ width: 20, height: 18, borderRadius: 5,
-                      background: isMuted ? '#f59e0b22' : 'rgba(0,0,0,.05)',
-                      border: `1px solid ${isMuted ? '#f59e0b55' : S.border}`,
-                      fontSize: 8, fontWeight: 800, color: isMuted ? '#f59e0b' : S.text3,
-                      display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>M</button>
-                  <button onClick={e => { e.stopPropagation(); toggleSolo(s.id) }}
-                    style={{ width: 20, height: 18, borderRadius: 5,
-                      background: isSolo ? '#3b82f622' : 'rgba(0,0,0,.05)',
-                      border: `1px solid ${isSolo ? '#3b82f655' : S.border}`,
-                      fontSize: 8, fontWeight: 800, color: isSolo ? '#3b82f6' : S.text3,
-                      display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>S</button>
-                  {/* Vol bar */}
-                  <div style={{ flex: 1, height: 4, background:'rgba(0,0,0,.05)',
-                    borderRadius: 2, overflow:'hidden' }} onClick={e => e.stopPropagation()}>
-                    <div style={{ height:'100%', width:`${vol*100}%`,
-                      background:`linear-gradient(90deg,${color},${color}aa)`, borderRadius: 2 }}/>
-                  </div>
-                  {/* Delete */}
-                  <button onClick={e => { e.stopPropagation(); deleteStem(s.id) }} disabled={isDeleting}
-                    style={{ width: 18, height: 18, borderRadius: 5, border:'none', flexShrink: 0,
-                      background:'rgba(239,68,68,.12)', color:'rgba(239,68,68,.6)',
-                      display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                    {isDeleting
-                      ? <Spinner size={8} color="#ef4444"/>
-                      : <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M18 6L6 18M6 6l12 12"/></svg>}
-                  </button>
                 </div>
-
-                {/* Uploader */}
-                <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:5 }}>
-                  <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color}
-                    border={`1px solid ${color}33`}/>
-                  <span style={{ fontSize:9.5, color:S.text3,
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {uploaderName}
-                  </span>
-                </div>
-
-                {/* Volume slider — visible when track is expanded */}
-                {isSelected && (
-                  <div onClick={e => e.stopPropagation()}
-                    style={{ marginTop: 8, display:'flex', alignItems:'center', gap: 6 }}>
-                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-                    <input type="range" min={0} max={1} step={0.01} value={getVolume(s.id)}
-                      onChange={e => setVolumes(v => ({ ...v, [s.id]: parseFloat(e.target.value) }))}
-                      style={{ flex: 1, accentColor: color, cursor:'pointer', height: 3 }}/>
-                    <span style={{ fontSize: 9, color: S.text3, minWidth: 28, textAlign:'right' }}>
-                      {Math.round(getVolume(s.id) * 100)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          </div>{/* end scrollable track list */}
-
-          {/* ── Bottom action strip ──────────────────────────────────────── */}
-          <div style={{ borderTop:`1px solid ${S.border}`, padding:'10px 12px', flexShrink:0 }}>
-            {/* Smart Mix */}
-            {smartMixUrl ? (
-              <div style={{ display:'flex', gap:6, marginBottom:8 }}>
-                <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
-                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                    height:30, borderRadius:8, border:`1px solid ${C.coral}50`,
-                    background:`${C.coral}15`, color:C.coral, fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                  <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-                  Smart Mix{smartMixInfo?.stem_count ? ` · ${smartMixInfo.stem_count}` : ''}
-                </button>
-                <a href={smartMixUrl} download="smart_mix.wav"
-                  style={{ width:30, height:30, borderRadius:8, border:`1px solid ${S.border}`,
-                    background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center',
-                    justifyContent:'center', color: S.text3, textDecoration:'none' }}>
-                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
-                </a>
-              </div>
-            ) : (
-              <button onClick={async () => {
-                if (!activeId || smartMixing) return
-                setSmartMixing(true)
-                try {
-                  const r = await smartBounceApi(activeId)
-                  setSmartMixUrl(r.data?.bounce_url)
-                  setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
-                } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
-                setSmartMixing(false)
-              }} disabled={smartMixing || stems.filter(s=>s.instrument!=='original').length < 2}
-                style={{ width:'100%', height:30, borderRadius:8, border:`1px solid ${S.border}`,
-                  background:'rgba(0,0,0,.03)', color: S.text2, fontSize:11, fontWeight:700,
-                  cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                  marginBottom:8 }}>
-                {smartMixing
-                  ? <><Spinner size={10} color={S.text2}/> Mixing…</>
-                  : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Smart Mix</>}
-              </button>
-            )}
-
-            {/* Bounce */}
-            {bounceUrl ? (
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                  <button onClick={toggleBouncePlayer} style={{ width:26, height:26, borderRadius:7,
-                    background:'rgba(34,197,94,.15)', border:'1px solid rgba(34,197,94,.3)',
-                    display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-                    {bouncePlaying
-                      ? <svg width={9} height={9} viewBox="0 0 24 24" fill="#22c55e"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                      : <svg width={9} height={9} viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>}
-                  </button>
-                  <div onClick={e => {
-                    if (!bouncePlayerRef.current || !bounceDur) return
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    bouncePlayerRef.current.currentTime = ((e.clientX-rect.left)/rect.width)*bounceDur
-                  }} style={{ flex:1, height:4, background:'rgba(34,197,94,.15)', borderRadius:2, cursor:'pointer', position:'relative' }}>
-                    <div style={{ position:'absolute', inset:'0 auto 0 0', width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%',
-                      background:'#22c55e', borderRadius:2 }}/>
-                  </div>
-                  <span style={{ fontSize:10, color:'#22c55e', fontVariantNumeric:'tabular-nums', flexShrink:0 }}>
-                    {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
-                  </span>
-                </div>
-                <div style={{ display:'flex', gap:5 }}>
-                  <a href={bounceUrl} download={`${activeProject?.title||'mix'}_bounce.wav`}
-                    style={{ flex:1, height:28, borderRadius:7, border:'1px solid rgba(34,197,94,.35)',
-                      background:'rgba(34,197,94,.12)', color:'#22c55e', fontSize:11, fontWeight:700,
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:5, textDecoration:'none' }}>
-                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>Download
-                  </a>
-                  <button onClick={saveBounce} disabled={savingBounce}
-                    style={{ flex:1, height:28, borderRadius:7, border:'1px solid rgba(99,102,241,.3)',
-                      background:'rgba(99,102,241,.1)', color:'#818cf8', fontSize:11, fontWeight:700,
-                      cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-                    {savingBounce ? <Spinner size={10} color="#818cf8"/> : 'Save'}
-                  </button>
-                  <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }}
-                    style={{ width:28, height:28, borderRadius:7, border:`1px solid ${S.border}`,
-                      background:'rgba(0,0,0,.03)', cursor:'pointer', color: S.text3,
-                      display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0}
-                style={{ width:'100%', height:30, borderRadius:8,
-                  background: bouncing ? 'rgba(0,0,0,.03)' : `${C.coral}15`,
-                  border: `1px solid ${bouncing ? S.border : C.coral+'40'}`,
-                  color: bouncing ? S.text3 : C.coral, fontSize:11, fontWeight:700, cursor:'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                {bouncing
-                  ? <><Spinner size={10} color={S.text3}/> {bounceProgress}%</>
-                  : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Bounce ({selectedIds.size})</>}
-              </button>
-            )}
+              )
+            })}
           </div>
         </div>
 
-        {/* ── Clip arrangement ─────────────────────────────────────────── */}
-        <div ref={clipAreaRef} style={{ flex:1, overflowX:'auto', overflowY:'auto', position:'relative', background: S.bg }}>
+        {/* ── ARRANGEMENT (right) ──────────────────────────────────────── */}
+        <div ref={clipAreaRef} style={{ flex:1, overflowX:'auto', overflowY:'auto',
+          position:'relative', background: S.bg }}>
           <div style={{ minWidth: arrangementW, position:'relative' }}>
 
             {/* Ruler */}
-            <div style={{ height: 40, background: S.surface, borderBottom:`1px solid ${S.border}`,
-              position:'sticky', top: 0, zIndex: 3 }}>
+            <div style={{ height:40, background: S.surface,
+              borderBottom:`1px solid ${S.border}`,
+              position:'sticky', top:0, zIndex:3 }}>
               {Array.from({ length: Math.ceil((duration || 30) / secsPerBar) + 2 }, (_, bar) => {
                 const x = Math.round(bar * secsPerBar * PPS)
                 return (
                   <React.Fragment key={bar}>
-                    <span style={{ position:'absolute', left: x + 4, top: 8, fontSize: 10,
-                      color: S.text3, fontFamily:'monospace', fontWeight: 600 }}>{bar + 1}</span>
-                    <div style={{ position:'absolute', left: x, bottom: 0, width: 1, height: 12,
-                      background:'rgba(0,0,0,.12)' }}/>
-                    {[1,2,3].map(b => {
-                      const bx = Math.round(x + b * (secsPerBar / 4) * PPS)
-                      return <div key={b} style={{ position:'absolute', left: bx, bottom: 0,
-                        width: 0.5, height: 6, background:'rgba(0,0,0,.05)' }}/>
-                    })}
+                    <span style={{ position:'absolute', left: x + 6, top:'50%', transform:'translateY(-50%)',
+                      fontSize:10.5, color: S.text3, fontFamily:'monospace', fontWeight:600,
+                      userSelect:'none' }}>{bar + 1}</span>
+                    <div style={{ position:'absolute', left: x, bottom:0, width:1, height:14,
+                      background: S.border }}/>
+                    {[1,2,3].map(b => (
+                      <div key={b} style={{ position:'absolute',
+                        left: Math.round(x + b*(secsPerBar/4)*PPS), bottom:0,
+                        width:1, height:7, background: S.border }}/>
+                    ))}
                   </React.Fragment>
                 )
               })}
@@ -4108,205 +3854,217 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             {/* Track rows + playhead */}
             <div style={{ position:'relative' }}>
               {/* Playhead */}
-              <div style={{ position:'absolute', top: 0, bottom: 0,
-                left: Math.round(currentTime * PPS), width: 1.5,
-                background: S.green, zIndex: 5, pointerEvents:'none',
-                boxShadow:`0 0 8px ${S.green}` }}>
-                <div style={{ position:'absolute', top: -1, left: -5,
-                  width: 11, height: 11, borderRadius: '50%', background: S.green,
-                  boxShadow:`0 0 10px ${S.green}` }}/>
+              <div style={{ position:'absolute', top:0, bottom:0,
+                left: Math.round(currentTime * PPS), width:2,
+                background: C.coral, zIndex:5, pointerEvents:'none',
+                boxShadow:`0 0 8px ${C.coral}60` }}>
+                <div style={{ position:'absolute', top:-1, left:-5,
+                  width:12, height:12, borderRadius:'50%', background: C.coral,
+                  boxShadow:`0 0 10px ${C.coral}` }}/>
               </div>
 
               {loading || loadingStems ? (
-                <div style={{ height: 80, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <div style={{ height:120, display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <Spinner size={24} color={C.coral}/>
                 </div>
-              ) : stems.length === 0 ? (
-                <div style={{ height: 120, display:'flex', flexDirection:'column',
-                  alignItems:'center', justifyContent:'center', gap: 12 }}>
-                  <div style={{ fontSize: 13, color: S.text3 }}>No tracks yet</div>
-                  <button onClick={() => openModal('upload', { project: activeProject })} style={{
-                    padding:'8px 20px', background: S.grad, border:'none',
-                    color:'#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor:'pointer' }}>
+              ) : mixerStems.length === 0 ? (
+                <div style={{ height:160, display:'flex', flexDirection:'column',
+                  alignItems:'center', justifyContent:'center', gap:12 }}>
+                  <div style={{ fontSize:13, color: S.text3 }}>No tracks yet</div>
+                  <button onClick={() => openModal('upload', { project: activeProject })}
+                    style={{ padding:'8px 20px', background: S.grad, border:'none',
+                      color:'#fff', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                     + Upload audio
                   </button>
                 </div>
-              ) : stems.map((s, i) => {
+              ) : mixerStems.map((s, i) => {
                 const color    = trackColor(s, i)
                 const isMuted  = mutedIds.has(s.id)
                 const isSolo   = soloId === s.id
                 const isActive = soloId === null || isSolo
-                const label    = s.suggested_name || s.original_name || s.label || `Track ${i+1}`
+                const label    = s.suggested_name || s.original_name || `Track ${i+1}`
                 const trim     = getTrim(s.id)
                 const clipDur  = duration || 30
-                const clipW    = Math.max((clipDur * (trim.end - trim.start)) * PPS, 80)
-                const clipLeft = Math.round(clipDur * trim.start * PPS)
-                const hex = color.replace('#','')
-                const r   = parseInt(hex.slice(0,2),16)
-                const g   = parseInt(hex.slice(2,4),16)
-                const b   = parseInt(hex.slice(4,6),16)
+                const clipW    = Math.max((clipDur*(trim.end-trim.start))*PPS, 60)
+                const clipLeft = Math.round(clipDur*trim.start*PPS)
+                const hasTrim  = trim.start > 0.01 || trim.end < 0.99
 
-                    const isHoveredStart = hoveredHandle?.stemId === s.id && hoveredHandle?.edge === 'start'
-                    const isHoveredEnd   = hoveredHandle?.stemId === s.id && hoveredHandle?.edge === 'end'
-                    const hasTrim = trim.start > 0.01 || trim.end < 0.99
+                return (
+                  <div key={s.id} style={{ height: TRACK_H,
+                    borderBottom:`1px solid ${S.border}`,
+                    position:'relative',
+                    background: i%2===0 ? S.surface : S.bg,
+                    opacity: isMuted ? 0.2 : !isActive ? 0.1 : 1 }}>
 
-                    return (
-                      <div key={s.id} style={{ height: 72, borderBottom:`1px solid ${S.border}`,
-                        position:'relative',
-                        background: i % 2 === 0 ? 'rgba(0,0,0,.015)' : 'transparent',
-                        opacity: isMuted ? 0.18 : !isActive ? 0.12 : 1 }}>
+                    {/* Clip block */}
+                    <div style={{ position:'absolute', top:10, left:clipLeft, width:clipW,
+                      height: TRACK_H-20, borderRadius:8, overflow:'visible', cursor:'pointer',
+                      border:`1.5px solid ${color}55`,
+                      background:`${color}20`,
+                      zIndex:1 }}
+                      onClick={() => playTrack(s)}>
 
-                        {/* Faded-out regions outside trim */}
-                        {trim.start > 0.01 && (
-                          <div style={{ position:'absolute', top: 8, left: 0, width: clipLeft,
-                            height: 52, background:'rgba(0,0,0,.18)', zIndex: 2, pointerEvents:'none',
-                            borderRadius:'10px 0 0 10px' }}/>
-                        )}
-                        {trim.end < 0.99 && (
-                          <div style={{ position:'absolute', top: 8, left: clipLeft + clipW,
-                            right: 0, height: 52, background:'rgba(0,0,0,.18)', zIndex: 2,
-                            pointerEvents:'none', borderRadius:'0 10px 10px 0' }}/>
-                        )}
-
-                        {/* Clip block */}
-                        <div style={{ position:'absolute', top: 8, left: clipLeft, width: clipW, height: 56,
-                          borderRadius: 10, overflow:'visible', cursor:'pointer',
-                          border:`1px solid rgba(${r},${g},${b},${hasTrim ? .6 : .35})`,
-                          background:`rgba(${r},${g},${b},.12)`,
-                          backdropFilter:'blur(4px)', zIndex: 1 }}
-                          onClick={() => playTrack(s)}>
-
-                          {/* Label + waveform inside */}
-                          <div style={{ overflow:'hidden', borderRadius: 10, height:'100%' }}>
-                            <div style={{ padding:'4px 20px 4px 8px', fontSize: 10, fontWeight: 700,
-                              color, letterSpacing:'0.02em', whiteSpace:'nowrap', overflow:'hidden',
-                              background:`rgba(${r},${g},${b},.18)` }}>
-                              {label}
-                              {hasTrim && <span style={{ marginLeft: 6, fontSize: 8.5, opacity:.7, fontWeight:500 }}>
-                                {Math.round(trim.start*100)}% → {Math.round(trim.end*100)}%
-                              </span>}
-                            </div>
-                            {s.file_url && (
-                              <div style={{ padding:'0 4px', height: 30 }}>
-                                <WaveformCanvas url={s.file_url} color={color} height={28}
-                                  progress={isActive && !isMuted ? progress : 0} />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* ── Left trim handle ── */}
-                          <div
-                            onMouseDown={e => onTrimHandleMouseDown(e, s.id, 'start', duration || 30)}
-                            onMouseEnter={() => setHoveredHandle({ stemId: s.id, edge:'start' })}
-                            onMouseLeave={() => setHoveredHandle(null)}
-                            style={{ position:'absolute', top: 0, left: 0, width: 14, height:'100%',
-                              cursor:'ew-resize', zIndex: 4, display:'flex', alignItems:'center',
-                              justifyContent:'center',
-                              background: isHoveredStart ? `rgba(${r},${g},${b},.35)` : 'transparent',
-                              borderRadius:'10px 0 0 10px', transition:'background .12s' }}>
-                            <div style={{ width: 3, height: 24, borderRadius: 2,
-                              background: isHoveredStart ? color : `rgba(${r},${g},${b},.5)`,
-                              boxShadow: isHoveredStart ? `0 0 8px ${color}` : 'none',
-                              transition:'all .12s' }}/>
-                          </div>
-
-                          {/* ── Right trim handle ── */}
-                          <div
-                            onMouseDown={e => onTrimHandleMouseDown(e, s.id, 'end', duration || 30)}
-                            onMouseEnter={() => setHoveredHandle({ stemId: s.id, edge:'end' })}
-                            onMouseLeave={() => setHoveredHandle(null)}
-                            style={{ position:'absolute', top: 0, right: 0, width: 14, height:'100%',
-                              cursor:'ew-resize', zIndex: 4, display:'flex', alignItems:'center',
-                              justifyContent:'center',
-                              background: isHoveredEnd ? `rgba(${r},${g},${b},.35)` : 'transparent',
-                              borderRadius:'0 10px 10px 0', transition:'background .12s' }}>
-                            <div style={{ width: 3, height: 24, borderRadius: 2,
-                              background: isHoveredEnd ? color : `rgba(${r},${g},${b},.5)`,
-                              boxShadow: isHoveredEnd ? `0 0 8px ${color}` : 'none',
-                              transition:'all .12s' }}/>
-                          </div>
-                        </div>
+                      <div style={{ padding:'5px 8px', overflow:'hidden', height:'100%',
+                        borderRadius:8, display:'flex', alignItems:'center', gap:6 }}>
+                        <div style={{ width:3, height:'70%', borderRadius:2, background: color, flexShrink:0 }}/>
+                        <span style={{ fontSize:11, fontWeight:600, color, overflow:'hidden',
+                          textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{label}</span>
                       </div>
-                    )
+
+                      {/* Trim handles */}
+                      {['start','end'].map(edge => (
+                        <div key={edge}
+                          style={{ position:'absolute', top:0, bottom:0, width:8, cursor:'ew-resize', zIndex:2,
+                            [edge==='start'?'left':'right']: -4,
+                            display:'flex', alignItems:'center', justifyContent:'center' }}
+                          onMouseDown={e => onTrimHandleMouseDown(e, s.id, edge, clipDur)}
+                          onMouseEnter={() => setHoveredHandle({ stemId:s.id, edge })}
+                          onMouseLeave={() => setHoveredHandle(null)}>
+                          <div style={{ width:3, height:16, borderRadius:2,
+                            background: hoveredHandle?.stemId===s.id&&hoveredHandle?.edge===edge ? color : `${color}66` }}/>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Faded trim regions */}
+                    {trim.start > 0.01 && (
+                      <div style={{ position:'absolute', top:10, left:0, width:clipLeft,
+                        height:TRACK_H-20, background:'rgba(0,0,0,.07)', zIndex:2,
+                        pointerEvents:'none', borderRadius:'8px 0 0 8px' }}/>
+                    )}
+                    {trim.end < 0.99 && (
+                      <div style={{ position:'absolute', top:10, left:clipLeft+clipW,
+                        right:0, height:TRACK_H-20, background:'rgba(0,0,0,.07)', zIndex:2,
+                        pointerEvents:'none', borderRadius:'0 8px 8px 0' }}/>
+                    )}
+                  </div>
+                )
               })}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Expanded track controls ──────────────────────────────────────── */}
-      {expandedId && (() => {
-        const s = stems.find(st => st.id === expandedId)
-        if (!s) return null
-        const i  = stems.findIndex(st => st.id === expandedId)
-        const color    = trackColor(s, i)
-        const trim     = getTrim(s.id)
-        const vol      = getVolume(s.id)
-        const pNotes   = parsedNotes(s)
-        const isChild  = !!pNotes.parent_stem_id
-        const uploader = uploaders[s.uploaded_by]
-        const uploaderName = uploader?.full_name || uploader?.email || 'Unknown'
-        const parentStem = isChild ? stems.find(p => p.id === pNotes.parent_stem_id) : null
+      {/* ══ BOTTOM ACTION BAR ════════════════════════════════════════════ */}
+      <div style={{ height:52, flexShrink:0, background: S.surface,
+        borderTop:`1px solid ${S.border}`,
+        display:'flex', alignItems:'center', padding:'0 24px', gap:12 }}>
 
-        return (
-          <div style={{ borderTop:`1px solid ${S.border}`, background: S.surface,
-            padding:'12px 20px', display:'flex', gap: 24, alignItems:'center',
-            flexShrink: 0, flexWrap:'wrap' }}>
-            {/* Origin */}
-            <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 3, background: color,
-                boxShadow:`0 0 8px ${color}` }}/>
-              <span style={{ fontSize: 12, color: S.text, fontWeight: 600 }}>{s.suggested_name || s.original_name}</span>
-              <span style={{ fontSize: 11, color: S.text3 }}>by {uploaderName}</span>
-              {isChild && <span style={{ fontSize: 10, padding:'2px 8px', borderRadius: 20,
-                background:`${color}18`, color, fontWeight: 600 }}>AI split · {pNotes.stem_type}</span>}
-              {parentStem && <span style={{ fontSize: 11, color: S.text3 }}>from "{parentStem.original_name}"</span>}
-            </div>
+        {/* Smart Mix */}
+        {smartMixUrl ? (
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
+            <span style={{ fontSize:12, fontWeight:700, color: S.text }}>Smart Mix</span>
+            {smartMixInfo?.stem_count && (
+              <span style={{ fontSize:11, color: S.text3 }}>· {smartMixInfo.stem_count} tracks</span>
+            )}
+            <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
+              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.coral}35`,
+                background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', color:C.coral }}>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            </button>
+            <a href={smartMixUrl} download="smart_mix.wav"
+              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
+                background: S.bg, display:'flex', alignItems:'center', justifyContent:'center',
+                color: S.text3, textDecoration:'none' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+            </a>
+          </div>
+        ) : (
+          <button onClick={async () => {
+            if (!activeId || smartMixing) return
+            setSmartMixing(true)
+            try {
+              const r = await smartBounceApi(activeId)
+              setSmartMixUrl(r.data?.bounce_url)
+              setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
+            } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
+            setSmartMixing(false)
+          }} disabled={smartMixing || mixerStems.length < 2}
+            style={{ display:'flex', alignItems:'center', gap:6, height:32, padding:'0 14px',
+              borderRadius:9, border:`1px solid ${S.border}`, background: S.bg,
+              color: S.text2, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            {smartMixing
+              ? <><Spinner size={11} color={S.text3}/> Mixing…</>
+              : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Smart Mix</>}
+          </button>
+        )}
 
-            {/* Volume */}
-            <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: S.text3, textTransform:'uppercase', letterSpacing:'.08em' }}>Vol</span>
-              <input type="range" min={0} max={1} step={0.01} value={vol}
-                onChange={e => setVolumes(p => ({ ...p, [s.id]: parseFloat(e.target.value) }))}
-                style={{ width: 90, accentColor: color, cursor:'pointer' }}/>
-              <span style={{ fontSize: 11, color: S.text2, fontFamily:'monospace', width: 32 }}>{Math.round(vol*100)}%</span>
-            </div>
+        <div style={{ width:1, height:24, background: S.border }}/>
 
-            {/* Trim */}
-            <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: S.text3, textTransform:'uppercase', letterSpacing:'.08em' }}>Trim</span>
-              <span style={{ fontSize: 11, color: S.text3 }}>In</span>
-              <input type="range" min={0} max={trim.end - 0.01} step={0.01} value={trim.start}
-                onChange={e => setTrims(p => ({ ...p, [s.id]: { ...getTrim(s.id), start: parseFloat(e.target.value) } }))}
-                style={{ width: 72, accentColor: color, cursor:'pointer' }}/>
-              <span style={{ fontSize: 11, color: S.text2, fontFamily:'monospace', width: 30 }}>{Math.round(trim.start*100)}%</span>
-              <span style={{ fontSize: 11, color: S.text3 }}>Out</span>
-              <input type="range" min={trim.start + 0.01} max={1} step={0.01} value={trim.end}
-                onChange={e => setTrims(p => ({ ...p, [s.id]: { ...getTrim(s.id), end: parseFloat(e.target.value) } }))}
-                style={{ width: 72, accentColor: color, cursor:'pointer' }}/>
-              <span style={{ fontSize: 11, color: S.text2, fontFamily:'monospace', width: 30 }}>{Math.round(trim.end*100)}%</span>
-              {(trim.start > 0.01 || trim.end < 0.99) && (
-                <button onClick={() => setTrims(p => ({ ...p, [s.id]: { start:0, end:1 } }))} style={{
-                  padding:'3px 10px', borderRadius: 6, border:`1px solid ${S.border}`,
-                  background:'rgba(0,0,0,.04)', color: S.text3, fontSize: 10, cursor:'pointer' }}>reset</button>
-              )}
-            </div>
+        {/* Bounce */}
+        {bounceUrl ? (
+          <div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e' }}/>
+            <span style={{ fontSize:12, fontWeight:700, color: S.text }}>Bounce ready</span>
 
-            <button onClick={() => playTrack(s)} style={{
-              padding:'5px 14px', borderRadius: 8, border:`1px solid ${S.border}`,
-              background:'rgba(0,0,0,.05)', color: S.text2, fontSize: 12, cursor:'pointer',
-              display:'flex', alignItems:'center', gap: 5 }}>
-              <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg> Preview
+            <button onClick={toggleBouncePlayer} style={{ width:28, height:28, borderRadius:8,
+              border:'1px solid rgba(34,197,94,.3)', background:'rgba(34,197,94,.1)',
+              display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+              {bouncePlaying
+                ? <svg width={9} height={9} viewBox="0 0 24 24" fill="#16a34a"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                : <svg width={9} height={9} viewBox="0 0 24 24" fill="#16a34a"><polygon points="5,3 19,12 5,21"/></svg>}
             </button>
 
-            <button onClick={() => setExpandedId(null)} style={{
-              marginLeft:'auto', width: 28, height: 28, borderRadius: 8,
-              border:`1px solid ${S.border}`, background:'rgba(0,0,0,.04)',
-              color: S.text3, fontSize: 14, cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+            <div onClick={e => {
+              if (!bouncePlayerRef.current || !bounceDur) return
+              const rect = e.currentTarget.getBoundingClientRect()
+              bouncePlayerRef.current.currentTime = ((e.clientX-rect.left)/rect.width)*bounceDur
+            }} style={{ width:120, height:3, background: S.border, borderRadius:2, cursor:'pointer', position:'relative' }}>
+              <div style={{ position:'absolute', inset:'0 auto 0 0',
+                width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%',
+                background:'#22c55e', borderRadius:2 }}/>
+            </div>
+
+            <span style={{ fontSize:10.5, color: S.text3, fontVariantNumeric:'tabular-nums', minWidth:32 }}>
+              {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
+            </span>
+
+            <a href={bounceUrl} download={`${activeProject?.title||'mix'}_bounce.wav`}
+              style={{ height:30, padding:'0 12px', borderRadius:8, border:'1px solid rgba(34,197,94,.3)',
+                background:'rgba(34,197,94,.1)', color:'#16a34a', fontSize:12, fontWeight:700,
+                display:'flex', alignItems:'center', gap:5, textDecoration:'none' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+              Download
+            </a>
+
+            <button onClick={saveBounce} disabled={savingBounce}
+              style={{ height:30, padding:'0 12px', borderRadius:8,
+                border:'1px solid rgba(99,102,241,.3)', background:'rgba(99,102,241,.1)',
+                color:'#6366f1', fontSize:12, fontWeight:700, cursor:'pointer',
+                display:'flex', alignItems:'center', gap:5 }}>
+              {savingBounce ? <Spinner size={11} color="#6366f1"/> : 'Save'}
+            </button>
+
+            <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }}
+              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
+                background: S.bg, cursor:'pointer', color: S.text3,
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
           </div>
-        )
-      })()}
+        ) : (
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:12, color: S.text3 }}>
+              {selectedIds.size} track{selectedIds.size !== 1 ? 's' : ''} selected
+            </span>
+            <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0}
+              style={{ height:32, padding:'0 16px', borderRadius:9, fontSize:12, fontWeight:700,
+                background: bouncing || selectedIds.size === 0 ? S.bg : S.grad,
+                border: bouncing || selectedIds.size === 0 ? `1px solid ${S.border}` : 'none',
+                color: bouncing || selectedIds.size === 0 ? S.text3 : '#fff',
+                cursor: bouncing || selectedIds.size === 0 ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', gap:6,
+                boxShadow: bouncing || selectedIds.size === 0 ? 'none' : `0 4px 12px ${C.coral}35` }}>
+              {bouncing
+                ? <><Spinner size={11} color={S.text3}/> {bounceProgress}%</>
+                : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Bounce</>}
+            </button>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
