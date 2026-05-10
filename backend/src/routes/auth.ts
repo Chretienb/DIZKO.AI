@@ -1,5 +1,9 @@
 import { Hono } from 'hono'
 import { createClient } from '@supabase/supabase-js'
+import { execSync } from 'child_process'
+import { writeFileSync, readFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
@@ -210,13 +214,30 @@ auth.post('/avatar', requireAuth, async (c) => {
   const file = formData.get('file') as File | null
   if (!file) return c.json({ data: null, error: 'file is required', status: 400 }, 400)
 
-  const ext  = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-  const path = `avatars/${user.id}.${ext}`
-  const buf  = Buffer.from(await file.arrayBuffer())
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  let buf   = Buffer.from(await file.arrayBuffer())
+
+  // Convert HEIC/HEIF/TIFF/BMP → JPEG so all browsers can display it
+  const needsConvert = ['heic','heif','tiff','tif','bmp','webp'].includes(ext)
+  if (needsConvert) {
+    const tmpIn  = join(tmpdir(), `avatar_in_${Date.now()}.${ext}`)
+    const tmpOut = join(tmpdir(), `avatar_out_${Date.now()}.jpg`)
+    try {
+      writeFileSync(tmpIn, buf)
+      execSync(`ffmpeg -y -i "${tmpIn}" -update 1 -vf "scale=400:400:force_original_aspect_ratio=decrease,pad=400:400:(ow-iw)/2:(oh-ih)/2" "${tmpOut}"`, { stdio:'pipe' })
+      buf = readFileSync(tmpOut)
+    } finally {
+      try { unlinkSync(tmpIn) } catch {}
+      try { unlinkSync(tmpOut) } catch {}
+    }
+  }
+
+  const path        = `avatars/${user.id}.jpg`   // always store as JPEG
+  const contentType = 'image/jpeg'
 
   const { error: upErr } = await supabase.storage
     .from('stems')
-    .upload(path, buf, { contentType: file.type || 'image/jpeg', upsert: true })
+    .upload(path, buf, { contentType, upsert: true })
 
   if (upErr) return c.json({ data: null, error: upErr.message, status: 500 }, 500)
 
