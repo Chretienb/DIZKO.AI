@@ -3496,7 +3496,7 @@ function PageAnalytics() {
         {[
           { label:'Total Projects',  val: loading ? null : String(totalProjects), color:C.coral,   icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z' },
           { label:'Files Uploaded',  val: loading ? null : String(totalFiles),    color:'#3b82f6', icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
-          { label:'Team Members',    val: loading ? null : '—',                   color:'#22c55e', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z' },
+          { label:'Team Members',    val: loading ? null : String(overview.collaborators ?? 0), color:'#22c55e', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z' },
         ].map(s => (
           <Card key={s.label} style={{ padding:'20px 22px', display:'flex', alignItems:'center', gap:16 }}>
             <div style={{ width:42, height:42, borderRadius:12, background:`${s.color}12`, flexShrink:0,
