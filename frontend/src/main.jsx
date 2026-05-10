@@ -7,7 +7,7 @@ import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
 import ResetPassword from './ResetPassword.jsx'
-import { auth, setToken } from './lib/api'
+import { auth, setToken, setRefreshToken } from './lib/api'
 
 function userFromToken() {
   try {

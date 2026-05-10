@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import logo   from './assets/logo.png'
 import studio from './assets/studio2.png'
-import { auth, setToken } from './lib/api'
+import { auth, setToken, setRefreshToken } from './lib/api'
 
 const C = {
   coral: '#F4937A', rose: '#E8709A', amber: '#F5C97A', pink: '#F28FB8',
@@ -66,6 +66,11 @@ export default function Login({ onLogin }) {
     setLoading(true)
     try {
       if (tab === 'forgot') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setError('Please enter a valid email address.')
+          setLoading(false)
+          return
+        }
         await auth.forgotPassword(email)
         setTab('forgot-sent')
         setLoading(false)
@@ -76,8 +81,9 @@ export default function Login({ onLogin }) {
         ? await auth.register(email, password, name)
         : await auth.login(email, password)
       setToken(res.data.session.access_token)
+      setRefreshToken(res.data.session.refresh_token)
       const fullName = res.data.user?.user_metadata?.full_name ?? ''
-      onLogin(fullName, isNewUser, res.data.user)
+      onLogin(fullName, isNewUser, { ...res.data.user, avatar_url: res.data.user?.user_metadata?.avatar_url })
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
@@ -196,46 +202,16 @@ export default function Login({ onLogin }) {
             ))}
           </div>
 
-          {/* Social login buttons — hidden on forgot screens */}
-          <div style={{ display: tab === 'forgot' || tab === 'forgot-sent' ? 'none' : 'grid',
-            gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:24 }}>
-            {SOCIALS.map(s => {
-              const busy = socialLoading === s.id
-              return (
-                <button key={s.id} onClick={() => socialLogin(s.id)} disabled={!!socialLoading}
-                  style={{
-                    padding:'11px 14px', borderRadius:12,
-                    border:`1.5px solid ${s.border}`,
-                    background: s.color,
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                    fontSize:13, fontWeight:600, color: s.textColor,
-                    cursor: socialLoading ? 'default' : 'pointer',
-                    opacity: socialLoading && !busy ? 0.45 : 1,
-                    transition:'all .18s',
-                    boxShadow: busy ? `0 0 0 3px ${s.border}33` : '0 1px 3px rgba(0,0,0,.08)',
-                  }}>
-                  {busy
-                    ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
-                        stroke={s.textColor} strokeWidth={2.5} strokeLinecap="round"
-                        style={{ animation:'spin .9s linear infinite' }}>
-                        <path d="M12 3a9 9 0 019 9"/>
-                      </svg>
-                    : s.icon}
-                  {busy ? 'Connecting…' : s.label}
-                </button>
-              )
-            })}
-          </div>
-
           {/* Divider — hidden on forgot screens */}
-          <div style={{ display: tab === 'forgot' || tab === 'forgot-sent' ? 'none' : 'flex',
-            alignItems:'center', gap:12, marginBottom:22 }}>
-            <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
-            <span style={{ fontSize:11, color:'#ccc', fontWeight:500, letterSpacing:'.5px' }}>
-              {tab === 'signin' ? 'OR SIGN IN WITH EMAIL' : 'OR SIGN UP WITH EMAIL'}
-            </span>
-            <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
-          </div>
+          {tab !== 'forgot' && tab !== 'forgot-sent' && (
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:22 }}>
+              <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
+              <span style={{ fontSize:11, color:'#ccc', fontWeight:500, letterSpacing:'.5px' }}>
+                {tab === 'signin' ? 'SIGN IN WITH EMAIL' : 'CREATE ACCOUNT'}
+              </span>
+              <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
+            </div>
+          )}
 
           {/* Email / password form — or forgot-sent confirmation */}
           {tab === 'forgot-sent' ? (

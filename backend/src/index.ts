@@ -40,11 +40,8 @@ app.use(
   })
 )
 
-// Rate-limit everything (100 req / 60 s per IP); stricter on auth paths
-// Rate limiting disabled for development — re-enable with per-IP limits before production
-// app.use('*', rateLimit({ max: 300, windowMs: 60_000 }))
-// app.use('/auth/login', rateLimit({ max: 30, windowMs: 60_000 }))
-// app.use('/auth/register', rateLimit({ max: 20, windowMs: 60_000 }))
+// Global rate limit — 300 req / 60 s per IP (individual auth routes add stricter limits)
+app.use('*', rateLimit({ max: 300, windowMs: 60_000 }))
 
 // ── Health (public) ───────────────────────────────────────────────────────────
 

@@ -13,6 +13,42 @@ export function setToken(token) {
   else        localStorage.removeItem('disco_token')
 }
 
+export function setRefreshToken(token) {
+  if (token) localStorage.setItem('disco_refresh_token', token)
+  else        localStorage.removeItem('disco_refresh_token')
+}
+
+function getRefreshToken() {
+  return localStorage.getItem('disco_refresh_token') || ''
+}
+
+// Attempt a silent token refresh; returns true on success
+let refreshPromise = null
+async function tryRefresh() {
+  if (refreshPromise) return refreshPromise   // deduplicate concurrent calls
+  const rt = getRefreshToken()
+  if (!rt) return false
+
+  refreshPromise = fetch(`${BASE}/auth/refresh`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ refresh_token: rt }),
+  })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (j?.data?.session) {
+        setToken(j.data.session.access_token)
+        setRefreshToken(j.data.session.refresh_token)
+        return true
+      }
+      return false
+    })
+    .catch(() => false)
+    .finally(() => { refreshPromise = null })
+
+  return refreshPromise
+}
+
 async function request(method, path, body) {
   const token = getToken()
   const headers = {
@@ -20,17 +56,32 @@ async function request(method, path, body) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
-  const res = await fetch(`${BASE}${path}`, {
+  let res = await fetch(`${BASE}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  // Token expired or invalid — clear it and go to login
+  // On 401, try a silent refresh then retry once
   if (res.status === 401) {
-    setToken(null)
-    window.location.href = '/login'
-    throw new Error('Session expired. Please log in again.')
+    const refreshed = await tryRefresh()
+    if (refreshed) {
+      const newToken = getToken()
+      res = await fetch(`${BASE}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${newToken}`,
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
+    }
+    if (res.status === 401) {
+      setToken(null)
+      setRefreshToken(null)
+      window.location.href = '/login'
+      throw new Error('Session expired. Please log in again.')
+    }
   }
 
   const json = await res.json().catch(() => ({}))
@@ -47,7 +98,7 @@ const del   = (path)        => request('DELETE', path)
 export const auth = {
   login:         (email, password)           => post('/auth/login',    { email, password }),
   register:      (email, password, fullName) => post('/auth/register', { email, password, fullName }),
-  logout:        ()                          => post('/auth/logout').finally(() => setToken(null)),
+  logout:        ()                          => post('/auth/logout').finally(() => { setToken(null); setRefreshToken(null) }),
   updateProfile:    (body)       => request('PATCH', '/auth/profile', body),
   forgotPassword:   (email)      => post('/auth/forgot-password', { email }),
   updatePassword:   (password)   => post('/auth/update-password', { password }),
