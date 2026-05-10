@@ -1,7 +1,35 @@
-import { spawn } from 'child_process'
+import { spawn, execSync } from 'child_process'
 import { readdir, readFile, unlink } from 'fs/promises'
-import { join, basename } from 'path'
+import { existsSync } from 'fs'
+import { join, basename, extname } from 'path'
+import { tmpdir } from 'os'
 import { supabase } from './supabase'
+
+// Formats demucs/torchaudio struggles with — convert to WAV first
+const NEEDS_CONVERSION = new Set(['.m4a','.mp4','.aac','.wma','.opus','.ogg','.flac','.aif','.aiff'])
+
+/**
+ * If the file isn't a plain WAV, convert it with ffmpeg so demucs
+ * always gets a 44.1 kHz stereo PCM WAV it can reliably read.
+ * Returns the path to use (original or converted) and whether to delete it after.
+ */
+function ensureWav(audioPath: string): { path: string; isTemp: boolean } {
+  const ext = extname(audioPath).toLowerCase()
+  if (ext === '.wav') return { path: audioPath, isTemp: false }
+
+  const outPath = join(tmpdir(), `pipeline_${Date.now()}.wav`)
+  try {
+    execSync(
+      `ffmpeg -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${outPath}"`,
+      { stdio: 'pipe' }
+    )
+    console.log(`[pipeline] converted ${ext} → WAV: ${outPath}`)
+    return { path: outPath, isTemp: true }
+  } catch (e) {
+    console.error('[pipeline] ffmpeg conversion failed, trying original:', (e as Error).message)
+    return { path: audioPath, isTemp: false }
+  }
+}
 
 // Resolve paths relative to this file: backend/src/lib/ → project root (3 levels up)
 const PROJECT_ROOT   = join(import.meta.dir, '../../..')
@@ -28,9 +56,12 @@ export interface PipelineResult {
 export function runLocalPipeline(opts: PipelineOpts): void {
   const { audioPath, projectName, artistName, trackNumber, takeNumber, onComplete, onError } = opts
 
+  // Convert to WAV if needed — demucs/torchaudio is most reliable with PCM WAV
+  const { path: wavPath, isTemp: wavIsTemp } = ensureWav(audioPath)
+
   const proc = spawn(VENV_PYTHON, [
     PIPELINE_SCRIPT,
-    audioPath,
+    wavPath,          // pass the (possibly converted) WAV
     projectName,
     artistName,
     String(trackNumber),
@@ -42,6 +73,9 @@ export function runLocalPipeline(opts: PipelineOpts): void {
   proc.stderr.on('data', (d: Buffer) => { process.stderr.write(d) })
 
   proc.on('close', async (code) => {
+    // Clean up temp WAV regardless of outcome
+    if (wavIsTemp) unlink(wavPath).catch(() => {})
+
     if (code !== 0) {
       onError(new Error(`dizko_ai.py exited with code ${code}`))
       return
