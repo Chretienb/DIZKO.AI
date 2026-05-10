@@ -3287,10 +3287,11 @@ function PageStudio({ openModal, playTrack }) {
 
 // ─── PAGE: ANALYTICS ──────────────────────────────────────────────────────
 function PageAnalytics() {
-  const [overview,  setOverview]  = useState({})
-  const [projects,  setProjects]  = useState([])
-  const [topFiles,  setTopFiles]  = useState([])
-  const [loading,   setLoading]   = useState(true)
+  const [overview,      setOverview]      = useState({})
+  const [projects,      setProjects]      = useState([])
+  const [topFiles,      setTopFiles]      = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [uploaderNames, setUploaderNames] = useState({})
 
   useEffect(() => {
     Promise.all([
@@ -3300,13 +3301,25 @@ function PageAnalytics() {
       const projs = projRes.data || []
       setOverview(overRes.data || {})
       setProjects(projs)
-      // Fetch files for the first project to populate recent files list
       if (projs.length) {
         return filesApi.list(projs[0].id).catch(() => ({ data: [] }))
       }
       return { data: [] }
     }).then(filesRes => {
-      setTopFiles((filesRes?.data || []).slice(0, 5))
+      const files = (filesRes?.data || []).slice(0, 5)
+      setTopFiles(files)
+      const token = localStorage.getItem('disco_token')
+      const ids = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
+      ids.forEach(uid => {
+        fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.ok ? r.json() : null)
+          .then(j => {
+            if (!j?.data) return
+            const u = j.data
+            const name = u.full_name || u.email?.split('@')[0] || 'Someone'
+            setUploaderNames(prev => ({ ...prev, [uid]: name }))
+          }).catch(() => {})
+      })
     }).finally(() => setLoading(false))
   }, [])
 
@@ -3373,7 +3386,8 @@ function PageAnalytics() {
                   {f.suggested_name || f.original_name || f.label || 'Untitled file'}
                 </div>
                 <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                  {f.instrument || (f.mime_type ? f.mime_type.split('/')[1].toUpperCase() : 'audio')} · {timeAgo(f.created_at)}
+                  <strong style={{ color:'#888', fontWeight:600 }}>{uploaderNames[f.uploaded_by] || 'Someone'}</strong>
+                  {' · '}{f.instrument || (f.mime_type ? f.mime_type.split('/')[1].toUpperCase() : 'audio')} · {timeAgo(f.created_at)}
                 </div>
               </div>
             </div>
