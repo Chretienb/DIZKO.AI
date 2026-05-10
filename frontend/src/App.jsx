@@ -619,7 +619,7 @@ function ModalNewProject({ onClose, onCreated }) {
 
 // ─── MODAL: INVITE ─────────────────────────────────────────────────────────
 // ─── MODAL: ACCOUNT SETTINGS ───────────────────────────────────────────────
-function ModalAccountSettings({ user, onClose }) {
+function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
   const [name,       setName]       = useState(user?.full_name || '')
   const [email,      setEmail]      = useState(user?.email || '')
   const [avatarUrl,  setAvatarUrl]  = useState(user?.avatar_url || null)
@@ -628,13 +628,20 @@ function ModalAccountSettings({ user, onClose }) {
   const [uploading,  setUploading]  = useState(false)
   const avatarInput = useRef()
 
+  const applyAvatar = (url) => {
+    setAvatarUrl(url)
+    // Persist so it survives page refresh (JWT update is async)
+    localStorage.setItem('dizko_avatar_url', url)
+    onProfileUpdate?.({ avatar_url: url })
+  }
+
   const pickAvatar = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
     try {
       const r = await authApi.uploadAvatar(file)
-      setAvatarUrl(r.data?.avatar_url)
+      if (r.data?.avatar_url) applyAvatar(r.data.avatar_url)
       setSaved(false)
     } catch {}
     setUploading(false)
@@ -643,7 +650,9 @@ function ModalAccountSettings({ user, onClose }) {
   const save = async () => {
     setLoading(true)
     try {
-      await authApi.updateProfile({ full_name: name, avatar_url: avatarUrl })
+      const r = await authApi.updateProfile({ full_name: name, avatar_url: avatarUrl })
+      if (r.data?.avatar_url) applyAvatar(r.data.avatar_url)
+      onProfileUpdate?.({ full_name: name })
       setSaved(true)
     } catch {}
     setLoading(false)
@@ -4538,7 +4547,7 @@ function MiniPlayer({ track, onClose }) {
   )
 }
 
-export default function App({ onLogout, user }) {
+export default function App({ onLogout, user, onProfileUpdate }) {
   const navigate               = useNavigate()
   const location               = useLocation()
   const [playing, setPlay]     = useState(false)
@@ -4732,7 +4741,7 @@ export default function App({ onLogout, user }) {
 
       {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
       {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
-      {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} />}
+      {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
       {modal?.type==='invite'      && <ModalInvite     onClose={closeModal} />}
