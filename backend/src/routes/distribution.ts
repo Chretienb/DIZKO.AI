@@ -45,7 +45,7 @@ distribution.post('/projects/:id', sanitize, async (c) => {
       upc:          body.upc           ?? null,
       tracks:       body.tracks        ?? [],
       notes:        body.notes         ?? null,
-    }, { onConflict: 'project_id' })
+    })
     .select()
     .single()
 
@@ -160,7 +160,7 @@ distribution.post('/projects/:id/submit', sanitize, async (c) => {
       tracks:        enriched,
       soundcloud_url: soundcloudUrl,
       youtube_url:    youtubeUrl,
-    }, { onConflict: 'project_id' })
+    })
     .select().single()
 
   return c.json({
