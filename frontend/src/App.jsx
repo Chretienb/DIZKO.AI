@@ -2247,6 +2247,7 @@ function PageProjects({ openModal, refreshKey }) {
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
 function PageCollaborators({ openModal, user }) {
   const [search,     setSearch]     = useState('')
+  const [roleFilter, setRoleFilter] = useState('All')
   const [collabs,    setCollabs]    = useState([])
   const [invites,    setInvites]    = useState([])
   const [loading,    setLoading]    = useState(true)
@@ -2254,6 +2255,25 @@ function PageCollaborators({ openModal, user }) {
   const [removingId, setRemovingId] = useState(null)
   const [ownedIds,   setOwnedIds]   = useState(new Set())
   const [overview,   setOverview]   = useState({})
+  const [onlineIds,  setOnlineIds]  = useState(new Set())
+
+  // Supabase Realtime Presence — track who's online right now
+  useEffect(() => {
+    if (!user?.id) return
+    const channel = supabase.channel('presence:app', {
+      config: { presence: { key: user.id } },
+    })
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        setOnlineIds(new Set(Object.keys(channel.presenceState())))
+      })
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ user_id: user.id, at: Date.now() })
+        }
+      })
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
 
   const removeCollab = async (collabId) => {
     if (!confirm('Remove this collaborator from the project?')) return
@@ -2308,182 +2328,262 @@ function PageCollaborators({ openModal, user }) {
     setActingId(null)
   }
 
-  const visible = collabs.filter(c => {
-    const name = collabName(c).toLowerCase()
-    const role = (c.role || '').toLowerCase()
-    const s = search.toLowerCase()
-    return name.includes(s) || role.includes(s)
-  })
+  const roles    = [...new Set(collabs.map(c => c.role).filter(Boolean))]
+  const onlineNow = onlineIds.size - 1  // exclude self
 
-  const roles = [...new Set(collabs.map(c => c.role).filter(Boolean))]
+  const visible = collabs.filter(c => {
+    const matchSearch = collabName(c).toLowerCase().includes(search.toLowerCase()) ||
+                        (c.role || '').toLowerCase().includes(search.toLowerCase())
+    const matchRole   = roleFilter === 'All' || c.role === roleFilter
+    return matchSearch && matchRole
+  })
 
   return (
     <>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Collaborators</h1>
-          <span style={{ display:'block', margin:0, fontSize:13, color:'#aaa' }}>
-            {loading ? <Spinner size={14} /> : `${collabs.length} member${collabs.length !== 1 ? 's' : ''} across your projects`}
-          </span>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Team</h1>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:4 }}>
+            <span style={{ fontSize:13, color:'#aaa' }}>
+              {loading ? <Spinner size={12}/> : `${collabs.length} member${collabs.length !== 1 ? 's' : ''}`}
+            </span>
+            {onlineNow > 0 && (
+              <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:12,
+                fontWeight:700, color:'#22c55e' }}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e',
+                  display:'inline-block', boxShadow:'0 0 6px #22c55e' }}/>
+                {onlineNow} online now
+              </span>
+            )}
+          </div>
         </div>
         <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
       </div>
 
-      {/* Pending invitations banner */}
+      {/* ── Pending invitations ────────────────────────────────────────── */}
       {invites.length > 0 && (
         <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'#555', textTransform:'uppercase',
-            letterSpacing:'.08em', marginBottom:10 }}>
-            Pending Invitations ({invites.length})
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {invites.map(inv => {
-              const proj = inv.projects || {}
-              const acting = actingId === inv.id
-              return (
-                <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:14,
-                  background:'#fff', borderRadius:14, padding:'14px 18px',
-                  border:`1.5px solid ${C.amber}40`,
-                  boxShadow:`0 2px 8px ${C.amber}15` }}>
-                  <div style={{ width:40, height:40, borderRadius:'50%', background:`${C.amber}18`,
-                    border:`2px solid ${C.amber}40`, display:'flex', alignItems:'center',
-                    justifyContent:'center', flexShrink:0 }}>
-                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth={2} strokeLinecap="round">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                    </svg>
+          {invites.map(inv => {
+            const proj   = inv.projects || {}
+            const acting = actingId === inv.id
+            return (
+              <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8,
+                background:'#fff', borderRadius:14, padding:'14px 18px',
+                border:`1.5px solid ${C.amber}35`, boxShadow:`0 2px 8px ${C.amber}12` }}>
+                <div style={{ width:38, height:38, borderRadius:'50%', background:`${C.amber}15`,
+                  border:`2px solid ${C.amber}35`, display:'flex', alignItems:'center',
+                  justifyContent:'center', flexShrink:0 }}>
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth={2} strokeLinecap="round">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                  </svg>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>
+                    Invited to <strong>{proj.title || 'a project'}</strong>
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13.5, fontWeight:700, color:'#111' }}>
-                      You've been invited to <strong>{proj.title || 'a project'}</strong>
-                    </div>
-                    <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>
-                      Role: <span style={{ fontWeight:600, color:'#555' }}>{inv.role || 'Collaborator'}</span>
-                    </div>
-                  </div>
-                  <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-                    <button onClick={() => acceptInvite(inv)} disabled={acting} style={{
-                      padding:'7px 16px', borderRadius:8, border:'none',
-                      background: C.grad, color:'#fff', fontSize:12, fontWeight:700,
-                      cursor:'pointer', opacity: acting ? .6 : 1,
-                    }}>
-                      {acting ? <Spinner size={14} color="rgba(255,255,255,.8)" /> : 'Accept'}
-                    </button>
-                    <button onClick={() => declineInvite(inv)} disabled={acting} style={{
-                      padding:'7px 16px', borderRadius:8,
-                      border:'1.5px solid rgba(0,0,0,.1)',
-                      background:'transparent', color:'#888', fontSize:12, fontWeight:600,
-                      cursor:'pointer',
-                    }}>Decline</button>
+                  <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
+                    as <strong style={{ color:'#555' }}>{inv.role || 'Collaborator'}</strong>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+                <div style={{ display:'flex', gap:7, flexShrink:0 }}>
+                  <button onClick={() => acceptInvite(inv)} disabled={acting}
+                    style={{ padding:'7px 16px', borderRadius:9, border:'none', background:C.grad,
+                      color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', opacity: acting ? .6 : 1 }}>
+                    {acting ? <Spinner size={13} color="#fff"/> : 'Accept'}
+                  </button>
+                  <button onClick={() => declineInvite(inv)} disabled={acting}
+                    style={{ padding:'7px 14px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
+                      background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    Decline
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      <div style={{ display:'flex', alignItems:'center', gap:8, background:'#fff',
-        border:'1.5px solid rgba(0,0,0,.08)', borderRadius:12, padding:'10px 14px', marginBottom:20,
-        maxWidth:340, boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
-        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search collaborators…"
-          style={{ background:'none', border:'none', outline:'none', fontSize:13, color:'#111', width:'100%' }} />
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+      {/* ── Stats row ─────────────────────────────────────────────────── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:22 }}>
         {[
-          { label:'Total Members', val: loading ? null : collabs.length,  color:C.coral },
-          { label:'Unique Roles',  val: loading ? null : roles.length,    color:C.amber },
-          { label:'Projects',      val: loading ? null : String(overview.projects     ?? ownedIds.size), color:'#3b82f6' },
-          { label:'Files Shared',  val: loading ? null : String(overview.sharedFiles  ?? '—'),            color:'#8b5cf6' },
+          { label:'Members',      val: loading ? null : collabs.length,                             color:C.coral,   icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8z' },
+          { label:'Online Now',   val: loading ? null : onlineNow,                                  color:'#22c55e', icon:'M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a5 5 0 100 10A5 5 0 0012 7z' },
+          { label:'Projects',     val: loading ? null : (overview.projects ?? ownedIds.size),       color:'#6366f1', icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z' },
+          { label:'Files Shared', val: loading ? null : (overview.sharedFiles ?? '—'),              color:C.amber,   icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
         ].map(s => (
-          <Card key={s.label} style={{ padding:'16px 18px' }}>
-            <div style={{ fontSize:11, color:'#aaa', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{s.label}</div>
-            <div style={{ fontSize:30, fontWeight:900, color:s.color, letterSpacing:'-1.5px' }}>
-              {s.val === null ? <Spinner size={24} color={s.color} /> : s.val}
+          <Card key={s.label} style={{ padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:`${s.color}12`, flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={1.8} strokeLinecap="round">
+                <path d={s.icon}/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize:22, fontWeight:900, color:s.color, letterSpacing:'-1px', lineHeight:1 }}>
+                {s.val === null ? <Spinner size={18} color={s.color}/> : String(s.val)}
+              </div>
+              <div style={{ fontSize:10.5, color:'#aaa', fontWeight:600, marginTop:3 }}>{s.label}</div>
             </div>
           </Card>
         ))}
       </div>
 
+      {/* ── Search + role filter ───────────────────────────────────────── */}
+      <div style={{ display:'flex', gap:10, marginBottom:20, alignItems:'center' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:'#fff',
+          border:'1.5px solid rgba(0,0,0,.08)', borderRadius:12, padding:'9px 14px', flex:1,
+          boxShadow:'0 1px 3px rgba(0,0,0,.05)' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or role…"
+            style={{ background:'none', border:'none', outline:'none', fontSize:13, color:'#111', flex:1 }}/>
+        </div>
+        {/* Role filter pills */}
+        <div style={{ display:'flex', gap:6 }}>
+          {['All', ...roles].map(r => (
+            <button key={r} onClick={() => setRoleFilter(r)} style={{
+              padding:'7px 14px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
+              border:`1.5px solid ${roleFilter === r ? C.coral : 'rgba(0,0,0,.08)'}`,
+              background: roleFilter === r ? `${C.coral}12` : '#fff',
+              color: roleFilter === r ? C.coral : '#888',
+            }}>{r}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Cards ──────────────────────────────────────────────────────── */}
       {loading ? (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
-          {[0,1,2].map(i => <div key={i} style={{ borderRadius:16, height:200, background:'#f0f0f0' }} />)}
+          {[0,1,2].map(i => (
+            <div key={i} style={{ borderRadius:20, height:260, background:'linear-gradient(160deg,#f0f0f0,#e8e8e8)',
+              animation:'pulse 1.6s ease-in-out infinite' }}/>
+          ))}
         </div>
       ) : visible.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:8 }}>
-            {search ? 'No matches found' : 'No collaborators yet'}
+        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
+          borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:6 }}>
+            {search || roleFilter !== 'All' ? 'No matches' : 'No collaborators yet'}
           </div>
           <div style={{ fontSize:13, color:'#aaa', marginBottom:20 }}>
-            {search ? 'Try a different search.' : 'Invite someone to one of your projects.'}
+            {search || roleFilter !== 'All' ? 'Try a different search or filter.' : 'Invite someone to collaborate.'}
           </div>
-          {!search && <Btn onClick={() => openModal('invite', {})}>+ Invite Collaborator</Btn>}
+          {!search && roleFilter === 'All' && <Btn onClick={() => openModal('invite', {})}>+ Invite Collaborator</Btn>}
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
           {visible.map((c, i) => {
-            const color = collabColor(i)
-            const name  = collabName(c)
+            const color   = collabColor(i)
+            const name    = collabName(c)
+            const isOnline = onlineIds.has(c.user_id)
+
             return (
-              <Card key={c.id} style={{ padding:'22px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:16 }}>
-                  <div style={{ width:50, height:50, borderRadius:'50%', flexShrink:0,
-                    background:`linear-gradient(135deg,${color}44,${color}18)`,
-                    border:`2.5px solid ${color}55`,
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:15, fontWeight:900, color }}>
-                    {collabInitials(c)}
+              <div key={c.id} style={{ borderRadius:20, overflow:'hidden', background:'#fff',
+                boxShadow:'0 2px 12px rgba(0,0,0,.07)', transition:'transform .2s, box-shadow .2s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,.12)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.07)' }}>
+
+                {/* Coloured header band */}
+                <div style={{ height:64, background:`linear-gradient(135deg,${color}55,${color}22)`,
+                  position:'relative' }}>
+                  {/* Online indicator badge */}
+                  <div style={{ position:'absolute', top:10, right:12,
+                    display:'flex', alignItems:'center', gap:5, padding:'3px 9px',
+                    borderRadius:100, fontSize:10.5, fontWeight:700,
+                    background: isOnline ? 'rgba(34,197,94,.15)' : 'rgba(0,0,0,.1)',
+                    color: isOnline ? '#16a34a' : 'rgba(255,255,255,.5)',
+                    border: `1px solid ${isOnline ? 'rgba(34,197,94,.3)' : 'rgba(255,255,255,.15)'}`,
+                    backdropFilter:'blur(4px)' }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0,
+                      background: isOnline ? '#22c55e' : 'rgba(255,255,255,.4)',
+                      boxShadow: isOnline ? '0 0 6px #22c55e' : 'none' }}/>
+                    {isOnline ? 'Online' : 'Offline'}
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:14.5, fontWeight:800, color:'#111', letterSpacing:'-.3px',
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
-                    <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>{c.role || 'Collaborator'}</div>
-                  </div>
-                  {c.projectTitle && (
-                    <span style={{ fontSize:10, fontWeight:600, color:C.coral,
-                      background:`${C.coral}10`, padding:'3px 8px', borderRadius:100, flexShrink:0,
-                      overflow:'hidden', textOverflow:'ellipsis', maxWidth:80, whiteSpace:'nowrap' }}>
-                      {c.projectTitle}
-                    </span>
-                  )}
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
-                  {[
-                    { label:'Role',    val: c.role || 'Collaborator' },
-                    { label:'Joined',  val: timeAgo(c.created_at) || '—' },
-                  ].map(s => (
-                    <div key={s.label} style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'10px', textAlign:'center' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.val}</div>
-                      <div style={{ fontSize:10, color:'#bbb', marginTop:2, fontWeight:500 }}>{s.label}</div>
+
+                {/* Avatar — overlaps the band */}
+                <div style={{ display:'flex', justifyContent:'center', marginTop:-28, marginBottom:10 }}>
+                  <div style={{ position:'relative' }}>
+                    <div style={{ width:56, height:56, borderRadius:'50%',
+                      background:`linear-gradient(135deg,${color},${color}99)`,
+                      border:'3px solid #fff', display:'flex', alignItems:'center',
+                      justifyContent:'center', fontSize:17, fontWeight:900, color:'#fff',
+                      boxShadow:`0 4px 14px ${color}40` }}>
+                      {collabInitials(c)}
                     </div>
-                  ))}
+                    {/* Online dot on avatar */}
+                    <div style={{ position:'absolute', bottom:2, right:2, width:13, height:13,
+                      borderRadius:'50%', border:'2.5px solid #fff',
+                      background: isOnline ? '#22c55e' : '#d1d5db',
+                      boxShadow: isOnline ? '0 0 8px #22c55e80' : 'none' }}/>
+                  </div>
                 </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={() => openModal('message', c)} style={{ flex:1, padding:'8px', borderRadius:10,
-                    border:'1.5px solid rgba(0,0,0,.08)', background:'#fff', fontSize:12, fontWeight:600,
-                    color:'#444', cursor:'pointer', transition:'background .12s' }}
-                    onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
-                    onMouseLeave={e => e.currentTarget.style.background='#fff'}>Message</button>
-                  <button onClick={() => openModal('view-work', c)} style={{ flex:1, padding:'8px', borderRadius:10, border:'none',
-                    background:C.grad, fontSize:12, fontWeight:700, color:'#fff', cursor:'pointer',
-                    boxShadow:`0 2px 8px ${C.coral}30`, transition:'opacity .15s' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity='.9'}
-                    onMouseLeave={e => e.currentTarget.style.opacity='1'}>View work</button>
-                  {ownedIds.has(c.project_id) && (
-                    <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
-                      style={{ padding:'8px 12px', borderRadius:10, border:'1.5px solid rgba(239,68,68,.3)',
-                        background:'rgba(239,68,68,.06)', fontSize:12, fontWeight:600,
-                        color:'#ef4444', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
-                      {removingId === c.id ? <Spinner size={11} color="#ef4444"/> : 'Remove'}
+
+                {/* Info */}
+                <div style={{ padding:'0 18px 16px', textAlign:'center' }}>
+                  <div style={{ fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px',
+                    marginBottom:2 }}>{name}</div>
+
+                  {/* Role badge */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:100,
+                    background:`${color}15`, color, display:'inline-block', marginBottom:12 }}>
+                    {c.role || 'Collaborator'}
+                  </span>
+
+                  {/* Project + joined */}
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
+                    <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:'#111', overflow:'hidden',
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.projectTitle || '—'}</div>
+                      <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
+                    </div>
+                    <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
+                        {timeAgo(c.created_at) || '—'}
+                      </div>
+                      <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Joined</div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display:'flex', gap:7 }}>
+                    <button onClick={() => openModal('message', c)}
+                      style={{ flex:1, padding:'8px', borderRadius:10,
+                        border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
+                        fontSize:12, fontWeight:600, color:'#444', cursor:'pointer',
+                        transition:'background .12s' }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
+                      onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                      Message
                     </button>
-                  )}
+                    <button onClick={() => openModal('view-work', c)}
+                      style={{ flex:1, padding:'8px', borderRadius:10, border:'none',
+                        background:C.grad, fontSize:12, fontWeight:700, color:'#fff',
+                        cursor:'pointer', boxShadow:`0 2px 8px ${C.coral}25`,
+                        transition:'opacity .12s' }}
+                      onMouseEnter={e => e.currentTarget.style.opacity='.88'}
+                      onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                      View work
+                    </button>
+                    {ownedIds.has(c.project_id) && (
+                      <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
+                        style={{ width:36, height:36, borderRadius:10, flexShrink:0,
+                          border:'1.5px solid rgba(239,68,68,.25)',
+                          background:'rgba(239,68,68,.06)', cursor:'pointer',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          color:'#ef4444' }}>
+                        {removingId === c.id
+                          ? <Spinner size={11} color="#ef4444"/>
+                          : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </Card>
+              </div>
             )
           })}
         </div>
