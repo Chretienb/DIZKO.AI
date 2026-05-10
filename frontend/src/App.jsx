@@ -1231,7 +1231,7 @@ function ModalUpload({ project, onClose }) {
 
   const MAX_MB = 50
   const addFiles = raw => {
-    const AUDIO = ['wav','mp3','aif','aiff','flac','ogg','zip']
+    const AUDIO = ['wav','mp3','aif','aiff','flac','ogg','m4a','aac','mp4','wma','opus','zip']
     const items = Array.from(raw).map(f => {
       const ext     = f.name.split('.').pop().toLowerCase()
       const tooBig  = f.size > MAX_MB * 1048576
@@ -1342,7 +1342,7 @@ function ModalUpload({ project, onClose }) {
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
         onClick={() => inputRef.current.click()}>
-        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.zip"
+        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
         <div style={{ width:44, height:44, borderRadius:12, background:C.grad, margin:'0 auto 10px',
           display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 12px ${C.coral}35` }}>
@@ -1352,7 +1352,7 @@ function ModalUpload({ project, onClose }) {
           </svg>
         </div>
         <div style={{ fontSize:13, fontWeight:700, color:'#222' }}>Drop files or click to browse</div>
-        <div style={{ fontSize:11.5, color:'#bbb', marginTop:3 }}>WAV · MP3 · AIFF · FLAC · max 50 MB</div>
+        <div style={{ fontSize:11.5, color:'#bbb', marginTop:3 }}>WAV · MP3 · M4A · AIFF · FLAC · AAC · max 50 MB</div>
       </div>
 
       {/* Queue */}
