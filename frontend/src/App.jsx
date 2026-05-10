@@ -1416,7 +1416,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> },
     { label:'Total Files', val: loadingData ? null : String(fileCount), sub:'in your projects', accent:C.amber, page:'library',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13,2 13,9 20,9"/></svg> },
-    { label:'Collaborators', val: loadingData ? null : String(overview.collaborators ?? '—'), sub:'across projects', accent:C.pink, page:'collaborators',
+    { label:'Collaborators', val: loadingData ? null : String(overview.collaborators ?? 0), sub:'across projects', accent:C.pink, page:'collaborators',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg> },
   ]
 
@@ -1879,11 +1879,12 @@ function PageCollaborators({ openModal, user }) {
 
   const loadData = () => {
     setLoading(true)
-    analyticsApi.overview().then(r => setOverview(r.data || {})).catch(() => {})
     Promise.all([
       projectsApi.list().catch(() => ({ data: [] })),
       invitationsApi.list().catch(() => ({ data: [] })),
-    ]).then(([projRes, invRes]) => {
+      analyticsApi.overview().catch(() => ({ data: {} })),
+    ]).then(([projRes, invRes, overRes]) => {
+      setOverview(overRes.data || {})
       const projs = projRes.data || []
       setInvites(invRes.data || [])
       setOwnedIds(new Set(projs.filter(p => p.owner_id === user?.id).map(p => p.id)))

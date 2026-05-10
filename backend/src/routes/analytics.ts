@@ -11,13 +11,16 @@ analytics.use('*', requireAuth)
 analytics.get('/overview', async (c) => {
   const userId = c.var.user.id
 
-  // Get project IDs this user owns first
-  const { data: ownedProjects } = await supabase
-    .from('projects')
-    .select('id')
-    .eq('owner_id', userId)
+  // Fetch project IDs and track IDs in parallel first
+  const [{ data: ownedProjects }, { data: allTracks }] = await Promise.all([
+    supabase.from('projects').select('id').eq('owner_id', userId),
+    supabase.from('tracks').select('id, project_id'),
+  ])
 
   const projectIds = (ownedProjects ?? []).map((p: { id: string }) => p.id)
+  const trackIds   = (allTracks    ?? [])
+    .filter((t: { project_id: string }) => projectIds.includes(t.project_id))
+    .map((t: { id: string }) => t.id)
 
   const [{ count: projects }, { count: files }, { count: collaborators }, { count: sharedFiles }] =
     await Promise.all([
@@ -26,11 +29,8 @@ analytics.get('/overview', async (c) => {
       projectIds.length
         ? supabase.from('collaborators').select('id', { count: 'exact', head: true }).in('project_id', projectIds)
         : Promise.resolve({ count: 0 }),
-      projectIds.length
-        ? supabase.from('stems').select('id', { count: 'exact', head: true }).in(
-            'track_id',
-            (await supabase.from('tracks').select('id').in('project_id', projectIds)).data?.map((t: { id: string }) => t.id) ?? []
-          )
+      trackIds.length
+        ? supabase.from('stems').select('id', { count: 'exact', head: true }).in('track_id', trackIds)
         : Promise.resolve({ count: 0 }),
     ])
 
