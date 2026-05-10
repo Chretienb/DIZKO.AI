@@ -3629,8 +3629,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               transition:'background .12s, color .12s' }}
             onMouseEnter={e=>{ e.currentTarget.style.background='rgba(0,0,0,.06)'; e.currentTarget.style.color=S.text }}
             onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=S.text3 }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
-              <rect x={4} y={4} width={16} height={16} rx={3}/>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <rect x={4} y={4} width={16} height={16} rx={2}/>
             </svg>
           </button>
 
@@ -3731,8 +3731,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             {detectingBpm
               ? <><Spinner size={9} color={S.text3}/> Detecting…</>
               : <>
-                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                    <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
                   </svg>
                   Detect BPM
                 </>}
@@ -3843,7 +3843,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                           background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.65)',
                           display:'flex', alignItems:'center', justifyContent:'center' }}>
                         {isDeleting ? <Spinner size={7} color="#ef4444"/>
-                          : <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>}
+                          : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
                       </button>
                     </div>
 
@@ -3851,7 +3851,11 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     {isSelected && (
                       <div onClick={e => e.stopPropagation()}
                         style={{ marginTop:8, display:'flex', alignItems:'center', gap:7 }}>
-                        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2} strokeLinecap="round">
+                          <line x1="18" y1="20" x2="18" y2="10"/>
+                          <line x1="12" y1="20" x2="12" y2="4"/>
+                          <line x1="6"  y1="20" x2="6"  y2="14"/>
+                        </svg>
                         <input type="range" min={0} max={1} step={0.01} value={vol}
                           onChange={e => setVolumes(v => ({ ...v, [s.id]: parseFloat(e.target.value) }))}
                           style={{ flex:1, accentColor: color, cursor:'pointer' }}/>
@@ -4006,13 +4010,13 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.coral}35`,
                 background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center',
                 cursor:'pointer', color:C.coral }}>
-              <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21" fill="currentColor" stroke="none"/></svg>
             </button>
             <a href={smartMixUrl} download="smart_mix.wav"
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
                 background: S.bg, display:'flex', alignItems:'center', justifyContent:'center',
                 color: S.text3, textDecoration:'none' }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </a>
           </div>
         ) : (
@@ -4031,7 +4035,14 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               color: S.text2, fontSize:12, fontWeight:600, cursor:'pointer' }}>
             {smartMixing
               ? <><Spinner size={11} color={S.text3}/> Mixing…</>
-              : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Smart Mix</>}
+              : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>
+                  <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>
+                  <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
+                </svg>Smart Mix</>}
           </button>
         )}
 
@@ -4047,8 +4058,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               border:'1px solid rgba(34,197,94,.3)', background:'rgba(34,197,94,.1)',
               display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
               {bouncePlaying
-                ? <svg width={9} height={9} viewBox="0 0 24 24" fill="#16a34a"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                : <svg width={9} height={9} viewBox="0 0 24 24" fill="#16a34a"><polygon points="5,3 19,12 5,21"/></svg>}
+                ? <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2.5} strokeLinecap="round"><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+                : <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21" fill="#16a34a" stroke="none"/></svg>}
             </button>
 
             <div onClick={e => {
@@ -4069,7 +4080,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               style={{ height:30, padding:'0 12px', borderRadius:8, border:'1px solid rgba(34,197,94,.3)',
                 background:'rgba(34,197,94,.1)', color:'#16a34a', fontSize:12, fontWeight:700,
                 display:'flex', alignItems:'center', gap:5, textDecoration:'none' }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Download
             </a>
 
@@ -4085,7 +4096,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
                 background: S.bg, cursor:'pointer', color: S.text3,
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         ) : (
@@ -4103,7 +4114,11 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                 boxShadow: bouncing || selectedIds.size === 0 ? 'none' : `0 4px 12px ${C.coral}35` }}>
               {bouncing
                 ? <><Spinner size={11} color={S.text3}/> {bounceProgress}%</>
-                : <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Bounce</>}
+                : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17,8 12,3 7,8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>Export</>}
             </button>
           </div>
         )}
