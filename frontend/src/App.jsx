@@ -79,6 +79,26 @@ function collabInitials(c) {
   return initials(collabName(c)) || '?'
 }
 
+// Circular progress ring — wraps any content with an SVG arc that fills 0→100%
+function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(255,255,255,.08)', children }) {
+  const r    = (size - stroke) / 2
+  const circ = 2 * Math.PI * r
+  const off  = circ * (1 - Math.min(pct, 100) / 100)
+  return (
+    <div style={{ position:'relative', width:size, height:size, flexShrink:0 }}>
+      <svg width={size} height={size} style={{ position:'absolute', inset:0, transform:'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={bg} strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
+          style={{ transition:'stroke-dashoffset .15s linear' }}/>
+      </svg>
+      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function collabName(c) {
   const raw = c?.user?.full_name || c?.full_name
   if (raw) {
@@ -3321,17 +3341,27 @@ function PageStudio({ openModal, playTrack }) {
           </svg>
         </button>
 
-        {/* Play / Pause */}
-        <button onClick={playing ? pause : playAll} title={playing ? 'Pause' : 'Play'} style={{
-          width: 44, height: 44, borderRadius: 14, border:'none',
-          background: playing ? S.grad : S.grad,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', color:'#fff', boxShadow: playing ? `0 0 20px ${C.coral}55` : 'none',
-          transition:'box-shadow .2s' }}>
-          {playing
-            ? <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
-            : <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg>}
-        </button>
+        {/* Play / Pause — shows loading ring when stems are downloading */}
+        {Object.keys(loadingPct).length > 0 ? (
+          <ProgressRing
+            pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0) / Object.keys(loadingPct).length)}
+            size={44} stroke={3} color={C.coral} bg="rgba(255,255,255,.1)">
+            <span style={{ fontSize:10, fontWeight:800, color:'#fff', letterSpacing:'-.3px' }}>
+              {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0) / Object.keys(loadingPct).length)}%
+            </span>
+          </ProgressRing>
+        ) : (
+          <button onClick={playing ? pause : playAll} title={playing ? 'Pause' : 'Play'} style={{
+            width: 44, height: 44, borderRadius: 14, border:'none',
+            background: S.grad,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', color:'#fff', boxShadow: playing ? `0 0 20px ${C.coral}55` : 'none',
+            transition:'box-shadow .2s' }}>
+            {playing
+              ? <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+              : <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg>}
+          </button>
+        )}
 
         {/* Timecode */}
         <div style={{ background:'rgba(0,0,0,.4)', border:`1px solid ${S.border}`, borderRadius: 10,
@@ -4301,43 +4331,46 @@ function MiniPlayer({ track, onClose }) {
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden',
           textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:6 }}>{name}</div>
-        {/* Loading bar → seek bar */}
-        {loadPct < 100 ? (
-          <div>
-            <div style={{ height:4, background:'rgba(255,255,255,.08)', borderRadius:2, overflow:'hidden', marginBottom:4 }}>
-              <div style={{ height:'100%', borderRadius:2, transition:'width .2s linear',
-                width:`${loadPct}%`,
-                background:`linear-gradient(90deg,${C.coral}80,${C.coral})` }}/>
-            </div>
-            <div style={{ display:'flex', justifyContent:'space-between' }}>
-              <span style={{ fontSize:10, color:'rgba(255,255,255,.4)', fontWeight:600 }}>Buffering…</span>
-              <span style={{ fontSize:10, color:C.coral, fontWeight:700 }}>{loadPct}%</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div onClick={seek} style={{ height:4, background:'rgba(255,255,255,.15)', borderRadius:2, cursor:'pointer', position:'relative' }}>
-              <div style={{ height:'100%', width:`${progress}%`, background:C.grad, borderRadius:2, transition:'width .3s linear' }}/>
-            </div>
-            <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-              <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{fmt(current)}</span>
-              <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{duration ? fmt(duration) : '--:--'}</span>
-            </div>
-          </>
-        )}
+        {/* Seek bar (hidden while loading — ring handles that) */}
+        <div onClick={loadPct >= 100 ? seek : undefined}
+          style={{ height:4, borderRadius:2, cursor: loadPct >= 100 ? 'pointer' : 'default',
+            background:'rgba(255,255,255,.1)', position:'relative', overflow:'hidden' }}>
+          <div style={{ height:'100%', borderRadius:2, transition:'width .15s linear',
+            width: loadPct < 100 ? `${loadPct}%` : `${progress}%`,
+            background: loadPct < 100
+              ? `linear-gradient(90deg,${C.coral}55,${C.coral}99)`
+              : C.grad }}/>
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+          <span style={{ fontSize:10, color: loadPct < 100 ? C.coral : 'rgba(255,255,255,.35)',
+            fontWeight: loadPct < 100 ? 600 : 400 }}>
+            {loadPct < 100 ? 'Loading audio…' : fmt(current)}
+          </span>
+          <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>
+            {duration ? fmt(duration) : '--:--'}
+          </span>
+        </div>
       </div>
 
       {/* Controls */}
       <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        <button onClick={toggle} style={{
-          width:38, height:38, borderRadius:'50%', border:'none', cursor:'pointer',
-          background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
-          boxShadow:`0 2px 10px ${C.coral}50`,
-        }}>
-          {playing
-            ? <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            : <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
-        </button>
+        {loadPct < 100 ? (
+          <ProgressRing pct={loadPct} size={44} stroke={3} color={C.coral} bg="rgba(255,255,255,.1)">
+            <span style={{ fontSize:10, fontWeight:800, color:'#fff', letterSpacing:'-.3px' }}>
+              {loadPct}%
+            </span>
+          </ProgressRing>
+        ) : (
+          <button onClick={toggle} style={{
+            width:44, height:44, borderRadius:'50%', border:'none', cursor:'pointer',
+            background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:`0 2px 10px ${C.coral}50`,
+          }}>
+            {playing
+              ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
+          </button>
+        )}
         {/* Volume */}
         <input type="range" min={0} max={1} step={.05} value={vol}
           onChange={e => { const v=+e.target.value; setVol(v); if (audioRef.current) audioRef.current.volume=v }}
