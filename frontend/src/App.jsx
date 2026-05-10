@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -271,6 +271,28 @@ function Btn({ children, onClick, style={}, variant='primary' }) {
   return <button onClick={onClick} style={{ ...base, ...vars[variant] }}
     onMouseEnter={e => e.currentTarget.style.opacity='.88'}
     onMouseLeave={e => e.currentTarget.style.opacity='1'}>{children}</button>
+}
+
+// Avatar — shows profile picture when set, falls back to coloured initials
+function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
+  const s   = typeof size === 'number' ? size : 36
+  const fs  = Math.round(s * 0.36)
+  const base = {
+    width:s, height:s, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+    border: border || `2px solid ${color}44`,
+    ...(extra || {}),
+  }
+  if (url) {
+    return <img src={url} alt={name || ''} style={{ ...base, objectFit:'cover', background:`${color}22` }}
+      onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
+  }
+  return (
+    <div style={{ ...base, background:`linear-gradient(135deg,${color},${color}bb)`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:fs, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+      {initials(name || '')}
+    </div>
+  )
 }
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
@@ -598,33 +620,64 @@ function ModalNewProject({ onClose, onCreated }) {
 // ─── MODAL: INVITE ─────────────────────────────────────────────────────────
 // ─── MODAL: ACCOUNT SETTINGS ───────────────────────────────────────────────
 function ModalAccountSettings({ user, onClose }) {
-  const [name,    setName]    = useState(user?.full_name || '')
-  const [email,   setEmail]   = useState(user?.email || '')
-  const [saved,   setSaved]   = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [name,       setName]       = useState(user?.full_name || '')
+  const [email,      setEmail]      = useState(user?.email || '')
+  const [avatarUrl,  setAvatarUrl]  = useState(user?.avatar_url || null)
+  const [saved,      setSaved]      = useState(false)
+  const [loading,    setLoading]    = useState(false)
+  const [uploading,  setUploading]  = useState(false)
+  const avatarInput = useRef()
+
+  const pickAvatar = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const r = await authApi.uploadAvatar(file)
+      setAvatarUrl(r.data?.avatar_url)
+      setSaved(false)
+    } catch {}
+    setUploading(false)
+  }
 
   const save = async () => {
     setLoading(true)
-    // Persist via Supabase auth update when wired; for now optimistic save
-    await new Promise(r => setTimeout(r, 600))
-    setSaved(true)
+    try {
+      await authApi.updateProfile({ full_name: name, avatar_url: avatarUrl })
+      setSaved(true)
+    } catch {}
     setLoading(false)
   }
 
   return (
     <Modal title="Account Settings" sub="Profile and preferences" onClose={onClose} accent="#6366f1">
-      {/* Avatar card */}
-      <div style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px', marginBottom:20,
+      {/* Avatar */}
+      <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', marginBottom:20,
         background:'linear-gradient(135deg,rgba(99,102,241,.06),rgba(244,147,122,.04))',
         borderRadius:14, border:'1px solid rgba(99,102,241,.12)' }}>
-        <div style={{ width:50, height:50, borderRadius:'50%', background:C.grad, flexShrink:0,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:17, fontWeight:900, color:'#fff', boxShadow:`0 4px 14px ${C.coral}30` }}>
-          {initials(name || user?.full_name)}
+        <div style={{ position:'relative', cursor:'pointer' }} onClick={() => avatarInput.current?.click()}>
+          <Avatar name={name || user?.full_name} url={avatarUrl} size={54} color={C.coral}
+            border={`3px solid ${C.coral}40`}/>
+          <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'rgba(0,0,0,.35)',
+            display:'flex', alignItems:'center', justifyContent:'center', opacity:0, transition:'opacity .15s' }}
+            onMouseEnter={e => e.currentTarget.style.opacity=1}
+            onMouseLeave={e => e.currentTarget.style.opacity=0}>
+            {uploading
+              ? <Spinner size={16} color="#fff"/>
+              : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>}
+          </div>
+          <input ref={avatarInput} type="file" accept="image/*" style={{ display:'none' }} onChange={pickAvatar}/>
         </div>
         <div style={{ flex:1 }}>
           <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>{name || user?.full_name || 'Your Name'}</div>
-          <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>{email || user?.email}</div>
+          <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{email || user?.email}</div>
+          <div style={{ fontSize:11, color:'#6366f1', marginTop:4, cursor:'pointer', fontWeight:600 }}
+            onClick={() => avatarInput.current?.click()}>
+            {uploading ? 'Uploading…' : 'Change photo'}
+          </div>
         </div>
         <span style={{ fontSize:10.5, fontWeight:700, padding:'4px 12px', borderRadius:100,
           background:`${C.coral}15`, color:C.coral, border:`1px solid ${C.coral}25` }}>Pro</span>
@@ -2041,13 +2094,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                     transition:'background .12s', cursor:'pointer' }}
                     onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <div style={{ width:34, height:34, borderRadius:'50%', flexShrink:0,
-                      background:`linear-gradient(135deg,${color}44,${color}22)`,
-                      border:`2px solid ${color}55`,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      fontSize:11, fontWeight:800, color }}>
-                      {collabInitials(c)}
-                    </div>
+                    <Avatar name={collabName(c)} url={c.user?.avatar_url} size={34} color={color}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12.5, fontWeight:700, color:'#111',
                         overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
@@ -2508,14 +2555,9 @@ function PageCollaborators({ openModal, user }) {
                 {/* Avatar — overlaps the band */}
                 <div style={{ display:'flex', justifyContent:'center', marginTop:-28, marginBottom:10 }}>
                   <div style={{ position:'relative' }}>
-                    <div style={{ width:56, height:56, borderRadius:'50%',
-                      background:`linear-gradient(135deg,${color},${color}99)`,
-                      border:'3px solid #fff', display:'flex', alignItems:'center',
-                      justifyContent:'center', fontSize:17, fontWeight:900, color:'#fff',
-                      boxShadow:`0 4px 14px ${color}40` }}>
-                      {collabInitials(c)}
-                    </div>
-                    {/* Online dot on avatar */}
+                    <Avatar name={collabName(c)} url={c.user?.avatar_url} size={56} color={color}
+                      border="3px solid #fff" style={{ boxShadow:`0 4px 14px ${color}40` }}/>
+                    {/* Online dot */}
                     <div style={{ position:'absolute', bottom:2, right:2, width:13, height:13,
                       borderRadius:'50%', border:'2.5px solid #fff',
                       background: isOnline ? '#22c55e' : '#d1d5db',
@@ -3711,9 +3753,13 @@ function PageStudio({ openModal, playTrack }) {
                 </div>
 
                 {/* Uploader */}
-                <div style={{ fontSize: 9.5, color: S.text3, marginTop: 5,
-                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  by {uploaderName}
+                <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:5 }}>
+                  <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color}
+                    border={`1px solid ${color}33`}/>
+                  <span style={{ fontSize:9.5, color:S.text3,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {uploaderName}
+                  </span>
                 </div>
 
                 {/* Volume slider — visible when track is expanded */}
@@ -4616,8 +4662,7 @@ export default function App({ onLogout, user }) {
             cursor:'pointer', textAlign:'left', transition:'background .15s' }}
             onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
             onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background='transparent' }}>
-            <div style={{ width:30, height:30, borderRadius:'50%', background:C.grad, flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff' }}>{initials(user?.full_name)}</div>
+            <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)' }}>{user?.full_name || 'My Account'}</div>
               <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>Pro plan</div>
@@ -4665,9 +4710,7 @@ export default function App({ onLogout, user }) {
             boxShadow:`0 2px 12px ${C.coral}40`, transition:'opacity .15s' }}
             onMouseEnter={e => e.currentTarget.style.opacity='.9'}
             onMouseLeave={e => e.currentTarget.style.opacity='1'}>+ Upload</button>
-          <button style={{ width:30, height:30, borderRadius:'50%', background:C.grad,
-            border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:11, fontWeight:700, color:'#fff', flexShrink:0 }}>{initials(user?.full_name)}</button>
+          <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
         </header>
 
         <div style={{ flex:1, overflowY:'auto', padding:'24px', paddingBottom: nowPlaying ? 100 : 24 }}>

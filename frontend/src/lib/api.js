@@ -45,9 +45,25 @@ const del   = (path)        => request('DELETE', path)
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const auth = {
-  login:    (email, password)           => post('/auth/login',    { email, password }),
-  register: (email, password, fullName) => post('/auth/register', { email, password, fullName }),
-  logout:   ()                          => post('/auth/logout').finally(() => setToken(null)),
+  login:         (email, password)           => post('/auth/login',    { email, password }),
+  register:      (email, password, fullName) => post('/auth/register', { email, password, fullName }),
+  logout:        ()                          => post('/auth/logout').finally(() => setToken(null)),
+  updateProfile: (body)                      => request('PATCH', '/auth/profile', body),
+  uploadAvatar:  (file) => {
+    const token = getToken()
+    const form  = new FormData()
+    form.append('file', file)
+    return fetch(`${BASE}/auth/avatar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (res.status === 401) { setToken(null); window.location.href = '/login' }
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      return json
+    })
+  },
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────

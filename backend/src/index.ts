@@ -84,7 +84,8 @@ app.get('/users/:id', requireAuth, async (c) => {
     data: {
       id: u.id,
       email: u.email,
-      full_name: u.user_metadata?.full_name ?? null,
+      full_name:  u.user_metadata?.full_name  ?? null,
+      avatar_url: u.user_metadata?.avatar_url ?? null,
     },
     error: null,
     status: 200,
