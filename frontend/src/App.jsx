@@ -4266,27 +4266,33 @@ function MiniPlayer({ track, onClose }) {
 
   useEffect(() => {
     if (!track?.file_url) return
+    let cancelled = false
+    let blobUrl = null
+
     setLoadPct(audioBufferCache.has(track.file_url) ? 100 : 0)
-    const a = new Audio(track.file_url)
-    audioRef.current = a
-    a.volume = vol
-    a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
-    a.onloadedmetadata = () => setDuration(a.duration)
-    a.onended = () => setPlaying(false)
-    // Track buffering progress via the network
-    a.onprogress = () => {
-      if (!a.duration || !a.buffered.length) return
-      setLoadPct(Math.round((a.buffered.end(a.buffered.length - 1) / a.duration) * 100))
-    }
-    a.oncanplaythrough = () => setLoadPct(100)
-    const playPromise = a.play()
-    setPlaying(true)
+
+    fetchAudioCached(track.file_url, pct => {
+      if (!cancelled) setLoadPct(pct)
+    }).then(buf => {
+      if (cancelled) return
+      setLoadPct(100)
+      // Create a blob URL so the Audio element plays from memory, not the network
+      const blob = new Blob([buf.slice(0)], { type: track.mime_type || 'audio/wav' })
+      blobUrl = URL.createObjectURL(blob)
+      const a = new Audio(blobUrl)
+      audioRef.current = a
+      a.volume = vol
+      a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
+      a.onloadedmetadata = () => setDuration(a.duration)
+      a.onended = () => setPlaying(false)
+      a.play().catch(() => {})
+      setPlaying(true)
+    }).catch(() => {})
+
     return () => {
-      if (playPromise !== undefined) {
-        playPromise.then(() => { a.pause(); a.src = '' }).catch(() => { a.src = '' })
-      } else {
-        a.pause(); a.src = ''
-      }
+      cancelled = true
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
     }
   }, [track?.file_url])
 
