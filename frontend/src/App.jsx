@@ -2261,13 +2261,13 @@ function PageStudio({ openModal, playTrack }) {
     const proj = projects.find(p => p.id === activeId)
     // Load saved BPM if available
     if (proj?.bpm) { const b = parseInt(proj.bpm); setBpm(b); bpmRef.current = b }
+    setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false)
     filesApi.list(activeId)
       .then(r => {
         const list = r.data || []
         setStems(list)
-        // Auto-detect BPM if project has none stored and has audio
+        setSelectedIds(new Set(list.filter(s => s.file_url && s.instrument !== 'original').map(s => s.id)))
         if (!proj?.bpm && list.some(s => s.file_url)) {
-          // Defer so stems state is set first
           setTimeout(() => setStems(s => { /* trigger detectBPM via effect below */ return s }), 100)
         }
       })
@@ -2503,9 +2503,15 @@ function PageStudio({ openModal, playTrack }) {
   const [bouncing,       setBouncing]       = useState(false)
   const [bounceProgress, setBounceProgress] = useState(0)
   const [bounceUrl,      setBounceUrl]      = useState(null)
+  const [bouncePlaying,  setBouncePlaying]  = useState(false)
+  const [bounceTime,     setBounceTime]     = useState(0)
+  const [bounceDur,      setBounceDur]      = useState(0)
+  const [savingBounce,   setSavingBounce]   = useState(false)
+  const bouncePlayerRef  = useRef(null)
   const [volumes,        setVolumes]        = useState({})   // { stemId: 0-1 }
   const [trims,          setTrims]          = useState({})   // { stemId: { start: 0-1, end: 0-1 } }
-  const [expandedId,     setExpandedId]     = useState(null) // track showing controls
+  const [selectedIds,    setSelectedIds]    = useState(new Set()) // stems included in bounce
+  const [expandedId,     setExpandedId]     = useState(null)
   const [deletingId,     setDeletingId]     = useState(null)
   const [uploaders,      setUploaders]      = useState({})   // { userId: { name, email } }
 
@@ -2570,10 +2576,33 @@ function PageStudio({ openModal, playTrack }) {
     setDeletingId(null)
   }
 
+  const toggleBouncePlayer = () => {
+    const a = bouncePlayerRef.current
+    if (!a) return
+    if (bouncePlaying) { a.pause(); setBouncePlaying(false) }
+    else { a.play().catch(() => {}); setBouncePlaying(true) }
+  }
+
+  const saveBounce = async () => {
+    if (!bounceUrl || !activeProject) return
+    setSavingBounce(true)
+    try {
+      const blob = await fetch(bounceUrl).then(r => r.blob())
+      const token = localStorage.getItem('disco_token')
+      const form = new FormData()
+      form.append('file', blob, `${activeProject.title}_bounce.wav`)
+      form.append('project_id', activeProject.id)
+      form.append('artist_name', 'Mix')
+      await fetch('/api/files/upload', { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body: form })
+      setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false)
+    } catch (e) { console.error('[SaveBounce]', e) }
+    finally { setSavingBounce(false) }
+  }
+
   const bounceToMix = async () => {
-    const playable = stems.filter(s => s.file_url && !mutedIds.has(s.id))
+    const playable = stems.filter(s => s.file_url && selectedIds.has(s.id))
     if (!playable.length) return
-    setBouncing(true); setBounceProgress(5); setBounceUrl(null)
+    setBouncing(true); setBounceProgress(5); setBounceUrl(null); setBounceTime(0); setBounceDur(0)
 
     try {
       const tmpCtx = new (window.AudioContext || window.webkitAudioContext)()
@@ -2632,6 +2661,12 @@ function PageStudio({ openModal, playTrack }) {
       const url = URL.createObjectURL(wavBlob)
       setBounceUrl(url)
       setBounceProgress(100)
+      // Wire up preview player
+      const player = new Audio(url)
+      player.ontimeupdate = () => setBounceTime(player.currentTime)
+      player.onloadedmetadata = () => setBounceDur(player.duration)
+      player.onended = () => setBouncePlaying(false)
+      bouncePlayerRef.current = player
     } catch (e) {
       console.error('[Bounce]', e)
     } finally {
@@ -2817,15 +2852,55 @@ function PageStudio({ openModal, playTrack }) {
         {/* Right actions */}
         <div style={{ marginLeft:'auto', display:'flex', gap: 8, alignItems:'center' }}>
           {bounceUrl ? (
-            <a href={bounceUrl} download={`${activeProject?.title || 'mix'}_bounce.wav`} style={{
-              padding:'0 16px', height: 36, borderRadius: 10, border:'1px solid #22c55e44',
-              background:'rgba(34,197,94,.12)', color:'#22c55e', fontSize: 13, fontWeight: 700,
-              display:'flex', alignItems:'center', gap: 7, textDecoration:'none' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
-              Download WAV
-            </a>
+            <>
+              {/* Preview player */}
+              <div style={{ display:'flex', alignItems:'center', gap: 8, background:'rgba(34,197,94,.08)',
+                border:'1px solid #22c55e33', borderRadius: 10, padding:'0 12px', height: 36 }}>
+                <button onClick={toggleBouncePlayer} style={{ background:'none', border:'none', cursor:'pointer',
+                  color:'#22c55e', display:'flex', alignItems:'center', padding: 0 }}>
+                  {bouncePlaying
+                    ? <svg width={14} height={14} viewBox="0 0 24 24" fill="#22c55e"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    : <svg width={14} height={14} viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>}
+                </button>
+                <div onClick={e => {
+                  if (!bouncePlayerRef.current || !bounceDur) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  bouncePlayerRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * bounceDur
+                }} style={{ width: 100, height: 4, background:'rgba(34,197,94,.2)', borderRadius: 2, cursor:'pointer', position:'relative' }}>
+                  <div style={{ position:'absolute', left: 0, top: 0, height:'100%', borderRadius: 2,
+                    width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%', background:'#22c55e' }}/>
+                </div>
+                <span style={{ fontSize: 11, color:'#22c55e', fontVariantNumeric:'tabular-nums', minWidth: 36 }}>
+                  {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
+                </span>
+              </div>
+              {/* Download */}
+              <a href={bounceUrl} download={`${activeProject?.title || 'mix'}_bounce.wav`} style={{
+                padding:'0 14px', height: 36, borderRadius: 10, border:'1px solid #22c55e44',
+                background:'rgba(34,197,94,.12)', color:'#22c55e', fontSize: 13, fontWeight: 700,
+                display:'flex', alignItems:'center', gap: 6, textDecoration:'none' }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
+                Download
+              </a>
+              {/* Save to project */}
+              <button onClick={saveBounce} disabled={savingBounce} style={{
+                padding:'0 14px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 700,
+                background:'rgba(99,102,241,.12)', border:'1px solid rgba(99,102,241,.35)',
+                color:'#818cf8', cursor: savingBounce ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', gap: 6 }}>
+                {savingBounce ? <Spinner size={12} color="#818cf8"/> : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>}
+                Save
+              </button>
+              {/* Discard */}
+              <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }} style={{
+                width: 36, height: 36, borderRadius: 10, border:`1px solid ${S.border}`,
+                background:'rgba(255,255,255,.04)', color: S.text3, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </>
           ) : (
-            <button onClick={bounceToMix} disabled={bouncing || stems.length === 0} style={{
+            <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0} style={{
               padding:'0 16px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 700,
               background: bouncing ? 'rgba(255,255,255,.06)' : `${C.coral}18`,
               border: `1px solid ${bouncing ? S.border : C.coral+'44'}`,
@@ -2833,7 +2908,7 @@ function PageStudio({ openModal, playTrack }) {
               display:'flex', alignItems:'center', gap: 7, transition:'all .15s' }}>
               {bouncing
                 ? <><Spinner size={12} color={S.text3}/> {bounceProgress}%</>
-                : <><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg> Bounce Mix</>}
+                : <><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg> Bounce ({selectedIds.size})</>}
             </button>
           )}
         </div>
@@ -2883,6 +2958,9 @@ function PageStudio({ openModal, playTrack }) {
 
                 {/* Name row */}
                 <div style={{ display:'flex', alignItems:'center', gap: 7, marginBottom: 6 }}>
+                  <input type="checkbox" checked={selectedIds.has(s.id)} onClick={e => e.stopPropagation()}
+                    onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n }) }}
+                    style={{ accentColor: color, width: 13, height: 13, cursor:'pointer', flexShrink: 0 }}/>
                   <div style={{ width: 10, height: 10, borderRadius: 3,
                     background: color, flexShrink: 0, boxShadow:`0 0 6px ${color}80` }}/>
                   <div style={{ fontSize: 12, fontWeight: 600, color: S.text,
@@ -2931,6 +3009,20 @@ function PageStudio({ openModal, playTrack }) {
                   overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   by {uploaderName}
                 </div>
+
+                {/* Volume slider — visible when track is expanded */}
+                {isSelected && (
+                  <div onClick={e => e.stopPropagation()}
+                    style={{ marginTop: 8, display:'flex', alignItems:'center', gap: 6 }}>
+                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                    <input type="range" min={0} max={1} step={0.01} value={getVolume(s.id)}
+                      onChange={e => setVolumes(v => ({ ...v, [s.id]: parseFloat(e.target.value) }))}
+                      style={{ flex: 1, accentColor: color, cursor:'pointer', height: 3 }}/>
+                    <span style={{ fontSize: 9, color: S.text3, minWidth: 28, textAlign:'right' }}>
+                      {Math.round(getVolume(s.id) * 100)}%
+                    </span>
+                  </div>
+                )}
               </div>
             )
           })}
