@@ -4266,33 +4266,34 @@ function MiniPlayer({ track, onClose }) {
 
   useEffect(() => {
     if (!track?.file_url) return
-    let cancelled = false
-    let blobUrl = null
+    const cached = audioBufferCache.has(track.file_url)
+    setLoadPct(cached ? 100 : 0)
 
-    setLoadPct(audioBufferCache.has(track.file_url) ? 100 : 0)
+    const a = new Audio(track.file_url)
+    audioRef.current = a
+    a.volume = vol
+    a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
+    a.onloadedmetadata = () => setDuration(a.duration)
+    a.onended = () => setPlaying(false)
 
-    fetchAudioCached(track.file_url, pct => {
-      if (!cancelled) setLoadPct(pct)
-    }).then(buf => {
-      if (cancelled) return
-      setLoadPct(100)
-      // Create a blob URL so the Audio element plays from memory, not the network
-      const blob = new Blob([buf.slice(0)], { type: track.mime_type || 'audio/wav' })
-      blobUrl = URL.createObjectURL(blob)
-      const a = new Audio(blobUrl)
-      audioRef.current = a
-      a.volume = vol
-      a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
-      a.onloadedmetadata = () => setDuration(a.duration)
-      a.onended = () => setPlaying(false)
-      a.play().catch(() => {})
-      setPlaying(true)
-    }).catch(() => {})
+    // Update ring while buffering (works during and after playback starts)
+    a.onprogress = () => {
+      if (!a.duration || !a.buffered.length) return
+      const pct = Math.round((a.buffered.end(a.buffered.length - 1) / a.duration) * 100)
+      setLoadPct(pct)
+    }
+    a.oncanplaythrough = () => setLoadPct(100)
+
+    // Start playing as soon as the browser has enough — no 26-second wait
+    const playPromise = a.play()
+    setPlaying(true)
 
     return () => {
-      cancelled = true
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
-      if (blobUrl) URL.revokeObjectURL(blobUrl)
+      if (playPromise !== undefined) {
+        playPromise.then(() => { a.pause(); a.src = '' }).catch(() => { a.src = '' })
+      } else {
+        a.pause(); a.src = ''
+      }
     }
   }, [track?.file_url])
 
@@ -4350,7 +4351,9 @@ function MiniPlayer({ track, onClose }) {
         <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
           <span style={{ fontSize:10, color: loadPct < 100 ? C.coral : 'rgba(255,255,255,.35)',
             fontWeight: loadPct < 100 ? 600 : 400 }}>
-            {loadPct < 100 ? 'Loading audio…' : fmt(current)}
+            {loadPct < 100 && !playing ? 'Buffering…'
+              : loadPct < 100 && playing ? `Buffering ${loadPct}%`
+              : fmt(current)}
           </span>
           <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>
             {duration ? fmt(duration) : '--:--'}
