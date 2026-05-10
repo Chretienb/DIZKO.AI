@@ -1404,7 +1404,8 @@ function ModalReleaseWizard({ onClose, project }) {
               background:'rgba(255,85,0,.07)', border:'1px solid rgba(255,85,0,.2)', marginBottom:10,
               textDecoration:'none', color:'#FF5500', fontWeight:700, fontSize:13 }}>
             <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M11.56 8.87V17h8.76c1.18 0 1.68-.86 1.68-1.56 0-1.11-.87-1.56-1.68-1.56h-.44c.1-.37.15-.76.15-1.15C20.03 10.01 18.03 8 15.5 8c-.98 0-1.88.3-2.62.8-.36-.5-1.4-1.93-3.16-1.93C8.72 6.87 7 8.49 7 10.5c0 .54.13 1.05.35 1.5H7c-.55 0-1 .45-1 1s.45 1 1 1h1.56V8.87h3z"/></svg>
-            ✓ Live on SoundCloud → {result.scUrl}
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+            Live on SoundCloud → {result.scUrl}
           </a>
         )}
         {result.ytUrl && (
@@ -1412,13 +1413,15 @@ function ModalReleaseWizard({ onClose, project }) {
             style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:12,
               background:'rgba(255,0,0,.07)', border:'1px solid rgba(255,0,0,.2)', marginBottom:10,
               textDecoration:'none', color:'#FF0000', fontWeight:700, fontSize:13 }}>
-            ✓ Live on YouTube → {result.ytUrl}
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+            Live on YouTube → {result.ytUrl}
           </a>
         )}
         {result.pkg?.length > 0 && (
           <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'14px', marginBottom:10 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:6 }}>
-              📦 Export Package for {result.pkg.join(', ')}
+            <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:6, display:'flex', alignItems:'center', gap:7 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth={2} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+              Export Package for {result.pkg.join(', ')}
             </div>
             <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
               Download the ZIP and upload to RouteNote (free) or Amuse (free) to reach Spotify, Apple Music and Tidal.
@@ -1586,8 +1589,9 @@ function ModalReleaseWizard({ onClose, project }) {
       {step === 4 && (
         <div>
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:8 }}>
-              ⚡ Direct upload (requires API keys in .env)
+            <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="#22c55e"><path d="M13 2L4.09 12.26 11 12l-2 10 8.91-10.26L11 12z"/></svg>
+              Direct upload (requires API keys in .env)
             </div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
               {DIRECT_PLATFORMS.map(p => {
@@ -1597,13 +1601,14 @@ function ModalReleaseWizard({ onClose, project }) {
                     padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
                     background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
                     color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
-                    {on && '✓ '}{p}
+                    {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ marginRight:4, verticalAlign:'middle' }}><polyline points="20,6 9,17 4,12"/></svg>}{p}
                   </button>
                 )
               })}
             </div>
-            <div style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:8 }}>
-              📦 Export package → submit free on RouteNote or Amuse
+            <div style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth={2.2} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+              Export package — submit free on RouteNote or Amuse
             </div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {PACKAGE_PLATFORMS.map(p => {
@@ -1613,7 +1618,7 @@ function ModalReleaseWizard({ onClose, project }) {
                     padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
                     background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
                     color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
-                    {on && '✓ '}{p}
+                    {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ marginRight:4, verticalAlign:'middle' }}><polyline points="20,6 9,17 4,12"/></svg>}{p}
                   </button>
                 )
               })}
@@ -3896,11 +3901,11 @@ function PageAnalytics() {
 
 // ─── PAGE: DISTRIBUTION ────────────────────────────────────────────────────
 const PLATFORMS = [
-  { name:'Spotify',       color:'#1DB954', method:'package', hint:'Free via RouteNote' },
-  { name:'Apple Music',   color:'#fc3c44', method:'package', hint:'Free via RouteNote' },
-  { name:'YouTube Music', color:'#FF0000', method:'direct',  hint:'Needs Google API key' },
-  { name:'Tidal',         color:'#00bfbf', method:'package', hint:'Free via RouteNote' },
-  { name:'SoundCloud',    color:'#FF5500', method:'direct',  hint:'Needs SoundCloud key' },
+  { name:'Spotify',       color:'#1DB954', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/spotify/1DB954'       },
+  { name:'Apple Music',   color:'#fc3c44', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/applemusic/fc3c44'     },
+  { name:'YouTube Music', color:'#FF0000', method:'direct',  hint:'Add Google API key',  logo:'https://cdn.simpleicons.org/youtubemusic/FF0000'   },
+  { name:'Tidal',         color:'#00bfbf', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/tidal/00bfbf'          },
+  { name:'SoundCloud',    color:'#FF5500', method:'direct',  hint:'Add SoundCloud key',  logo:'https://cdn.simpleicons.org/soundcloud/FF5500'     },
 ]
 
 function PageDistribution({ openModal }) {
@@ -3961,14 +3966,18 @@ function PageDistribution({ openModal }) {
             boxShadow:'0 1px 4px rgba(0,0,0,.07)', border:'1.5px solid rgba(0,0,0,.06)',
             display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ width:40, height:40, borderRadius:12, background:`${p.color}14`,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:15, fontWeight:900, color:p.color }}>{p.name[0]}</div>
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <img src={p.logo} alt={p.name} width={22} height={22} style={{ objectFit:'contain' }}/>
+            </div>
             <div>
               <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:3 }}>{p.name}</div>
-              <div style={{ fontSize:10.5, fontWeight:600, padding:'2px 8px', borderRadius:100, display:'inline-block',
+              <div style={{ fontSize:10.5, fontWeight:600, padding:'2px 8px', borderRadius:100, display:'inline-flex',
+                alignItems:'center', gap:4,
                 background: p.method === 'direct' ? 'rgba(34,197,94,.1)' : 'rgba(99,102,241,.1)',
                 color: p.method === 'direct' ? '#16a34a' : '#6366f1' }}>
-                {p.method === 'direct' ? '⚡ Direct' : '📦 Package'}
+                {p.method === 'direct'
+                  ? <><svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4.09 12.26 11 12l-2 10 8.91-10.26L11 12z"/></svg>Direct</>
+                  : <><svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>Package</>}
               </div>
               <div style={{ fontSize:10.5, color:'#bbb', marginTop:4 }}>{p.hint}</div>
             </div>
@@ -3985,7 +3994,11 @@ function PageDistribution({ openModal }) {
       {loading ? <LoadingBlock /> : projects.length === 0 ? (
         <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
           borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
+          <div style={{ marginBottom:12, display:'flex', justifyContent:'center' }}>
+            <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+          </div>
           <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No projects yet</div>
           <div style={{ fontSize:13, color:'#aaa', marginBottom:20 }}>Create a project to start distributing your music</div>
           <Btn onClick={() => openModal('new-release', {})}>+ New Release</Btn>
@@ -4044,7 +4057,10 @@ function PageDistribution({ openModal }) {
                         borderRadius:6, background: c.done ? 'rgba(34,197,94,.1)' : 'rgba(0,0,0,.05)',
                         color: c.done ? '#16a34a' : '#bbb',
                         display:'flex', alignItems:'center', gap:3 }}>
-                        {c.done ? '✓' : '○'} {c.sub ? `${c.label} (${c.sub})` : c.label}
+                        {c.done
+                          ? <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                          : <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="9"/></svg>}
+                        {' '}{c.sub ? `${c.label} (${c.sub})` : c.label}
                       </div>
                     ))}
                   </div>
@@ -4082,19 +4098,27 @@ function PageDistribution({ openModal }) {
                       {s.artist_name || '—'} · {s.release_type || 'Release'} · {s.genre || '—'}
                     </div>
                   </div>
-                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                    {plats.slice(0,3).map(p => (
-                      <span key={p} style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6,
-                        background: `${PLATFORMS.find(x=>x.name===p)?.color || '#888'}18`,
-                        color: PLATFORMS.find(x=>x.name===p)?.color || '#888' }}>{p}</span>
-                    ))}
-                    {plats.length > 3 && <span style={{ fontSize:10, color:'#bbb' }}>+{plats.length-3}</span>}
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {plats.slice(0,4).map(p => {
+                      const meta = PLATFORMS.find(x => x.name === p)
+                      return meta ? (
+                        <img key={p} src={meta.logo} title={p} alt={p} width={16} height={16}
+                          style={{ objectFit:'contain', opacity:.85 }}/>
+                      ) : (
+                        <span key={p} style={{ fontSize:10, color:'#bbb' }}>{p}</span>
+                      )
+                    })}
+                    {plats.length > 4 && <span style={{ fontSize:10, color:'#bbb' }}>+{plats.length-4}</span>}
                   </div>
                   <div style={{ fontSize:11.5, color:'#aaa' }}>{timeAgo(s.created_at)}</div>
                   <div style={{ textAlign:'right' }}>
                     {s.soundcloud_url || s.youtube_url ? (
                       <span style={{ fontSize:11, fontWeight:700, color:'#16a34a',
-                        background:'rgba(34,197,94,.1)', padding:'3px 10px', borderRadius:100 }}>● Live</span>
+                        background:'rgba(34,197,94,.1)', padding:'3px 10px', borderRadius:100,
+                        display:'inline-flex', alignItems:'center', gap:4 }}>
+                        <svg width={7} height={7} viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#16a34a"/></svg>
+                        Live
+                      </span>
                     ) : (
                       <span style={{ fontSize:11, fontWeight:700, color:'#b45309',
                         background:'rgba(245,201,122,.15)', padding:'3px 10px', borderRadius:100 }}>Pending</span>
