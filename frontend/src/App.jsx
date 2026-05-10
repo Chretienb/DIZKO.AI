@@ -3895,222 +3895,217 @@ function PageAnalytics() {
 }
 
 // ─── PAGE: DISTRIBUTION ────────────────────────────────────────────────────
+const PLATFORMS = [
+  { name:'Spotify',       color:'#1DB954', method:'package', hint:'Free via RouteNote' },
+  { name:'Apple Music',   color:'#fc3c44', method:'package', hint:'Free via RouteNote' },
+  { name:'YouTube Music', color:'#FF0000', method:'direct',  hint:'Needs Google API key' },
+  { name:'Tidal',         color:'#00bfbf', method:'package', hint:'Free via RouteNote' },
+  { name:'SoundCloud',    color:'#FF5500', method:'direct',  hint:'Needs SoundCloud key' },
+]
+
 function PageDistribution({ openModal }) {
-  const [projects,    setProjects]    = useState([])
-  const [projectFiles, setProjectFiles] = useState({})
-  const [loading,     setLoading]     = useState(true)
+  const [projects,     setProjects]     = useState([])
+  const [fileCounts,   setFileCounts]   = useState({})
+  const [submissions,  setSubmissions]  = useState([])
+  const [loading,      setLoading]      = useState(true)
 
   useEffect(() => {
     projectsApi.list()
       .then(async res => {
         const projs = res.data || []
         setProjects(projs)
-        // Load file counts for each project to power the checklist
-        const fileCounts = {}
-        await Promise.all(
-          projs.map(p =>
-            filesApi.list(p.id)
-              .then(r => { fileCounts[p.id] = (r.data || []).length })
-              .catch(() => { fileCounts[p.id] = 0 })
+        const counts = {}
+        await Promise.all(projs.map(p =>
+          filesApi.list(p.id)
+            .then(r => { counts[p.id] = (r.data || []).filter(f => f.instrument !== 'original').length })
+            .catch(() => { counts[p.id] = 0 })
+        ))
+        setFileCounts(counts)
+        // Load past submissions
+        if (projs.length) {
+          const subs = await Promise.all(
+            projs.map(p => distributionApi.list(p.id)
+              .then(r => (r.data || []).map(d => ({ ...d, projectTitle: p.title })))
+              .catch(() => []))
           )
-        )
-        setProjectFiles(fileCounts)
+          setSubmissions(subs.flat().sort((a,b) => new Date(b.created_at) - new Date(a.created_at)))
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  const nextRelease = projects[0] ?? null
-  const fileCount   = nextRelease ? (projectFiles[nextRelease.id] ?? null) : null
-
-  // Derive checklist from real data
-  const checklist = nextRelease ? [
-    { label:'Project created',             done: true },
-    { label:'Files uploaded',              done: fileCount !== null && fileCount > 0, sub: fileCount !== null ? `${fileCount} file${fileCount !== 1 ? 's' : ''} uploaded` : null },
-    { label:'Project status set',          done: !!nextRelease.status },
-    { label:'Project type set',            done: !!nextRelease.type },
-    { label:'Cover art uploaded',          done: false },
-    { label:'Distributor review approved', done: false },
-    { label:'Release date confirmed',      done: false },
-  ] : []
-
-  const doneCount = checklist.filter(i => i.done).length
-  const pct = checklist.length ? Math.round((doneCount / checklist.length) * 100) : 0
-
-  const PLATFORM_LIST = [
-    { name:'Spotify',       color:'#1DB954' },
-    { name:'Apple Music',   color:'#fc3c44' },
-    { name:'YouTube Music', color:'#FF0000' },
-    { name:'Tidal',         color:'#00bfbf' },
-    { name:'SoundCloud',    color:'#FF5500' },
+  const gradients = [
+    'linear-gradient(135deg,#F4937A,#c0394f)',
+    'linear-gradient(135deg,#F7D98B,#d4793a)',
+    'linear-gradient(135deg,#E8709A,#8b1a4a)',
+    'linear-gradient(135deg,#a0e0f0,#2060b0)',
+    'linear-gradient(135deg,#c0a0f0,#6020c0)',
   ]
 
   return (
     <>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28 }}>
         <div>
           <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Distribution</h1>
-          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Release your music across all major platforms</p>
+          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Release your music — direct to SoundCloud & YouTube, or export for Spotify & Apple Music</p>
         </div>
         <Btn onClick={() => openModal('new-release', {})}>+ New Release</Btn>
       </div>
 
-      {/* Next release banner */}
-      <div style={{ borderRadius:16, background:'linear-gradient(135deg,#111 0%,#2a0a14 100%)',
-        padding:'24px 28px', marginBottom:24, display:'flex', alignItems:'center', gap:24,
-        boxShadow:'0 8px 32px rgba(0,0,0,.2)' }}>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,.4)', fontWeight:600, letterSpacing:'.08em',
-            textTransform:'uppercase', marginBottom:8 }}>Next Release</div>
-          <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.8px', marginBottom:6 }}>
-            {loading ? <Spinner size={20} color="rgba(255,255,255,.6)" /> : nextRelease?.title || 'No projects yet'}
-          </div>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:16 }}>
-            {nextRelease
-              ? `${nextRelease.type || 'Project'} · ${nextRelease.status || 'Draft'} · Created ${timeAgo(nextRelease.created_at)}`
-              : 'Create a project to get started'}
-          </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            {PLATFORM_LIST.map(p => (
-              <span key={p.name} style={{ fontSize:10.5, padding:'4px 12px', borderRadius:100,
-                background:'rgba(255,255,255,.08)', color:'rgba(255,255,255,.5)',
-                border:'1px solid rgba(255,255,255,.1)', fontWeight:500 }}>{p.name}</span>
-            ))}
-          </div>
-        </div>
-        <div style={{ textAlign:'right', flexShrink:0 }}>
-          <div style={{ fontSize:12, color:'rgba(255,255,255,.35)', marginBottom:6 }}>Ready</div>
-          <div style={{ fontSize:20, fontWeight:900, color:C.coral, letterSpacing:'-1px' }}>
-            {nextRelease ? `${pct}%` : '—'}
-          </div>
-          <button onClick={() => openModal('schedule', nextRelease || {})}
-            disabled={!nextRelease}
-            style={{ marginTop:14, padding:'10px 22px', borderRadius:100,
-              background: nextRelease ? C.grad : 'rgba(255,255,255,.1)',
-              border:'none', color:'#fff', fontSize:13, fontWeight:700,
-              cursor: nextRelease ? 'pointer' : 'default',
-              boxShadow: nextRelease ? `0 4px 16px ${C.coral}50` : 'none', transition:'opacity .15s' }}
-            onMouseEnter={e => { if(nextRelease) e.currentTarget.style.opacity='.9' }}
-            onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-            Schedule →
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-        {/* Platforms — no fake percentages */}
-        <Card style={{ overflow:'hidden' }}>
-          <SectionHeader title="Target Platforms" sub="Where your music will be distributed" />
-          <div style={{ padding:'12px 0' }}>
-            {PLATFORM_LIST.map((p, i) => (
-              <div key={p.name} style={{ padding:'12px 22px', borderBottom: i < PLATFORM_LIST.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
-                display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ width:36, height:36, borderRadius:10, background:`${p.color}14`, flexShrink:0,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:12, fontWeight:800, color:p.color }}>{p.name[0]}</div>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>{p.name}</div>
-                  <div style={{ fontSize:11.5, color:'#bbb', marginTop:1 }}>Distribution ready</div>
-                </div>
+      {/* ── Platform tiles ─────────────────────────────────────────────── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:24 }}>
+        {PLATFORMS.map(p => (
+          <div key={p.name} style={{ borderRadius:14, padding:'16px', background:'#fff',
+            boxShadow:'0 1px 4px rgba(0,0,0,.07)', border:'1.5px solid rgba(0,0,0,.06)',
+            display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:`${p.color}14`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:15, fontWeight:900, color:p.color }}>{p.name[0]}</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:3 }}>{p.name}</div>
+              <div style={{ fontSize:10.5, fontWeight:600, padding:'2px 8px', borderRadius:100, display:'inline-block',
+                background: p.method === 'direct' ? 'rgba(34,197,94,.1)' : 'rgba(99,102,241,.1)',
+                color: p.method === 'direct' ? '#16a34a' : '#6366f1' }}>
+                {p.method === 'direct' ? '⚡ Direct' : '📦 Package'}
               </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Release Checklist — driven by real project data */}
-        <Card style={{ overflow:'hidden' }}>
-          <SectionHeader title="Release Checklist" sub={nextRelease?.title || 'No project selected'} />
-          {loading ? (
-            <LoadingBlock />
-          ) : !nextRelease ? (
-            <div style={{ padding:'32px', textAlign:'center' }}>
-              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}>
-                <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-              </svg>
-              <div style={{ fontSize:13, color:'#bbb' }}>Create a project to see your checklist</div>
+              <div style={{ fontSize:10.5, color:'#bbb', marginTop:4 }}>{p.hint}</div>
             </div>
-          ) : (
-            <>
-              <div style={{ padding:'8px 0' }}>
-                {checklist.map((item, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 22px',
-                    borderBottom: i < checklist.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
-                    <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0,
-                      background: item.done ? '#22c55e' : 'rgba(0,0,0,.06)',
-                      border: item.done ? 'none' : '2px solid rgba(0,0,0,.12)',
-                      display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      {item.done && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
-                    </div>
-                    <div>
-                      <span style={{ fontSize:13, color: item.done ? '#333' : '#999', fontWeight: item.done ? 600 : 400 }}>{item.label}</span>
-                      {item.sub && <div style={{ fontSize:11, color:'#aaa', marginTop:1 }}>{item.sub}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ padding:'14px 22px', background:'rgba(0,0,0,.02)', borderTop:'1px solid rgba(0,0,0,.05)' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:8 }}>
-                  <span style={{ color:'#aaa', fontWeight:500 }}>Progress</span>
-                  <span style={{ color:'#111', fontWeight:700 }}>{doneCount} / {checklist.length} complete</span>
-                </div>
-                <div style={{ height:5, background:'rgba(0,0,0,.06)', borderRadius:5 }}>
-                  <div style={{ width:`${pct}%`, height:'100%', background:C.grad, borderRadius:5, transition:'width .4s' }} />
-                </div>
-              </div>
-            </>
-          )}
-        </Card>
+          </div>
+        ))}
       </div>
 
-      {/* Projects as releases */}
-      <Card style={{ overflow:'hidden' }}>
-        <SectionHeader title="Your Projects" sub="Ready to distribute" action="+ New Release" onAction={() => openModal('new-release', {})} />
-        {loading ? (
-          <LoadingBlock />
-        ) : projects.length === 0 ? (
-          <div style={{ padding:'40px', textAlign:'center' }}>
-            <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:12 }}>
-              <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-            </svg>
-            <div style={{ fontSize:13.5, color:'#bbb', fontWeight:500 }}>No projects yet</div>
-            <div style={{ fontSize:12, color:'#ccc', marginTop:4 }}>Create your first project to get started</div>
-          </div>
-        ) : (
-          <div style={{ padding:'6px 0' }}>
-            {projects.map((p, i) => (
-              <div key={p.id} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 22px',
-                borderBottom: i < projects.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
-                cursor:'pointer', transition:'background .12s' }}
+      {/* ── Project release cards ───────────────────────────────────────── */}
+      <div style={{ marginBottom:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <h2 style={{ margin:0, fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Your Releases</h2>
+        <span style={{ fontSize:12, color:'#aaa' }}>{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {loading ? <LoadingBlock /> : projects.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
+          borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
+          <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No projects yet</div>
+          <div style={{ fontSize:13, color:'#aaa', marginBottom:20 }}>Create a project to start distributing your music</div>
+          <Btn onClick={() => openModal('new-release', {})}>+ New Release</Btn>
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:28 }}>
+          {projects.map((p, i) => {
+            const stems  = fileCounts[p.id] ?? 0
+            const ready  = stems > 0 && !!p.type
+            const sub    = submissions.find(s => s.project_id === p.id)
+            const status = sub?.status ?? (ready ? 'ready' : 'draft')
+            const statusStyle = {
+              submitted: { bg:'rgba(34,197,94,.1)',  color:'#16a34a', label:'Submitted' },
+              ready:     { bg:`${C.coral}12`,         color:C.coral,   label:'Ready'     },
+              draft:     { bg:'rgba(0,0,0,.05)',       color:'#888',    label:'Draft'     },
+            }[status] ?? { bg:'rgba(0,0,0,.05)', color:'#888', label: status }
+
+            return (
+              <div key={p.id} style={{ borderRadius:18, overflow:'hidden', background:'#fff',
+                boxShadow:'0 2px 12px rgba(0,0,0,.08)', transition:'transform .2s, box-shadow .2s',
+                cursor:'pointer', display:'flex', flexDirection:'column' }}
                 onClick={() => openModal('schedule', p)}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                <div style={{ width:42, height:42, borderRadius:10, flexShrink:0,
-                  background:C.grad, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,.13)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.08)' }}>
+
+                {/* Artwork banner */}
+                <div style={{ height:100, background:gradients[i % gradients.length],
+                  position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={1.5} strokeLinecap="round">
                     <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
                   </svg>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13.5, fontWeight:700, color:'#111', letterSpacing:'-.3px',
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
-                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>
-                    {p.type || 'Project'} · Created {timeAgo(p.created_at)}
-                    {projectFiles[p.id] != null ? ` · ${projectFiles[p.id]} file${projectFiles[p.id] !== 1 ? 's' : ''}` : ''}
+                  <div style={{ position:'absolute', top:10, right:10,
+                    fontSize:10.5, fontWeight:700, padding:'3px 10px', borderRadius:100,
+                    background: statusStyle.bg, color: statusStyle.color }}>
+                    {statusStyle.label}
                   </div>
                 </div>
-                <span style={{
-                  fontSize:11.5, fontWeight:700, padding:'5px 12px', borderRadius:100,
-                  ...(p.status === 'released'
-                    ? { color:'#22c55e', background:'rgba(34,197,94,.08)' }
-                    : p.status === 'review'
-                    ? { color:'#b45309', background:'rgba(245,201,122,.15)' }
-                    : { color:'#888', background:'rgba(0,0,0,.06)' })
-                }}>{p.status || 'draft'}</span>
+
+                {/* Info */}
+                <div style={{ padding:'14px 16px 16px', flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
+                  <div style={{ fontSize:11.5, color:'#aaa' }}>
+                    {p.type || 'Project'} · {timeAgo(p.created_at)}
+                  </div>
+
+                  {/* Mini checklist */}
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}>
+                    {[
+                      { label:'Files',    done: stems > 0,     sub: `${stems}` },
+                      { label:'Type',     done: !!p.type                        },
+                      { label:'Cover',    done: false                           },
+                      { label:'Date',     done: !!p.release_date                },
+                    ].map(c => (
+                      <div key={c.label} style={{ fontSize:10, fontWeight:600, padding:'2px 7px',
+                        borderRadius:6, background: c.done ? 'rgba(34,197,94,.1)' : 'rgba(0,0,0,.05)',
+                        color: c.done ? '#16a34a' : '#bbb',
+                        display:'flex', alignItems:'center', gap:3 }}>
+                        {c.done ? '✓' : '○'} {c.sub ? `${c.label} (${c.sub})` : c.label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CTA */}
+                  <button style={{ marginTop:'auto', paddingTop:10, width:'100%', padding:'9px',
+                    borderRadius:10, border:'none', background: ready ? C.grad : 'rgba(0,0,0,.05)',
+                    color: ready ? '#fff' : '#bbb', fontWeight:700, fontSize:12.5, cursor:'pointer',
+                    boxShadow: ready ? `0 3px 10px ${C.coral}30` : 'none' }}>
+                    {ready ? 'Distribute Now →' : 'Complete Setup'}
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Submission history ──────────────────────────────────────────── */}
+      {submissions.length > 0 && (
+        <>
+          <h2 style={{ margin:'0 0 12px', fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>
+            Submission History
+          </h2>
+          <Card style={{ overflow:'hidden' }}>
+            {submissions.map((s, i) => {
+              const plats = Array.isArray(s.platforms) ? s.platforms : []
+              return (
+                <div key={s.id} style={{ display:'grid', gridTemplateColumns:'1fr 160px 140px 100px',
+                  alignItems:'center', padding:'13px 22px',
+                  borderBottom: i < submissions.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>{s.projectTitle}</div>
+                    <div style={{ fontSize:11.5, color:'#aaa', marginTop:1 }}>
+                      {s.artist_name || '—'} · {s.release_type || 'Release'} · {s.genre || '—'}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                    {plats.slice(0,3).map(p => (
+                      <span key={p} style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6,
+                        background: `${PLATFORMS.find(x=>x.name===p)?.color || '#888'}18`,
+                        color: PLATFORMS.find(x=>x.name===p)?.color || '#888' }}>{p}</span>
+                    ))}
+                    {plats.length > 3 && <span style={{ fontSize:10, color:'#bbb' }}>+{plats.length-3}</span>}
+                  </div>
+                  <div style={{ fontSize:11.5, color:'#aaa' }}>{timeAgo(s.created_at)}</div>
+                  <div style={{ textAlign:'right' }}>
+                    {s.soundcloud_url || s.youtube_url ? (
+                      <span style={{ fontSize:11, fontWeight:700, color:'#16a34a',
+                        background:'rgba(34,197,94,.1)', padding:'3px 10px', borderRadius:100 }}>● Live</span>
+                    ) : (
+                      <span style={{ fontSize:11, fontWeight:700, color:'#b45309',
+                        background:'rgba(245,201,122,.15)', padding:'3px 10px', borderRadius:100 }}>Pending</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </Card>
+        </>
+      )}
     </>
   )
 }
