@@ -3590,108 +3590,152 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       {/* ══ TRANSPORT ═══════════════════════════════════════════════════ */}
       <div style={{ height:64, flexShrink:0, background: S.surface,
         borderBottom:`1px solid ${S.border}`,
-        display:'flex', alignItems:'center', padding:'0 28px', gap:20 }}>
+        display:'grid', gridTemplateColumns:'1fr auto 1fr',
+        alignItems:'center', padding:'0 24px' }}>
 
-        {/* Project name */}
-        <div style={{ minWidth:0 }}>
-          <div style={{ fontSize:13.5, fontWeight:800, color: S.text, letterSpacing:'-.3px',
-            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200 }}>
-            {activeProject?.title || 'Studio'}
+        {/* Left — project info */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:13, fontWeight:800, color: S.text, letterSpacing:'-.3px',
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:180 }}>
+              {activeProject?.title || 'Studio'}
+            </div>
+            <div style={{ fontSize:10, color: S.text3, marginTop:1 }}>
+              {mixerStems.length} stem{mixerStems.length !== 1 ? 's' : ''}
+              {playing && <span style={{ color:C.coral, marginLeft:6 }}>● playing</span>}
+            </div>
           </div>
-          <div style={{ fontSize:10.5, color: S.text3, marginTop:1 }}>
-            {mixerStems.length} stem{mixerStems.length !== 1 ? 's' : ''}
-          </div>
+          {projects.length > 1 && projects.map(p => (
+            <button key={p.id} onClick={() => setActiveId(p.id)} style={{
+              padding:'3px 10px', borderRadius:100, fontSize:11, fontWeight:600, cursor:'pointer',
+              background: activeId === p.id ? `${C.coral}12` : 'transparent',
+              border: `1px solid ${activeId === p.id ? C.coral+'35' : S.border}`,
+              color: activeId === p.id ? C.coral : S.text3, flexShrink:0 }}>
+              {p.title}
+            </button>
+          ))}
         </div>
 
-        {projects.length > 1 && projects.map(p => (
-          <button key={p.id} onClick={() => setActiveId(p.id)} style={{
-            padding:'4px 11px', borderRadius:100, fontSize:11.5, fontWeight:600, cursor:'pointer',
-            background: activeId === p.id ? `${C.coral}15` : 'transparent',
-            border: `1px solid ${activeId === p.id ? C.coral+'40' : S.border}`,
-            color: activeId === p.id ? C.coral : S.text2 }}>
-            {p.title}
-          </button>
-        ))}
+        {/* Centre — transport cluster */}
+        <div style={{ display:'flex', alignItems:'center', gap:0,
+          background: S.bg, borderRadius:16, border:`1px solid ${S.border}`,
+          padding:'6px 8px', gap:2 }}>
 
-        <div style={{ flex:1 }}/>
-
-        {/* ── Playback controls ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={stop} style={{ width:34, height:34, borderRadius:10,
-            border:`1px solid ${S.border}`, background: S.surface,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', color: S.text3, transition:'all .12s' }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=S.border2; e.currentTarget.style.color=S.text }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor=S.border;  e.currentTarget.style.color=S.text3 }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
+          {/* Stop */}
+          <button onClick={stop}
+            style={{ width:36, height:36, borderRadius:10, border:'none',
+              background:'transparent', display:'flex', alignItems:'center',
+              justifyContent:'center', cursor:'pointer', color: S.text3,
+              transition:'background .12s, color .12s' }}
+            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(0,0,0,.06)'; e.currentTarget.style.color=S.text }}
+            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=S.text3 }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
+              <rect x={4} y={4} width={16} height={16} rx={3}/>
+            </svg>
           </button>
 
+          {/* Play */}
           {Object.keys(loadingPct).length > 0 ? (
             <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-              size={44} stroke={3} color={C.coral} bg={S.border}>
-              <span style={{ fontSize:10, fontWeight:800, color:C.coral }}>
+              size={40} stroke={2.5} color={C.coral} bg={S.border}>
+              <span style={{ fontSize:9.5, fontWeight:800, color:C.coral }}>
                 {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
               </span>
             </ProgressRing>
           ) : (
-            <button onClick={playing ? pause : playAll} style={{
-              width:44, height:44, borderRadius:14, border:'none', background: S.grad,
-              display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-              boxShadow: playing ? `0 0 20px ${C.coral}40, 0 4px 12px rgba(0,0,0,.15)` : '0 4px 12px rgba(0,0,0,.12)',
-              transition:'box-shadow .2s, transform .1s' }}
-              onMouseEnter={e=>e.currentTarget.style.transform='scale(1.05)'}
-              onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+            <button onClick={playing ? pause : playAll}
+              style={{ width:40, height:40, borderRadius:12, border:'none',
+                background: playing ? S.grad : S.grad,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer',
+                boxShadow: playing ? `0 0 16px ${C.coral}50, 0 2px 8px rgba(0,0,0,.12)` : '0 2px 8px rgba(0,0,0,.1)',
+                transition:'box-shadow .2s, transform .1s' }}
+              onMouseEnter={e => e.currentTarget.style.transform='scale(1.06)'}
+              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
               {playing
-                ? <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
-                : <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
+                ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+                : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
             </button>
           )}
 
-          {/* Timecode */}
-          <div style={{ background: S.bg, border:`1px solid ${S.border}`, borderRadius:9,
-            padding:'5px 13px', fontFamily:"'SF Mono','Fira Code',monospace",
-            fontSize:16, color: C.coral, letterSpacing:'0.1em', fontWeight:700,
-            display:'flex', alignItems:'center', gap:3 }}>
-            <span>{String(bar).padStart(2,'0')}</span>
-            <span style={{ color: S.text3, fontSize:13 }}>:</span>
-            <span>{beat}</span>
-            <span style={{ color: S.text3, fontSize:13 }}>:</span>
-            <span style={{ fontSize:13, opacity:.55 }}>{tick}</span>
+          {/* Divider */}
+          <div style={{ width:1, height:24, background: S.border, margin:'0 6px' }}/>
+
+          {/* Timecode — BAR.BEAT.TICK */}
+          <div style={{ fontFamily:"'SF Mono','Fira Code',monospace", display:'flex',
+            alignItems:'baseline', gap:1, padding:'0 6px', userSelect:'none' }}>
+            <span style={{ fontSize:18, fontWeight:700, color: S.text, letterSpacing:'-.5px' }}>
+              {String(bar).padStart(2,'0')}
+            </span>
+            <span style={{ fontSize:11, color: S.text3, fontWeight:500, margin:'0 1px' }}>.</span>
+            <span style={{ fontSize:18, fontWeight:700, color: S.text, letterSpacing:'-.5px' }}>
+              {String(beat).padStart(2,'0')}
+            </span>
+            <span style={{ fontSize:11, color: S.text3, fontWeight:500, margin:'0 1px' }}>.</span>
+            <span style={{ fontSize:13, fontWeight:500, color: S.text3, letterSpacing:'-.3px' }}>
+              {String(tick).padStart(2,'0')}
+            </span>
           </div>
 
-          <span style={{ fontSize:11.5, color: S.text3, fontFamily:'monospace', minWidth:32 }}>{fmt(currentTime)}</span>
-          <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
-            background: beatFlash ? C.coral : S.border,
-            boxShadow: beatFlash ? `0 0 10px ${C.coral}` : 'none',
-            transition: beatFlash ? 'none' : 'background .15s' }}/>
+          {/* Divider */}
+          <div style={{ width:1, height:24, background: S.border, margin:'0 6px' }}/>
+
+          {/* Elapsed + beat flash */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 4px' }}>
+            <span style={{ fontSize:12, color: S.text2, fontFamily:'monospace', minWidth:36 }}>
+              {fmt(currentTime)}
+            </span>
+            <div style={{ width:7, height:7, borderRadius:'50%',
+              background: beatFlash ? C.coral : 'rgba(0,0,0,.12)',
+              boxShadow: beatFlash ? `0 0 8px ${C.coral}` : 'none',
+              transition: beatFlash ? 'none' : 'background .15s, box-shadow .15s' }}/>
+          </div>
         </div>
 
-        <div style={{ flex:1 }}/>
-
-        {/* ── BPM ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, background: S.bg,
-            border:`1px solid ${S.border}`, borderRadius:9, padding:'5px 12px' }}>
-            <span style={{ fontSize:9, fontWeight:700, color: S.text3, textTransform:'uppercase', letterSpacing:'.1em' }}>BPM</span>
-            <input type="number" min={40} max={250} value={bpm} step={1}
-              onChange={e => handleBpmChange(e.target.value)}
-              style={{ width:38, background:'none', border:'none', outline:'none',
-                fontSize:15, fontWeight:800, color: S.text, fontFamily:'monospace',
-                textAlign:'center', padding:0 }}/>
+        {/* Right — BPM */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent:'flex-end' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:0,
+            background: S.bg, border:`1px solid ${S.border}`, borderRadius:12,
+            overflow:'hidden' }}>
+            <button onClick={() => handleBpmChange(bpm - 1)} disabled={bpm <= 40}
+              style={{ width:30, height:34, border:'none', background:'transparent',
+                cursor:'pointer', color: S.text3, fontSize:16, display:'flex',
+                alignItems:'center', justifyContent:'center', transition:'background .1s' }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.05)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>−</button>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+              padding:'0 8px', borderLeft:`1px solid ${S.border}`, borderRight:`1px solid ${S.border}` }}>
+              <input type="number" min={40} max={250} value={bpm} step={1}
+                onChange={e => handleBpmChange(e.target.value)}
+                style={{ width:42, background:'none', border:'none', outline:'none',
+                  fontSize:16, fontWeight:800, color: S.text, fontFamily:'monospace',
+                  textAlign:'center', padding:0, cursor:'text' }}/>
+              <span style={{ fontSize:8.5, fontWeight:700, color: S.text3,
+                textTransform:'uppercase', letterSpacing:'.1em', marginTop:-1 }}>BPM</span>
+            </div>
+            <button onClick={() => handleBpmChange(bpm + 1)} disabled={bpm >= 250}
+              style={{ width:30, height:34, border:'none', background:'transparent',
+                cursor:'pointer', color: S.text3, fontSize:16, display:'flex',
+                alignItems:'center', justifyContent:'center', transition:'background .1s' }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.05)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>+</button>
           </div>
-          <input type="range" min={40} max={250} value={bpm} step={1}
-            onChange={e => handleBpmChange(e.target.value)}
-            style={{ width:56, accentColor: C.coral, cursor:'pointer', opacity:.5 }}/>
+
           <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
-            style={{ height:30, padding:'0 11px', borderRadius:8, fontSize:11.5, fontWeight:600,
+            style={{ height:34, padding:'0 13px', borderRadius:11, fontSize:11.5, fontWeight:700,
               background: detectingBpm ? S.bg : `${C.coral}12`,
-              border: `1px solid ${detectingBpm ? S.border : C.coral+'35'}`,
+              border: `1px solid ${detectingBpm ? S.border : C.coral+'30'}`,
               color: detectingBpm ? S.text3 : C.coral,
               cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
-              display:'flex', alignItems:'center', gap:5 }}>
+              display:'flex', alignItems:'center', gap:6, transition:'all .12s' }}>
             {detectingBpm
               ? <><Spinner size={9} color={S.text3}/> Detecting…</>
-              : <><svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/></svg>Detect</>}
+              : <>
+                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                    <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                  Detect BPM
+                </>}
           </button>
         </div>
       </div>
