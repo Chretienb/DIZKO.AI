@@ -4690,7 +4690,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <img src={logo} style={{ width:36, height:36, borderRadius:10, objectFit:'cover', flexShrink:0 }} alt="" />
           <div>
             <div style={{ fontSize:15, fontWeight:800, color:'#fff', letterSpacing:'-.4px', lineHeight:1.1 }}>
-              Disco<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}> AI</span>
+              Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
             </div>
             <div style={{ fontSize:9, color:'rgba(255,255,255,.3)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
           </div>
