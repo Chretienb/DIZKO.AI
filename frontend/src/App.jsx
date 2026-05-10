@@ -845,9 +845,9 @@ function ModalMessage({ collab, onClose, currentUserId }) {
       .channel(`messages:${[currentUserId, otherId].sort().join('-')}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new
-        const inConv = (m.from_user_id === currentUserId && m.to_user_id === otherId) ||
-                       (m.from_user_id === otherId       && m.to_user_id === currentUserId)
-        if (inConv) setMsgs(prev => [...prev, m])
+        // Only append messages from the other person — our own are added immediately on send
+        if (m.from_user_id === otherId && m.to_user_id === currentUserId)
+          setMsgs(prev => [...prev, m])
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -861,10 +861,14 @@ function ModalMessage({ collab, onClose, currentUserId }) {
   const send = async () => {
     if (!msg.trim() || !otherId || sending) return
     setSending(true)
+    const text = msg.trim()
+    setMsg('')
     try {
-      await messagesApi.send(otherId, msg.trim())
-      setMsg('')
-    } catch {}
+      const r = await messagesApi.send(otherId, text)
+      if (r.data) setMsgs(prev => [...prev, r.data])
+    } catch {
+      setMsg(text) // restore on failure
+    }
     setSending(false)
   }
 
