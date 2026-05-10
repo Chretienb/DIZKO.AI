@@ -3549,18 +3549,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   // total arrangement width
   const arrangementW = Math.max(800, (duration || 30) * PPS + 200)
 
-  // Studio palette — dark but not pitch-black, warm tones
+  // Studio palette — light
   const S = {
-    bg:      '#0e0e1a',
-    surface: '#13132a',
-    panel:   '#111120',
-    border:  'rgba(255,255,255,.07)',
-    border2: 'rgba(255,255,255,.13)',
+    bg:      '#f0f0f4',
+    surface: '#ffffff',
+    panel:   '#f8f8fb',
+    border:  'rgba(0,0,0,.08)',
+    border2: 'rgba(0,0,0,.14)',
     accent:  C.coral,
-    green:   '#22c55e',
-    text:    'rgba(255,255,255,.92)',
-    text2:   'rgba(255,255,255,.45)',
-    text3:   'rgba(255,255,255,.22)',
+    green:   '#16a34a',
+    text:    '#111111',
+    text2:   '#666666',
+    text3:   '#aaaaaa',
     grad:    `linear-gradient(135deg, ${C.coral}, #a855f7)`,
   }
 
@@ -3605,7 +3605,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           {projects.length > 1 && projects.map(p => (
             <button key={p.id} onClick={() => setActiveId(p.id)} style={{
               padding:'4px 10px', borderRadius:100, fontSize:11, fontWeight:600, cursor:'pointer',
-              background: activeId === p.id ? `${C.coral}20` : 'rgba(255,255,255,.05)',
+              background: activeId === p.id ? `${C.coral}20` : 'rgba(0,0,0,.04)',
               border: `1px solid ${activeId === p.id ? C.coral+'50' : S.border}`,
               color: activeId === p.id ? C.coral : S.text2 }}>
               {p.title}
@@ -3620,18 +3620,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent:'center' }}>
           {/* Stop */}
           <button onClick={stop} style={{ width:36, height:36, borderRadius:10,
-            border:`1px solid ${S.border}`, background:'rgba(255,255,255,.05)',
+            border:`1px solid ${S.border}`, background:'rgba(0,0,0,.04)',
             display:'flex', alignItems:'center', justifyContent:'center',
             cursor:'pointer', color: S.text2, transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.1)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.05)'}>
+            onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.08)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.04)'}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={2}/></svg>
           </button>
 
           {/* Play / loading ring */}
           {Object.keys(loadingPct).length > 0 ? (
             <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-              size={52} stroke={3.5} color={C.coral} bg="rgba(255,255,255,.08)">
+              size={52} stroke={3.5} color={C.coral} bg="rgba(0,0,0,.06)">
               <span style={{ fontSize:11, fontWeight:800, color:'#fff' }}>
                 {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
               </span>
@@ -3640,7 +3640,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             <button onClick={playing ? pause : playAll} style={{
               width:52, height:52, borderRadius:16, border:'none', background: S.grad,
               display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-              boxShadow: playing ? `0 0 28px ${C.coral}55, 0 8px 20px rgba(0,0,0,.4)` : '0 6px 20px rgba(0,0,0,.5)',
+              boxShadow: playing ? `0 0 28px ${C.coral}55, 0 8px 20px rgba(0,0,0,.06)` : '0 6px 20px rgba(0,0,0,.08)',
               transition:'box-shadow .2s, transform .1s' }}
               onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
               onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
@@ -3652,7 +3652,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
           {/* Timecode + beat */}
           <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-            <div style={{ background:'rgba(0,0,0,.45)', border:`1px solid ${S.border}`,
+            <div style={{ background:'rgba(0,0,0,.18)', border:`1px solid ${S.border}`,
               borderRadius:10, padding:'6px 16px', fontFamily:"'SF Mono','Fira Code',monospace",
               fontSize:18, color:C.coral, letterSpacing:'0.12em', fontWeight:700,
               display:'flex', alignItems:'center', gap:4 }}>
@@ -3664,7 +3664,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             </div>
             <span style={{ fontSize:12, color: S.text3, fontFamily:'monospace' }}>{fmt(currentTime)}</span>
             <div style={{ width:8, height:8, borderRadius:'50%',
-              background: beatFlash ? C.coral : 'rgba(255,255,255,.1)',
+              background: beatFlash ? C.coral : 'rgba(0,0,0,.08)',
               boxShadow: beatFlash ? `0 0 12px ${C.coral}` : 'none',
               transition: beatFlash ? 'none' : 'background .15s' }}/>
           </div>
@@ -3673,7 +3673,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         {/* Right — BPM */}
         <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent:'flex-end' }}>
           <div style={{ display:'flex', alignItems:'center', gap:6,
-            background:'rgba(0,0,0,.4)', border:`1px solid ${S.border}`, borderRadius:9, padding:'5px 11px' }}>
+            background:'rgba(0,0,0,.06)', border:`1px solid ${S.border}`, borderRadius:9, padding:'5px 11px' }}>
             <span style={{ fontSize:9, color: S.text3, textTransform:'uppercase', letterSpacing:'.1em' }}>BPM</span>
             <input type="number" min={40} max={250} value={bpm} step={1}
               onChange={e => handleBpmChange(e.target.value)}
@@ -3686,7 +3686,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             style={{ width:60, accentColor:C.coral, cursor:'pointer', opacity:.45 }}/>
           <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
             style={{ height:29, padding:'0 10px', borderRadius:8, fontSize:11, fontWeight:700,
-              background: detectingBpm ? 'rgba(255,255,255,.04)' : `${C.coral}15`,
+              background: detectingBpm ? 'rgba(0,0,0,.03)' : `${C.coral}15`,
               border: `1px solid ${detectingBpm ? S.border : C.coral+'40'}`,
               color: detectingBpm ? S.text3 : C.coral,
               cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
@@ -3736,7 +3736,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             }} disabled={smartMixing || stems.filter(s=>s.instrument!=='original').length < 2}
               style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:36,
                 borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer',
-                background:'rgba(255,255,255,.06)', border:`1px solid ${S.border}`,
+                background:'rgba(0,0,0,.05)', border:`1px solid ${S.border}`,
                 color:S.text2, transition:'all .15s' }}>
               {smartMixing
                 ? <><Spinner size={11} color={S.text2}/> Mixing…</>
@@ -3789,7 +3789,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               {/* Discard */}
               <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }} style={{
                 width: 36, height: 36, borderRadius: 10, border:`1px solid ${S.border}`,
-                background:'rgba(255,255,255,.04)', color: S.text3, cursor:'pointer',
+                background:'rgba(0,0,0,.03)', color: S.text3, cursor:'pointer',
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
@@ -3797,7 +3797,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           ) : (
             <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0} style={{
               padding:'0 16px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 700,
-              background: bouncing ? 'rgba(255,255,255,.06)' : `${C.coral}18`,
+              background: bouncing ? 'rgba(0,0,0,.05)' : `${C.coral}18`,
               border: `1px solid ${bouncing ? S.border : C.coral+'44'}`,
               color: bouncing ? S.text3 : C.coral, cursor: bouncing ? 'default' : 'pointer',
               display:'flex', alignItems:'center', gap: 7, transition:'all .15s' }}>
@@ -3908,7 +3908,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                         {loadingPct[s.id]}%
                       </span>
                     </div>
-                    <div style={{ height: 3, background:'rgba(255,255,255,.08)', borderRadius: 3, overflow:'hidden' }}>
+                    <div style={{ height: 3, background:'rgba(0,0,0,.06)', borderRadius: 3, overflow:'hidden' }}>
                       <div style={{ height:'100%', borderRadius: 3, transition:'width .15s linear',
                         width: `${loadingPct[s.id]}%`,
                         background: `linear-gradient(90deg, ${color}88, ${color})` }}/>
@@ -3926,18 +3926,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                 <div style={{ display:'flex', alignItems:'center', gap: 4 }}>
                   <button onClick={e => { e.stopPropagation(); toggleMute(s.id) }}
                     style={{ width: 20, height: 18, borderRadius: 5,
-                      background: isMuted ? '#f59e0b22' : 'rgba(255,255,255,.06)',
+                      background: isMuted ? '#f59e0b22' : 'rgba(0,0,0,.05)',
                       border: `1px solid ${isMuted ? '#f59e0b55' : S.border}`,
                       fontSize: 8, fontWeight: 800, color: isMuted ? '#f59e0b' : S.text3,
                       display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>M</button>
                   <button onClick={e => { e.stopPropagation(); toggleSolo(s.id) }}
                     style={{ width: 20, height: 18, borderRadius: 5,
-                      background: isSolo ? '#3b82f622' : 'rgba(255,255,255,.06)',
+                      background: isSolo ? '#3b82f622' : 'rgba(0,0,0,.05)',
                       border: `1px solid ${isSolo ? '#3b82f655' : S.border}`,
                       fontSize: 8, fontWeight: 800, color: isSolo ? '#3b82f6' : S.text3,
                       display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>S</button>
                   {/* Vol bar */}
-                  <div style={{ flex: 1, height: 4, background:'rgba(255,255,255,.06)',
+                  <div style={{ flex: 1, height: 4, background:'rgba(0,0,0,.05)',
                     borderRadius: 2, overflow:'hidden' }} onClick={e => e.stopPropagation()}>
                     <div style={{ height:'100%', width:`${vol*100}%`,
                       background:`linear-gradient(90deg,${color},${color}aa)`, borderRadius: 2 }}/>
@@ -3995,7 +3995,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                 </button>
                 <a href={smartMixUrl} download="smart_mix.wav"
                   style={{ width:30, height:30, borderRadius:8, border:`1px solid ${S.border}`,
-                    background:'rgba(255,255,255,.04)', display:'flex', alignItems:'center',
+                    background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center',
                     justifyContent:'center', color: S.text3, textDecoration:'none' }}>
                   <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M12 3v13M7 13l5 5 5-5"/><path d="M5 20h14"/></svg>
                 </a>
@@ -4012,7 +4012,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                 setSmartMixing(false)
               }} disabled={smartMixing || stems.filter(s=>s.instrument!=='original').length < 2}
                 style={{ width:'100%', height:30, borderRadius:8, border:`1px solid ${S.border}`,
-                  background:'rgba(255,255,255,.04)', color: S.text2, fontSize:11, fontWeight:700,
+                  background:'rgba(0,0,0,.03)', color: S.text2, fontSize:11, fontWeight:700,
                   cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
                   marginBottom:8 }}>
                 {smartMixing
@@ -4059,7 +4059,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                   </button>
                   <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }}
                     style={{ width:28, height:28, borderRadius:7, border:`1px solid ${S.border}`,
-                      background:'rgba(255,255,255,.04)', cursor:'pointer', color: S.text3,
+                      background:'rgba(0,0,0,.03)', cursor:'pointer', color: S.text3,
                       display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
@@ -4068,7 +4068,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             ) : (
               <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0}
                 style={{ width:'100%', height:30, borderRadius:8,
-                  background: bouncing ? 'rgba(255,255,255,.04)' : `${C.coral}15`,
+                  background: bouncing ? 'rgba(0,0,0,.03)' : `${C.coral}15`,
                   border: `1px solid ${bouncing ? S.border : C.coral+'40'}`,
                   color: bouncing ? S.text3 : C.coral, fontSize:11, fontWeight:700, cursor:'pointer',
                   display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
@@ -4094,11 +4094,11 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     <span style={{ position:'absolute', left: x + 4, top: 8, fontSize: 10,
                       color: S.text3, fontFamily:'monospace', fontWeight: 600 }}>{bar + 1}</span>
                     <div style={{ position:'absolute', left: x, bottom: 0, width: 1, height: 12,
-                      background:'rgba(255,255,255,.15)' }}/>
+                      background:'rgba(0,0,0,.12)' }}/>
                     {[1,2,3].map(b => {
                       const bx = Math.round(x + b * (secsPerBar / 4) * PPS)
                       return <div key={b} style={{ position:'absolute', left: bx, bottom: 0,
-                        width: 0.5, height: 6, background:'rgba(255,255,255,.06)' }}/>
+                        width: 0.5, height: 6, background:'rgba(0,0,0,.05)' }}/>
                     })}
                   </React.Fragment>
                 )
@@ -4153,18 +4153,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     return (
                       <div key={s.id} style={{ height: 72, borderBottom:`1px solid ${S.border}`,
                         position:'relative',
-                        background: i % 2 === 0 ? 'rgba(255,255,255,.015)' : 'transparent',
+                        background: i % 2 === 0 ? 'rgba(0,0,0,.015)' : 'transparent',
                         opacity: isMuted ? 0.18 : !isActive ? 0.12 : 1 }}>
 
                         {/* Faded-out regions outside trim */}
                         {trim.start > 0.01 && (
                           <div style={{ position:'absolute', top: 8, left: 0, width: clipLeft,
-                            height: 52, background:'rgba(0,0,0,.45)', zIndex: 2, pointerEvents:'none',
+                            height: 52, background:'rgba(0,0,0,.18)', zIndex: 2, pointerEvents:'none',
                             borderRadius:'10px 0 0 10px' }}/>
                         )}
                         {trim.end < 0.99 && (
                           <div style={{ position:'absolute', top: 8, left: clipLeft + clipW,
-                            right: 0, height: 52, background:'rgba(0,0,0,.45)', zIndex: 2,
+                            right: 0, height: 52, background:'rgba(0,0,0,.18)', zIndex: 2,
                             pointerEvents:'none', borderRadius:'0 10px 10px 0' }}/>
                         )}
 
@@ -4288,20 +4288,20 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               {(trim.start > 0.01 || trim.end < 0.99) && (
                 <button onClick={() => setTrims(p => ({ ...p, [s.id]: { start:0, end:1 } }))} style={{
                   padding:'3px 10px', borderRadius: 6, border:`1px solid ${S.border}`,
-                  background:'rgba(255,255,255,.05)', color: S.text3, fontSize: 10, cursor:'pointer' }}>reset</button>
+                  background:'rgba(0,0,0,.04)', color: S.text3, fontSize: 10, cursor:'pointer' }}>reset</button>
               )}
             </div>
 
             <button onClick={() => playTrack(s)} style={{
               padding:'5px 14px', borderRadius: 8, border:`1px solid ${S.border}`,
-              background:'rgba(255,255,255,.06)', color: S.text2, fontSize: 12, cursor:'pointer',
+              background:'rgba(0,0,0,.05)', color: S.text2, fontSize: 12, cursor:'pointer',
               display:'flex', alignItems:'center', gap: 5 }}>
               <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg> Preview
             </button>
 
             <button onClick={() => setExpandedId(null)} style={{
               marginLeft:'auto', width: 28, height: 28, borderRadius: 8,
-              border:`1px solid ${S.border}`, background:'rgba(255,255,255,.05)',
+              border:`1px solid ${S.border}`, background:'rgba(0,0,0,.04)',
               color: S.text3, fontSize: 14, cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
           </div>
