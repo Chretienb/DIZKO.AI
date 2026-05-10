@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -1240,111 +1240,411 @@ function ModalUpload({ project, onClose }) {
   )
 }
 
-// ─── MODAL: NEW RELEASE ────────────────────────────────────────────────────
-function ModalNewRelease({ onClose }) {
-  const [title, setTitle]         = useState('')
-  const [date, setDate]           = useState('')
-  const [platforms, setPlatforms] = useState(['Spotify','Apple Music'])
-  const allPlatforms = ['Spotify','Apple Music','YouTube Music','Tidal','SoundCloud','Amazon Music']
-  const toggle = p => setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p])
-  const [done, setDone] = useState(false)
+// ─── MODAL: RELEASE WIZARD (New Release + Schedule combined) ──────────────────
+const PLATFORM_COLORS = {
+  'Spotify':      '#1DB954',
+  'Apple Music':  '#fc3c44',
+  'YouTube Music':'#FF0000',
+  'Tidal':        '#00bfbf',
+  'SoundCloud':   '#FF5500',
+}
+const DIRECT_PLATFORMS  = ['SoundCloud', 'YouTube Music']  // live API upload
+const PACKAGE_PLATFORMS = ['Spotify', 'Apple Music', 'Tidal'] // export ZIP
 
-  if (done) return (
-    <Modal title="Release Scheduled!" sub="Your release is queued." onClose={onClose}>
-      <div style={{ textAlign:'center', padding:'20px 0 10px' }}>
-        <div style={{ width:56, height:56, borderRadius:'50%', background:`${C.coral}15`,
-          border:`2px solid ${C.coral}30`, display:'flex', alignItems:'center',
-          justifyContent:'center', margin:'0 auto 16px' }}>
-          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-          </svg>
-        </div>
-        <p style={{ color:'#aaa', fontSize:13.5, margin:'0 0 22px' }}>
-          <strong style={{ color:'#111' }}>{title||'Your release'}</strong> is scheduled for <strong style={{ color:C.coral }}>{date||'your chosen date'}</strong> across {platforms.length} platforms.
-        </p>
-        <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
-      </div>
-    </Modal>
-  )
-  return (
-    <Modal title="New Release" sub="Schedule your music for distribution" onClose={onClose}>
-      <Field label="Release Title" placeholder="e.g. Summer Album" value={title} onChange={e => setTitle(e.target.value)} />
-      <Field label="Release Date" type="date" value={date} onChange={e => setDate(e.target.value)} />
-      <div style={{ marginBottom:18 }}>
-        <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#555', marginBottom:8 }}>Platforms</label>
-        <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-          {allPlatforms.map(p => {
-            const on = platforms.includes(p)
-            return (
-              <button key={p} onClick={() => toggle(p)} style={{
-                padding:'6px 14px', borderRadius:100, border:'1.5px solid',
-                borderColor: on ? C.coral : 'rgba(0,0,0,.1)',
-                background: on ? `${C.coral}12` : 'transparent',
-                color: on ? C.coral : '#888', fontSize:12, fontWeight:600, cursor:'pointer',
-              }}>
-                {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ marginRight:4, verticalAlign:'middle' }}><polyline points="20,6 9,17 4,12"/></svg>}
-                {p}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      <div style={{ display:'flex', gap:10 }}>
-        <Btn onClick={() => setDone(true)} style={{ flex:1 }}>Schedule Release</Btn>
-        <Btn onClick={onClose} variant='ghost' style={{ flex:1 }}>Cancel</Btn>
-      </div>
-    </Modal>
-  )
+function ModalNewRelease({ onClose, project }) {
+  return <ModalReleaseWizard onClose={onClose} project={project} />
 }
 
-// ─── MODAL: SCHEDULE ────────────────────────────────────────────────────────
 function ModalSchedule({ release, onClose }) {
-  const [done, setDone] = useState(false)
-  if (done) return (
-    <Modal title="Submitted!" sub="Distribution team will review shortly." onClose={onClose}>
-      <div style={{ textAlign:'center', padding:'20px 0 10px' }}>
-        <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(34,197,94,.1)',
-          border:'2px solid rgba(34,197,94,.2)', display:'flex', alignItems:'center',
-          justifyContent:'center', margin:'0 auto 16px' }}>
-          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20,6 9,17 4,12"/>
-          </svg>
-        </div>
-        <p style={{ color:'#aaa', fontSize:13.5, margin:'0 0 22px' }}>
-          <strong style={{ color:'#111' }}>{release?.title||'Summer Album'}</strong> has been submitted for distribution.
-        </p>
-        <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
+  return <ModalReleaseWizard onClose={onClose} project={release} />
+}
+
+function ModalReleaseWizard({ onClose, project }) {
+  const [step,      setStep]      = useState(1)   // 1=meta 2=tracks 3=art 4=platforms
+  const [stems,     setStems]     = useState([])
+  const [loadingStems, setLS]     = useState(false)
+
+  // Step 1 — metadata
+  const [artist,    setArtist]    = useState('')
+  const [releaseDate, setDate]    = useState(project?.release_date?.slice(0,10) || '')
+  const [genre,     setGenre]     = useState('Pop')
+  const [relType,   setRelType]   = useState('Single')
+
+  // Step 2 — tracks
+  const [selected,  setSelected]  = useState(new Set())
+
+  // Step 3 — cover art
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverUrl,  setCoverUrl]  = useState(null)
+  const coverRef = useRef()
+
+  // Step 4 — platforms + submit
+  const [platforms, setPlatforms] = useState(['Spotify','Apple Music','SoundCloud'])
+  const [submitting,setSubmitting]= useState(false)
+  const [result,    setResult]    = useState(null)  // null | { scUrl, ytUrl, isrcs }
+  const [error,     setError]     = useState(null)
+
+  const projectId    = project?.id
+  const releaseTitle = project?.title || 'My Release'
+
+  // Load stems for the project
+  useEffect(() => {
+    if (!projectId) return
+    setLS(true)
+    filesApi.list(projectId)
+      .then(r => {
+        // Show only separated stems (vocals, drums, bass, other) not originals
+        const list = (r.data || []).filter(f => f.instrument && f.instrument !== 'original')
+        setStems(list)
+        setSelected(new Set(list.map(s => s.id)))
+      })
+      .catch(() => {})
+      .finally(() => setLS(false))
+  }, [projectId])
+
+  const togglePlatform = p =>
+    setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
+
+  const onCoverPick = e => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setCoverFile(f)
+    setCoverUrl(URL.createObjectURL(f))
+  }
+
+  const selectedStems = stems.filter(s => selected.has(s.id))
+
+  // ── Upload cover art to Supabase Storage ──────────────────────────────────
+  const uploadCover = async () => {
+    if (!coverFile || !projectId) return null
+    const token = localStorage.getItem('disco_token')
+    const form  = new FormData()
+    form.append('file', coverFile)
+    form.append('project_id', projectId)
+    const res = await fetch('/api/files/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    if (!res.ok) return null
+    const j = await res.json()
+    return j.data?.file_url ?? null
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const submit = async () => {
+    if (!projectId || !artist || !releaseDate || selectedStems.length === 0) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      let coverArtUrl = null
+      if (coverFile) coverArtUrl = await uploadCover()
+
+      const tracks = selectedStems.map((s, i) => ({
+        stem_id: s.id,
+        title:   s.suggested_name || s.original_name || `Track ${i+1}`,
+      }))
+
+      const res = await distributionApi.submit(projectId, {
+        artist_name:  artist,
+        release_date: releaseDate,
+        genre,
+        release_type: relType,
+        platforms,
+        tracks,
+        cover_art_url: coverArtUrl,
+      })
+
+      setResult({
+        scUrl:  res.data?.soundcloud_url,
+        ytUrl:  res.data?.youtube_url,
+        isrcs:  res.data?.isrcs || [],
+        direct: platforms.filter(p => DIRECT_PLATFORMS.includes(p)),
+        pkg:    platforms.filter(p => PACKAGE_PLATFORMS.includes(p)),
+      })
+    } catch (e) {
+      setError(e.message || 'Submission failed')
+    }
+    setSubmitting(false)
+  }
+
+  // ── Download ZIP package ──────────────────────────────────────────────────
+  const downloadPackage = async () => {
+    if (!projectId) return
+    setSubmitting(true)
+    try {
+      const tracks = selectedStems.map((s, i) => ({
+        stem_id: s.id,
+        title:   s.suggested_name || s.original_name || `Track ${i+1}`,
+      }))
+      const blob = await distributionApi.package(projectId, {
+        artist_name: artist, release_date: releaseDate,
+        genre, release_type: relType, platforms,
+        tracks, cover_art_url: coverUrl,
+      })
+      const url = URL.createObjectURL(blob)
+      const a   = document.createElement('a')
+      a.href     = url
+      a.download = `${releaseTitle.replace(/[^a-z0-9]/gi,'_')}_distribution.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) { setError(e.message) }
+    setSubmitting(false)
+  }
+
+  // ── Step indicators ───────────────────────────────────────────────────────
+  const steps = ['Metadata','Tracks','Cover Art','Distribute']
+
+  if (result) return (
+    <Modal title="Release Submitted! 🎉" sub={releaseTitle} onClose={onClose} width={520}>
+      <div style={{ padding:'8px 0 4px' }}>
+        {result.scUrl && (
+          <a href={result.scUrl} target="_blank" rel="noreferrer"
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:12,
+              background:'rgba(255,85,0,.07)', border:'1px solid rgba(255,85,0,.2)', marginBottom:10,
+              textDecoration:'none', color:'#FF5500', fontWeight:700, fontSize:13 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M11.56 8.87V17h8.76c1.18 0 1.68-.86 1.68-1.56 0-1.11-.87-1.56-1.68-1.56h-.44c.1-.37.15-.76.15-1.15C20.03 10.01 18.03 8 15.5 8c-.98 0-1.88.3-2.62.8-.36-.5-1.4-1.93-3.16-1.93C8.72 6.87 7 8.49 7 10.5c0 .54.13 1.05.35 1.5H7c-.55 0-1 .45-1 1s.45 1 1 1h1.56V8.87h3z"/></svg>
+            ✓ Live on SoundCloud → {result.scUrl}
+          </a>
+        )}
+        {result.ytUrl && (
+          <a href={result.ytUrl} target="_blank" rel="noreferrer"
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:12,
+              background:'rgba(255,0,0,.07)', border:'1px solid rgba(255,0,0,.2)', marginBottom:10,
+              textDecoration:'none', color:'#FF0000', fontWeight:700, fontSize:13 }}>
+            ✓ Live on YouTube → {result.ytUrl}
+          </a>
+        )}
+        {result.pkg?.length > 0 && (
+          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'14px', marginBottom:10 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:6 }}>
+              📦 Export Package for {result.pkg.join(', ')}
+            </div>
+            <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
+              Download the ZIP and upload to RouteNote (free) or Amuse (free) to reach Spotify, Apple Music and Tidal.
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={downloadPackage} disabled={submitting}
+                style={{ flex:1, padding:'9px', borderRadius:9, background:C.grad, border:'none',
+                  color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                {submitting ? <Spinner size={12} color="#fff"/> : '⬇ Download ZIP'}
+              </button>
+              <a href="https://routenote.com/upload" target="_blank" rel="noreferrer"
+                style={{ flex:1, padding:'9px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
+                  background:'#fff', color:'#333', fontWeight:600, fontSize:12, cursor:'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}>
+                Open RouteNote →
+              </a>
+            </div>
+          </div>
+        )}
+        {result.isrcs?.length > 0 && (
+          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'12px' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>ISRC Codes</div>
+            {result.isrcs.map((t, i) => (
+              <div key={i} style={{ fontSize:12, color:'#555', padding:'3px 0' }}>
+                <strong>{t.title}</strong> — <code style={{ fontFamily:'monospace', color:C.coral }}>{t.isrc}</code>
+              </div>
+            ))}
+          </div>
+        )}
+        <Btn onClick={onClose} style={{ width:'100%', marginTop:14 }}>Done</Btn>
       </div>
     </Modal>
   )
+
   return (
-    <Modal title="Schedule Distribution" sub={release?.title || 'Summer Album'} onClose={onClose}>
-      <div style={{ background:'rgba(0,0,0,.02)', borderRadius:14, padding:'16px', marginBottom:18 }}>
-        {[
-          { step:'Masters approved', done:true },
-          { step:'Metadata complete', done:true },
-          { step:'Cover art uploaded', done:true },
-          { step:'ISRC codes assigned', done:true },
-          { step:'Distributor review', done:false },
-        ].map((item,i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0',
-            borderBottom: i < 4 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
-            <div style={{ width:18, height:18, borderRadius:'50%', flexShrink:0,
-              background: item.done ? '#22c55e' : 'rgba(0,0,0,.08)',
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {item.done && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
+    <Modal title="Distribute Release" sub={releaseTitle} onClose={onClose} width={540}>
+      {/* Step indicator */}
+      <div style={{ display:'flex', gap:0, marginBottom:24 }}>
+        {steps.map((s, i) => {
+          const n = i + 1
+          const active = n === step
+          const done   = n < step
+          return (
+            <div key={s} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+              <div style={{ width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center',
+                justifyContent:'center', fontSize:11, fontWeight:700,
+                background: done ? '#22c55e' : active ? C.coral : 'rgba(0,0,0,.07)',
+                color: done || active ? '#fff' : '#bbb' }}>
+                {done ? '✓' : n}
+              </div>
+              <div style={{ fontSize:10, fontWeight:600, color: active ? C.coral : done ? '#22c55e' : '#bbb',
+                textTransform:'uppercase', letterSpacing:'.04em' }}>{s}</div>
             </div>
-            <span style={{ fontSize:13, color: item.done ? '#333' : '#aaa', fontWeight: item.done ? 600 : 400 }}>{item.step}</span>
+          )
+        })}
+      </div>
+
+      {/* Step 1 — Metadata */}
+      {step === 1 && (
+        <div>
+          <Field label="Artist Name" placeholder="e.g. Christian" value={artist} onChange={e => setArtist(e.target.value)} />
+          <Field label="Release Date" type="date" value={releaseDate} onChange={e => setDate(e.target.value)} />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18 }}>
+            <div>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Genre</label>
+              <select value={genre} onChange={e => setGenre(e.target.value)}
+                style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
+                  fontSize:13, fontFamily:'inherit', background:'#fff', color:'#111' }}>
+                {['Pop','R&B','Hip-Hop','Electronic','Gospel','Afrobeats','Soul','Jazz','Rock','Country','Classical','Other'].map(g =>
+                  <option key={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Type</label>
+              <select value={relType} onChange={e => setRelType(e.target.value)}
+                style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
+                  fontSize:13, fontFamily:'inherit', background:'#fff', color:'#111' }}>
+                {['Single','EP','Album','Mixtape'].map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
-        ))}
-      </div>
-      <p style={{ fontSize:13, color:'#888', margin:'0 0 18px', lineHeight:1.6 }}>
-        Your release is <strong style={{ color:'#111' }}>80% ready</strong>. Submitting now will send it for distributor review. Release target: <strong style={{ color:C.coral }}>March 15, 2026</strong>.
-      </p>
-      <div style={{ display:'flex', gap:10 }}>
-        <Btn onClick={() => setDone(true)} style={{ flex:1 }}>Submit for Review →</Btn>
-        <Btn onClick={onClose} variant='ghost' style={{ flex:1 }}>Cancel</Btn>
-      </div>
+          <Btn onClick={() => setStep(2)} style={{ width:'100%' }}
+            disabled={!artist || !releaseDate}>Next: Select Tracks →</Btn>
+        </div>
+      )}
+
+      {/* Step 2 — Track selection */}
+      {step === 2 && (
+        <div>
+          <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
+            Select which stems to include in this release.
+          </div>
+          {loadingStems ? <LoadingBlock /> : stems.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'24px', color:'#bbb', fontSize:13 }}>
+              No separated stems found. Upload audio first so Dizko.Ai can process it.
+            </div>
+          ) : (
+            <div style={{ maxHeight:240, overflowY:'auto', marginBottom:16 }}>
+              {stems.map(s => {
+                const on = selected.has(s.id)
+                const notes = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
+                return (
+                  <div key={s.id} onClick={() => setSelected(prev => { const n = new Set(prev); on ? n.delete(s.id) : n.add(s.id); return n })}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10,
+                      cursor:'pointer', marginBottom:4, transition:'background .12s',
+                      background: on ? `${C.coral}0a` : 'rgba(0,0,0,.02)',
+                      border: `1.5px solid ${on ? C.coral+'33' : 'transparent'}` }}>
+                    <input type="checkbox" checked={on} readOnly
+                      style={{ accentColor: C.coral, width:14, height:14 }}/>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#111', overflow:'hidden',
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {s.suggested_name || s.original_name}
+                      </div>
+                      <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>
+                        {s.instrument || '—'}
+                        {notes.bpm ? ` · ${Math.round(notes.bpm)} BPM` : ''}
+                        {notes.key  ? ` · ${notes.key}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div style={{ fontSize:12, color:'#888', marginBottom:14 }}>
+            {selected.size} track{selected.size !== 1 ? 's' : ''} selected · ISRCs auto-generated
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={() => setStep(1)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
+            <Btn onClick={() => setStep(3)} style={{ flex:1 }} disabled={selected.size === 0}>Next: Cover Art →</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3 — Cover art */}
+      {step === 3 && (
+        <div>
+          <div style={{ fontSize:12, color:'#888', marginBottom:14 }}>
+            JPEG or PNG, 3000×3000 px minimum. Required by Spotify & Apple Music.
+          </div>
+          <div onClick={() => coverRef.current?.click()}
+            style={{ borderRadius:14, border:`2px dashed ${coverUrl ? C.coral : 'rgba(0,0,0,.15)'}`,
+              padding:'28px', textAlign:'center', cursor:'pointer', marginBottom:16,
+              background: coverUrl ? `${C.coral}07` : 'rgba(0,0,0,.02)', transition:'all .15s' }}>
+            {coverUrl
+              ? <img src={coverUrl} alt="cover" style={{ width:140, height:140, objectFit:'cover', borderRadius:10 }}/>
+              : <>
+                  <div style={{ fontSize:32, marginBottom:8 }}>🎨</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#333' }}>Click to upload cover art</div>
+                  <div style={{ fontSize:11.5, color:'#bbb', marginTop:4 }}>JPEG · PNG · 3000×3000 recommended</div>
+                </>}
+          </div>
+          <input ref={coverRef} type="file" accept="image/*" style={{ display:'none' }} onChange={onCoverPick}/>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={() => setStep(2)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
+            <Btn onClick={() => setStep(4)} style={{ flex:1 }}>
+              {coverUrl ? 'Next: Distribute →' : 'Skip for now →'}
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4 — Platform selection + submit */}
+      {step === 4 && (
+        <div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:8 }}>
+              ⚡ Direct upload (requires API keys in .env)
+            </div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+              {DIRECT_PLATFORMS.map(p => {
+                const on = platforms.includes(p)
+                return (
+                  <button key={p} onClick={() => togglePlatform(p)} style={{
+                    padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
+                    background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
+                    color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
+                    {on && '✓ '}{p}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:8 }}>
+              📦 Export package → submit free on RouteNote or Amuse
+            </div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {PACKAGE_PLATFORMS.map(p => {
+                const on = platforms.includes(p)
+                return (
+                  <button key={p} onClick={() => togglePlatform(p)} style={{
+                    padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
+                    background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
+                    color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
+                    {on && '✓ '}{p}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'12px 14px', marginBottom:16, fontSize:12, color:'#666', lineHeight:1.7 }}>
+            <strong style={{ color:'#111' }}>{releaseTitle}</strong> by {artist}<br/>
+            {releaseDate} · {relType} · {genre}<br/>
+            {selectedStems.length} track{selectedStems.length !== 1 ? 's' : ''} · {platforms.length} platform{platforms.length !== 1 ? 's' : ''}
+            {coverFile ? ' · Cover art ✓' : ' · No cover art'}
+          </div>
+
+          {error && (
+            <div style={{ background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)',
+              borderRadius:10, padding:'10px 14px', fontSize:12.5, color:'#ef4444', marginBottom:12 }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={() => setStep(3)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
+            <Btn onClick={submit} style={{ flex:2 }} disabled={submitting || platforms.length === 0}>
+              {submitting
+                ? <><Spinner size={13} color="#fff"/> Submitting…</>
+                : `Submit to ${platforms.length} platform${platforms.length !== 1 ? 's' : ''} →`}
+            </Btn>
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }

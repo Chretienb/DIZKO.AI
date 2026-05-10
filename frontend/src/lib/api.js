@@ -127,7 +127,23 @@ export const messagesApi = {
 
 // ── Distribution ──────────────────────────────────────────────────────────────
 export const distribution = {
-  list:   (projectId)       => get(`/distribution/projects/${projectId}`),
-  submit: (projectId, body) => post(`/distribution/projects/${projectId}`, body),
-  update: (id, body)        => patch(`/distribution/${id}`, body),
+  list:    (projectId)       => get(`/distribution/projects/${projectId}`),
+  save:    (projectId, body) => post(`/distribution/projects/${projectId}`, body),
+  submit:  (projectId, body) => post(`/distribution/projects/${projectId}/submit`, body),
+  update:  (id, body)        => patch(`/distribution/${id}`, body),
+
+  // Download ZIP package — returns a Blob
+  package: async (projectId, body) => {
+    const token = getToken()
+    const res = await fetch(`${BASE}/distribution/projects/${projectId}/package`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(`Package error: ${res.status}`)
+    return res.blob()
+  },
 }
