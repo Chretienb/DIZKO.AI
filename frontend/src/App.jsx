@@ -273,10 +273,35 @@ function Field({ label, type='text', placeholder, value, onChange, as }) {
 }
 
 // ─── MODAL: PROJECT DETAIL ─────────────────────────────────────────────────
-function ModalProject({ project, onClose, openModal, playTrack, nowPlaying }) {
-  const [files,   setFiles]   = useState([])
-  const [collabs, setCollabs] = useState([])
-  const [loading, setLoading] = useState(true)
+function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user }) {
+  const [files,      setFiles]      = useState([])
+  const [collabs,    setCollabs]    = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [deletingId, setDeletingId] = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+  const isOwner = user?.id && project?.owner_id === user.id
+
+  const deleteFile = async (fileId) => {
+    if (!confirm('Delete this file?')) return
+    setDeletingId(fileId)
+    const token = localStorage.getItem('disco_token')
+    try {
+      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      setFiles(prev => prev.filter(f => f.id !== fileId))
+    } catch {}
+    setDeletingId(null)
+  }
+
+  const removeCollab = async (collabId) => {
+    if (!confirm('Remove this collaborator?')) return
+    setRemovingId(collabId)
+    const token = localStorage.getItem('disco_token')
+    try {
+      await fetch(`/api/collaborators/${collabId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      setCollabs(prev => prev.filter(c => c.id !== collabId))
+    } catch {}
+    setRemovingId(null)
+  }
 
   useEffect(() => {
     if (!project?.id) { setLoading(false); return }
@@ -352,12 +377,25 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying }) {
                 </div>
                 <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>{fileMeta(f)}</div>
               </div>
-              <span style={{ fontSize:10, fontWeight:600,
-                color: isActive ? C.coral : '#ccc',
-                padding:'3px 8px', borderRadius:6,
-                background: isActive ? `${C.coral}12` : 'transparent' }}>
-                {isActive ? 'Now Playing' : '▶ Play'}
-              </span>
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                <span style={{ fontSize:10, fontWeight:600,
+                  color: isActive ? C.coral : '#ccc',
+                  padding:'3px 8px', borderRadius:6,
+                  background: isActive ? `${C.coral}12` : 'transparent' }}>
+                  {isActive ? 'Now Playing' : '▶ Play'}
+                </span>
+                {isOwner && (
+                  <button onClick={e => { e.stopPropagation(); deleteFile(f.id) }}
+                    disabled={deletingId === f.id}
+                    style={{ width:24, height:24, borderRadius:6, border:'none', cursor:'pointer',
+                      background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.7)',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {deletingId === f.id
+                      ? <Spinner size={8} color="#ef4444"/>
+                      : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
+                  </button>
+                )}
+              </div>
             </div>
           )
         })}
@@ -373,11 +411,22 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying }) {
             const color = collabColor(i)
             const name  = collabName(c)
             return (
-              <div key={c.id} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+              <div key={c.id} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, position:'relative' }}>
                 <div style={{ width:38, height:38, borderRadius:'50%', background:`${color}22`,
                   border:`2px solid ${color}44`, display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:11, fontWeight:800, color }}>{collabInitials(c)}</div>
                 <span style={{ fontSize:10.5, color:'#888', fontWeight:500 }}>{name.split(' ')[0]}</span>
+                {isOwner && (
+                  <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
+                    title="Remove collaborator"
+                    style={{ position:'absolute', top:-4, right:-4, width:16, height:16, borderRadius:'50%',
+                      border:'1.5px solid #fff', background:'rgba(239,68,68,.85)', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                    {removingId === c.id
+                      ? <Spinner size={7} color="#fff"/>
+                      : <svg width={7} height={7} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3}><path d="M18 6L6 18M6 6l12 12"/></svg>}
+                  </button>
+                )}
               </div>
             )
           })}
@@ -1751,12 +1800,25 @@ function PageProjects({ openModal, refreshKey }) {
 }
 
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
-function PageCollaborators({ openModal }) {
-  const [search,   setSearch]   = useState('')
-  const [collabs,  setCollabs]  = useState([])
-  const [invites,  setInvites]  = useState([])   // pending invitations for ME
-  const [loading,  setLoading]  = useState(true)
-  const [actingId, setActingId] = useState(null)  // id of invite being accepted/declined
+function PageCollaborators({ openModal, user }) {
+  const [search,     setSearch]     = useState('')
+  const [collabs,    setCollabs]    = useState([])
+  const [invites,    setInvites]    = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [actingId,   setActingId]   = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+  const [ownedIds,   setOwnedIds]   = useState(new Set()) // project IDs the user owns
+
+  const removeCollab = async (collabId) => {
+    if (!confirm('Remove this collaborator from the project?')) return
+    setRemovingId(collabId)
+    const token = localStorage.getItem('disco_token')
+    try {
+      await fetch(`/api/collaborators/${collabId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      setCollabs(prev => prev.filter(c => c.id !== collabId))
+    } catch {}
+    setRemovingId(null)
+  }
 
   const loadData = () => {
     setLoading(true)
@@ -1766,6 +1828,7 @@ function PageCollaborators({ openModal }) {
     ]).then(([projRes, invRes]) => {
       const projs = projRes.data || []
       setInvites(invRes.data || [])
+      setOwnedIds(new Set(projs.filter(p => p.owner_id === user?.id).map(p => p.id)))
       if (!projs.length) return setCollabs([])
       return Promise.all(
         projs.map(p => collabsApi.listByProject(p.id).catch(() => ({ data: [] })))
@@ -1963,6 +2026,14 @@ function PageCollaborators({ openModal }) {
                     boxShadow:`0 2px 8px ${C.coral}30`, transition:'opacity .15s' }}
                     onMouseEnter={e => e.currentTarget.style.opacity='.9'}
                     onMouseLeave={e => e.currentTarget.style.opacity='1'}>View work</button>
+                  {ownedIds.has(c.project_id) && (
+                    <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
+                      style={{ padding:'8px 12px', borderRadius:10, border:'1.5px solid rgba(239,68,68,.3)',
+                        background:'rgba(239,68,68,.06)', fontSize:12, fontWeight:600,
+                        color:'#ef4444', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                      {removingId === c.id ? <Spinner size={11} color="#ef4444"/> : 'Remove'}
+                    </button>
+                  )}
                 </div>
               </Card>
             )
@@ -1974,13 +2045,28 @@ function PageCollaborators({ openModal }) {
 }
 
 // ─── PAGE: FILE LIBRARY ────────────────────────────────────────────────────
-function PageLibrary({ openModal, playTrack }) {
+function PageLibrary({ openModal, playTrack, user }) {
   const [projects,     setProjects]     = useState([])
   const [activeId,     setActiveId]     = useState(null)
   const [files,        setFiles]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [drag,         setDrag]         = useState(false)
+  const [deletingId,   setDeletingId]   = useState(null)
+
+  const activeProject = projects.find(p => p.id === activeId)
+  const isOwner = user?.id && activeProject?.owner_id === user.id
+
+  const deleteFile = async (fileId) => {
+    if (!confirm('Delete this file from the project?')) return
+    setDeletingId(fileId)
+    const token = localStorage.getItem('disco_token')
+    try {
+      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      setFiles(prev => prev.filter(f => f.id !== fileId))
+    } catch {}
+    setDeletingId(null)
+  }
 
   useEffect(() => {
     projectsApi.list()
@@ -2002,8 +2088,7 @@ function PageLibrary({ openModal, playTrack }) {
       .finally(() => setLoadingFiles(false))
   }, [activeId])
 
-  const activeProject = projects.find(p => p.id === activeId)
-  const totalFiles    = files.length
+  const totalFiles = files.length
 
   // Group files: parent stems + their separated children
   const parsedNotes = (f) => { try { return JSON.parse(f.notes || '{}') } catch { return {} } }
@@ -2106,7 +2191,7 @@ function PageLibrary({ openModal, playTrack }) {
                 return (
                   <div key={f.id} style={{ borderBottom: i < parentFiles.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
                     {/* Parent row */}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 100px 80px 40px',
+                    <div style={{ display:'grid', gridTemplateColumns:`1fr 80px 100px 80px ${isOwner ? '64px' : '40px'}`,
                       padding:'13px 20px', alignItems:'center', transition:'background .12s' }}
                       onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
                       onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -2134,12 +2219,24 @@ function PageLibrary({ openModal, playTrack }) {
                       <span style={{ fontSize:11, fontWeight:700, color, background:`${color}12`, padding:'3px 8px', borderRadius:6 }}>{ext}</span>
                       <span style={{ fontSize:12, color:'#aaa' }}>{f.instrument || '—'}</span>
                       <span style={{ fontSize:12, color:'#aaa' }}>{timeAgo(f.created_at)}</span>
-                      <button onClick={() => playTrack(f)} title="Play" style={{
-                        width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
-                        background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                      }}>
-                        <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
-                      </button>
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <button onClick={() => playTrack(f)} title="Play" style={{
+                          width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
+                          background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                        }}>
+                          <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
+                        </button>
+                        {isOwner && (
+                          <button onClick={() => deleteFile(f.id)} disabled={deletingId === f.id} title="Delete"
+                            style={{ width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
+                              background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.7)',
+                              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            {deletingId === f.id
+                              ? <Spinner size={9} color="#ef4444"/>
+                              : <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Child stems (vocals, drums, bass, other) */}
@@ -3945,8 +4042,8 @@ export default function App({ onLogout, user }) {
             <Route path="/"              element={<PageDashboard playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} />} />
             <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} />} />
-            <Route path="/collaborators" element={<PageCollaborators openModal={openModal} />} />
-            <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} />} />
+            <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} />} />
+            <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} user={user} />} />
             <Route path="/analytics"     element={<PageAnalytics />} />
             <Route path="/distribution"  element={<PageDistribution openModal={openModal} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
@@ -3957,7 +4054,7 @@ export default function App({ onLogout, user }) {
       {/* ══ MODALS ═══════════════════════════════════════════════════════════ */}
       {nowPlaying && <MiniPlayer track={nowPlaying} onClose={() => setNowPlaying(null)} />}
 
-      {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} />}
+      {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
       {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
       {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} />}
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} />}
