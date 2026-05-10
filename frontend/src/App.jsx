@@ -4,6 +4,16 @@ import logo from './assets/logo.png'
 import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi } from './lib/api'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
+// Module-level cache: url → ArrayBuffer
+// Always call .slice(0) before passing to decodeAudioData — it detaches the buffer.
+const audioBufferCache = new Map()
+async function fetchAudioCached(url) {
+  if (audioBufferCache.has(url)) return audioBufferCache.get(url)
+  const buf = await fetch(url).then(r => r.arrayBuffer())
+  audioBufferCache.set(url, buf)
+  return buf
+}
+
 function getGreeting() {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
@@ -2165,9 +2175,8 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
     if (!url || !canvasRef.current) return
     let cancelled = false
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    fetch(url)
-      .then(r => r.arrayBuffer())
-      .then(buf => ctx.decodeAudioData(buf))
+    fetchAudioCached(url)
+      .then(buf => ctx.decodeAudioData(buf.slice(0)))
       .then(decoded => {
         if (cancelled) return
         const data    = decoded.getChannelData(0)
@@ -2296,8 +2305,8 @@ function PageStudio({ openModal, playTrack }) {
     try {
       // ── 1. Decode raw audio ───────────────────────────────────────────
       const tmpCtx = new (window.AudioContext || window.webkitAudioContext)()
-      const buf    = await fetch(src.file_url).then(r => r.arrayBuffer())
-      const audio  = await tmpCtx.decodeAudioData(buf)
+      const buf    = await fetchAudioCached(src.file_url)
+      const audio  = await tmpCtx.decodeAudioData(buf.slice(0))
       await tmpCtx.close()
 
       const SR = audio.sampleRate
@@ -2436,8 +2445,8 @@ function PageStudio({ openModal, playTrack }) {
       try {
         const trim = getTrim(s.id)
         const vol  = getVolume(s.id)
-        const buf  = await fetch(s.file_url).then(r => r.arrayBuffer())
-        const decoded = await ctx.decodeAudioData(buf)
+        const buf  = await fetchAudioCached(s.file_url)
+        const decoded = await ctx.decodeAudioData(buf.slice(0))
         const trimStart = decoded.duration * trim.start
         const effectiveDur = decoded.duration * (trim.end - trim.start)
         if (effectiveDur > maxDur) maxDur = effectiveDur
@@ -2610,8 +2619,8 @@ function PageStudio({ openModal, playTrack }) {
       // Decode all stems
       const decoded = await Promise.all(
         playable.map(async (s, idx) => {
-          const buf = await fetch(s.file_url).then(r => r.arrayBuffer())
-          const ab  = await tmpCtx.decodeAudioData(buf)
+          const buf = await fetchAudioCached(s.file_url)
+          const ab  = await tmpCtx.decodeAudioData(buf.slice(0))
           setBounceProgress(5 + Math.round(((idx+1)/playable.length) * 50))
           return ab
         })
