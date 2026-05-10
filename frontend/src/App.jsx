@@ -8,11 +8,29 @@ import { uploadStem, setSupabaseToken } from './lib/supabase'
 // Module-level cache: url → ArrayBuffer
 // Always call .slice(0) before passing to decodeAudioData — it detaches the buffer.
 const audioBufferCache = new Map()
-async function fetchAudioCached(url) {
-  if (audioBufferCache.has(url)) return audioBufferCache.get(url)
-  const buf = await fetch(url).then(r => r.arrayBuffer())
-  audioBufferCache.set(url, buf)
-  return buf
+async function fetchAudioCached(url, onProgress) {
+  if (audioBufferCache.has(url)) {
+    onProgress?.(100)
+    return audioBufferCache.get(url)
+  }
+  const res = await fetch(url)
+  const total = Number(res.headers.get('Content-Length') || 0)
+  const reader = res.body.getReader()
+  const chunks = []
+  let received = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    received += value.length
+    if (total) onProgress?.(Math.min(99, Math.round((received / total) * 100)))
+  }
+  onProgress?.(100)
+  const buf = new Uint8Array(received)
+  let pos = 0
+  for (const chunk of chunks) { buf.set(chunk, pos); pos += chunk.length }
+  audioBufferCache.set(url, buf.buffer)
+  return buf.buffer
 }
 
 function getGreeting() {
@@ -2757,6 +2775,7 @@ function PageStudio({ openModal, playTrack }) {
   const [duration,    setDuration]    = useState(0)
   const [soloId,      setSoloId]      = useState(null)
   const [mutedIds,    setMutedIds]    = useState(new Set())
+  const [loadingPct,  setLoadingPct]  = useState({})  // { stemId: 0-100 }
   const audioRefs    = useRef({})
   const ctxRef       = useRef(null)
   const startAtRef   = useRef(0)
@@ -2818,6 +2837,7 @@ function PageStudio({ openModal, playTrack }) {
     clearInterval(beatTimerRef.current)
     setBeatFlash(false)
     setPlaying(false)
+    setLoadingPct({})
   }
 
   const [detectingBpm, setDetectingBpm] = useState(false)
@@ -2965,12 +2985,16 @@ function PageStudio({ openModal, playTrack }) {
     const playableStems = stems.filter(s => s.file_url && !mutedIds.has(s.id) && (soloId === null || soloId === s.id))
     let maxDur = 0
 
+    setLoadingPct(Object.fromEntries(playableStems.map(s => [s.id, 0])))
     await Promise.all(playableStems.map(async s => {
       try {
         const trim = getTrim(s.id)
         const vol  = getVolume(s.id)
-        const buf  = await fetchAudioCached(s.file_url)
+        const buf  = await fetchAudioCached(s.file_url, pct =>
+          setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
+        )
         const decoded = await ctx.decodeAudioData(buf.slice(0))
+        setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
         const trimStart = decoded.duration * trim.start
         const effectiveDur = decoded.duration * (trim.end - trim.start)
         if (effectiveDur > maxDur) maxDur = effectiveDur
@@ -3500,8 +3524,27 @@ function PageStudio({ openModal, playTrack }) {
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex: 1 }}>{label}</div>
                 </div>
 
+                {/* Loading progress bar */}
+                {loadingPct[s.id] != null && loadingPct[s.id] < 100 && (
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: 8.5, color, fontWeight: 700, textTransform:'uppercase', letterSpacing:'.06em' }}>
+                        Loading…
+                      </span>
+                      <span style={{ fontSize: 9, color, fontWeight: 800, fontVariantNumeric:'tabular-nums' }}>
+                        {loadingPct[s.id]}%
+                      </span>
+                    </div>
+                    <div style={{ height: 3, background:'rgba(255,255,255,.08)', borderRadius: 3, overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius: 3, transition:'width .15s linear',
+                        width: `${loadingPct[s.id]}%`,
+                        background: `linear-gradient(90deg, ${color}88, ${color})` }}/>
+                    </div>
+                  </div>
+                )}
+
                 {/* Stem type */}
-                {stemType && (
+                {stemType && !loadingPct[s.id] && (
                   <div style={{ fontSize: 9, fontWeight: 800, color, textTransform:'uppercase',
                     letterSpacing:'.1em', marginBottom: 5 }}>{stemType}</div>
                 )}
@@ -4189,15 +4232,23 @@ function MiniPlayer({ track, onClose }) {
   const [duration, setDuration]= useState(0)
   const [current,  setCurrent] = useState(0)
   const [vol,      setVol]     = useState(1)
+  const [loadPct,  setLoadPct] = useState(0)   // 0-100 download progress
 
   useEffect(() => {
     if (!track?.file_url) return
+    setLoadPct(audioBufferCache.has(track.file_url) ? 100 : 0)
     const a = new Audio(track.file_url)
     audioRef.current = a
     a.volume = vol
     a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
     a.onended = () => setPlaying(false)
+    // Track buffering progress via the network
+    a.onprogress = () => {
+      if (!a.duration || !a.buffered.length) return
+      setLoadPct(Math.round((a.buffered.end(a.buffered.length - 1) / a.duration) * 100))
+    }
+    a.oncanplaythrough = () => setLoadPct(100)
     const playPromise = a.play()
     setPlaying(true)
     return () => {
@@ -4250,14 +4301,30 @@ function MiniPlayer({ track, onClose }) {
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden',
           textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:6 }}>{name}</div>
-        {/* Seek bar */}
-        <div onClick={seek} style={{ height:4, background:'rgba(255,255,255,.15)', borderRadius:2, cursor:'pointer', position:'relative' }}>
-          <div style={{ height:'100%', width:`${progress}%`, background:C.grad, borderRadius:2, transition:'width .3s linear' }} />
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-          <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{fmt(current)}</span>
-          <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{duration ? fmt(duration) : '--:--'}</span>
-        </div>
+        {/* Loading bar → seek bar */}
+        {loadPct < 100 ? (
+          <div>
+            <div style={{ height:4, background:'rgba(255,255,255,.08)', borderRadius:2, overflow:'hidden', marginBottom:4 }}>
+              <div style={{ height:'100%', borderRadius:2, transition:'width .2s linear',
+                width:`${loadPct}%`,
+                background:`linear-gradient(90deg,${C.coral}80,${C.coral})` }}/>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between' }}>
+              <span style={{ fontSize:10, color:'rgba(255,255,255,.4)', fontWeight:600 }}>Buffering…</span>
+              <span style={{ fontSize:10, color:C.coral, fontWeight:700 }}>{loadPct}%</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div onClick={seek} style={{ height:4, background:'rgba(255,255,255,.15)', borderRadius:2, cursor:'pointer', position:'relative' }}>
+              <div style={{ height:'100%', width:`${progress}%`, background:C.grad, borderRadius:2, transition:'width .3s linear' }}/>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+              <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{fmt(current)}</span>
+              <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>{duration ? fmt(duration) : '--:--'}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Controls */}
