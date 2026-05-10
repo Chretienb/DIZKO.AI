@@ -2024,8 +2024,15 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                 <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>
                   {projects[0]?.title || 'Project Files'}
                 </div>
-                <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                  {projectFiles.filter(f => f.instrument !== 'original').length} stems · {projects[0]?.status || 'Draft'}
+                <div style={{ fontSize:11.5, color:'#aaa', marginTop:2, display:'flex', alignItems:'center', gap:6 }}>
+                  {(() => {
+                    const stemCount = projectFiles.filter(f => f.instrument && f.instrument !== 'original' && f.instrument !== 'smart_bounce').length
+                    const processing = projectFiles.filter(f => f.instrument === 'original' && (() => { try { return JSON.parse(f.notes||'{}').status === 'processing' } catch { return false } })()).length
+                    if (stemCount === 0 && processing > 0) return (
+                      <><Spinner size={10} color={C.coral}/> AI separating stems…</>
+                    )
+                    return <>{stemCount} stem{stemCount !== 1 ? 's' : ''} · {projects[0]?.status || 'Draft'}{processing > 0 ? ` · ${processing} processing` : ''}</>
+                  })()}
                 </div>
               </div>
               <button onClick={() => openModal('upload', { project: projects[0] })}
@@ -2046,7 +2053,30 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
               </div>
             ) : (
               <div>
-                {/* Group by instrument type */}
+                {/* Processing originals — show while stems are being separated */}
+                {projectFiles.filter(f => f.instrument === 'original').map(f => {
+                  const notes = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
+                  const isProcessing = notes.status === 'processing' || notes.pipeline === 'local'
+                  if (!isProcessing) return null
+                  return (
+                    <div key={f.id} style={{ display:'flex', alignItems:'center', gap:10,
+                      padding:'10px 20px', borderBottom:'1px solid rgba(0,0,0,.04)',
+                      background:'rgba(245,158,11,.03)' }}>
+                      <Spinner size={14} color={C.amber}/>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:'#111',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {f.original_name}
+                        </div>
+                        <div style={{ fontSize:10.5, color:C.amber, marginTop:2, fontWeight:600 }}>
+                          Dizko.ai separating stems — takes a few minutes…
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Separated stems grouped by type */}
                 {(['vocals','drums','bass','other']).map(type => {
                   const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[type]
                   const group = projectFiles.filter(f => f.instrument === type)
@@ -3767,11 +3797,41 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               <div style={{ display:'flex', justifyContent:'center', paddingTop:32 }}>
                 <Spinner size={22} color={C.coral}/>
               </div>
-            ) : mixerStems.length === 0 ? (
-              <div style={{ padding:'32px 20px', textAlign:'center', color: S.text3, fontSize:13, lineHeight:1.8 }}>
-                No tracks yet.<br/>Upload audio to start.
-              </div>
-            ) : mixerStems.map((s, i) => {
+            ) : (
+              <>
+              {/* Processing originals */}
+              {stems.filter(s => s.instrument === 'original').map(s => {
+                const n = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
+                if (n.status !== 'processing' && n.pipeline !== 'local') return null
+                return (
+                  <div key={s.id} style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`,
+                    background:'rgba(245,158,11,.04)' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                      <Spinner size={11} color={C.amber}/>
+                      <span style={{ fontSize:12, fontWeight:600, color: S.text,
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                        {s.original_name}
+                      </span>
+                    </div>
+                    <div style={{ fontSize:10, color:C.amber, fontWeight:600, marginBottom:6 }}>
+                      Separating stems — a few minutes
+                    </div>
+                    <div style={{ height:2, background: S.border, borderRadius:1, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:'60%', borderRadius:1, background:C.amber, opacity:.4,
+                        animation:'pulse 1.6s ease-in-out infinite' }}/>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {mixerStems.length === 0 && stems.filter(s => s.instrument === 'original').length === 0 && (
+                <div style={{ padding:'32px 20px', textAlign:'center', color: S.text3, fontSize:13, lineHeight:1.8 }}>
+                  No tracks yet.<br/>Upload audio to start.
+                </div>
+              )}
+              </>
+            )}
+            {mixerStems.map((s, i) => {
               const color      = trackColor(s, i)
               const isMuted    = mutedIds.has(s.id)
               const isSolo     = soloId === s.id
