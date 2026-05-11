@@ -539,6 +539,138 @@ async function setupPushNotifications() {
   }
 }
 
+// Light-themed bell for the white top header bar
+function NotificationBellLight({ user }) {
+  const [notifs,  setNotifs]  = React.useState([])
+  const [open,    setOpen]    = React.useState(false)
+  const panelRef = React.useRef()
+
+  const unread = notifs.filter(n => !n.read).length
+
+  const load = React.useCallback(() => {
+    notificationsApi.list().then(r => setNotifs(r.data || [])).catch(() => {})
+  }, [])
+
+  React.useEffect(() => { load() }, [])
+
+  React.useEffect(() => {
+    if (!user?.id) return
+    const ch = supabase.channel(`notifs-light:${user.id}`)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
+        filter:`user_id=eq.${user.id}` }, () => load())
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [user?.id])
+
+  React.useEffect(() => {
+    const handler = e => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const markAllRead = async () => {
+    await notificationsApi.readAll()
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+  }
+  const markRead = async id => {
+    await notificationsApi.read(id)
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const typeIcon = type => ({
+    upload:     { icon:'↑', color: C.coral   },
+    mix_ready:  { icon:'♪', color: '#16a34a' },
+    message:    { icon:'✉', color: '#6366f1' },
+    invite:     { icon:'★', color: C.amber   },
+    stems_ready:{ icon:'⊞', color: '#8b5cf6'},
+  }[type] || { icon:'•', color: '#aaa' })
+
+  return (
+    <div style={{ position:'relative' }} ref={panelRef}>
+      <button onClick={() => { setOpen(o => !o); if (!open) load() }}
+        style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
+          background: open ? 'rgba(0,0,0,.06)' : 'rgba(0,0,0,.04)',
+          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          color:'#777', position:'relative', transition:'all .12s' }}
+        onMouseEnter={e => { e.currentTarget.style.background='rgba(0,0,0,.08)'; e.currentTarget.style.color='#333' }}
+        onMouseLeave={e => { e.currentTarget.style.background= open ?'rgba(0,0,0,.06)':'rgba(0,0,0,.04)'; e.currentTarget.style.color='#777' }}>
+        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unread > 0 && (
+          <div style={{ position:'absolute', top:3, right:3, width:16, height:16,
+            borderRadius:'50%', background:C.coral, border:'2px solid #fff',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:8.5, fontWeight:900, color:'#fff' }}>
+            {unread > 9 ? '9+' : unread}
+          </div>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:360,
+          background:'#fff', borderRadius:16, boxShadow:'0 16px 50px rgba(0,0,0,.15)',
+          border:'1px solid rgba(0,0,0,.08)', zIndex:9999, overflow:'hidden' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'14px 18px', borderBottom:'1px solid rgba(0,0,0,.06)' }}>
+            <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>
+              Notifications
+              {unread > 0 && <span style={{ marginLeft:8, fontSize:11, fontWeight:700,
+                color:C.coral, background:`${C.coral}15`, padding:'2px 8px', borderRadius:100 }}>
+                {unread} new
+              </span>}
+            </div>
+            {unread > 0 && (
+              <button onClick={markAllRead} style={{ fontSize:11.5, fontWeight:600,
+                color:'#aaa', background:'none', border:'none', cursor:'pointer' }}>
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div style={{ maxHeight:400, overflowY:'auto' }}>
+            {notifs.length === 0 && (
+              <div style={{ padding:'32px', textAlign:'center', color:'#bbb', fontSize:13 }}>
+                No notifications yet
+              </div>
+            )}
+            {notifs.map((n, i) => {
+              const { icon, color } = typeIcon(n.type)
+              return (
+                <div key={n.id} onClick={() => markRead(n.id)}
+                  style={{ display:'flex', gap:12, padding:'12px 18px', cursor:'pointer',
+                    background: n.read ? 'transparent' : `${C.coral}04`,
+                    borderBottom: i < notifs.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
+                    transition:'background .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
+                  onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : `${C.coral}04`}>
+                  <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
+                    background:`${color}15`, display:'flex', alignItems:'center',
+                    justifyContent:'center', fontSize:14, color }}>
+                    {icon}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
+                      lineHeight:1.4, marginBottom:2 }}>{n.title}</div>
+                    {n.message && (
+                      <div style={{ fontSize:12, color:'#888', overflow:'hidden',
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.message}</div>
+                    )}
+                    <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>{timeAgo(n.created_at)}</div>
+                  </div>
+                  {!n.read && (
+                    <div style={{ width:7, height:7, borderRadius:'50%',
+                      background:C.coral, flexShrink:0, marginTop:4 }}/>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
 function Modal({ title, sub, onClose, children, width=520, accent }) {
   const bar = accent || C.coral
@@ -5336,13 +5468,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               </div>
             </>
           )}
-          {/* Notification bell — sits just above the account button */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'0 4px', marginBottom:4 }}>
-            <span style={{ fontSize:10, color:'rgba(255,255,255,.2)', fontWeight:600,
-              textTransform:'uppercase', letterSpacing:'.08em', paddingLeft:8 }}>Notifications</span>
-            <NotificationBell user={user} />
-          </div>
 
           <button onClick={() => setMenu(m => !m)} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 8px',
             borderRadius:9, border:'none', background: userMenu ? 'rgba(255,255,255,.1)' : 'transparent',
@@ -5397,6 +5522,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             boxShadow:`0 2px 12px ${C.coral}40`, transition:'opacity .15s' }}
             onMouseEnter={e => e.currentTarget.style.opacity='.9'}
             onMouseLeave={e => e.currentTarget.style.opacity='1'}>+ Upload</button>
+          <NotificationBellLight user={user} />
           <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
         </header>
 
