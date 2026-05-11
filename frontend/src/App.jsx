@@ -2859,10 +2859,10 @@ function PageLibrary({ openModal, playTrack, user }) {
             </div>
 
             <Card style={{ overflow:'hidden' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 100px 120px',
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px auto',
                 padding:'10px 20px', borderBottom:'1px solid rgba(0,0,0,.05)',
                 fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.06em' }}>
-                <span>Name</span><span>Type</span><span>Instrument</span><span>Uploaded</span>
+                <span>Name</span><span>Type</span><span>Role</span><span>Actions</span>
               </div>
               {loadingFiles ? (
                 <div style={{ padding:'40px', textAlign:'center', color:'#bbb', fontSize:13 }}>Loading files…</div>
@@ -2884,10 +2884,12 @@ function PageLibrary({ openModal, playTrack, user }) {
                 return (
                   <div key={f.id} style={{ borderBottom: i < parentFiles.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
                     {/* Parent row */}
-                    <div style={{ display:'grid', gridTemplateColumns:`1fr 80px 100px 80px ${isOwner ? '64px' : '40px'}`,
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px auto',
                       padding:'13px 20px', alignItems:'center', transition:'background .12s' }}
                       onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
                       onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+
+                      {/* Name + status */}
                       <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
                         <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
                           background:`${color}15`, display:'flex', alignItems:'center',
@@ -2897,53 +2899,68 @@ function PageLibrary({ openModal, playTrack, user }) {
                             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
                             {fileLabel(f)}
                           </span>
+                          <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
                           {separating && (
                             <span style={{ fontSize:10, color:C.amber, fontWeight:700, display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                              <Spinner size={10} color={C.amber} /> Dizko.ai analyzing…
+                              <Spinner size={10} color={C.amber}/> Separating stems…
                             </span>
                           )}
                           {hasChildren && (
-                            <span style={{ fontSize:10, color:'#22c55e', fontWeight:600, marginTop:2, display:'block' }}>
-                              ✓ {children.length} stems separated
+                            <span style={{ fontSize:10, color:'#22c55e', fontWeight:600, marginTop:1, display:'block' }}>
+                              ✓ {children.length} stems ready
                             </span>
                           )}
                         </div>
                       </div>
+
+                      {/* Type */}
                       <span style={{ fontSize:11, fontWeight:700, color, background:`${color}12`, padding:'3px 8px', borderRadius:6 }}>{ext}</span>
-                      <span style={{ fontSize:12, color:'#aaa' }}>{f.instrument || '—'}</span>
-                      <span style={{ fontSize:12, color:'#aaa' }}>{timeAgo(f.created_at)}</span>
-                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                        <button onClick={() => playTrack(f)} title="Play" style={{
-                          width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
-                          background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                        }}>
+
+                      {/* Role */}
+                      <span style={{ fontSize:12, color:'#888', fontWeight:500, textTransform:'capitalize' }}>
+                        {f.instrument || 'recording'}
+                      </span>
+
+                      {/* Actions */}
+                      <div style={{ display:'flex', gap:7, alignItems:'center', justifyContent:'flex-end' }}>
+                        {/* Play */}
+                        <button onClick={() => playTrack(f)} title="Play"
+                          style={{ width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
+                            background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                           <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                         </button>
-                        {/* Separate Stems — utility button, user-triggered only */}
-                        {!hasChildren && !separating && (
+
+                        {/* Separate Stems — always visible, user-triggered */}
+                        {!separating && (
                           <button onClick={() => separateStems(f.id)}
-                            disabled={separatingId === f.id} title="Separate into individual stems"
-                            style={{ height:28, padding:'0 9px', borderRadius:8, fontSize:10.5, fontWeight:700,
-                              border:`1px solid ${C.coral}35`, background:`${C.coral}08`,
-                              color:C.coral, cursor:'pointer', display:'flex', alignItems:'center', gap:5,
-                              whiteSpace:'nowrap' }}>
+                            disabled={separatingId === f.id}
+                            style={{ height:30, padding:'0 12px', borderRadius:9, fontSize:12, fontWeight:700,
+                              border:`1.5px solid ${hasChildren ? '#22c55e55' : C.coral+'55'}`,
+                              background: hasChildren ? 'rgba(34,197,94,.08)' : `${C.coral}10`,
+                              color: hasChildren ? '#16a34a' : C.coral,
+                              cursor: separatingId === f.id ? 'default' : 'pointer',
+                              display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap',
+                              opacity: separatingId === f.id ? .6 : 1 }}>
                             {separatingId === f.id
-                              ? <><Spinner size={9} color={C.coral}/> Separating…</>
-                              : <>
-                                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                                    <line x1="12" y1="20" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/>
-                                  </svg>
-                                  Separate Stems
-                                </>}
+                              ? <><Spinner size={10} color={C.coral}/> Separating…</>
+                              : hasChildren
+                              ? <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>Re-separate</>
+                              : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                                  <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                                  <line x1="12" y1="22.08" x2="12" y2="12"/>
+                                </svg>Separate Stems</>}
                           </button>
                         )}
+
+                        {/* Delete */}
                         {isOwner && (
                           <button onClick={() => deleteFile(f.id)} disabled={deletingId === f.id} title="Delete"
-                            style={{ width:30, height:30, borderRadius:'50%', border:'none', cursor:'pointer',
-                              background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.7)',
+                            style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer',
+                              background:'rgba(239,68,68,.08)', color:'rgba(239,68,68,.65)',
                               display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                             {deletingId === f.id
-                              ? <Spinner size={9} color="#ef4444"/>
+                              ? <Spinner size={8} color="#ef4444"/>
                               : <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
                           </button>
                         )}
