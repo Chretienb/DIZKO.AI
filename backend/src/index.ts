@@ -16,7 +16,8 @@ import fileRoutes from './routes/files'
 import analyticsRoutes from './routes/analytics'
 import distributionRoutes from './routes/distribution'
 import messageRoutes      from './routes/messages'
-import notificationRoutes from './routes/notifications'
+import notificationRoutes   from './routes/notifications'
+import accessRequestRoutes  from './routes/accessRequests'
 import { runSmartBounce }    from './lib/smartBounce'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 
@@ -73,7 +74,8 @@ app.route('/files', fileRoutes)
 app.route('/analytics', analyticsRoutes)
 app.route('/distribution', distributionRoutes)
 app.route('/messages',      messageRoutes)
-app.route('/notifications', notificationRoutes)
+app.route('/notifications',   notificationRoutes)
+app.route('/access-requests', accessRequestRoutes)
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {

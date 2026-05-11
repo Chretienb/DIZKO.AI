@@ -8,6 +8,8 @@ import { requireAuth }  from '../middleware/auth'
 import { sanitize }     from '../middleware/sanitize'
 import { runLocalPipeline, uploadStemsToSupabase } from '../lib/localPipeline'
 import { runSmartBounce } from '../lib/smartBounce'
+import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
+import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
 
 const files = new Hono<{ Variables: HonoVariables }>()
@@ -105,6 +107,34 @@ files.post('/upload', async (c) => {
 
   // 3. Detect instrument type from filename
   const instrument = detectInstrument(file.name)
+
+  // 3b. Role-based access check — owner bypasses, collaborators restricted by role
+  const { data: project } = await supabase.from('projects').select('owner_id').eq('id', projectId).single()
+  const isOwner = (project as any)?.owner_id === user.id
+
+  if (!isOwner) {
+    const { data: collab } = await supabase
+      .from('collaborators').select('role, status')
+      .eq('project_id', projectId).eq('user_id', user.id).maybeSingle()
+
+    if (!collab || (collab as any).status !== 'active') {
+      return c.json({ data: null, error: 'You are not a collaborator on this project', status: 403 }, 403)
+    }
+
+    const role = (collab as any).role ?? 'Collaborator'
+    if (!roleCanUpload(role, instrument)) {
+      // Return 403 with flag so frontend shows "Request Access"
+      return c.json({
+        data: null,
+        error: `Your role (${role}) can't upload ${instrument} files`,
+        needs_request: true,
+        instrument,
+        role,
+        hint: `Request access from the project owner to upload ${instrument}`,
+        status: 403,
+      }, 403)
+    }
+  }
 
   // 4. Insert the take record immediately (status: ready — no processing needed)
   const { data: takeRecord, error: takeErr } = await supabase

@@ -198,6 +198,13 @@ export const notificationsApi = {
   unsubscribe: (endpoint) => request('DELETE', '/notifications/push-subscribe', { endpoint }),
 }
 
+// ── Access Requests ───────────────────────────────────────────────────────────
+export const accessRequests = {
+  list:    (projectId)         => get(`/access-requests?project_id=${projectId}`),
+  request: (projectId, body)   => post('/access-requests', { project_id: projectId, ...body }),
+  review:  (id, status)        => request('PATCH', `/access-requests/${id}`, { status }),
+}
+
 // ── Smart Bounce ──────────────────────────────────────────────────────────────
 export const smartBounce = (projectId) => post(`/projects/${projectId}/smart-bounce`, {})
 

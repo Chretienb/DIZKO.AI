@@ -55,15 +55,24 @@ projects.get('/', async (c) => {
   return c.json({ data: all, error: null, status: 200 })
 })
 
-// ── GET /projects/:id ─────────────────────────────────────────────────────────
+// ── GET /projects/:id — only accessible to owner and active collaborators ──────
 projects.get('/:id', async (c) => {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*, collaborators(*)')
-    .eq('id', c.req.param('id'))
-    .single()
+  const userId    = c.var.user.id
+  const projectId = c.req.param('id')
 
-  if (error) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+  const { data, error } = await supabase
+    .from('projects').select('*, collaborators(*)').eq('id', projectId).single()
+
+  if (error || !data) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+
+  const isOwner = (data as any).owner_id === userId
+  const isCollaborator = ((data as any).collaborators ?? []).some(
+    (col: any) => col.user_id === userId && col.status === 'active'
+  )
+
+  if (!isOwner && !isCollaborator)
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   return c.json({ data, error: null, status: 200 })
 })
 

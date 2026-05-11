@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -1530,12 +1530,14 @@ function ModalNewTrack({ project, onClose, onCreated }) {
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
 function ModalUpload({ project, onClose }) {
-  const [drag,     setDrag]     = useState(false)
-  const [queue,    setQueue]    = useState([])   // { file, status, progress, error, url }
-  const [projects, setProjects] = useState([])
-  const [selProj,  setSelProj]  = useState(project || null)
-  const [uploading, setUploading] = useState(false)
-  const [allDone,  setAllDone]  = useState(false)
+  const [drag,          setDrag]          = useState(false)
+  const [queue,         setQueue]         = useState([])   // { file, status, progress, error, needsRequest, instrument, role }
+  const [projects,      setProjects]      = useState([])
+  const [selProj,       setSelProj]       = useState(project || null)
+  const [uploading,     setUploading]     = useState(false)
+  const [allDone,       setAllDone]       = useState(false)
+  const [requesting,    setRequesting]    = useState(null)  // index being requested
+  const [requestSent,   setRequestSent]   = useState(new Set())
   const inputRef = useRef()
 
   // Load projects for picker if none passed in; auto-select when only one exists
@@ -1588,13 +1590,23 @@ function ModalUpload({ project, onClose }) {
       setQueue([...updated])
 
       try {
-        // Send to backend pipeline — stem separation + AI naming happens server-side
         await filesApi.upload(updated[i].file, selProj.id)
-
         updated[i] = { ...updated[i], status:'done', progress: 100 }
         setQueue([...updated])
       } catch (err) {
-        updated[i] = { ...updated[i], status:'error', progress: 0, error: err.message }
+        // Check if this is a role restriction — show Request Access instead of error
+        try {
+          const body = JSON.parse(err.message.includes('{') ? err.message : '{}')
+          if (body.needs_request || err.message.includes("can't upload")) {
+            updated[i] = { ...updated[i], status:'blocked', progress: 0,
+              needsRequest: true, instrument: body.instrument, role: body.role,
+              error: body.hint || err.message }
+          } else {
+            updated[i] = { ...updated[i], status:'error', progress: 0, error: err.message }
+          }
+        } catch {
+          updated[i] = { ...updated[i], status:'error', progress: 0, error: err.message }
+        }
         setQueue([...updated])
       }
     }
@@ -1692,7 +1704,8 @@ function ModalUpload({ project, onClose }) {
             return (
               <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
                 borderBottom: i < queue.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none',
-                background: item.status === 'error' ? 'rgba(239,68,68,.03)' : 'transparent' }}>
+                background: item.status === 'error' ? 'rgba(239,68,68,.03)'
+                  : item.status === 'blocked' ? 'rgba(245,158,11,.04)' : 'transparent' }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`${col}15`, flexShrink:0,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:8, fontWeight:800, color:col }}>{ext}</div>
@@ -1701,6 +1714,11 @@ function ModalUpload({ project, onClose }) {
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.file.name}</div>
                   <div style={{ fontSize:10.5, color:'#bbb', marginTop:1 }}>{mb} MB
                     {item.status === 'error' && <span style={{ color:'#ef4444', marginLeft:6 }}>{item.error}</span>}
+                    {item.status === 'blocked' && (
+                      <span style={{ color:C.amber, marginLeft:6, fontWeight:600 }}>
+                        Your role ({item.role}) can't upload {item.instrument}
+                      </span>
+                    )}
                   </div>
                   {item.status === 'uploading' && (
                     <div style={{ height:2, background:'rgba(0,0,0,.06)', borderRadius:2, marginTop:4 }}>
@@ -1708,6 +1726,30 @@ function ModalUpload({ project, onClose }) {
                     </div>
                   )}
                 </div>
+
+                {/* Request Access button for role-blocked files */}
+                {item.status === 'blocked' && selProj?.id && (
+                  requestSent.has(i) ? (
+                    <span style={{ fontSize:11, color:'#22c55e', fontWeight:700, flexShrink:0 }}>Requested ✓</span>
+                  ) : (
+                    <button onClick={async () => {
+                      setRequesting(i)
+                      try {
+                        const { accessRequests } = await import('./lib/api.js')
+                        await accessRequests.request(selProj.id, { instrument: item.instrument, reason: `Want to upload ${item.file.name}` })
+                        setRequestSent(prev => new Set([...prev, i]))
+                      } catch {}
+                      setRequesting(null)
+                    }} disabled={requesting === i}
+                      style={{ height:28, padding:'0 11px', borderRadius:8, border:`1px solid ${C.amber}55`,
+                        background:`${C.amber}12`, color:C.amber, fontSize:11.5, fontWeight:700,
+                        cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:5 }}>
+                      {requesting === i ? <Spinner size={10} color={C.amber}/> : null}
+                      Request Access
+                    </button>
+                  )
+                )}
+
                 {item.status === 'done'     && <div style={{ width:18, height:18, borderRadius:'50%', background:'#22c55e', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg></div>}
                 {item.status === 'error'    && <div style={{ width:18, height:18, borderRadius:'50%', background:'#ef4444', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></div>}
                 {item.status === 'uploading' && <div style={{ flexShrink:0 }}><Spinner size={18}/></div>}
@@ -2906,16 +2948,18 @@ function PageProjects({ openModal, refreshKey }) {
 
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
 function PageCollaborators({ openModal, user }) {
-  const [search,     setSearch]     = useState('')
-  const [roleFilter, setRoleFilter] = useState('All')
-  const [collabs,    setCollabs]    = useState([])
-  const [invites,    setInvites]    = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [actingId,   setActingId]   = useState(null)
-  const [removingId, setRemovingId] = useState(null)
-  const [ownedIds,   setOwnedIds]   = useState(new Set())
-  const [overview,   setOverview]   = useState({})
-  const [onlineIds,  setOnlineIds]  = useState(new Set())
+  const [search,        setSearch]        = useState('')
+  const [roleFilter,    setRoleFilter]    = useState('All')
+  const [collabs,       setCollabs]       = useState([])
+  const [invites,       setInvites]       = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [actingId,      setActingId]      = useState(null)
+  const [removingId,    setRemovingId]    = useState(null)
+  const [ownedIds,      setOwnedIds]      = useState(new Set())
+  const [overview,      setOverview]      = useState({})
+  const [onlineIds,     setOnlineIds]     = useState(new Set())
+  const [accessReqs,    setAccessReqs]    = useState([])   // pending access requests for owned projects
+  const [reviewingId,   setReviewingId]   = useState(null)
 
   // Supabase Realtime Presence — track who's online right now
   useEffect(() => {
@@ -2991,6 +3035,26 @@ function PageCollaborators({ openModal, user }) {
   const roles    = [...new Set(collabs.map(c => c.role).filter(Boolean))]
   const onlineNow = onlineIds.size - 1  // exclude self
 
+  // Load pending access requests for projects the current user owns
+  useEffect(() => {
+    if (!user?.id) return
+    const ownedArr = [...ownedIds]
+    if (!ownedArr.length) return
+    Promise.all(ownedArr.map(pid =>
+      accessRequests.list(pid).then(r => (r.data || []).filter(req => req.status === 'pending'))
+        .catch(() => [])
+    )).then(results => setAccessReqs(results.flat()))
+  }, [ownedIds, user?.id])
+
+  const reviewRequest = async (id, status) => {
+    setReviewingId(id)
+    try {
+      await accessRequests.review(id, status)
+      setAccessReqs(prev => prev.filter(r => r.id !== id))
+    } catch {}
+    setReviewingId(null)
+  }
+
   const visible = collabs.filter(c => {
     const matchSearch = collabName(c).toLowerCase().includes(search.toLowerCase()) ||
                         (c.role || '').toLowerCase().includes(search.toLowerCase())
@@ -3022,6 +3086,53 @@ function PageCollaborators({ openModal, user }) {
       </div>
 
       {/* ── Pending invitations ────────────────────────────────────────── */}
+      {/* ── Access Requests — owner approves/denies ────────────────────── */}
+      {accessReqs.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.amber, textTransform:'uppercase',
+            letterSpacing:'.08em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Access Requests ({accessReqs.length})
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {accessReqs.map(req => (
+              <div key={req.id} style={{ display:'flex', alignItems:'center', gap:14,
+                background:'#fff', borderRadius:14, padding:'14px 18px',
+                border:`1.5px solid ${C.amber}35`, boxShadow:`0 2px 8px ${C.amber}10` }}>
+                <div style={{ width:38, height:38, borderRadius:'50%', background:`${C.amber}15`,
+                  border:`2px solid ${C.amber}35`, display:'flex', alignItems:'center',
+                  justifyContent:'center', fontSize:13, fontWeight:800, color:C.amber, flexShrink:0 }}>
+                  {(req.requester_name || '?')[0]?.toUpperCase()}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13.5, fontWeight:700, color:'#111' }}>
+                    <strong>{req.requester_name}</strong> wants to upload <strong style={{ color:C.amber }}>{req.instrument}</strong>
+                  </div>
+                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>
+                    {req.reason || `Requesting access outside their assigned role`}
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:7, flexShrink:0 }}>
+                  <button onClick={() => reviewRequest(req.id, 'approved')}
+                    disabled={reviewingId === req.id}
+                    style={{ padding:'7px 16px', borderRadius:9, border:'none', background:C.grad,
+                      color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer',
+                      opacity: reviewingId === req.id ? .6 : 1 }}>
+                    {reviewingId === req.id ? <Spinner size={13} color="#fff"/> : 'Approve'}
+                  </button>
+                  <button onClick={() => reviewRequest(req.id, 'denied')}
+                    disabled={reviewingId === req.id}
+                    style={{ padding:'7px 14px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
+                      background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    Deny
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {invites.length > 0 && (
         <div style={{ marginBottom:20 }}>
           {invites.map(inv => {
