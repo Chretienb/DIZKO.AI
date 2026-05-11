@@ -3,9 +3,11 @@
  * Dizko.ai Desktop Sync Daemon
  *
  * Usage:
- *   bun run sync.ts login    — save your auth token
- *   bun run sync.ts          — start syncing
- *   bun run sync.ts status   — show sync status
+ *   bun run sync.ts login     — save your auth token
+ *   bun run sync.ts install   — auto-start on Mac login (launchd)
+ *   bun run sync.ts uninstall — remove auto-start
+ *   bun run sync.ts           — start syncing manually
+ *   bun run sync.ts status    — show sync status
  *
  * What it does:
  *   • Creates ~/Desktop/Dizko.ai/{Project}/ for each project
@@ -280,11 +282,88 @@ async function status() {
   console.log()
 }
 
+// ── Install / Uninstall (macOS launchd) ──────────────────────────────────────
+async function install() {
+  const bunPath   = process.execPath
+  const syncPath  = import.meta.path.replace('file://', '')
+  const workDir   = syncPath.replace('/sync.ts', '')
+  const logPath   = join(homedir(), '.dizko', 'sync.log')
+  const plistPath = join(homedir(), 'Library', 'LaunchAgents', 'com.dizko.sync.plist')
+
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dizko.sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${bunPath}</string>
+        <string>run</string>
+        <string>${syncPath}</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>${workDir}</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>${logPath}</string>
+
+    <key>StandardErrorPath</key>
+    <string>${logPath}</string>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>${homedir()}</string>
+        <key>PATH</key>
+        <string>${bunPath.replace('/bun', '')}:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>`
+
+  await mkdir(join(homedir(), '.dizko'), { recursive: true })
+  await mkdir(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true })
+  await writeFile(plistPath, plist)
+
+  // Unload first if already installed
+  const { execa } = await import('bun')
+  const proc = Bun.spawn(['launchctl', 'load', plistPath], { stdout: 'pipe', stderr: 'pipe' })
+  await proc.exited
+
+  console.log('\n  ✓ Dizko.ai Sync will now start automatically on Mac login')
+  console.log(`  Plist: ${plistPath}`)
+  console.log(`  Logs:  ${logPath}`)
+  console.log('\n  To stop auto-start:\n    bun run sync.ts uninstall\n')
+}
+
+async function uninstall() {
+  const plistPath = join(homedir(), 'Library', 'LaunchAgents', 'com.dizko.sync.plist')
+  const proc = Bun.spawn(['launchctl', 'unload', plistPath], { stdout: 'pipe', stderr: 'pipe' })
+  await proc.exited
+  try { const { unlink } = await import('fs/promises'); await unlink(plistPath) } catch {}
+  console.log('\n  ✓ Auto-start removed\n')
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 const cmd = process.argv[2]
 
 if (cmd === 'login') {
   await login()
+} else if (cmd === 'install') {
+  await install()
+} else if (cmd === 'uninstall') {
+  await uninstall()
 } else if (cmd === 'status') {
   await status()
 } else {
