@@ -1,0 +1,14 @@
+{
+  "name": "dizko-sync",
+  "version": "1.0.0",
+  "description": "Dizko.ai Desktop Sync — keeps your projects in sync on your Desktop",
+  "module": "sync.ts",
+  "scripts": {
+    "start":  "bun run sync.ts",
+    "login":  "bun run sync.ts login",
+    "status": "bun run sync.ts status"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4"
+  }
+}
