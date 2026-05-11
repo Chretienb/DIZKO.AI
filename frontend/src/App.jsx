@@ -1248,7 +1248,16 @@ function ModalInvite({ project: initialProject, onClose }) {
   const [sending,  setSending]  = useState(false)
   const [sent,     setSent]     = useState(false)
   const [err,      setErr]      = useState(null)
-  const roles = ['Vocalist','Guitarist','Drummer','Producer','Engineer','Mixer','Collaborator']
+  const ROLES = [
+    { name:'Vocalist',    can:'vocals, harmonies',       color:'#8b5cf6' },
+    { name:'Guitarist',   can:'guitar recordings',        color:C.coral   },
+    { name:'Drummer',     can:'drums, percussion',        color:C.coral   },
+    { name:'Producer',    can:'beats, demos',             color:C.amber   },
+    { name:'Engineer',    can:'exports, finals',          color:'#22c55e' },
+    { name:'Mixer',       can:'exports, finals',          color:'#22c55e' },
+    { name:'Collaborator',can:'anything',                 color:'#6366f1' },
+  ]
+  const roles = ROLES.map(r => r.name)
 
   useEffect(() => {
     if (!initialProject) {
@@ -1311,8 +1320,26 @@ function ModalInvite({ project: initialProject, onClose }) {
         value={email} onChange={e => setEmail(e.target.value)} />
 
       <div style={{ marginBottom:16 }}>
-        <MLabel>Role</MLabel>
-        <PillSelect options={roles} value={role} onChange={setRole} getColor={() => '#6366f1'} />
+        <MLabel>Role & Permissions</MLabel>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+          {ROLES.map(r => {
+            const on = role === r.name
+            return (
+              <button key={r.name} onClick={() => setRole(r.name)} style={{
+                padding:'10px 12px', borderRadius:11, border:`1.5px solid ${on ? r.color : 'rgba(0,0,0,.09)'}`,
+                background: on ? `${r.color}12` : 'transparent',
+                cursor:'pointer', textAlign:'left', transition:'all .12s',
+              }}>
+                <div style={{ fontSize:13, fontWeight:700, color: on ? r.color : '#333', marginBottom:2 }}>
+                  {r.name}
+                </div>
+                <div style={{ fontSize:11, color: on ? r.color : '#bbb', fontWeight:500 }}>
+                  Can upload: {r.can}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
@@ -1529,16 +1556,33 @@ function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-function ModalUpload({ project, onClose }) {
+const ROLE_PERMS = {
+  Vocalist:'vocals, harmonies', Guitarist:'guitar', Drummer:'drums, percussion',
+  Producer:'beats, demos', Engineer:'exports, finals', Mixer:'exports, finals', Collaborator:'anything',
+}
+
+function ModalUpload({ project, onClose, user }) {
   const [drag,          setDrag]          = useState(false)
-  const [queue,         setQueue]         = useState([])   // { file, status, progress, error, needsRequest, instrument, role }
+  const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
   const [selProj,       setSelProj]       = useState(project || null)
   const [uploading,     setUploading]     = useState(false)
   const [allDone,       setAllDone]       = useState(false)
-  const [requesting,    setRequesting]    = useState(null)  // index being requested
+  const [requesting,    setRequesting]    = useState(null)
   const [requestSent,   setRequestSent]   = useState(new Set())
+  const [myRole,        setMyRole]        = useState(null)  // user's role on the selected project
   const inputRef = useRef()
+
+  // Fetch user's role on the selected project
+  useEffect(() => {
+    if (!selProj?.id || !user?.id) { setMyRole(null); return }
+    collabsApi.listByProject(selProj.id)
+      .then(r => {
+        const me = (r.data || []).find(c => c.user_id === user.id)
+        setMyRole(me?.role || (selProj.owner_id === user.id ? 'Owner' : null))
+      })
+      .catch(() => setMyRole(null))
+  }, [selProj?.id, user?.id])
 
   // Load projects for picker if none passed in; auto-select when only one exists
   useEffect(() => {
@@ -1647,7 +1691,11 @@ function ModalUpload({ project, onClose }) {
   const queued = queue.filter(f => f.status === 'queued').length
 
   return (
-    <Modal title="Upload Files" sub={selProj?.title ? `To "${selProj.title}"` : 'Pick a project'} onClose={onClose}>
+    <Modal title="Upload Files"
+      sub={selProj?.title
+        ? `To "${selProj.title}"${myRole ? ` · ${myRole}` : ''}`
+        : 'Pick a project'}
+      onClose={onClose}>
       {!project && (
         <div style={{ marginBottom:16 }}>
           <MLabel>Project</MLabel>
@@ -1669,6 +1717,22 @@ function ModalUpload({ project, onClose }) {
             })}
             {projects.length === 0 && <span style={{ fontSize:12, color:'#bbb' }}>No projects yet</span>}
           </div>
+        </div>
+      )}
+
+      {/* Role permissions notice */}
+      {myRole && myRole !== 'Owner' && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 13px',
+          borderRadius:10, background:`${C.coral}06`, border:`1px solid ${C.coral}25`,
+          marginBottom:12, fontSize:12 }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span style={{ color:'#555' }}>
+            You're a <strong style={{ color:C.coral }}>{myRole}</strong> on this project.
+            You can upload: <strong>{ROLE_PERMS[myRole] || 'anything'}</strong>.
+            Other files will prompt a request.
+          </span>
         </div>
       )}
 
@@ -3300,20 +3364,31 @@ function PageCollaborators({ openModal, user }) {
                     {c.role || 'Collaborator'}
                   </span>
 
-                  {/* Project + joined */}
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
-                    <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:'#111', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.projectTitle || '—'}</div>
-                      <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
-                    </div>
-                    <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
-                        {timeAgo(c.created_at) || '—'}
+                  {/* Permissions + joined */}
+                  {(() => {
+                    const permMap = {
+                      Vocalist:'vocals, harmonies', Guitarist:'guitar',
+                      Drummer:'drums', Producer:'beats, demos',
+                      Engineer:'exports, finals', Mixer:'exports, finals',
+                      Collaborator:'anything',
+                    }
+                    const perm = permMap[c.role] || 'anything'
+                    return (
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
+                        <div style={{ background:`${color}0a`, borderRadius:10, padding:'9px 8px', border:`1px solid ${color}20` }}>
+                          <div style={{ fontSize:11, fontWeight:700, color, overflow:'hidden',
+                            textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{perm}</div>
+                          <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Can upload</div>
+                        </div>
+                        <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
+                          <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
+                            {c.projectTitle || '—'}
+                          </div>
+                          <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
+                        </div>
                       </div>
-                      <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Joined</div>
-                    </div>
-                  </div>
+                    )
+                  })()}
 
                   {/* Actions */}
                   <div style={{ display:'flex', gap:7 }}>
@@ -3551,10 +3626,20 @@ function PageLibrary({ openModal, playTrack, user }) {
                       {/* Type */}
                       <span style={{ fontSize:11, fontWeight:700, color, background:`${color}12`, padding:'3px 8px', borderRadius:6 }}>{ext}</span>
 
-                      {/* Role */}
-                      <span style={{ fontSize:12, color:'#888', fontWeight:500, textTransform:'capitalize' }}>
-                        {f.instrument || 'recording'}
-                      </span>
+                      {/* Instrument / role badge */}
+                      {(() => {
+                        const instr = f.instrument || 'recording'
+                        const instrColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e',
+                          other:C.amber, guitar:C.amber, keys:'#6366f1', harmony:'#ec4899',
+                          beats:C.amber, demo:'#64748b', recording:C.coral, exports:'#22c55e', finals:'#22c55e' }[instr] || '#aaa'
+                        return (
+                          <span style={{ fontSize:10.5, fontWeight:700, color:instrColor,
+                            background:`${instrColor}12`, padding:'3px 9px', borderRadius:6,
+                            textTransform:'capitalize', border:`1px solid ${instrColor}25` }}>
+                            {instr}
+                          </span>
+                        )
+                      })()}
 
                       {/* Actions */}
                       <div style={{ display:'flex', gap:7, alignItems:'center', justifyContent:'flex-end' }}>
@@ -5663,7 +5748,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
-      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  onClose={closeModal} />}
+      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  onClose={closeModal} user={user} />}
       {modal?.type==='new-release' && <ModalNewRelease onClose={closeModal} />}
       {modal?.type==='schedule'    && <ModalSchedule   release={modal.data}           onClose={closeModal} />}
       <ToastContainer toasts={toasts} remove={removeToast} />
