@@ -107,9 +107,13 @@ app.onError((err, c) => {
 
 subscribeToFileEvents(async (payload) => {
   const stem = (payload as any).new
-  if (!stem?.id) return
-  // Skip originals and smart bounces to avoid infinite loops
-  if (stem.instrument === 'original' || stem.instrument === 'smart_bounce') return
+  if (!stem?.id || !stem?.track_id) return
+  // Skip smart_bounce stems (would cause infinite loop) and Demucs child stems
+  if (stem.instrument === 'smart_bounce') return
+  try {
+    const n = JSON.parse(stem.notes || '{}')
+    if (n.parent_stem_id) return  // Demucs child — not a collaborator upload
+  } catch {}
 
   // Find the project this stem belongs to
   const { data: track } = await supabase
@@ -117,11 +121,10 @@ subscribeToFileEvents(async (payload) => {
   if (!track) return
 
   const projectId = (track as any).project_id
-  console.log(`[realtime] new ${stem.instrument} stem in project ${projectId} — triggering smart bounce`)
+  console.log(`[realtime] ${stem.instrument} uploaded in ${projectId} — auto-mixing`)
 
-  // Run async, don't block the realtime handler
   runSmartBounce(projectId, stem.uploaded_by).catch(e =>
-    console.error('[smartBounce] auto-trigger error:', e)
+    console.error('[smartBounce] error:', e.message)
   )
 })
 

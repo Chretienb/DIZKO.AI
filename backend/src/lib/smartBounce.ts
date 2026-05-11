@@ -23,7 +23,13 @@ export interface SmartBounceResult {
 function latestTakes(stems: any[]): any[] {
   const map = new Map<string, any>()
   for (const s of stems) {
-    if (!s.file_url || !s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') continue
+    if (!s.file_url || !s.instrument) continue
+    if (s.instrument === 'original' || s.instrument === 'smart_bounce') continue
+    // Exclude Demucs child stems — only use uploaded takes
+    try {
+      const n = JSON.parse(s.notes || '{}')
+      if (n.parent_stem_id) continue
+    } catch {}
     const key = `${s.uploaded_by}::${s.instrument}`
     const existing = map.get(key)
     if (!existing || new Date(s.created_at) > new Date(existing.created_at)) {
@@ -48,8 +54,8 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
   if (error || !stems?.length) return null
 
   const takes = latestTakes(stems)
-  if (takes.length < 2) {
-    console.log(`[smartBounce] only ${takes.length} stem(s) — skipping`)
+  if (takes.length < 1) {
+    console.log(`[smartBounce] no takes yet — skipping`)
     return null
   }
 
