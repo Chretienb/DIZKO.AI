@@ -2967,33 +2967,85 @@ function PageLibrary({ openModal, playTrack, user }) {
                       </div>
                     </div>
 
-                    {/* Child stems (vocals, drums, bass, other) */}
+                    {/* Child stems — separated stems with download buttons */}
+                    {hasChildren && (
+                      <div style={{ padding:'6px 20px 6px 52px', background:'rgba(0,0,0,.01)',
+                        display:'flex', alignItems:'center', justifyContent:'space-between',
+                        borderTop:'1px solid rgba(0,0,0,.04)' }}>
+                        <span style={{ fontSize:10.5, fontWeight:700, color:'#22c55e',
+                          display:'flex', alignItems:'center', gap:5 }}>
+                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                          {children.length} stems separated
+                        </span>
+                        <button onClick={async () => {
+                          // Download each stem individually
+                          for (const child of children) {
+                            const stemType = parsedNotes(child).stem_type || child.instrument || 'stem'
+                            const a = document.createElement('a')
+                            a.href = child.file_url
+                            a.download = `${stemType}_${child.suggested_name || stemType}.wav`
+                            a.click()
+                            await new Promise(r => setTimeout(r, 400))
+                          }
+                        }} style={{ height:26, padding:'0 10px', borderRadius:7, fontSize:11, fontWeight:700,
+                          border:'1px solid rgba(34,197,94,.4)', background:'rgba(34,197,94,.08)',
+                          color:'#16a34a', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7,10 12,15 17,10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                          Download all
+                        </button>
+                      </div>
+                    )}
                     {hasChildren && children.map(child => {
                       const stemType = parsedNotes(child).stem_type || child.instrument || 'stem'
                       const stemColor = stemColors[stemType] || '#888'
+                      const dlName = `${stemType}_${child.suggested_name || child.original_name || stemType}.wav`
                       return (
-                        <div key={child.id} style={{ display:'grid', gridTemplateColumns:'1fr 80px 100px 80px 40px',
-                          padding:'9px 20px 9px 52px', alignItems:'center',
-                          background:'rgba(0,0,0,.015)', transition:'background .12s' }}
+                        <div key={child.id} style={{ display:'flex', alignItems:'center', gap:10,
+                          padding:'9px 20px 9px 52px',
+                          background:'rgba(0,0,0,.015)', transition:'background .12s',
+                          borderBottom:'1px solid rgba(0,0,0,.03)' }}
                           onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.03)'}
                           onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.015)'}>
-                          <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
-                            <div style={{ width:6, height:6, borderRadius:'50%', background:stemColor, flexShrink:0 }} />
+
+                          {/* Colour dot + name */}
+                          <div style={{ width:6, height:6, borderRadius:'50%', background:stemColor, flexShrink:0 }}/>
+                          <div style={{ flex:1, minWidth:0 }}>
                             <span style={{ fontSize:12.5, fontWeight:600, color:'#333',
-                              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
                               {fileLabel(child)}
                             </span>
+                            <span style={{ fontSize:10.5, color:'#bbb' }}>WAV · {(child.file_size / 1048576).toFixed(1)} MB</span>
                           </div>
+
+                          {/* Stem type badge */}
                           <span style={{ fontSize:10, fontWeight:700, color:stemColor,
-                            background:`${stemColor}15`, padding:'2px 7px', borderRadius:5, textTransform:'capitalize' }}>{stemType}</span>
-                          <span style={{ fontSize:11, color:'#bbb' }}>WAV</span>
-                          <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(child.created_at)}</span>
-                          <button onClick={() => playTrack(child)} title={`Play ${stemType}`} style={{
-                            width:26, height:26, borderRadius:'50%', border:'none', cursor:'pointer',
-                            background:stemColor, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                          }}>
+                            background:`${stemColor}15`, padding:'2px 8px', borderRadius:5,
+                            textTransform:'capitalize', flexShrink:0 }}>{stemType}</span>
+
+                          {/* Play */}
+                          <button onClick={() => playTrack(child)} title={`Play ${stemType}`}
+                            style={{ width:28, height:28, borderRadius:'50%', border:'none', cursor:'pointer',
+                              background:stemColor, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                             <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                           </button>
+
+                          {/* Download */}
+                          <a href={child.file_url} download={dlName}
+                            title={`Download ${stemType}`}
+                            style={{ width:28, height:28, borderRadius:8,
+                              border:`1px solid ${stemColor}40`, background:`${stemColor}10`,
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              color:stemColor, textDecoration:'none', flexShrink:0 }}>
+                            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                              <polyline points="7,10 12,15 17,10"/>
+                              <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          </a>
                         </div>
                       )
                     })}
