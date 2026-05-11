@@ -12,15 +12,16 @@
  * - Fonts: system stack (renders everywhere)
  */
 
-const LOGO_URL  = 'https://rmjkxfmalrlinhnbkzgz.supabase.co/storage/v1/object/public/stems/brand/logo.png'
-const CORAL     = '#F4937A'
-const DARK      = '#0f0f14'
-const BODY_BG   = '#f2f2f5'
-const APP_URL   = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
-const FONT      = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+const LOGO_URL   = 'https://rmjkxfmalrlinhnbkzgz.supabase.co/storage/v1/object/public/stems/brand/logo.png'
+const STUDIO_URL = 'https://rmjkxfmalrlinhnbkzgz.supabase.co/storage/v1/object/public/stems/brand/studio-hero.jpg'
+const CORAL      = '#F4937A'
+const DARK       = '#0f0f14'
+const BODY_BG    = '#0d0d12'   // dark outer bg to complement studio photo
+const APP_URL    = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+const FONT       = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
-/** Full HTML shell — forces white card, handles dark mode */
-function shell(body: string): string {
+/** Full HTML shell with studio hero image header */
+function shell(body: string, showHero = true): string {
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -35,31 +36,61 @@ function shell(body: string): string {
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${BODY_BG}" style="background-color:${BODY_BG};">
   <tr>
-    <td align="center" style="padding:48px 16px;">
+    <td align="center" style="padding:0 0 40px;">
 
-      <!-- Content table max 560px -->
-      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+      <!-- Content table max 600px -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
-        <!-- ── Logo ── -->
+        ${showHero ? `
+        <!-- ── Hero image (full bleed, rounded top) ── -->
         <tr>
-          <td align="center" style="padding-bottom:28px;">
-            <table role="presentation" cellpadding="0" cellspacing="0">
+          <td style="padding:0;font-size:0;line-height:0;">
+            <div style="position:relative;font-size:0;line-height:0;">
+              <img src="${STUDIO_URL}" width="600" alt="Dizko.ai Studio"
+                style="display:block;width:100%;max-width:600px;height:260px;object-fit:cover;
+                border-radius:20px 20px 0 0;border:0;"/>
+            </div>
+            <!-- Overlay bar at bottom of hero with logo -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td valign="middle" style="padding-right:10px;">
-                  <img src="${LOGO_URL}" width="40" height="40" alt="Dizko.ai"
-                    style="display:block;border-radius:10px;border:0;"/>
-                </td>
-                <td valign="middle">
-                  <span style="font-family:${FONT};font-size:20px;font-weight:800;color:${DARK};letter-spacing:-0.4px;">Dizko</span><span style="font-family:${FONT};font-size:20px;font-weight:800;color:${CORAL};letter-spacing:-0.4px;">.ai</span>
+                <td bgcolor="#0d0d12" style="background-color:#0d0d12;padding:16px 32px;border-radius:0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td valign="middle" style="padding-right:10px;">
+                        <img src="${LOGO_URL}" width="32" height="32" alt="Dizko.ai"
+                          style="display:block;border-radius:8px;border:0;"/>
+                      </td>
+                      <td valign="middle">
+                        <span style="font-family:${FONT};font-size:16px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">Dizko</span><span style="font-family:${FONT};font-size:16px;font-weight:800;color:${CORAL};letter-spacing:-0.3px;">.ai</span>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
+        ` : `
+        <!-- ── Logo only header (no hero) ── -->
+        <tr>
+          <td align="center" style="padding:40px 0 24px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td valign="middle" style="padding-right:10px;">
+                  <img src="${LOGO_URL}" width="36" height="36" alt="Dizko.ai"
+                    style="display:block;border-radius:9px;border:0;"/>
+                </td>
+                <td valign="middle">
+                  <span style="font-family:${FONT};font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.4px;">Dizko</span><span style="font-family:${FONT};font-size:18px;font-weight:800;color:${CORAL};letter-spacing:-0.4px;">.ai</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`}
 
         <!-- ── White card ── -->
         <tr>
-          <td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:20px;padding:44px 48px;box-shadow:0 2px 20px rgba(0,0,0,.08);">
+          <td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:${showHero ? '0 0 20px 20px' : '20px'};padding:44px 48px;">
             ${body}
           </td>
         </tr>
@@ -67,11 +98,11 @@ function shell(body: string): string {
         <!-- ── Footer ── -->
         <tr>
           <td align="center" style="padding-top:28px;">
-            <p style="margin:0;font-family:${FONT};font-size:12px;color:#aaa;line-height:1.7;">
+            <p style="margin:0;font-family:${FONT};font-size:12px;color:#555;line-height:1.8;">
               Dizko.ai &nbsp;&middot;&nbsp; AI Collaborative Music Production<br/>
-              <a href="${APP_URL}" style="color:#aaa;text-decoration:none;">Open app</a>
+              <a href="${APP_URL}" style="color:#555;text-decoration:none;">Open app</a>
               &nbsp;&middot;&nbsp;
-              <a href="${APP_URL}/settings" style="color:#aaa;text-decoration:none;">Unsubscribe</a>
+              <a href="${APP_URL}/settings" style="color:#555;text-decoration:none;">Unsubscribe</a>
             </p>
           </td>
         </tr>
