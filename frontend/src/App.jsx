@@ -2554,7 +2554,8 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
         ) : (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
             {projects.slice(0,4).map((p, i) => {
-              const g = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
+              const g       = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
+              const isOwner = p.owner_id === user?.id
               return (
                 <div key={p.id ?? i} style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', background:g,
                   position:'relative', height:230, display:'flex', flexDirection:'column', justifyContent:'flex-end',
@@ -2562,6 +2563,17 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                   onMouseEnter={e => { e.currentTarget.style.transform='translateY(-5px) scale(1.01)'; e.currentTarget.style.boxShadow='0 16px 40px rgba(0,0,0,.22)' }}
                   onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,.15)' }}>
                   <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,transparent 20%,rgba(0,0,0,.45) 55%,rgba(0,0,0,.88) 100%)' }} />
+
+                  {/* Role badge */}
+                  <div style={{ position:'absolute', top:12, right:12, zIndex:2,
+                    padding:'3px 9px', borderRadius:100, fontSize:10, fontWeight:700,
+                    backdropFilter:'blur(8px)',
+                    background: isOwner ? `${C.coral}cc` : 'rgba(255,255,255,.18)',
+                    color:'#fff',
+                    border: isOwner ? `1px solid ${C.coral}` : '1px solid rgba(255,255,255,.25)' }}>
+                    {isOwner ? <><svg width={10} height={10} viewBox='0 0 24 24' fill='#fff' style={{marginRight:4,verticalAlign:'middle'}}><path d='M3 18h18v2H3zm0-5l4-8 5 5 4-7 5 8H3z'/></svg>Creator</> : 'Invited'}
+                  </div>
+
                   <div style={{ position:'relative', padding:'0 14px 14px' }}>
                     <div style={{ fontSize:14, fontWeight:800, color:'#fff', letterSpacing:'-.4px', marginBottom:6 }}>{p.title}</div>
                     <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginBottom:10 }}>
@@ -2874,20 +2886,44 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
 }
 
 // ─── PAGE: PROJECTS ────────────────────────────────────────────────────────
-function PageProjects({ openModal, refreshKey }) {
+function PageProjects({ openModal, refreshKey, user }) {
   const [filter, setFilter]   = useState('All')
   const [apiProjects, setApi] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+  const [myRoles, setMyRoles] = useState({})  // { projectId: 'Owner' | roleName }
   const filters = ['All','In Progress','Review','New Takes','Draft']
 
   useEffect(() => {
     setLoading(true)
     projectsApi.list()
-      .then(res => { setApi(res.data || []); setError(null) })
+      .then(res => {
+        const list = res.data || []
+        setApi(list)
+        setError(null)
+        // Build role map: owner vs collaborator role
+        if (user?.id) {
+          const roles = {}
+          list.forEach(p => {
+            if (p.owner_id === user.id) {
+              roles[p.id] = 'Owner'
+            } else {
+              // Fetch collaborator role for non-owned projects
+              collabsApi.listByProject(p.id)
+                .then(r => {
+                  const me = (r.data || []).find(c => c.user_id === user.id)
+                  if (me) setMyRoles(prev => ({ ...prev, [p.id]: me.role || 'Collaborator' }))
+                })
+                .catch(() => {})
+              roles[p.id] = 'Collaborator'  // default until fetch completes
+            }
+          })
+          setMyRoles(roles)
+        }
+      })
       .catch(() => setError('Could not load projects'))
       .finally(() => setLoading(false))
-  }, [refreshKey])
+  }, [refreshKey, user?.id])
 
   const visible = filter === 'All'
     ? apiProjects
@@ -2942,9 +2978,10 @@ function PageProjects({ openModal, refreshKey }) {
           )}
 
           {visible.map((p, i) => {
-            const g  = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
-            const st = statusStyle(p.status)
-            const updatedLabel = p.created_at ? timeAgo(p.created_at) : '—'
+            const g    = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
+            const st   = statusStyle(p.status)
+            const role = myRoles[p.id]
+            const isOwner = role === 'Owner'
             return (
               <div key={p.id} style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', background:g,
                 position:'relative', height:280, display:'flex', flexDirection:'column', justifyContent:'flex-end',
@@ -2952,6 +2989,19 @@ function PageProjects({ openModal, refreshKey }) {
                 onMouseEnter={e => { e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow='0 20px 50px rgba(0,0,0,.25)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,.15)' }}>
                 <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,transparent 30%,rgba(0,0,0,.6) 65%,rgba(0,0,0,.92) 100%)' }} />
+
+                {/* Role badge — top right */}
+                {role && (
+                  <div style={{ position:'absolute', top:14, right:14, zIndex:2,
+                    padding:'4px 10px', borderRadius:100, fontSize:10.5, fontWeight:700,
+                    backdropFilter:'blur(8px)',
+                    background: isOwner ? `${C.coral}cc` : 'rgba(255,255,255,.18)',
+                    color: '#fff',
+                    border: isOwner ? `1px solid ${C.coral}` : '1px solid rgba(255,255,255,.25)' }}>
+                    {isOwner ? <><svg width={10} height={10} viewBox='0 0 24 24' fill='#fff' style={{marginRight:4,verticalAlign:'middle'}}><path d='M3 18h18v2H3zm0-5l4-8 5 5 4-7 5 8H3z'/></svg>Creator</> : `Invited · ${role}`}
+                  </div>
+                )}
+
                 <div style={{ position:'relative', padding:'0 18px 18px' }}>
                   <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
                     {p.status && (
@@ -2968,7 +3018,7 @@ function PageProjects({ openModal, refreshKey }) {
                   <div style={{ fontSize:17, fontWeight:900, color:'#fff', letterSpacing:'-.5px', marginBottom:4,
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
                   <div style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginBottom:12 }}>
-                    Updated {updatedLabel}
+                    {isOwner ? `Created ${timeAgo(p.created_at)}` : `Invited as ${role || 'Collaborator'}`}
                   </div>
                   {p.notes && (
                     <div style={{ fontSize:11.5, color:'rgba(255,255,255,.45)', marginBottom:10,
@@ -5725,7 +5775,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         <div style={{ flex:1, overflowY:'auto', padding:'24px', paddingBottom: nowPlaying ? 100 : 24 }}>
           <Routes>
             <Route path="/"              element={<PageDashboard playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
-            <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} />} />
+            <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} user={user} />} />
             <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} />} />
             <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} user={user} />} />
