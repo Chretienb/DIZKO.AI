@@ -2026,12 +2026,20 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                 </div>
                 <div style={{ fontSize:11.5, color:'#aaa', marginTop:2, display:'flex', alignItems:'center', gap:6 }}>
                   {(() => {
-                    const stemCount = projectFiles.filter(f => f.instrument && f.instrument !== 'original' && f.instrument !== 'smart_bounce').length
-                    const processing = projectFiles.filter(f => f.instrument === 'original' && (() => { try { return JSON.parse(f.notes||'{}').status === 'processing' } catch { return false } })()).length
-                    if (stemCount === 0 && processing > 0) return (
-                      <><Spinner size={10} color={C.coral}/> AI updating session…</>
+                    // Count only original takes — not separated child stems
+                    const takeCount = projectFiles.filter(f => {
+                      if (!f.instrument || f.instrument === 'original' || f.instrument === 'smart_bounce') return false
+                      const n = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
+                      return !n.parent_stem_id
+                    }).length
+                    const analyzing = projectFiles.filter(f => {
+                      const n = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
+                      return n.status === 'analyzing'
+                    }).length
+                    if (takeCount === 0 && analyzing > 0) return (
+                      <><Spinner size={10} color={C.coral}/> AI analyzing…</>
                     )
-                    return <>{stemCount} stem{stemCount !== 1 ? 's' : ''} · {projects[0]?.status || 'Draft'}{processing > 0 ? ` · ${processing} processing` : ''}</>
+                    return <>{takeCount} take{takeCount !== 1 ? 's' : ''} · {projects[0]?.status || 'Draft'}{analyzing > 0 ? ` · ${analyzing} analyzing` : ''}</>
                   })()}
                 </div>
               </div>
@@ -2076,10 +2084,15 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                   )
                 })}
 
-                {/* Separated stems grouped by type */}
-                {(['vocals','drums','bass','other']).map(type => {
-                  const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[type]
-                  const group = projectFiles.filter(f => f.instrument === type)
+                {/* Uploaded takes grouped by role — excludes separated stems (have parent_stem_id) */}
+                {(['vocals','drums','bass','other','guitar','keys','harmony','recording','demo']).map(type => {
+                  const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber,
+                    guitar:'#f59e0b', keys:'#6366f1', harmony:'#ec4899', recording:C.coral, demo:'#64748b' }[type] || C.coral
+                  const group = projectFiles.filter(f => {
+                    if (f.instrument !== type) return false
+                    const n = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
+                    return !n.parent_stem_id  // exclude separated child stems
+                  })
                   if (!group.length) return null
                   return (
                     <div key={type}>
