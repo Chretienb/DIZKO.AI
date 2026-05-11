@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Dizko.ai Desktop Sync Daemon
+ * Dizko.ai Desktop Sync Daemon  — macOS + Windows
  *
  * Usage:
  *   bun run sync.ts login     — save your auth token
- *   bun run sync.ts install   — auto-start on Mac login (launchd)
+ *   bun run sync.ts install   — auto-start on login (launchd / Task Scheduler)
  *   bun run sync.ts uninstall — remove auto-start
  *   bun run sync.ts           — start syncing manually
  *   bun run sync.ts status    — show sync status
@@ -20,7 +20,10 @@ import { createClient }    from '@supabase/supabase-js'
 import { watch }           from 'fs'
 import { mkdir, writeFile, readFile, stat } from 'fs/promises'
 import { join, basename, extname }          from 'path'
-import { homedir }                          from 'os'
+import { homedir, platform }                from 'os'
+
+const IS_WINDOWS = platform() === 'win32'
+const IS_MAC     = platform() === 'darwin'
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://rmjkxfmalrlinhnbkzgz.supabase.co'
@@ -282,77 +285,123 @@ async function status() {
   console.log()
 }
 
-// ── Install / Uninstall (macOS launchd) ──────────────────────────────────────
+// ── Install / Uninstall — macOS (launchd) + Windows (Task Scheduler) ─────────
 async function install() {
-  const bunPath   = process.execPath
-  const syncPath  = import.meta.path.replace('file://', '')
-  const workDir   = syncPath.replace('/sync.ts', '')
-  const logPath   = join(homedir(), '.dizko', 'sync.log')
-  const plistPath = join(homedir(), 'Library', 'LaunchAgents', 'com.dizko.sync.plist')
+  const bunPath  = process.execPath
+  const syncPath = import.meta.path.replace(/^file:\/\//, '')
+  const workDir  = syncPath.replace(/[/\\]sync\.ts$/, '')
+  const logPath  = join(homedir(), '.dizko', 'sync.log')
 
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+  await mkdir(join(homedir(), '.dizko'), { recursive: true })
+
+  if (IS_MAC) {
+    const plistDir  = join(homedir(), 'Library', 'LaunchAgents')
+    const plistPath = join(plistDir, 'com.dizko.sync.plist')
+    await mkdir(plistDir, { recursive: true })
+
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>com.dizko.sync</string>
-
+    <key>Label</key><string>com.dizko.sync</string>
     <key>ProgramArguments</key>
     <array>
         <string>${bunPath}</string>
         <string>run</string>
         <string>${syncPath}</string>
     </array>
-
-    <key>WorkingDirectory</key>
-    <string>${workDir}</string>
-
-    <key>RunAtLoad</key>
-    <true/>
-
-    <key>KeepAlive</key>
-    <true/>
-
-    <key>StandardOutPath</key>
-    <string>${logPath}</string>
-
-    <key>StandardErrorPath</key>
-    <string>${logPath}</string>
-
-    <key>ThrottleInterval</key>
-    <integer>30</integer>
-
+    <key>WorkingDirectory</key><string>${workDir}</string>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>30</integer>
+    <key>StandardOutPath</key><string>${logPath}</string>
+    <key>StandardErrorPath</key><string>${logPath}</string>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>HOME</key>
-        <string>${homedir()}</string>
-        <key>PATH</key>
-        <string>${bunPath.replace('/bun', '')}:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key><string>${homedir()}</string>
+        <key>PATH</key><string>${bunPath.replace(/\/bun$/, '')}:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
 </dict>
 </plist>`
 
-  await mkdir(join(homedir(), '.dizko'), { recursive: true })
-  await mkdir(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true })
-  await writeFile(plistPath, plist)
+    await writeFile(plistPath, plist)
+    // Unload if previously registered, then load fresh
+    Bun.spawnSync(['launchctl', 'unload', plistPath])
+    const r = Bun.spawnSync(['launchctl', 'load', plistPath])
+    if (r.exitCode !== 0) throw new Error('launchctl load failed')
 
-  // Unload first if already installed
-  const { execa } = await import('bun')
-  const proc = Bun.spawn(['launchctl', 'load', plistPath], { stdout: 'pipe', stderr: 'pipe' })
-  await proc.exited
+    console.log('\n  ✓ Auto-start registered (macOS launchd)')
+    console.log(`  Plist: ${plistPath}`)
 
-  console.log('\n  ✓ Dizko.ai Sync will now start automatically on Mac login')
-  console.log(`  Plist: ${plistPath}`)
-  console.log(`  Logs:  ${logPath}`)
-  console.log('\n  To stop auto-start:\n    bun run sync.ts uninstall\n')
+  } else if (IS_WINDOWS) {
+    // Windows Task Scheduler — runs at logon for current user
+    const taskName = 'DizkoSync'
+    const cmd      = `"${bunPath}" run "${syncPath}"`
+    // Delete old task silently, then create new
+    Bun.spawnSync(['schtasks', '/delete', '/tn', taskName, '/f'], { stderr: 'pipe' })
+    const r = Bun.spawnSync([
+      'schtasks', '/create',
+      '/tn',  taskName,
+      '/tr',  cmd,
+      '/sc',  'onlogon',
+      '/ru',  process.env.USERNAME ?? process.env.USER ?? '%USERNAME%',
+      '/rl',  'LIMITED',   // run with standard user privileges
+      '/f',               // force overwrite
+    ])
+    if (r.exitCode !== 0) throw new Error('schtasks create failed — try running as Administrator')
+
+    console.log('\n  ✓ Auto-start registered (Windows Task Scheduler)')
+    console.log(`  Task: ${taskName}`)
+
+  } else {
+    // Linux fallback — systemd user service or ~/.bashrc
+    const serviceDir  = join(homedir(), '.config', 'systemd', 'user')
+    const servicePath = join(serviceDir, 'dizko-sync.service')
+    await mkdir(serviceDir, { recursive: true })
+
+    const unit = `[Unit]
+Description=Dizko.ai Desktop Sync
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${bunPath} run ${syncPath}
+WorkingDirectory=${workDir}
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:${logPath}
+StandardError=append:${logPath}
+Environment=HOME=${homedir()}
+
+[Install]
+WantedBy=default.target`
+
+    await writeFile(servicePath, unit)
+    Bun.spawnSync(['systemctl', '--user', 'daemon-reload'])
+    Bun.spawnSync(['systemctl', '--user', 'enable', '--now', 'dizko-sync'])
+    console.log('\n  ✓ Auto-start registered (systemd user service)')
+    console.log(`  Service: ${servicePath}`)
+  }
+
+  console.log(`  Logs:   ${logPath}`)
+  console.log('\n  To remove:\n    bun run sync.ts uninstall\n')
 }
 
 async function uninstall() {
-  const plistPath = join(homedir(), 'Library', 'LaunchAgents', 'com.dizko.sync.plist')
-  const proc = Bun.spawn(['launchctl', 'unload', plistPath], { stdout: 'pipe', stderr: 'pipe' })
-  await proc.exited
-  try { const { unlink } = await import('fs/promises'); await unlink(plistPath) } catch {}
-  console.log('\n  ✓ Auto-start removed\n')
+  if (IS_MAC) {
+    const plistPath = join(homedir(), 'Library', 'LaunchAgents', 'com.dizko.sync.plist')
+    Bun.spawnSync(['launchctl', 'unload', plistPath])
+    try { const { unlink } = await import('fs/promises'); await unlink(plistPath) } catch {}
+    console.log('\n  ✓ Auto-start removed (macOS)\n')
+
+  } else if (IS_WINDOWS) {
+    Bun.spawnSync(['schtasks', '/delete', '/tn', 'DizkoSync', '/f'])
+    console.log('\n  ✓ Auto-start removed (Windows)\n')
+
+  } else {
+    Bun.spawnSync(['systemctl', '--user', 'disable', '--now', 'dizko-sync'])
+    console.log('\n  ✓ Auto-start removed (Linux)\n')
+  }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
