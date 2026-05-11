@@ -188,6 +188,16 @@ export const analytics = {
   project:    (id) => get(`/analytics/projects/${id}`),
 }
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+export const notificationsApi = {
+  list:        ()         => get('/notifications'),
+  readAll:     ()         => request('PATCH', '/notifications/read-all'),
+  read:        (id)       => request('PATCH', `/notifications/${id}/read`),
+  vapidKey:    ()         => get('/notifications/vapid-public-key'),
+  subscribe:   (sub)      => post('/notifications/push-subscribe', sub),
+  unsubscribe: (endpoint) => request('DELETE', '/notifications/push-subscribe', { endpoint }),
+}
+
 // ── Smart Bounce ──────────────────────────────────────────────────────────────
 export const smartBounce = (projectId) => post(`/projects/${projectId}/smart-bounce`, {})
 

@@ -15,8 +15,10 @@ import invitationRoutes from './routes/invitations'
 import fileRoutes from './routes/files'
 import analyticsRoutes from './routes/analytics'
 import distributionRoutes from './routes/distribution'
-import messageRoutes from './routes/messages'
-import { runSmartBounce } from './lib/smartBounce'
+import messageRoutes      from './routes/messages'
+import notificationRoutes from './routes/notifications'
+import { runSmartBounce }    from './lib/smartBounce'
+import { notify, getProjectMemberIds } from './lib/notificationService'
 
 import type { HonoVariables } from './types'
 
@@ -70,7 +72,8 @@ app.route('/invitations', invitationRoutes)
 app.route('/files', fileRoutes)
 app.route('/analytics', analyticsRoutes)
 app.route('/distribution', distributionRoutes)
-app.route('/messages', messageRoutes)
+app.route('/messages',      messageRoutes)
+app.route('/notifications', notificationRoutes)
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {
@@ -123,9 +126,56 @@ subscribeToFileEvents(async (payload) => {
   const projectId = (track as any).project_id
   console.log(`[realtime] ${stem.instrument} uploaded in ${projectId} — auto-mixing`)
 
-  runSmartBounce(projectId, stem.uploaded_by).catch(e =>
-    console.error('[smartBounce] error:', e.message)
-  )
+  // Notify all project members about the new take
+  getProjectMemberIds(projectId).then(memberIds => {
+    // Fetch uploader name
+    supabase.auth.admin.getUserById(stem.uploaded_by).then(({ data: u }) => {
+      const name = u?.user?.user_metadata?.full_name
+        || u?.user?.email?.split('@')[0] || 'Someone'
+      notify({
+        type:         'upload',
+        recipientIds: memberIds,
+        title:        `${name} added a ${stem.instrument || 'take'}`,
+        body:         `New take added to your session`,
+        actorId:      stem.uploaded_by,
+        projectId,
+        actionUrl:    '/studio',
+        dedupKey:     `upload:${stem.uploaded_by}:${stem.instrument}:${projectId}`,
+        dedupWindow:  60_000, // 1 min — batch rapid uploads
+      }).catch(() => null)
+    })
+  }).catch(() => null)
+
+  // Auto-mix
+  runSmartBounce(projectId, stem.uploaded_by).then(result => {
+    if (!result) return
+    // Notify all members the mix is ready
+    getProjectMemberIds(projectId).then(memberIds => {
+      notify({
+        type:         'mix_ready',
+        recipientIds: memberIds,
+        title:        'Session mix updated',
+        body:         `${result.stem_count} parts mixed — hear the latest version`,
+        actorId:      stem.uploaded_by,
+        projectId,
+        actionUrl:    '/',
+        dedupKey:     `mix:${projectId}`,
+        dedupWindow:  3 * 60_000,
+        email:        true,
+        emailSubject: '🎵 Your Dizko.ai session was updated',
+        emailHtml:    `
+          <div style="font-family:sans-serif;max-width:520px;margin:auto">
+            <h2 style="color:#F4937A">Session mix updated</h2>
+            <p>${result.stem_count} parts from your collaborators have been mixed together.</p>
+            <p><a href="${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}"
+              style="background:#F4937A;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700">
+              Listen Now →
+            </a></p>
+            <p style="color:#aaa;font-size:12px">Dizko.ai — Collaborative Music Production</p>
+          </div>`,
+      }).catch(() => null)
+    }).catch(() => null)
+  }).catch(e => console.error('[smartBounce] error:', e.message))
 })
 
 // ── POST /projects/:id/smart-bounce — manual trigger ─────────────────────────

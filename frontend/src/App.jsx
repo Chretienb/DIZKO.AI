@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -343,6 +343,200 @@ function ToastContainer({ toasts, remove }) {
       })}
     </div>
   )
+}
+
+// ─── NOTIFICATION BELL + PANEL ─────────────────────────────────────────────
+function NotificationBell({ user }) {
+  const [notifs,  setNotifs]  = React.useState([])
+  const [open,    setOpen]    = React.useState(false)
+  const [loading, setLoading] = React.useState(false)
+  const panelRef = React.useRef()
+
+  const unread = notifs.filter(n => !n.read).length
+
+  const load = React.useCallback(() => {
+    setLoading(true)
+    notificationsApi.list()
+      .then(r => setNotifs(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  React.useEffect(() => { load() }, [])
+
+  // Real-time: new notification inserted → refresh list
+  React.useEffect(() => {
+    if (!user?.id) return
+    const ch = supabase.channel(`notifs:${user.id}`)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
+        filter:`user_id=eq.${user.id}` }, () => load())
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [user?.id])
+
+  // Close panel on outside click
+  React.useEffect(() => {
+    const handler = e => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const markAllRead = async () => {
+    await notificationsApi.readAll()
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  const markRead = async (id) => {
+    await notificationsApi.read(id)
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const typeIcon = type => ({
+    upload:     { icon:'↑', color: C.coral      },
+    mix_ready:  { icon:'♪', color: '#22c55e'    },
+    message:    { icon:'✉', color: '#6366f1'    },
+    invite:     { icon:'★', color: C.amber      },
+    stems_ready:{ icon:'⊞', color: '#8b5cf6'   },
+  }[type] || { icon:'•', color: '#aaa' })
+
+  return (
+    <div style={{ position:'relative' }} ref={panelRef}>
+      {/* Bell button */}
+      <button onClick={() => { setOpen(o => !o); if (!open) load() }}
+        style={{ width:36, height:36, borderRadius:10, border:'none', background:'none',
+          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          color:'rgba(255,255,255,.5)', position:'relative', transition:'color .15s' }}
+        onMouseEnter={e => e.currentTarget.style.color='rgba(255,255,255,.9)'}
+        onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.5)'}>
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unread > 0 && (
+          <div style={{ position:'absolute', top:4, right:4, width:16, height:16,
+            borderRadius:'50%', background:C.coral, border:'2px solid #1a1a2e',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:8.5, fontWeight:900, color:'#fff', lineHeight:1 }}>
+            {unread > 9 ? '9+' : unread}
+          </div>
+        )}
+      </button>
+
+      {/* Notification panel */}
+      {open && (
+        <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:360,
+          background:'#fff', borderRadius:16, boxShadow:'0 16px 50px rgba(0,0,0,.18)',
+          border:'1px solid rgba(0,0,0,.08)', zIndex:9999, overflow:'hidden' }}>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'14px 18px', borderBottom:'1px solid rgba(0,0,0,.06)' }}>
+            <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>
+              Notifications
+              {unread > 0 && <span style={{ marginLeft:8, fontSize:11, fontWeight:700,
+                color:C.coral, background:`${C.coral}15`, padding:'2px 8px', borderRadius:100 }}>
+                {unread} new
+              </span>}
+            </div>
+            {unread > 0 && (
+              <button onClick={markAllRead}
+                style={{ fontSize:11.5, fontWeight:600, color:'#aaa', background:'none',
+                  border:'none', cursor:'pointer' }}>
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          {/* List */}
+          <div style={{ maxHeight:420, overflowY:'auto' }}>
+            {loading && notifs.length === 0 && (
+              <div style={{ padding:'24px', textAlign:'center' }}><Spinner size={18} color={C.coral}/></div>
+            )}
+            {!loading && notifs.length === 0 && (
+              <div style={{ padding:'32px', textAlign:'center', color:'#bbb', fontSize:13 }}>
+                No notifications yet
+              </div>
+            )}
+            {notifs.map((n, i) => {
+              const { icon, color } = typeIcon(n.type)
+              return (
+                <div key={n.id}
+                  onClick={() => { markRead(n.id); if (n.action_url) window.location.hash = n.action_url }}
+                  style={{ display:'flex', gap:12, padding:'12px 18px', cursor:'pointer',
+                    background: n.read ? 'transparent' : `${C.coral}04`,
+                    borderBottom: i < notifs.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
+                    transition:'background .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
+                  onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : `${C.coral}04`}>
+                  {/* Icon */}
+                  <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
+                    background:`${color}15`, display:'flex', alignItems:'center',
+                    justifyContent:'center', fontSize:14, color }}>
+                    {icon}
+                  </div>
+                  {/* Content */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
+                      lineHeight:1.4, marginBottom:2 }}>{n.title}</div>
+                    {n.message && (
+                      <div style={{ fontSize:12, color:'#888', overflow:'hidden',
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.message}</div>
+                    )}
+                    <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>
+                      {timeAgo(n.created_at)}
+                    </div>
+                  </div>
+                  {/* Unread dot */}
+                  {!n.read && (
+                    <div style={{ width:7, height:7, borderRadius:'50%',
+                      background:C.coral, flexShrink:0, marginTop:4 }}/>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Register service worker + request push permission
+async function setupPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js')
+    // Only ask for permission once
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') return
+    }
+    if (Notification.permission !== 'granted') return
+
+    // Get VAPID key from backend
+    const r = await fetch('/api/notifications/vapid-public-key', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('disco_token')||''}` }
+    })
+    if (!r.ok) return
+    const { data } = await r.json()
+    if (!data?.key) return
+
+    // Subscribe to push
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: data.key,
+    })
+    const s = sub.toJSON()
+    await fetch('/api/notifications/push-subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('disco_token')||''}`,
+      },
+      body: JSON.stringify({ endpoint: s.endpoint, p256dh: s.keys?.p256dh, auth: s.keys?.auth }),
+    })
+    console.log('[push] subscribed')
+  } catch (e) {
+    console.warn('[push] setup failed:', e.message)
+  }
 }
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
@@ -5021,6 +5215,9 @@ function MiniPlayer({ track, onClose }) {
 
 export default function App({ onLogout, user, onProfileUpdate }) {
   const { toasts, add: addToast, remove: removeToast } = useToasts()
+
+  // Register service worker and request push permission once on load
+  React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
   const navigate               = useNavigate()
   const location               = useLocation()
   const [playing, setPlay]     = useState(false)
@@ -5139,6 +5336,14 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               </div>
             </>
           )}
+          {/* Notification bell — sits just above the account button */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'0 4px', marginBottom:4 }}>
+            <span style={{ fontSize:10, color:'rgba(255,255,255,.2)', fontWeight:600,
+              textTransform:'uppercase', letterSpacing:'.08em', paddingLeft:8 }}>Notifications</span>
+            <NotificationBell user={user} />
+          </div>
+
           <button onClick={() => setMenu(m => !m)} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 8px',
             borderRadius:9, border:'none', background: userMenu ? 'rgba(255,255,255,.1)' : 'transparent',
             cursor:'pointer', textAlign:'left', transition:'background .15s' }}

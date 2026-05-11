@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
+import { notify } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
 
 const messages = new Hono<{ Variables: HonoVariables }>()
@@ -51,6 +52,22 @@ messages.post('/', sanitize, async (c) => {
     .single()
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  // Notify recipient
+  const { data: sender } = await supabase.auth.admin.getUserById(me)
+  const senderName = sender?.user?.user_metadata?.full_name
+    || sender?.user?.email?.split('@')[0] || 'Someone'
+  notify({
+    type:         'message',
+    recipientIds: [to_user_id],
+    title:        `Message from ${senderName}`,
+    body:         text.trim().slice(0, 100),
+    actorId:      me,
+    actionUrl:    '/collaborators',
+    dedupKey:     `msg:${me}:${to_user_id}`,
+    dedupWindow:  30_000,
+  }).catch(() => null)
+
   return c.json({ data, error: null, status: 201 }, 201)
 })
 

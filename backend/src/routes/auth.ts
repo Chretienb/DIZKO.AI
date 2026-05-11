@@ -1,6 +1,7 @@
 import { Hono }          from 'hono'
 import { createClient }  from '@supabase/supabase-js'
-import { execSync }      from 'child_process'
+import { execSync }          from 'child_process'
+import { notify }             from '../lib/notificationService'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join }          from 'path'
 import { tmpdir }        from 'os'
@@ -262,9 +263,33 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
   if (inviteeId) {
-    supabase.from('notifications').insert({
-      user_id: inviteeId,
-      message: 'You were invited to collaborate on a project',
+    const { data: inviter } = await supabase.auth.admin.getUserById(user.id)
+    const inviterName = inviter?.user?.user_metadata?.full_name
+      || inviter?.user?.email?.split('@')[0] || 'Someone'
+    const { data: proj } = await supabase.from('projects').select('title').eq('id', project_id).single()
+    const projectTitle = (proj as any)?.title ?? 'a project'
+
+    notify({
+      type:         'invite',
+      recipientIds: [inviteeId],
+      title:        `${inviterName} invited you to collaborate`,
+      body:         `You've been invited to "${projectTitle}" as ${role}`,
+      actorId:      user.id,
+      projectId:    project_id,
+      actionUrl:    '/collaborators',
+      email:        true,
+      emailSubject: `You're invited to collaborate on "${projectTitle}"`,
+      emailHtml:    `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto">
+          <h2 style="color:#F4937A">You've been invited!</h2>
+          <p><strong>${inviterName}</strong> invited you to collaborate on
+          <strong>"${projectTitle}"</strong> as <strong>${role}</strong>.</p>
+          <p><a href="${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}/collaborators"
+            style="background:#F4937A;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700">
+            Accept Invite →
+          </a></p>
+          <p style="color:#aaa;font-size:12px">Dizko.ai — Collaborative Music Production</p>
+        </div>`,
     }).catch(() => null)
   }
 
