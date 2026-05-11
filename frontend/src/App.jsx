@@ -1858,7 +1858,7 @@ const CARD_GRADIENTS = [
   'linear-gradient(160deg,#c0a0f0,#6020c0 60%,#080010)',
 ]
 
-function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
+function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playTrack }) {
   const navigate = useNavigate()
   const [projects,      setProjects]  = useState([])
   const [overview,      setOverview]  = useState({ projects: null, files: null })
@@ -1931,6 +1931,15 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
   const projectCount = overview.projects ?? projects.length
   const fileCount    = overview.files    ?? '—'
 
+  // Latest AI mix for the first project
+  const latestMix = projectFiles.find(f => f.instrument === 'smart_bounce')
+  const mixContributors = latestMix
+    ? [...new Set(projectFiles.filter(f => {
+        const n = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
+        return f.instrument !== 'original' && f.instrument !== 'smart_bounce' && !n.parent_stem_id
+      }).map(f => f.uploaded_by))].slice(0, 5)
+    : []
+
   const statCards = [
     { label:'Active Projects', val: loadingData ? null : String(projectCount), sub: `${projects.length} total`, accent:C.coral, page:'projects',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> },
@@ -1973,6 +1982,118 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
           </Card>
         ))}
       </div>
+
+      {/* ── AI Session Mix — the core feature ───────────────────────────────── */}
+      {projects.length > 0 && (
+        <div style={{ borderRadius:20, background:'linear-gradient(135deg,#111118 0%,#1a0a1e 50%,#0a1a1e 100%)',
+          padding:'28px 32px', marginBottom:24, position:'relative', overflow:'hidden',
+          boxShadow:'0 12px 40px rgba(0,0,0,.2)' }}>
+
+          {/* Background glow */}
+          <div style={{ position:'absolute', top:-60, right:-60, width:200, height:200,
+            borderRadius:'50%', background:`${C.coral}20`, filter:'blur(60px)', pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', bottom:-40, left:100, width:160, height:160,
+            borderRadius:'50%', background:'rgba(139,92,246,.15)', filter:'blur(50px)', pointerEvents:'none' }}/>
+
+          <div style={{ position:'relative', display:'flex', alignItems:'center', gap:28 }}>
+
+            {/* Play button */}
+            <div style={{ flexShrink:0 }}>
+              {latestMix ? (
+                <button onClick={() => playTrack(latestMix)}
+                  style={{ width:64, height:64, borderRadius:20, border:'none', cursor:'pointer',
+                    background:`linear-gradient(135deg,${C.coral},#a855f7)`,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:`0 8px 24px ${C.coral}50, 0 4px 12px rgba(0,0,0,.3)`,
+                    transition:'transform .15s' }}
+                  onMouseEnter={e => e.currentTarget.style.transform='scale(1.06)'}
+                  onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+                  <svg width={22} height={22} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:3 }}>
+                    <polygon points="5,3 19,12 5,21"/>
+                  </svg>
+                </button>
+              ) : (
+                <div style={{ width:64, height:64, borderRadius:20, background:'rgba(255,255,255,.06)',
+                  border:'1px solid rgba(255,255,255,.1)', display:'flex', alignItems:'center',
+                  justifyContent:'center' }}>
+                  <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" strokeWidth={1.5} strokeLinecap="round">
+                    <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+                <div style={{ width:7, height:7, borderRadius:'50%',
+                  background: latestMix ? '#22c55e' : 'rgba(255,255,255,.2)',
+                  boxShadow: latestMix ? '0 0 8px #22c55e' : 'none' }}/>
+                <span style={{ fontSize:10.5, fontWeight:700, color:'rgba(255,255,255,.4)',
+                  textTransform:'uppercase', letterSpacing:'.1em' }}>
+                  {latestMix ? 'AI Session Mix · Ready' : 'AI Session Mix · Waiting for takes'}
+                </span>
+              </div>
+              <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px', marginBottom:6 }}>
+                {projects[0]?.title || 'Session'}
+              </div>
+              <div style={{ fontSize:13, color:'rgba(255,255,255,.4)', marginBottom:12 }}>
+                {latestMix
+                  ? `Updated ${timeAgo(latestMix.created_at)} · All contributor parts mixed automatically`
+                  : 'Upload tracks to start the collaborative session. AI mixes automatically.'}
+              </div>
+
+              {/* Contributor avatars */}
+              {mixContributors.length > 0 && (
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <div style={{ display:'flex' }}>
+                    {mixContributors.map((uid, i) => {
+                      const upl = uploaderNames[uid]
+                      return (
+                        <div key={uid} style={{ marginLeft: i === 0 ? 0 : -8, zIndex: mixContributors.length - i }}>
+                          <Avatar name={upl || '?'} url={null} size={28} color={C.coral}
+                            border="2px solid rgba(17,17,24,1)" style={{ borderRadius:'50%' }}/>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <span style={{ fontSize:12, color:'rgba(255,255,255,.4)', marginLeft:4 }}>
+                    {mixContributors.length} contributor{mixContributors.length !== 1 ? 's' : ''} · auto-mixed
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right actions */}
+            <div style={{ display:'flex', flexDirection:'column', gap:8, flexShrink:0 }}>
+              {latestMix && (
+                <a href={latestMix.file_url} download="session_mix.wav"
+                  style={{ height:36, padding:'0 16px', borderRadius:10,
+                    border:'1px solid rgba(255,255,255,.15)', background:'rgba(255,255,255,.07)',
+                    color:'rgba(255,255,255,.7)', fontSize:12, fontWeight:600,
+                    display:'flex', alignItems:'center', gap:7, textDecoration:'none',
+                    transition:'background .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.12)'}
+                  onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download
+                </a>
+              )}
+              <button onClick={() => navigate('/studio')}
+                style={{ height:36, padding:'0 16px', borderRadius:10, border:'none',
+                  background: latestMix ? `linear-gradient(135deg,${C.coral},#a855f7)` : 'rgba(255,255,255,.08)',
+                  color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer',
+                  boxShadow: latestMix ? `0 4px 14px ${C.coral}40` : 'none' }}>
+                {latestMix ? 'Open Studio →' : 'Go to Studio →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom:24 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
