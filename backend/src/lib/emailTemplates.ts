@@ -84,6 +84,14 @@ function ghostBtn(label: string, url: string): string {
   </a>`
 }
 
+// SVG icons for email (inline, no external deps, renders in all clients)
+const ICONS = {
+  upload: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${CORAL}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+  mix:    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${CORAL}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="${CORAL}" stroke="none"/><circle cx="3" cy="12" r="1" fill="${CORAL}" stroke="none"/><circle cx="3" cy="18" r="1" fill="${CORAL}" stroke="none"/></svg>`,
+  collab: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${CORAL}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
+  sync:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${CORAL}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`,
+}
+
 // ── Template: Welcome ─────────────────────────────────────────────────────────
 export function welcomeEmail(opts: {
   name:      string
@@ -93,56 +101,73 @@ export function welcomeEmail(opts: {
   const url  = opts.appUrl ?? APP_URL
   const name = opts.name || opts.email.split('@')[0]
 
+  const features: [string, string, string][] = [
+    [ICONS.upload, 'Upload any audio',   'WAV, MP3, M4A and more — AI analyzes your track and places it in the right session automatically.'],
+    [ICONS.mix,    'AI Session Mix',      'Every upload triggers an automatic mix of all collaborator parts. The team hears the update in real time.'],
+    [ICONS.collab, 'Role-based collab',  'Assign roles to each collaborator — vocalist, guitarist, producer. Everyone has their lane.'],
+    [ICONS.sync,   'Desktop sync',       'Your projects sync to a local folder on your computer. Drop files in, they upload instantly.'],
+  ]
+
   const body = `
-    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;color:${DARK};letter-spacing:-0.8px;">
-      Welcome to Dizko.ai, ${name}! 🎵
+    <!-- Headline -->
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:900;color:${DARK};letter-spacing:-0.8px;line-height:1.2;">
+      Welcome to Dizko.ai
     </h1>
-    <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.65;">
-      Your collaborative music studio is ready. Upload your tracks, invite your team,
-      and let AI organize, mix, and sync everything automatically.
+    <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:${CORAL};">
+      Your collaborative music studio is live.
+    </p>
+    <p style="margin:0 0 32px;font-size:14.5px;color:#666;line-height:1.7;">
+      Everything your team needs to create together — upload, organize, mix, and
+      deliver — in one place.
     </p>
 
-    <!-- What you can do -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-      ${[
-        ['🎤', 'Upload any audio', 'WAV, MP3, M4A — AI detects the project and role automatically'],
-        ['🤖', 'AI Session Mix', 'Every upload triggers an automatic mix of all collaborator parts'],
-        ['👥', 'Real-time collab', 'Invite your vocalist, producer, drummer — everyone stays in sync'],
-        ['💻', 'Desktop sync',    'Files appear on your Desktop just like Splice'],
-      ].map(([icon, title, desc]) => `
+    <!-- Feature list -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;border-collapse:collapse;">
+      ${features.map(([icon, title, desc]) => `
         <tr>
-          <td width="40" valign="top" style="padding:8px 0;">
-            <span style="font-size:20px;">${icon}</span>
+          <td width="44" valign="top" style="padding:12px 0;border-bottom:1px solid #f3f3f3;">
+            <div style="width:36px;height:36px;background:#fff5f3;border-radius:9px;
+              display:table-cell;vertical-align:middle;text-align:center;">
+              ${icon}
+            </div>
           </td>
-          <td valign="top" style="padding:8px 0 8px 8px;">
-            <strong style="font-size:14px;color:${DARK};">${title}</strong><br/>
-            <span style="font-size:13px;color:#888;">${desc}</span>
+          <td valign="top" style="padding:12px 0 12px 14px;border-bottom:1px solid #f3f3f3;">
+            <div style="font-size:14px;font-weight:700;color:${DARK};margin-bottom:3px;">${title}</div>
+            <div style="font-size:13px;color:#888;line-height:1.55;">${desc}</div>
           </td>
         </tr>`).join('')}
     </table>
 
     <!-- Primary CTA -->
-    <div style="text-align:center;margin-bottom:28px;">
-      ${btn('Open your studio →', url)}
+    <div style="text-align:center;margin-bottom:32px;">
+      ${btn('Open your studio', url)}
     </div>
 
     <!-- Divider -->
-    <hr style="border:none;border-top:1px solid #f0f0f0;margin:24px 0;"/>
+    <hr style="border:none;border-top:1px solid #f0f0f0;margin:0 0 28px;"/>
 
     <!-- Invite section -->
-    <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:${DARK};">
-      Invite your collaborators
-    </p>
-    <p style="margin:0 0 16px;font-size:13.5px;color:#666;line-height:1.6;">
-      Dizko.ai works best with a team. Invite your vocalist, producer, or engineer —
-      they'll get their own role and can start uploading immediately.
-    </p>
-    <div style="text-align:center;">
-      ${ghostBtn('Invite someone →', `${url}/collaborators`)}
-    </div>`
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td>
+          <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:${DARK};">
+            Invite your team
+          </p>
+          <p style="margin:0 0 18px;font-size:13.5px;color:#666;line-height:1.65;">
+            Bring in your vocalist, producer, or engineer. Each person gets their own
+            role with tailored upload permissions — keeping sessions organized from day one.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          ${ghostBtn('Invite a collaborator', `${url}/collaborators`)}
+        </td>
+      </tr>
+    </table>`
 
   return {
-    subject: `Welcome to Dizko.ai, ${name} 🎵`,
+    subject: `Welcome to Dizko.ai — your studio is ready`,
     html:    emailShell(body),
   }
 }
@@ -155,22 +180,32 @@ export function mixReadyEmail(opts: {
   listenUrl:     string
 }): { subject: string; html: string } {
   const body = `
+    <!-- Icon -->
+    <div style="width:48px;height:48px;background:#f0fdf4;border-radius:12px;
+      margin:0 0 20px;display:table;">
+      <div style="display:table-cell;vertical-align:middle;text-align:center;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="10,8 16,12 10,16" fill="#16a34a" stroke="none"/>
+        </svg>
+      </div>
+    </div>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:900;color:${DARK};letter-spacing:-0.6px;">
-      Your session mix is ready 🎧
+      Session mix updated
     </h1>
-    <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
-      <strong>${opts.stemCount} parts</strong> from your collaborators have been mixed together
-      for <strong>${opts.projectTitle}</strong>.
+    <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.65;">
+      <strong>${opts.stemCount} contributor part${opts.stemCount !== 1 ? 's' : ''}</strong> have been
+      automatically mixed together for <strong>${opts.projectTitle}</strong>.
     </p>
     <div style="text-align:center;margin-bottom:24px;">
-      ${btn('Listen Now →', opts.listenUrl)}
+      ${btn('Listen Now', opts.listenUrl)}
     </div>
-    <p style="margin:0;font-size:13px;color:#aaa;text-align:center;">
-      The mix updates automatically every time someone uploads a new take.
+    <p style="margin:0;font-size:13px;color:#aaa;text-align:center;line-height:1.6;">
+      The mix updates automatically whenever a collaborator uploads a new take.
     </p>`
 
   return {
-    subject: `🎵 New mix ready — ${opts.projectTitle}`,
+    subject: `Session mix updated — ${opts.projectTitle}`,
     html:    emailShell(body),
   }
 }
@@ -183,23 +218,42 @@ export function inviteEmail(opts: {
   acceptUrl:     string
 }): { subject: string; html: string } {
   const body = `
+    <!-- Icon -->
+    <div style="width:48px;height:48px;background:#fff5f3;border-radius:12px;
+      margin:0 0 20px;display:table;">
+      <div style="display:table-cell;vertical-align:middle;text-align:center;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${CORAL}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+      </div>
+    </div>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:900;color:${DARK};letter-spacing:-0.6px;">
-      You've been invited to collaborate
+      You've been invited
     </h1>
-    <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
-      <strong>${opts.inviterName}</strong> invited you to join
+    <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.65;">
+      <strong>${opts.inviterName}</strong> has invited you to collaborate on
       <strong>"${opts.projectTitle}"</strong> as a
       <strong style="color:${CORAL};">${opts.role}</strong>.
     </p>
-    <div style="text-align:center;margin-bottom:24px;">
-      ${btn('Accept Invite →', opts.acceptUrl)}
+    <!-- Role info box -->
+    <div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:12px;
+      padding:14px 18px;margin-bottom:24px;">
+      <div style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;
+        letter-spacing:0.06em;margin-bottom:4px;">Your role</div>
+      <div style="font-size:14px;font-weight:700;color:${CORAL};">${opts.role}</div>
     </div>
-    <p style="margin:0;font-size:13px;color:#aaa;text-align:center;">
-      Once you accept, you'll see all tracks, stems, and files in the project.
+    <div style="text-align:center;margin-bottom:24px;">
+      ${btn('Accept Invite', opts.acceptUrl)}
+    </div>
+    <p style="margin:0;font-size:13px;color:#aaa;text-align:center;line-height:1.6;">
+      Once accepted, you will have access to all tracks and files in the project.
     </p>`
 
   return {
-    subject: `${opts.inviterName} invited you to "${opts.projectTitle}" on Dizko.ai`,
+    subject: `${opts.inviterName} invited you to "${opts.projectTitle}"`,
     html:    emailShell(body),
   }
 }
