@@ -20,6 +20,7 @@ import notificationRoutes   from './routes/notifications'
 import accessRequestRoutes  from './routes/accessRequests'
 import { runSmartBounce }    from './lib/smartBounce'
 import { notify, getProjectMemberIds } from './lib/notificationService'
+import { mixReadyEmail }               from './lib/emailTemplates'
 
 import type { HonoVariables } from './types'
 
@@ -164,17 +165,15 @@ subscribeToFileEvents(async (payload) => {
         dedupKey:     `mix:${projectId}`,
         dedupWindow:  3 * 60_000,
         email:        true,
-        emailSubject: '🎵 Your Dizko.ai session was updated',
-        emailHtml:    `
-          <div style="font-family:sans-serif;max-width:520px;margin:auto">
-            <h2 style="color:#F4937A">Session mix updated</h2>
-            <p>${result.stem_count} parts from your collaborators have been mixed together.</p>
-            <p><a href="${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}"
-              style="background:#F4937A;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700">
-              Listen Now →
-            </a></p>
-            <p style="color:#aaa;font-size:12px">Dizko.ai — Collaborative Music Production</p>
-          </div>`,
+        ...(() => {
+          const tpl = mixReadyEmail({
+            recipientName: '',
+            projectTitle:  projectId,   // will be enriched by notificationService via userId lookup
+            stemCount:     result.stem_count,
+            listenUrl:     process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+          })
+          return { emailSubject: tpl.subject, emailHtml: tpl.html }
+        })(),
       }).catch(() => null)
     }).catch(() => null)
   }).catch(e => console.error('[smartBounce] error:', e.message))

@@ -2,6 +2,7 @@ import { Hono }          from 'hono'
 import { createClient }  from '@supabase/supabase-js'
 import { execSync }          from 'child_process'
 import { notify }             from '../lib/notificationService'
+import { welcomeEmail, inviteEmail } from '../lib/emailTemplates'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join }          from 'path'
 import { tmpdir }        from 'os'
@@ -67,6 +68,22 @@ auth.post('/register', registerLimit, sanitize, async (c) => {
 
   const { data: signed, error: signErr } = await anonClient.auth.signInWithPassword({ email, password })
   if (signErr) return c.json({ data: null, error: signErr.message, status: 400 }, 400)
+
+  // Send welcome email (non-blocking)
+  const apiKey = process.env.RESEND_API_KEY
+  if (apiKey) {
+    const tpl = welcomeEmail({ name: fullName || email.split('@')[0], email })
+    fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        from:    process.env.RESEND_FROM || 'Dizko.ai <onboarding@resend.dev>',
+        to:      email,
+        subject: tpl.subject,
+        html:    tpl.html,
+      }),
+    }).catch(e => console.error('[welcome email]', e.message))
+  }
 
   return c.json({ data: { user: signed.user, session: signed.session }, error: null, status: 201 }, 201)
 })
@@ -278,18 +295,15 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
       projectId:    project_id,
       actionUrl:    '/collaborators',
       email:        true,
-      emailSubject: `You're invited to collaborate on "${projectTitle}"`,
-      emailHtml:    `
-        <div style="font-family:sans-serif;max-width:520px;margin:auto">
-          <h2 style="color:#F4937A">You've been invited!</h2>
-          <p><strong>${inviterName}</strong> invited you to collaborate on
-          <strong>"${projectTitle}"</strong> as <strong>${role}</strong>.</p>
-          <p><a href="${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}/collaborators"
-            style="background:#F4937A;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700">
-            Accept Invite →
-          </a></p>
-          <p style="color:#aaa;font-size:12px">Dizko.ai — Collaborative Music Production</p>
-        </div>`,
+      ...(() => {
+        const tpl = inviteEmail({
+          inviterName:  inviterName,
+          projectTitle: projectTitle,
+          role:         role ?? 'Collaborator',
+          acceptUrl:    `${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}/collaborators`,
+        })
+        return { emailSubject: tpl.subject, emailHtml: tpl.html }
+      })(),
     }).catch(() => null)
   }
 
