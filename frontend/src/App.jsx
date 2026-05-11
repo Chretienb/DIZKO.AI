@@ -1880,6 +1880,23 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
   }, [])
 
   const firstProjectId = projects[0]?.id
+
+  const resolveUploaders = (files) => {
+    const ids = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
+    const token = localStorage.getItem('disco_token')
+    ids.forEach(uid => {
+      fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (!j?.data) return
+          const u = j.data
+          const name = u.full_name || u.email?.split('@')[0] || 'Someone'
+          setUploaderNames(prev => ({ ...prev, [uid]: name }))
+        })
+        .catch(() => {})
+    })
+  }
+
   useEffect(() => {
     if (!firstProjectId) return
     setLoadingDet(true)
@@ -1890,21 +1907,25 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
       const files = fRes.data || []
       setFiles(files)
       setCollabs(cRes.data || [])
-      // Resolve uploader IDs → display names
-      const ids = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
-      const token = localStorage.getItem('disco_token')
-      ids.forEach(uid => {
-        fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(j => {
-            if (!j?.data) return
-            const u = j.data
-            const name = u.full_name || u.email?.split('@')[0] || 'Someone'
-            setUploaderNames(prev => ({ ...prev, [uid]: name }))
-          })
-          .catch(() => {})
-      })
+      resolveUploaders(files)
     }).finally(() => setLoadingDet(false))
+  }, [firstProjectId])
+
+  // Real-time: refresh files when anyone uploads, separates, or bounces
+  useEffect(() => {
+    if (!firstProjectId) return
+    const channel = supabase
+      .channel(`dashboard:${firstProjectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stems' }, payload => {
+        const s = payload.new
+        setFiles(prev => {
+          if (prev.find(f => f.id === s.id)) return prev
+          resolveUploaders([s])
+          return [s, ...prev]
+        })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [firstProjectId])
 
   const projectCount = overview.projects ?? projects.length
@@ -2226,28 +2247,71 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user }) {
                 <div style={{ padding:'12px 18px' }}><Spinner size={16}/></div>
               ) : projectFiles.length === 0 ? (
                 <div style={{ padding:'12px 18px 16px', fontSize:12, color:'#bbb' }}>No activity yet.</div>
-              ) : projectFiles.slice(0,5).map((f, i) => {
-                const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[f.instrument] || '#aaa'
-                const who = uploaderNames[f.uploaded_by] || 'Someone'
-                return (
-                  <div key={f.id} style={{ display:'flex', alignItems:'flex-start', gap:11, padding:'8px 18px',
-                    borderBottom: i < Math.min(4, projectFiles.length-1) ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background:stemColor,
-                      marginTop:5, flexShrink:0 }}/>
+              ) : (() => {
+                // Derive events from files — collapse separated stems into one event
+                const pn = f => { try { return JSON.parse(f.notes||'{}') } catch { return {} } }
+                const events = []
+                const seenParent = new Set()
+
+                const sorted = [...projectFiles].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+                for (const f of sorted) {
+                  const n = pn(f)
+                  if (n.parent_stem_id) {
+                    // Separated stem — group under parent
+                    if (!seenParent.has(n.parent_stem_id)) {
+                      seenParent.add(n.parent_stem_id)
+                      const siblings = projectFiles.filter(x => pn(x).parent_stem_id === n.parent_stem_id)
+                      events.push({ type:'separation', id:`sep_${n.parent_stem_id}`, f, count: siblings.length,
+                        created_at: f.created_at, who: uploaderNames[f.uploaded_by] || 'Someone' })
+                    }
+                  } else if (f.instrument === 'smart_bounce') {
+                    events.push({ type:'bounce', id:f.id, f, created_at: f.created_at,
+                      who: uploaderNames[f.uploaded_by] || 'Dizko.ai' })
+                  } else if (f.instrument && f.instrument !== 'original') {
+                    events.push({ type:'upload', id:f.id, f, created_at: f.created_at,
+                      who: uploaderNames[f.uploaded_by] || 'Someone' })
+                  } else if (f.instrument === 'original') {
+                    events.push({ type:'upload', id:f.id, f, created_at: f.created_at,
+                      who: uploaderNames[f.uploaded_by] || 'Someone' })
+                  }
+                  if (events.length >= 6) break
+                }
+
+                const dotColor = (ev) => {
+                  if (ev.type === 'bounce')    return '#22c55e'
+                  if (ev.type === 'separation') return C.amber
+                  return { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber,
+                    guitar:C.amber, keys:'#6366f1', harmony:'#ec4899', recording:C.coral,
+                    original:C.coral }[ev.f.instrument] || C.coral
+                }
+
+                return events.slice(0,5).map((ev, i) => (
+                  <div key={ev.id} style={{ display:'flex', alignItems:'flex-start', gap:11, padding:'8px 18px',
+                    borderBottom: i < Math.min(4, events.length-1) ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:dotColor(ev),
+                      marginTop:5, flexShrink:0, boxShadow: ev.type==='bounce' ? `0 0 6px ${dotColor(ev)}` : 'none' }}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12, color:'#333', lineHeight:1.4,
                         overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        <strong style={{ fontWeight:700, color:'#111' }}>{who}</strong>
-                        {' uploaded '}
-                        <span style={{ color:stemColor, fontWeight:600 }}>
-                          {f.instrument || 'file'}
-                        </span>
+                        <strong style={{ fontWeight:700, color:'#111' }}>{ev.who}</strong>
+                        {ev.type === 'upload' && (
+                          <> uploaded <span style={{ color:dotColor(ev), fontWeight:600 }}>
+                            {ev.f.instrument === 'original' ? ev.f.original_name : ev.f.instrument || 'a file'}
+                          </span></>
+                        )}
+                        {ev.type === 'separation' && (
+                          <> separated <span style={{ color:C.amber, fontWeight:600 }}>{ev.count} stems</span></>
+                        )}
+                        {ev.type === 'bounce' && (
+                          <> updated the <span style={{ color:'#22c55e', fontWeight:600 }}>session mix</span></>
+                        )}
                       </div>
-                      <div style={{ fontSize:10.5, color:'#ccc', marginTop:2 }}>{timeAgo(f.created_at)}</div>
+                      <div style={{ fontSize:10.5, color:'#ccc', marginTop:2 }}>{timeAgo(ev.created_at)}</div>
                     </div>
                   </div>
-                )
-              })}
+                ))
+              })()}
             </Card>
           </div>
         </div>
@@ -3712,7 +3776,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const takeMap = React.useMemo(() => {
     const m = new Map()
     for (const s of stems) {
-      if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') continue
+      const sn = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
+      if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce' || sn.parent_stem_id) continue
       const key = `${s.uploaded_by}::${s.instrument}`
       const ex  = m.get(key)
       if (!ex || new Date(s.created_at) > new Date(ex.created_at)) m.set(key, s)
@@ -3723,7 +3788,11 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const stemCol = i => ({ vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[i] || '#7c7c8a')
 
   // Filtered stems (exclude originals + smart bounces from the mixer view)
-  const mixerStems = stems.filter(s => s.instrument !== 'original' && s.instrument !== 'smart_bounce')
+  const mixerStems = stems.filter(s => {
+    if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') return false
+    const n = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
+    return !n.parent_stem_id  // exclude Demucs-separated child stems — they belong in File Library
+  })
 
   return (
     <div style={{ display:'flex', flexDirection:'column',
