@@ -2,5 +2,22 @@
   "buildCommand": "cd frontend && bun install && bun run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "cd frontend && bun install",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://dizkoai-production.up.railway.app/:path*"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://dizkoai-production.up.railway.app/$1"
+    },
+    {
+      "src": "/[^.]+",
+      "dest": "/",
+      "status": 200
+    }
+  ]
 }
