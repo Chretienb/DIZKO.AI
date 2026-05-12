@@ -11,9 +11,6 @@
 #  -------------------
 #  • ffmpeg  (required by pydub and demucs)
 #      brew install ffmpeg
-#  • Ollama  (already installed at /Applications/Ollama.app)
-#      Model:  llama3.2  (already pulled)
-#      Start:  open /Applications/Ollama.app
 #
 # =============================================================================
 
@@ -22,7 +19,6 @@ import re
 import json
 import shutil
 import subprocess
-import textwrap
 from pathlib import Path
 from typing import Optional
 
@@ -54,8 +50,6 @@ except ImportError:
 # =============================================================================
 
 FFMPEG_OK     = bool(shutil.which("ffmpeg"))
-OLLAMA_BASE   = "http://localhost:11434"
-OLLAMA_MODEL  = "llama3.2"
 OUTPUT_ROOT   = Path("DIZKO_AI")          # all output lives here
 STEMS         = ["vocals", "drums", "bass", "other"]
 
@@ -278,7 +272,7 @@ def analyze_audio(audio_path: str) -> dict:
 
 
 # =============================================================================
-#  3. SMART FILE NAMING  (Ollama / llama3.2)
+#  3. FILE NAMING
 # =============================================================================
 
 def generate_stem_name(
@@ -289,51 +283,12 @@ def generate_stem_name(
     artist_name:  Optional[str] = None,
     take_number:  int = 1,
 ) -> str:
-    """
-    Ask llama3.2 (via local Ollama) to generate a clean filename for a stem.
-    Falls back to a deterministic heuristic if Ollama is unreachable.
-
-    Returns a filename string like: track02_christian_guitar_take3_94bpm_Am.wav
-    """
-    prompt = textwrap.dedent(f"""
-        Generate a snake_case audio filename for a stem with these details:
-        - Track number  : {track_number}
-        - Artist        : {artist_name or "unknown"}
-        - Stem type     : {stem_type}
-        - Take number   : {take_number}
-        - BPM           : {bpm:.0f}
-        - Key signature : {key}
-
-        Format: track{track_number:02d}_{(artist_name or 'unknown').lower()}_{stem_type}_take{take_number}_{bpm:.0f}bpm_{key}.wav
-
-        Reply with just the filename, nothing else.
-    """).strip()
-
-    try:
-        resp = requests.post(
-            f"{OLLAMA_BASE}/api/generate",
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("response", "").strip()
-
-        # Extract just the filename (first word-like token ending in .wav)
-        match = re.search(r'[\w\-]+\.wav', raw, re.IGNORECASE)
-        if match:
-            filename = match.group(0).lower()
-            print(f"    🤖 AI name  : {filename}")
-            return filename
-    except Exception as exc:
-        print(f"    ⚠  Ollama unavailable ({exc}) — using heuristic name")
-
-    # ── Heuristic fallback ────────────────────────────────────────────────────
+    """Generate a clean filename for a stem from its metadata."""
     artist_clean = re.sub(r'\W+', '', (artist_name or "unknown").lower())
     filename = (
         f"track{track_number:02d}_{artist_clean}_{stem_type}"
         f"_take{take_number}_{int(bpm)}bpm_{key}.wav"
     )
-    print(f"    📝 Heuristic: {filename}")
     return filename
 
 
@@ -492,7 +447,7 @@ def run_pipeline(
     Steps:
         1. Separate stems (demucs)
         2. Analyze BPM + key (librosa)
-        3. Generate AI file names (Ollama llama3.2)
+        3. Generate file names from metadata
         4. Save organized folder structure
         5. Bounce a preview mix (pydub)
         6. Send upload notification
