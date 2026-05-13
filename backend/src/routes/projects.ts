@@ -124,29 +124,51 @@ projects.get('/:id/export', async (c) => {
     takeCountMap.set(k, (takeCountMap.get(k) ?? 0) + 1)
   }
 
+  // collabs table has email — use it as fallback when auth.admin returns no name
   const { data: collabs } = await supabase
-    .from('collaborators').select('user_id, role').eq('project_id', projectId)
-  const roleByUser = new Map((collabs ?? []).map((c: any) => [c.user_id, c.role]))
+    .from('collaborators').select('user_id, role, email').eq('project_id', projectId)
+  const roleByUser  = new Map((collabs ?? []).map((c: any) => [c.user_id, c.role]))
+  const emailByUser = new Map((collabs ?? []).map((c: any) => [c.user_id, c.email as string | null]))
+
+  // Also add owner — they won't have a collaborators row
+  emailByUser.set((proj as any).owner_id, null)
+
+  // Pre-resolve display name for every unique uploader in one pass
+  const uploaderIds = [...new Set(latestTakes.map((s: any) => s.uploaded_by as string))]
+  const nameByUser  = new Map<string, string>()
+  await Promise.all(uploaderIds.map(async (uid) => {
+    try {
+      const { data: au } = await supabase.auth.admin.getUserById(uid)
+      const fullName = au?.user?.user_metadata?.full_name as string | undefined
+      const email    = au?.user?.email ?? emailByUser.get(uid) ?? ''
+      // full_name → email prefix → uid prefix
+      const resolved = fullName?.trim()
+        || (email ? email.split('@')[0] : '')
+        || uid.slice(0, 8)
+      nameByUser.set(uid, resolved)
+    } catch {
+      const email = emailByUser.get(uid) ?? ''
+      nameByUser.set(uid, email ? email.split('@')[0] : uid.slice(0, 8))
+    }
+  }))
 
   // BPM and key from stems.notes JSON (set by audio analysis pipeline)
   let projectBpm = 120
-  let projectKey = 'Unknown'
+  let projectKey = 'Cmaj'
   for (const s of uploadedStems) {
     const n = parseNotes(s)
-    if (n.bpm && projectBpm === 120)       projectBpm = Math.round(n.bpm)
-    if (n.key && projectKey === 'Unknown') projectKey = n.key
-    if (projectBpm !== 120 && projectKey !== 'Unknown') break
+    if (n.bpm && projectBpm === 120)        projectBpm = Math.round(n.bpm)
+    if (n.key && projectKey === 'Cmaj')     projectKey = n.key
+    if (projectBpm !== 120 && projectKey !== 'Cmaj') break
   }
 
   const exportStems: ExportStem[] = []
   await Promise.all(latestTakes.map(async (s) => {
     try {
-      const n = parseNotes(s)
-      const { data: authUser } = await supabase.auth.admin.getUserById(s.uploaded_by)
-      const name       = (authUser?.user?.user_metadata?.full_name as string | undefined)
-        ?? authUser?.user?.email?.split('@')[0] ?? 'Unknown'
-      const safeName   = name.replace(/[^a-zA-Z0-9]/g, '')
-      const role       = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
+      const n        = parseNotes(s)
+      const name     = nameByUser.get(s.uploaded_by) ?? s.uploaded_by.slice(0, 8)
+      const safeName = name.replace(/[^a-zA-Z0-9]/g, '') || 'User'
+      const role     = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
       // Use instrument if set, otherwise fall back to the original filename base
       const instrLabel = (s.instrument && s.instrument !== 'recording')
         ? s.instrument.replace(/[^a-zA-Z0-9]/g, '')
@@ -168,7 +190,7 @@ projects.get('/:id/export', async (c) => {
         if (byteRate > 0) durationSec = dataSize / byteRate
       }
 
-      exportStems.push({ filename, buffer, contributor: name, instrument: s.instrument, durationSec })
+      exportStems.push({ filename, buffer, contributor: name || safeName, instrument: s.instrument || 'audio', durationSec })
     } catch (e) {
       console.error('[export] stem download failed:', (e as Error).message)
     }
