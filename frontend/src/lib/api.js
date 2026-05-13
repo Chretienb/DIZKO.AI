@@ -139,7 +139,7 @@ export const files = {
 
   // Upload audio to the session. AI analyzes BPM/key and updates the Smart Mix.
   // Returns 201 immediately. Stem separation is separate and user-triggered.
-  upload: (file, projectId, { artistName, trackNumber, takeNumber } = {}) => {
+  upload: (file, projectId, { artistName, trackNumber, takeNumber, instrument } = {}) => {
     const token = getToken()
     const form  = new FormData()
     form.append('file',         file)
@@ -147,6 +147,7 @@ export const files = {
     if (artistName)   form.append('artist_name',  artistName)
     if (trackNumber)  form.append('track_number', String(trackNumber))
     if (takeNumber)   form.append('take_number',  String(takeNumber))
+    if (instrument)   form.append('instrument',   instrument)
 
     return fetch(`${BASE}/files/upload`, {
       method:  'POST',

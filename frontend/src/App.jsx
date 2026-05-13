@@ -1561,6 +1561,76 @@ const ROLE_PERMS = {
   Producer:'beats, demos', Engineer:'exports, finals', Mixer:'exports, finals', Collaborator:'anything',
 }
 
+const INSTR_LIST = [
+  { id:'vocals',    label:'Vocals',     color:'#8b5cf6' },
+  { id:'guitar',    label:'Guitar',     color:'#f59e0b' },
+  { id:'drums',     label:'Drums',      color:'#ef4444' },
+  { id:'bass',      label:'Bass',       color:'#22c55e' },
+  { id:'piano',     label:'Piano',      color:'#3b82f6' },
+  { id:'synth',     label:'Synth',      color:'#ec4899' },
+  { id:'strings',   label:'Strings',    color:'#f97316' },
+  { id:'horns',     label:'Horns',      color:'#eab308' },
+  { id:'recording', label:'Recording',  color:'#6b7280' },
+  { id:'other',     label:'Other',      color:'#9ca3af' },
+]
+
+function detectInstrument(filename) {
+  const f = filename.toLowerCase()
+  if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric/.test(f)) return 'vocals'
+  if (/guitar|gtr|acoustic|electric|strat|tele|riff|chord/.test(f))     return 'guitar'
+  if (/drum|kick|snare|hihat|hi-hat|cymbal|perc|loop/.test(f))          return 'drums'
+  if (/\bbass\b|bassline|808|sub/.test(f))                               return 'bass'
+  if (/piano|keys|keyboard|organ|clav|rhodes/.test(f))                  return 'piano'
+  if (/synth|pad|lead|arp|analog|wavetable|osc/.test(f))                return 'synth'
+  if (/string|violin|cello|viola|orchestra|orch/.test(f))               return 'strings'
+  if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'horns'
+  return ''  // no match — let user pick
+}
+
+function InstrPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef()
+  useEffect(() => {
+    if (!open) return
+    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  const current = INSTR_LIST.find(i => i.id === value)
+  return (
+    <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
+      <button onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
+        style={{ height:24, padding:'0 10px', borderRadius:100, border:'none', cursor:'pointer',
+          background: current ? `${current.color}18` : 'rgba(0,0,0,.06)',
+          color: current ? current.color : '#999',
+          fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:5,
+          whiteSpace:'nowrap', transition:'all .12s' }}>
+        {current ? current.label : 'Set instrument'}
+        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300,
+          background:'#fff', border:'1px solid rgba(0,0,0,.1)', borderRadius:10,
+          boxShadow:'0 6px 20px rgba(0,0,0,.12)', padding:4, minWidth:140 }}>
+          {INSTR_LIST.map(ins => (
+            <button key={ins.id} onClick={() => { onChange(ins.id); setOpen(false) }}
+              style={{ width:'100%', padding:'7px 10px', border:'none', borderRadius:7,
+                background: value === ins.id ? `${ins.color}12` : 'transparent',
+                color: value === ins.id ? ins.color : '#444',
+                fontSize:12, fontWeight: value === ins.id ? 700 : 500,
+                cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
+              onMouseEnter={e => { if (value !== ins.id) e.currentTarget.style.background='rgba(0,0,0,.04)' }}
+              onMouseLeave={e => { if (value !== ins.id) e.currentTarget.style.background='transparent' }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>
+              {ins.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ModalUpload({ project, onClose, user }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
@@ -1609,17 +1679,21 @@ function ModalUpload({ project, onClose, user }) {
       const tooBig  = f.size > MAX_MB * 1048576
       const badType = !AUDIO.includes(ext)
       return {
-        file: f,
-        status:   tooBig || badType ? 'error' : 'queued',
-        progress: 0,
-        error:    tooBig  ? `File too large (${(f.size/1048576).toFixed(0)} MB) — free plan limit is ${MAX_MB} MB`
-                : badType ? `Unsupported format (.${ext})`
-                : null,
+        file:       f,
+        instrument: detectInstrument(f.name),
+        status:     tooBig || badType ? 'error' : 'queued',
+        progress:   0,
+        error:      tooBig  ? `File too large (${(f.size/1048576).toFixed(0)} MB) — free plan limit is ${MAX_MB} MB`
+                  : badType ? `Unsupported format (.${ext})`
+                  : null,
         url: null,
       }
     })
     setQueue(q => [...q, ...items])
   }
+
+  const setItemInstrument = (idx, instr) =>
+    setQueue(q => q.map((item, i) => i === idx ? { ...item, instrument: instr } : item))
 
   const removeFile = idx => setQueue(q => q.filter((_,i) => i !== idx))
 
@@ -1634,7 +1708,7 @@ function ModalUpload({ project, onClose, user }) {
       setQueue([...updated])
 
       try {
-        await filesApi.upload(updated[i].file, selProj.id)
+        await filesApi.upload(updated[i].file, selProj.id, { instrument: updated[i].instrument || undefined })
         updated[i] = { ...updated[i], status:'done', progress: 100 }
         setQueue([...updated])
       } catch (err) {
@@ -1766,26 +1840,46 @@ function ModalUpload({ project, onClose, user }) {
             const mb  = (item.file.size / 1048576).toFixed(1)
             const col = typeColor(ext)
             return (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+              <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
                 borderBottom: i < queue.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none',
                 background: item.status === 'error' ? 'rgba(239,68,68,.03)'
                   : item.status === 'blocked' ? 'rgba(245,158,11,.04)' : 'transparent' }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`${col}15`, flexShrink:0,
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:8, fontWeight:800, color:col }}>{ext}</div>
+                  fontSize:8, fontWeight:800, color:col, marginTop:2 }}>{ext}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12.5, fontWeight:600, color:'#111',
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.file.name}</div>
-                  <div style={{ fontSize:10.5, color:'#bbb', marginTop:1 }}>{mb} MB
-                    {item.status === 'error' && <span style={{ color:'#ef4444', marginLeft:6 }}>{item.error}</span>}
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:5, flexWrap:'wrap' }}>
+                    {/* Instrument picker — shown while queued */}
+                    {(item.status === 'queued' || item.status === 'error') && (
+                      <InstrPicker value={item.instrument} onChange={instr => setItemInstrument(i, instr)} />
+                    )}
+                    {/* Show confirmed instrument after upload */}
+                    {item.status === 'done' && item.instrument && (() => {
+                      const ins = INSTR_LIST.find(x => x.id === item.instrument)
+                      return ins ? (
+                        <span style={{ fontSize:11, fontWeight:700, color:ins.color,
+                          background:`${ins.color}15`, padding:'2px 8px', borderRadius:100 }}>
+                          {ins.label}
+                        </span>
+                      ) : null
+                    })()}
+                    <span style={{ fontSize:10.5, color:'#bbb' }}>{mb} MB</span>
+                    {item.status === 'error' && <span style={{ color:'#ef4444', fontSize:10.5 }}>{item.error}</span>}
                     {item.status === 'blocked' && (
-                      <span style={{ color:C.amber, marginLeft:6, fontWeight:600 }}>
+                      <span style={{ color:C.amber, fontSize:10.5, fontWeight:600 }}>
                         Your role ({item.role}) can't upload {item.instrument}
                       </span>
                     )}
                   </div>
+                  {!item.instrument && item.status === 'queued' && (
+                    <div style={{ fontSize:10, color:'#f59e0b', marginTop:3 }}>
+                      No instrument detected — please set one above
+                    </div>
+                  )}
                   {item.status === 'uploading' && (
-                    <div style={{ height:2, background:'rgba(0,0,0,.06)', borderRadius:2, marginTop:4 }}>
+                    <div style={{ height:2, background:'rgba(0,0,0,.06)', borderRadius:2, marginTop:6 }}>
                       <div style={{ height:'100%', width:`${item.progress}%`, background:C.grad, borderRadius:2, transition:'width .3s' }}/>
                     </div>
                   )}
