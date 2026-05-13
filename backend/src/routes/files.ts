@@ -8,6 +8,7 @@ import { requireAuth }  from '../middleware/auth'
 import { sanitize }     from '../middleware/sanitize'
 import { runLocalPipeline, uploadStemsToSupabase } from '../lib/localPipeline'
 import { runSmartBounce } from '../lib/smartBounce'
+import { analyzeProject } from '../lib/aiAnalysis'
 import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
@@ -170,7 +171,12 @@ files.post('/upload', async (c) => {
         ...(bpm ? { suggested_name: buildSuggestedName(file.name, instrument, bpm, key) } : {}),
       }).eq('id', takeId)
 
-      // Trigger Smart Mix so all collaborators hear the updated session
+      // AI analysis — runs first so mix params are ready for Smart Mix
+      await analyzeProject(projectId, user.id).catch(e =>
+        console.error('[upload] AI analysis error:', e.message)
+      )
+
+      // Trigger Smart Mix (now uses AI mix params from analysis above)
       await runSmartBounce(projectId, user.id).catch(e =>
         console.error('[upload] smart bounce error:', e.message)
       )

@@ -11,6 +11,8 @@ import { writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join }                   from 'path'
 import { tmpdir }                 from 'os'
 import { supabase }               from './supabase'
+import { getLatestAnalysis }      from './aiAnalysis'
+import type { MixParam }          from './aiAnalysis'
 
 export interface SmartBounceResult {
   bounce_url:   string
@@ -85,21 +87,70 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
     return null
   }
 
-  // 3. Mix with ffmpeg amix (normalize=0 preserves individual levels)
-  const outPath   = join(tmpdir(), `smb_out_${projectId}_${Date.now()}.wav`)
-  const inputs    = validFiles.map(f => `-i "${f}"`).join(' ')
-  const filterStr = `amix=inputs=${validFiles.length}:duration=longest:normalize=0`
+  // 3. AI-guided mix — fetch Claude's mix params, fall back to equal mix
+  const analysis   = await getLatestAnalysis(projectId)
+  const mixParams  = analysis?.mix_params ?? {}
+  const aiMixUsed  = Object.keys(mixParams).length > 0
+
+  const outPath = join(tmpdir(), `smb_out_${projectId}_${Date.now()}.wav`)
+  const rawPath = join(tmpdir(), `smb_raw_${projectId}_${Date.now()}.wav`)
+
+  // Build per-stem filter chains using AI params
+  const buildStemFilter = (stemId: string, idx: number): string => {
+    const p: MixParam = mixParams[stemId] ?? {
+      volume_db: 0, pan: 0, eq_low_cut_hz: 0, compress: false, compress_ratio: 1,
+    }
+    const filters: string[] = []
+    if (p.eq_low_cut_hz > 0) filters.push(`highpass=f=${p.eq_low_cut_hz}`)
+    if (p.compress && p.compress_ratio > 1) {
+      const ratio = Math.min(p.compress_ratio, 8)
+      filters.push(`acompressor=ratio=${ratio}:threshold=0.1:attack=5:release=50`)
+    }
+    filters.push(`volume=${p.volume_db}dB`)
+    if (p.pan !== 0) {
+      const left  = p.pan <= 0 ? 1 : 1 - p.pan
+      const right = p.pan >= 0 ? 1 : 1 + p.pan
+      filters.push(`pan=stereo|c0=${left.toFixed(3)}*c0|c1=${right.toFixed(3)}*c0`)
+    }
+    return `[${idx}:a]${filters.join(',')}[s${idx}]`
+  }
+
+  const stemIds   = takes.map((s: any) => s.id)
+  const filterChains = validFiles.map((_, i) => buildStemFilter(stemIds[i] ?? '', i))
+  const mixInputs    = validFiles.map((_, i) => `[s${i}]`).join('')
+  const filterStr    = [
+    ...filterChains,
+    `${mixInputs}amix=inputs=${validFiles.length}:duration=longest:normalize=0[mix]`,
+    // Mastering chain: loudness normalization to -14 LUFS (Spotify), true peak -1 dBTP
+    `[mix]loudnorm=I=-14:LRA=7:TP=-1[master]`,
+  ].join(';')
+
+  const inputs = validFiles.map(f => `-i "${f}"`).join(' ')
 
   try {
-    execSync(`ffmpeg -y ${inputs} -filter_complex "${filterStr}" "${outPath}"`, { stdio: 'pipe' })
+    execSync(
+      `ffmpeg -y ${inputs} -filter_complex "${filterStr}" -map "[master]" "${outPath}"`,
+      { stdio: 'pipe' }
+    )
   } catch (e) {
-    console.error('[smartBounce] ffmpeg failed:', (e as Error).message)
-    for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
-    return null
+    // Fall back to simple amix if complex filter fails
+    console.warn('[smartBounce] AI filter failed, falling back to amix:', (e as Error).message)
+    try {
+      execSync(
+        `ffmpeg -y ${inputs} -filter_complex "amix=inputs=${validFiles.length}:duration=longest:normalize=0" "${outPath}"`,
+        { stdio: 'pipe' }
+      )
+    } catch (e2) {
+      console.error('[smartBounce] ffmpeg failed:', (e2 as Error).message)
+      for (const f of [...tmpFiles.filter(Boolean), outPath, rawPath]) try { unlinkSync(f) } catch {}
+      return null
+    }
   }
 
   const mixBuf = readFileSync(outPath)
-  for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
+  for (const f of [...tmpFiles.filter(Boolean), outPath, rawPath]) try { unlinkSync(f) } catch {}
+
+  console.log(`[smartBounce] ${aiMixUsed ? 'AI mix' : 'equal mix'} + mastered to -14 LUFS`)
 
   // 4. Upload to Supabase Storage
   const storagePath = `smart-bounces/${projectId}/${Date.now()}_smart_mix.wav`
@@ -119,7 +170,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
   const { data: bounceRecord } = await supabase.from('stems').insert({
     track_id:       trackId,
     original_name:  'smart_mix.wav',
-    suggested_name: `Smart Mix · ${takes.length} contributors`,
+    suggested_name: `${aiMixUsed ? 'AI Mix' : 'Smart Mix'} · ${takes.length} contributors`,
     file_url:       bounceUrl,
     storage_path:   storagePath,
     file_size:      mixBuf.length,

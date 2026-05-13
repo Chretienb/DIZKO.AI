@@ -2,12 +2,49 @@ import { Hono }       from 'hono'
 import Anthropic       from '@anthropic-ai/sdk'
 import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
+import { getLatestAnalysis, analyzeProject } from '../lib/aiAnalysis'
 import type { HonoVariables } from '../types'
 
 const assistant = new Hono<{ Variables: HonoVariables }>()
 assistant.use('*', requireAuth)
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+// ── GET /assistant/:projectId/analysis — fetch latest AI analysis ─────────────
+assistant.get('/:projectId/analysis', async (c) => {
+  const projectId = c.req.param('projectId')
+  const userId    = c.var.user.id
+
+  const { data: proj } = await supabase
+    .from('projects').select('id, owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ error: 'Not found' }, 404)
+
+  const { data: collabRow } = await supabase
+    .from('collaborators').select('id').eq('project_id', projectId)
+    .eq('user_id', userId).eq('status', 'active').maybeSingle()
+
+  if ((proj as any).owner_id !== userId && !collabRow)
+    return c.json({ error: 'Access denied' }, 403)
+
+  const analysis = await getLatestAnalysis(projectId)
+  return c.json({ data: analysis })
+})
+
+// ── POST /assistant/:projectId/analyze — force a new analysis ────────────────
+assistant.post('/:projectId/analyze', async (c) => {
+  const projectId = c.req.param('projectId')
+  const userId    = c.var.user.id
+
+  const { data: proj } = await supabase
+    .from('projects').select('id, owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ error: 'Not found' }, 404)
+
+  if ((proj as any).owner_id !== userId)
+    return c.json({ error: 'Only the owner can trigger analysis' }, 403)
+
+  const analysis = await analyzeProject(projectId, userId)
+  return c.json({ data: analysis })
+})
 
 assistant.post('/:projectId/chat', async (c) => {
   const projectId = c.req.param('projectId')

@@ -4085,12 +4085,7 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
 function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,    setProjects]    = useState([])
   const [activeId,    setActiveId]    = useState(null)
-  const [aiOpen,      setAiOpen]      = useState(false)
-  const [aiMessages,  setAiMessages]  = useState([])   // [{role,text}]
-  const [aiInput,     setAiInput]     = useState('')
-  const [aiStreaming, setAiStreaming] = useState(false)
-  const aiEndRef = useRef(null)
-  const aiInputRef = useRef(null)
+  const [aiAnalysis,  setAiAnalysis]  = useState(null)  // latest project analysis from Claude
   const [stems,       setStems]       = useState([])
   const [loading,     setLoading]     = useState(true)
   const [loadingStems,setLoadingStems]= useState(false)
@@ -4131,6 +4126,12 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       if (list.length) setActiveId(list[0].id)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!activeId) return
+    setAiAnalysis(null)
+    fetchAiAnalysis(activeId)
+  }, [activeId])
 
   useEffect(() => {
     if (!activeId) return
@@ -4493,39 +4494,16 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     }
   }
 
-  const sendToAI = async () => {
-    const msg = aiInput.trim()
-    if (!msg || !activeId || aiStreaming) return
-    setAiInput('')
-    setAiMessages(prev => [...prev, { role: 'user', text: msg }])
-    setAiStreaming(true)
-    setAiMessages(prev => [...prev, { role: 'assistant', text: '' }])
-
+  const fetchAiAnalysis = async (projectId) => {
+    if (!projectId) return
     try {
       const token = localStorage.getItem('disco_token')
-      const res   = await fetch(`/api/assistant/${activeId}/chat`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ message: msg }),
+      const res = await fetch(`/api/assistant/${projectId}/analysis`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
-      const reply = j.reply || 'No response.'
-      setAiMessages(prev => {
-        const copy = [...prev]
-        copy[copy.length - 1] = { role: 'assistant', text: reply }
-        return copy
-      })
-      aiEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    } catch (e) {
-      setAiMessages(prev => {
-        const copy = [...prev]
-        copy[copy.length - 1] = { role: 'assistant', text: `Error: ${e.message}` }
-        return copy
-      })
-    }
-    setAiStreaming(false)
-    setTimeout(() => aiInputRef.current?.focus(), 50)
+      if (j.data) setAiAnalysis(j.data)
+    } catch {}
   }
 
   const [volumes,        setVolumes]        = useState({})   // { stemId: 0-1 }
@@ -5405,108 +5383,36 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         )}
       </div>
 
-      {/* ── AI Assistant panel ───────────────────────────────────────────── */}
-      {/* Floating button */}
-      <button onClick={() => setAiOpen(v => !v)} title="Ask Dizko AI"
-        style={{ position:'fixed', bottom:88, right:24, width:44, height:44, borderRadius:'50%',
-          background: aiOpen ? '#1a1a2e' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-          border: aiOpen ? '1px solid rgba(99,102,241,.4)' : 'none',
-          boxShadow: aiOpen ? 'none' : '0 4px 16px rgba(99,102,241,.45)',
-          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          zIndex:150, transition:'all .2s' }}>
-        {aiOpen
-          ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.8)" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          : <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a9.96 9.96 0 0 1-5.19-1.45L2 22l1.45-4.81A9.96 9.96 0 0 1 2 12 10 10 0 0 1 12 2z"/>
-              <path d="M8 10h8M8 14h5" strokeWidth={2}/>
-            </svg>}
-      </button>
-
-      {/* Chat panel */}
-      {aiOpen && (
-        <div style={{ position:'fixed', bottom:144, right:24, width:340, height:440,
-          background:'#0d0d18', border:'1px solid rgba(99,102,241,.25)', borderRadius:18,
-          boxShadow:'0 12px 40px rgba(0,0,0,.45)', display:'flex', flexDirection:'column',
-          zIndex:149, overflow:'hidden' }}>
-
-          {/* Header */}
-          <div style={{ padding:'14px 16px 12px', borderBottom:'1px solid rgba(255,255,255,.06)',
-            display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ width:28, height:28, borderRadius:8,
-              background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
-                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a9.96 9.96 0 0 1-5.19-1.45L2 22l1.45-4.81A9.96 9.96 0 0 1 2 12 10 10 0 0 1 12 2z"/>
-              </svg>
+      {/* ── AI Brief + Conflict bar (silent, no chat) ───────────────────── */}
+      {aiAnalysis && (
+        <div style={{ position:'absolute', bottom:72, left:0, right:0, zIndex:10, padding:'0 20px 8px', pointerEvents:'none' }}>
+          {aiAnalysis.conflicts?.map((c, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', marginBottom:4, borderRadius:10, background:'rgba(245,158,11,.12)', border:'1px solid rgba(245,158,11,.3)', pointerEvents:'all' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span style={{ fontSize:12, color:'#f59e0b', fontWeight:600 }}>{c.type === 'bpm' ? 'BPM' : 'Key'} Conflict —</span>
+              <span style={{ fontSize:12, color:'rgba(245,158,11,.8)' }}>{c.detail}</span>
             </div>
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, color:'#e8e8f0' }}>Dizko AI</div>
-              <div style={{ fontSize:10, color:'rgba(99,102,241,.7)' }}>
-                {projects.find(p => p.id === activeId)?.title || 'No project selected'}
-              </div>
+          ))}
+          {aiAnalysis.version_insights?.slice(0,1).map((vi, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', marginBottom:4, borderRadius:10, background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.25)', pointerEvents:'all' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth={2} strokeLinecap="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+              <span style={{ fontSize:12, color:'#818cf8', fontWeight:600 }}>Best take:</span>
+              <span style={{ fontSize:12, color:'rgba(165,180,252,.9)' }}>{vi.best_take_name} — {vi.reason}</span>
             </div>
-          </div>
-
-          {/* Messages */}
-          <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
-            {aiMessages.length === 0 && (
-              <div style={{ textAlign:'center', marginTop:40 }}>
-                <div style={{ fontSize:28, marginBottom:10 }}>
-                  <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.4)" strokeWidth={1.5} strokeLinecap="round" style={{ margin:'0 auto', display:'block' }}>
-                    <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
-                  </svg>
-                </div>
-                <div style={{ fontSize:13, fontWeight:600, color:'rgba(232,232,240,.5)', marginBottom:6 }}>Ask me anything</div>
-                {["What's missing from this project?","Any BPM issues?","What should we record next?"].map(s => (
-                  <button key={s} onClick={() => { setAiInput(s); setTimeout(() => aiInputRef.current?.focus(), 50) }}
-                    style={{ display:'block', width:'100%', margin:'5px 0', padding:'7px 12px',
-                      background:'rgba(99,102,241,.08)', border:'1px solid rgba(99,102,241,.2)',
-                      borderRadius:8, color:'rgba(232,232,240,.65)', fontSize:11.5, cursor:'pointer',
-                      textAlign:'left', fontFamily:'inherit' }}>
-                    {s}
-                  </button>
+          ))}
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', borderRadius:10, background:'rgba(0,0,0,.45)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,.08)', pointerEvents:'all' }}>
+            <div style={{ width:16, height:16, borderRadius:4, flexShrink:0, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <span style={{ fontSize:12, fontWeight:600, color:'rgba(165,180,252,.9)', flexShrink:0 }}>AI</span>
+            <span style={{ fontSize:12, color:'rgba(255,255,255,.6)' }}>{aiAnalysis.brief}</span>
+            {aiAnalysis.missing?.length > 0 && (
+              <div style={{ marginLeft:'auto', display:'flex', gap:4, flexShrink:0 }}>
+                {aiAnalysis.missing.slice(0,3).map(m => (
+                  <span key={m} style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:100, background:'rgba(239,68,68,.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,.25)' }}>No {m}</span>
                 ))}
               </div>
             )}
-            {aiMessages.map((m, i) => (
-              <div key={i} style={{ display:'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth:'85%', padding:'9px 13px', borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                  background: m.role === 'user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,.06)',
-                  color: m.role === 'user' ? '#fff' : '#d4d4e8',
-                  fontSize:13, lineHeight:1.55, wordBreak:'break-word' }}>
-                  {m.text || (aiStreaming && i === aiMessages.length - 1
-                    ? <span style={{ display:'inline-flex', gap:3, alignItems:'center' }}>
-                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s infinite' }}/>
-                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s .2s infinite' }}/>
-                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s .4s infinite' }}/>
-                      </span>
-                    : '')}
-                </div>
-              </div>
-            ))}
-            <div ref={aiEndRef}/>
-          </div>
-
-          {/* Input */}
-          <div style={{ padding:'10px 12px', borderTop:'1px solid rgba(255,255,255,.06)',
-            display:'flex', gap:8, alignItems:'flex-end' }}>
-            <textarea ref={aiInputRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToAI() } }}
-              placeholder="Ask about the project…"
-              rows={1}
-              style={{ flex:1, padding:'9px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.1)',
-                background:'rgba(255,255,255,.06)', color:'#e8e8f0', fontSize:13, resize:'none',
-                outline:'none', fontFamily:'inherit', lineHeight:1.4,
-                maxHeight:80, overflowY:'auto' }}/>
-            <button onClick={sendToAI} disabled={!aiInput.trim() || aiStreaming || !activeId}
-              style={{ width:34, height:34, borderRadius:9, border:'none', flexShrink:0,
-                background: !aiInput.trim() || aiStreaming || !activeId ? 'rgba(255,255,255,.05)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                cursor: !aiInput.trim() || aiStreaming || !activeId ? 'default' : 'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}>
-              {aiStreaming
-                ? <Spinner size={13} color="#6366f1"/>
-                : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>}
-            </button>
           </div>
         </div>
       )}
