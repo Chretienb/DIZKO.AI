@@ -3332,16 +3332,27 @@ function PageProjects({ openModal, refreshKey, user }) {
 }
 
 // ─── INVITE LINK BUTTON ───────────────────────────────────────────────────────
-function InviteLinkButton({ ownedIds }) {
-  const [copying,   setCopying]   = useState(false)
-  const [copied,    setCopied]    = useState(false)
-  const firstProjectId = [...(ownedIds || [])][0]
-  if (!firstProjectId) return null
+function InviteLinkButton({ ownedIds, projects = [] }) {
+  const [copying,    setCopying]    = useState(false)
+  const [copied,     setCopied]     = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const ref = useRef()
 
-  const generate = async () => {
+  const ownedProjects = projects.filter(p => ownedIds?.has(p.id))
+  if (!ownedProjects.length) return null
+
+  useEffect(() => {
+    if (!pickerOpen) return
+    const close = e => { if (!ref.current?.contains(e.target)) setPickerOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [pickerOpen])
+
+  const generate = async (projectId, projectTitle) => {
+    setPickerOpen(false)
     setCopying(true)
     try {
-      const res = await fetch(`/api/invite-links/${firstProjectId}`, {
+      const res = await fetch(`/api/invite-links/${projectId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ role: 'Collaborator' }),
@@ -3356,17 +3367,65 @@ function InviteLinkButton({ ownedIds }) {
     setCopying(false)
   }
 
+  const handleClick = () => {
+    if (ownedProjects.length === 1) {
+      generate(ownedProjects[0].id, ownedProjects[0].title)
+    } else {
+      setPickerOpen(v => !v)
+    }
+  }
+
   return (
-    <button onClick={generate} disabled={copying}
-      style={{ height:36, padding:'0 14px', borderRadius:10, fontSize:12, fontWeight:700,
-        border:'1px solid rgba(0,0,0,.1)', background: copied ? '#22c55e' : '#fff',
-        color: copied ? '#fff' : '#555', cursor:'pointer',
-        display:'flex', alignItems:'center', gap:6, transition:'all .2s' }}>
-      {copying ? <Spinner size={12} color="#888"/> :
-        copied ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-               : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>}
-      {copied ? 'Link copied!' : 'Copy invite link'}
-    </button>
+    <div ref={ref} style={{ position:'relative' }}>
+      <button onClick={handleClick} disabled={copying}
+        style={{ height:36, padding:'0 14px', borderRadius:10, fontSize:12, fontWeight:700,
+          border:'1px solid rgba(0,0,0,.1)', background: copied ? '#22c55e' : '#fff',
+          color: copied ? '#fff' : '#555', cursor:'pointer',
+          display:'flex', alignItems:'center', gap:6, transition:'all .2s' }}>
+        {copying ? <Spinner size={12} color="#888"/> :
+          copied
+            ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+            : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>}
+        {copied ? 'Link copied!' : 'Copy invite link'}
+        {ownedProjects.length > 1 && !copied && (
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <polyline points="6,9 12,15 18,9"/>
+          </svg>
+        )}
+      </button>
+
+      {/* Project picker — only shown when owner has multiple projects */}
+      {pickerOpen && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200,
+          background:'#fff', border:'1px solid rgba(0,0,0,.1)', borderRadius:12,
+          boxShadow:'0 8px 24px rgba(0,0,0,.12)', padding:6, minWidth:220 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase',
+            letterSpacing:'1px', padding:'6px 10px 4px' }}>
+            Pick a project to invite to
+          </div>
+          {ownedProjects.map(p => (
+            <button key={p.id} onClick={() => generate(p.id, p.title)}
+              style={{ width:'100%', padding:'9px 12px', border:'none', borderRadius:8,
+                background:'transparent', textAlign:'left', cursor:'pointer',
+                display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#111',
+                fontFamily:'inherit' }}
+              onMouseEnter={e => e.currentTarget.style.background='#f5f5f7'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              <div style={{ width:28, height:28, borderRadius:7, background:`${C.coral}15`,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                  <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight:600, fontSize:13 }}>{p.title}</div>
+                <div style={{ fontSize:11, color:'#aaa' }}>{p.type || 'Project'}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -3489,6 +3548,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [actingId,      setActingId]      = useState(null)
   const [removingId,    setRemovingId]    = useState(null)
   const [ownedIds,      setOwnedIds]      = useState(new Set())
+  const [allProjects,   setAllProjects]   = useState([])
   const [overview,      setOverview]      = useState({})
   const [accessReqs,    setAccessReqs]    = useState([])
   const [reviewingId,   setReviewingId]   = useState(null)
@@ -3516,6 +3576,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
       setOverview(overRes.data || {})
       const projs = projRes.data || []
       setInvites(invRes.data || [])
+      setAllProjects(projs)
       setOwnedIds(new Set(projs.filter(p => p.owner_id === user?.id).map(p => p.id)))
       if (!projs.length) return setCollabs([])
       return Promise.all(
@@ -3600,7 +3661,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
           </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <InviteLinkButton ownedIds={ownedIds} />
+          <InviteLinkButton ownedIds={ownedIds} projects={allProjects} />
           <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
         </div>
       </div>
@@ -3783,7 +3844,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
               Share a link or send an email invite — they join in seconds.
             </div>
             <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-              <InviteLinkButton ownedIds={ownedIds} />
+              <InviteLinkButton ownedIds={ownedIds} projects={allProjects} />
               <Btn onClick={() => openModal('invite', {})}>Invite by email</Btn>
             </div>
           </div>
