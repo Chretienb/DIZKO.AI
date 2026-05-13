@@ -3287,19 +3287,22 @@ function PageCollaborators({ openModal, user }) {
   const [accessReqs,    setAccessReqs]    = useState([])   // pending access requests for owned projects
   const [reviewingId,   setReviewingId]   = useState(null)
 
-  // Supabase Realtime Presence — track who's online right now
+  // Read the shared presence channel (broadcast happens in root App for all pages)
   useEffect(() => {
     if (!user?.id) return
+    // Re-use the same channel name — Supabase deduplicates by name
     const channel = supabase.channel('presence:app', {
       config: { presence: { key: user.id } },
     })
+    const sync = () => setOnlineIds(new Set(Object.keys(channel.presenceState())))
     channel
-      .on('presence', { event: 'sync' }, () => {
-        setOnlineIds(new Set(Object.keys(channel.presenceState())))
-      })
+      .on('presence', { event: 'sync' },  sync)
+      .on('presence', { event: 'join' },  sync)
+      .on('presence', { event: 'leave' }, sync)
       .subscribe(async status => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({ user_id: user.id, at: Date.now() })
+          await channel.track({ user_id: user.id, name: user.full_name || '', at: Date.now() })
+          sync()
         }
       })
     return () => { supabase.removeChannel(channel) }
@@ -3359,7 +3362,8 @@ function PageCollaborators({ openModal, user }) {
   }
 
   const roles    = [...new Set(collabs.map(c => c.role).filter(Boolean))]
-  const onlineNow = onlineIds.size - 1  // exclude self
+  // exclude self; clamp to 0 in case sync fires before our own track() completes
+  const onlineNow = Math.max(0, onlineIds.size - (onlineIds.has(user?.id) ? 1 : 0))
 
   // Load pending access requests for projects the current user owns
   useEffect(() => {
@@ -5915,6 +5919,28 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
+
+  // ── Global presence broadcast — runs for every logged-in user on every page ──
+  // This is what makes "Online Now" work: every user tracks themselves here,
+  // not just users who happen to be on the Collaborators page.
+  React.useEffect(() => {
+    if (!user?.id) return
+    const channel = supabase.channel('presence:app', {
+      config: { presence: { key: user.id } },
+    })
+    channel
+      .on('presence', { event: 'sync' }, () => {})   // PageCollaborators reads this channel too
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id:  user.id,
+            name:     user.full_name || user.email || '',
+            at:       Date.now(),
+          })
+        }
+      })
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
   const navigate               = useNavigate()
   const location               = useLocation()
   const [playing, setPlay]     = useState(false)
