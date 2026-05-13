@@ -996,13 +996,37 @@ function ModalNewProject({ onClose, onCreated }) {
 // ─── MODAL: INVITE ─────────────────────────────────────────────────────────
 // ─── MODAL: ACCOUNT SETTINGS ───────────────────────────────────────────────
 function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
-  const [name,       setName]       = useState(user?.full_name || '')
-  const [email,      setEmail]      = useState(user?.email || '')
-  const [avatarUrl,  setAvatarUrl]  = useState(user?.avatar_url || null)
-  const [saved,      setSaved]      = useState(false)
-  const [loading,    setLoading]    = useState(false)
-  const [uploading,  setUploading]  = useState(false)
+  const [name,        setName]        = useState(user?.full_name || '')
+  const [email,       setEmail]       = useState(user?.email || '')
+  const [avatarUrl,   setAvatarUrl]   = useState(user?.avatar_url || null)
+  const [saved,       setSaved]       = useState(false)
+  const [loading,     setLoading]     = useState(false)
+  const [uploading,   setUploading]   = useState(false)
+  const [pwOpen,      setPwOpen]      = useState(false)
+  const [newPw,       setNewPw]       = useState('')
+  const [confirmPw,   setConfirmPw]   = useState('')
+  const [pwLoading,   setPwLoading]   = useState(false)
+  const [pwError,     setPwError]     = useState('')
+  const [pwSaved,     setPwSaved]     = useState(false)
+  const [showNew,     setShowNew]     = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const avatarInput = useRef()
+
+  const changePassword = async () => {
+    setPwError('')
+    if (newPw.length < 8) { setPwError('Password must be at least 8 characters.'); return }
+    if (newPw !== confirmPw) { setPwError('Passwords do not match.'); return }
+    setPwLoading(true)
+    try {
+      await authApi.updatePassword(newPw)
+      setPwSaved(true)
+      setNewPw(''); setConfirmPw('')
+      setTimeout(() => { setPwOpen(false); setPwSaved(false) }, 1800)
+    } catch (err) {
+      setPwError(err.message || 'Failed to update password.')
+    }
+    setPwLoading(false)
+  }
 
   const applyAvatar = (url) => {
     setAvatarUrl(url)
@@ -1073,16 +1097,110 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
       <Field label="Email Address" type="email" placeholder="you@email.com" value={email}
         onChange={e => { setEmail(e.target.value); setSaved(false) }} />
 
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'12px 14px', background:'rgba(0,0,0,.02)', borderRadius:10,
-        border:'1px solid rgba(0,0,0,.06)', marginBottom:18 }}>
-        <div>
-          <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>Password</div>
-          <div style={{ fontSize:11.5, color:'#aaa', marginTop:1 }}>Last changed · unknown</div>
+      <div style={{ background:'rgba(0,0,0,.02)', borderRadius:10,
+        border:`1px solid ${pwOpen ? 'rgba(99,102,241,.25)' : 'rgba(0,0,0,.06)'}`,
+        marginBottom:18, overflow:'hidden', transition:'border-color .15s' }}>
+
+        {/* Header row */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px' }}>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>Password</div>
+            <div style={{ fontSize:11.5, color: pwSaved ? '#16a34a' : '#aaa', marginTop:1 }}>
+              {pwSaved ? 'Password updated successfully' : 'Click Change to set a new password'}
+            </div>
+          </div>
+          <button onClick={() => { setPwOpen(v => !v); setPwError(''); setNewPw(''); setConfirmPw('') }}
+            style={{ fontSize:12, fontWeight:700,
+              color: pwOpen ? '#888' : '#6366f1',
+              background: pwOpen ? 'rgba(0,0,0,.05)' : 'rgba(99,102,241,.1)',
+              border:'none', borderRadius:8, padding:'5px 12px', cursor:'pointer', transition:'all .15s' }}>
+            {pwOpen ? 'Cancel' : 'Change →'}
+          </button>
         </div>
-        <button style={{ fontSize:12, fontWeight:700, color:'#6366f1',
-          background:'rgba(99,102,241,.1)', border:'none', borderRadius:8,
-          padding:'5px 12px', cursor:'pointer' }}>Change →</button>
+
+        {/* Inline password form */}
+        {pwOpen && (
+          <div style={{ padding:'0 14px 14px', borderTop:'1px solid rgba(0,0,0,.06)' }}>
+            <div style={{ height:12 }}/>
+
+            {/* New password */}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>New Password</div>
+              <div style={{ position:'relative' }}>
+                <input type={showNew ? 'text' : 'password'} value={newPw}
+                  onChange={e => { setNewPw(e.target.value); setPwError('') }}
+                  placeholder="Min 8 characters"
+                  style={{ width:'100%', padding:'11px 40px 11px 13px', fontSize:13.5, borderRadius:10,
+                    border:`1.5px solid ${pwError && !newPw ? '#ef4444' : 'rgba(0,0,0,.1)'}`,
+                    outline:'none', background:'#fff', boxSizing:'border-box', fontFamily:'inherit' }}/>
+                <button onClick={() => setShowNew(v => !v)} type="button"
+                  style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                    background:'none', border:'none', cursor:'pointer', color:'#bbb', padding:2 }}>
+                  {showNew
+                    ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm password */}
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>Confirm Password</div>
+              <div style={{ position:'relative' }}>
+                <input type={showConfirm ? 'text' : 'password'} value={confirmPw}
+                  onChange={e => { setConfirmPw(e.target.value); setPwError('') }}
+                  placeholder="Repeat new password"
+                  onKeyDown={e => e.key === 'Enter' && changePassword()}
+                  style={{ width:'100%', padding:'11px 40px 11px 13px', fontSize:13.5, borderRadius:10,
+                    border:`1.5px solid ${pwError && confirmPw !== newPw ? '#ef4444' : 'rgba(0,0,0,.1)'}`,
+                    outline:'none', background:'#fff', boxSizing:'border-box', fontFamily:'inherit' }}/>
+                <button onClick={() => setShowConfirm(v => !v)} type="button"
+                  style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                    background:'none', border:'none', cursor:'pointer', color:'#bbb', padding:2 }}>
+                  {showConfirm
+                    ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                </button>
+              </div>
+            </div>
+
+            {/* Strength indicator */}
+            {newPw.length > 0 && (
+              <div style={{ display:'flex', gap:3, marginBottom:10 }}>
+                {[1,2,3,4].map(level => {
+                  const strength = newPw.length < 8 ? 1 : newPw.length < 12 ? 2
+                    : /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) ? 4 : 3
+                  const colors = ['#ef4444','#f59e0b','#22c55e','#16a34a']
+                  return <div key={level} style={{ flex:1, height:3, borderRadius:2,
+                    background: level <= strength ? colors[strength-1] : 'rgba(0,0,0,.08)',
+                    transition:'background .2s' }}/>
+                })}
+                <span style={{ fontSize:10, color:'#aaa', marginLeft:6 }}>
+                  {newPw.length < 8 ? 'Too short' : newPw.length < 12 ? 'Fair' :
+                   /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) ? 'Strong' : 'Good'}
+                </span>
+              </div>
+            )}
+
+            {pwError && (
+              <div style={{ padding:'8px 12px', borderRadius:8, background:'rgba(239,68,68,.07)',
+                border:'1px solid rgba(239,68,68,.15)', fontSize:12, color:'#ef4444', marginBottom:10 }}>
+                {pwError}
+              </div>
+            )}
+
+            <button onClick={changePassword} disabled={pwLoading || !newPw || !confirmPw}
+              style={{ width:'100%', padding:'11px', borderRadius:10, border:'none',
+                background: pwLoading || !newPw || !confirmPw ? '#f0f0f0' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: pwLoading || !newPw || !confirmPw ? '#bbb' : '#fff',
+                fontSize:13.5, fontWeight:700, cursor: pwLoading || !newPw || !confirmPw ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                boxShadow: pwLoading || !newPw || !confirmPw ? 'none' : '0 4px 14px rgba(99,102,241,.35)',
+                transition:'all .15s' }}>
+              {pwLoading ? <><Spinner size={13} color="#bbb"/> Updating…</> : 'Update Password'}
+            </button>
+          </div>
+        )}
       </div>
 
       {saved && (
