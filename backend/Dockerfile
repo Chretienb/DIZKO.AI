@@ -2,10 +2,13 @@ FROM oven/bun:1.3.13
 
 WORKDIR /app
 
-# Install Python3 + ffmpeg + BPM/key analysis deps (numpy + scipy, no heavy ML)
+# Use Debian system packages for numpy + scipy — pre-compiled, no build tools needed
+# ffmpeg for audio mixing and format conversion
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
-    python3 python3-pip ffmpeg \
-    && pip3 install --quiet --no-cache-dir numpy scipy \
+    python3 \
+    python3-numpy \
+    python3-scipy \
+    ffmpeg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files first for better layer caching
