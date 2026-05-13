@@ -3331,6 +3331,154 @@ function PageProjects({ openModal, refreshKey, user }) {
   )
 }
 
+// ─── INVITE LINK BUTTON ───────────────────────────────────────────────────────
+function InviteLinkButton({ ownedIds }) {
+  const [copying,   setCopying]   = useState(false)
+  const [copied,    setCopied]    = useState(false)
+  const firstProjectId = [...(ownedIds || [])][0]
+  if (!firstProjectId) return null
+
+  const generate = async () => {
+    setCopying(true)
+    try {
+      const res = await fetch(`/api/invite-links/${firstProjectId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ role: 'Collaborator' }),
+      })
+      const j = await res.json()
+      if (j.data?.url) {
+        await navigator.clipboard.writeText(j.data.url)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+      }
+    } catch {}
+    setCopying(false)
+  }
+
+  return (
+    <button onClick={generate} disabled={copying}
+      style={{ height:36, padding:'0 14px', borderRadius:10, fontSize:12, fontWeight:700,
+        border:'1px solid rgba(0,0,0,.1)', background: copied ? '#22c55e' : '#fff',
+        color: copied ? '#fff' : '#555', cursor:'pointer',
+        display:'flex', alignItems:'center', gap:6, transition:'all .2s' }}>
+      {copying ? <Spinner size={12} color="#888"/> :
+        copied ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+               : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>}
+      {copied ? 'Link copied!' : 'Copy invite link'}
+    </button>
+  )
+}
+
+// ─── PAGE: INVITE (public join page) ──────────────────────────────────────────
+function PageInvite({ user }) {
+  const token = window.location.pathname.split('/invite/')[1]
+  const [info,     setInfo]     = useState(null)
+  const [loading,  setLoading]  = useState(true)
+  const [joining,  setJoining]  = useState(false)
+  const [joined,   setJoined]   = useState(false)
+  const [error,    setError]    = useState('')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!token) { setError('Invalid invite link'); setLoading(false); return }
+    fetch(`/api/invite-links/preview/${token}`)
+      .then(r => r.json()).then(j => {
+        if (j.data) setInfo(j.data)
+        else setError('This invite link is invalid or has expired.')
+      }).catch(() => setError('Could not load invite.')).finally(() => setLoading(false))
+  }, [token])
+
+  const join = async () => {
+    if (!user) { navigate(`/login?redirect=/invite/${token}`); return }
+    setJoining(true)
+    try {
+      const res = await fetch(`/api/invite-links/join/${token}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+      })
+      const j = await res.json()
+      if (j.data?.joined || j.data?.already_member) {
+        setJoined(true)
+        setTimeout(() => navigate('/collaborators'), 1800)
+      } else {
+        setError(j.error || 'Failed to join.')
+      }
+    } catch { setError('Something went wrong.') }
+    setJoining(false)
+  }
+
+  if (loading) return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0a0a12' }}>
+      <Spinner size={28} color="#FF6B6B"/>
+    </div>
+  )
+
+  return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+      background:'#0a0a12', fontFamily:"-apple-system,'Inter',sans-serif", padding:24 }}>
+      <div style={{ width:'100%', maxWidth:420, textAlign:'center' }}>
+        <div style={{ fontSize:24, fontWeight:900, marginBottom:6 }}>
+          <span style={{ color:'#FF6B6B' }}>dizko</span><span style={{ color:'#e8e8f0' }}>.ai</span>
+        </div>
+
+        {error ? (
+          <div style={{ background:'#13131c', border:'1px solid rgba(239,68,68,.3)', borderRadius:16,
+            padding:32, marginTop:24 }}>
+            <div style={{ fontSize:15, color:'#fca5a5', marginBottom:8 }}>{error}</div>
+            <button onClick={() => navigate('/login')}
+              style={{ marginTop:16, padding:'10px 24px', borderRadius:10, background:'#FF6B6B',
+                border:'none', color:'#fff', fontWeight:700, cursor:'pointer' }}>
+              Go to Dizko
+            </button>
+          </div>
+        ) : joined ? (
+          <div style={{ background:'#13131c', border:'1px solid rgba(34,197,94,.3)', borderRadius:16, padding:32, marginTop:24 }}>
+            <div style={{ fontSize:32, marginBottom:12 }}>
+              <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2} strokeLinecap="round" style={{ margin:'0 auto', display:'block' }}>
+                <circle cx="12" cy="12" r="10"/><polyline points="20,6 9,17 4,12"/>
+              </svg>
+            </div>
+            <div style={{ fontSize:16, fontWeight:700, color:'#e8e8f0', marginBottom:4 }}>You're in!</div>
+            <div style={{ fontSize:13, color:'#8b8b9a' }}>Taking you to the team page…</div>
+          </div>
+        ) : info ? (
+          <div style={{ background:'#13131c', border:'1px solid rgba(255,255,255,.08)', borderRadius:16, padding:32, marginTop:24 }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:'rgba(255,107,107,.12)',
+              border:'1px solid rgba(255,107,107,.25)', margin:'0 auto 18px',
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.8} strokeLinecap="round">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+            </div>
+            <div style={{ fontSize:13, color:'#8b8b9a', marginBottom:4 }}>
+              <strong style={{ color:'#e8e8f0' }}>{info.inviter_name}</strong> invited you to join
+            </div>
+            <div style={{ fontSize:22, fontWeight:800, color:'#e8e8f0', marginBottom:4 }}>{info.project_title}</div>
+            <div style={{ fontSize:12, color:'#8b8b9a', marginBottom:20 }}>
+              {info.project_type} · {info.collab_count} collaborator{info.collab_count !== 1 ? 's' : ''} · joining as <strong style={{ color:'#FF6B6B' }}>{info.role}</strong>
+            </div>
+            <button onClick={join} disabled={joining}
+              style={{ width:'100%', padding:'13px', borderRadius:12, border:'none',
+                background:'linear-gradient(135deg,#FF6B6B,#F28FB8)',
+                color:'#fff', fontSize:14, fontWeight:700, cursor: joining ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                boxShadow:'0 4px 16px rgba(255,107,107,.35)' }}>
+              {joining ? <><Spinner size={14} color="#fff"/> Joining…</> : user ? `Join as ${info.role} →` : 'Sign in to join →'}
+            </button>
+            {!user && (
+              <div style={{ fontSize:11, color:'#555', marginTop:10 }}>
+                You'll be redirected to sign in first
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
 function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [search,        setSearch]        = useState('')
@@ -3451,7 +3599,10 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
             )}
           </div>
         </div>
-        <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
+        <div style={{ display:'flex', gap:8 }}>
+          <InviteLinkButton ownedIds={ownedIds} />
+          <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
+        </div>
       </div>
 
       {/* ── Pending invitations ────────────────────────────────────────── */}
@@ -3604,16 +3755,39 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
-          borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:6 }}>
-            {search || roleFilter !== 'All' ? 'No matches' : 'No collaborators yet'}
+        search || roleFilter !== 'All' ? (
+          <div style={{ textAlign:'center', padding:'48px 24px', background:'#fff', borderRadius:20 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:6 }}>No matches</div>
+            <div style={{ fontSize:13, color:'#aaa' }}>Try a different search or filter.</div>
           </div>
-          <div style={{ fontSize:13, color:'#aaa', marginBottom:20 }}>
-            {search || roleFilter !== 'All' ? 'Try a different search or filter.' : 'Invite someone to collaborate.'}
+        ) : (
+          <div style={{ textAlign:'center', padding:'64px 24px', background:'#fff',
+            borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+            {/* Role icons row */}
+            <div style={{ display:'flex', justifyContent:'center', gap:10, marginBottom:24 }}>
+              {[['Vocalist','#8b5cf6'],['Producer',C.coral],['Engineer','#22c55e'],['Guitarist',C.amber]].map(([role, color]) => (
+                <div key={role} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                  <div style={{ width:44, height:44, borderRadius:12, background:`${color}15`,
+                    border:`1.5px dashed ${color}40`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round">
+                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  <span style={{ fontSize:9, color:'#bbb', fontWeight:600 }}>{role}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize:16, fontWeight:800, color:'#111', marginBottom:8 }}>Build your team</div>
+            <div style={{ fontSize:13, color:'#aaa', lineHeight:1.7, marginBottom:24, maxWidth:320, margin:'0 auto 24px' }}>
+              Invite vocalists, producers, engineers, and more.<br/>
+              Share a link or send an email invite — they join in seconds.
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
+              <InviteLinkButton ownedIds={ownedIds} />
+              <Btn onClick={() => openModal('invite', {})}>Invite by email</Btn>
+            </div>
           </div>
-          {!search && roleFilter === 'All' && <Btn onClick={() => openModal('invite', {})}>+ Invite Collaborator</Btn>}
-        </div>
+        )
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
           {visible.map((c, i) => {
@@ -4189,7 +4363,10 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   useEffect(() => {
     if (!activeId) return
     setAiAnalysis(null)
+    setStemComments({})
+    setStemHistory({})
     fetchAiAnalysis(activeId)
+    loadHistory(activeId)
   }, [activeId])
 
   useEffect(() => {
@@ -4556,12 +4733,44 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const fetchAiAnalysis = async (projectId) => {
     if (!projectId) return
     try {
-      const token = localStorage.getItem('disco_token')
-      const res = await fetch(`/api/assistant/${projectId}/analysis`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/assistant/${projectId}/analysis`, { headers: { Authorization: `Bearer ${getToken()}` } })
       const j = await res.json().catch(() => ({}))
       if (j.data) setAiAnalysis(j.data)
+    } catch {}
+  }
+
+  const loadComments = async (stemId) => {
+    try {
+      const res = await fetch(`/api/stem-comments/${stemId}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      const j = await res.json().catch(() => ({}))
+      if (j.data) setStemComments(prev => ({ ...prev, [stemId]: j.data }))
+    } catch {}
+  }
+
+  const postComment = async (stemId, timestampSec = 0) => {
+    const text = (commentDraft[stemId] || '').trim()
+    if (!text || !activeId) return
+    setPostingComment(stemId)
+    try {
+      const res = await fetch(`/api/stem-comments/${stemId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ text, timestamp_sec: timestampSec, project_id: activeId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (j.data) {
+        setStemComments(prev => ({ ...prev, [stemId]: [...(prev[stemId] || []), j.data] }))
+        setCommentDraft(prev => ({ ...prev, [stemId]: '' }))
+      }
+    } catch {}
+    setPostingComment(null)
+  }
+
+  const loadHistory = async (projectId) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/stem-history`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      const j = await res.json().catch(() => ({}))
+      if (j.data) setStemHistory(j.data)
     } catch {}
   }
 
@@ -4570,7 +4779,12 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const [selectedIds,    setSelectedIds]    = useState(new Set()) // stems included in bounce
   const [expandedId,     setExpandedId]     = useState(null)
   const [deletingId,     setDeletingId]     = useState(null)
-  const [uploaders,      setUploaders]      = useState({})   // { userId: { name, email } }
+  const [uploaders,      setUploaders]      = useState({})
+  const [stemComments,   setStemComments]   = useState({})   // { stemId: [comments] }
+  const [commentDraft,   setCommentDraft]   = useState({})   // { stemId: text }
+  const [postingComment, setPostingComment] = useState(null)
+  const [stemHistory,    setStemHistory]    = useState({})   // grouped version history
+  const [historyOpen,    setHistoryOpen]    = useState(null) // stemId with history panel open
   const { pending: stemConfirmPending, arm: stemConfirmArm } = useConfirm()
 
   // Load uploader info when stems change
@@ -5023,8 +5237,23 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               })}
 
               {mixerStems.length === 0 && stems.filter(s => s.instrument === 'original').length === 0 && (
-                <div style={{ padding:'32px 20px', textAlign:'center', color: S.text3, fontSize:13, lineHeight:1.8 }}>
-                  No takes yet.<br/>Upload a recording to start.
+                <div style={{ padding:'40px 24px', textAlign:'center' }}>
+                  <div style={{ width:56, height:56, borderRadius:16, background:`${C.coral}12`,
+                    border:`1.5px dashed ${C.coral}40`, margin:'0 auto 16px',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round">
+                      <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
+                    </svg>
+                  </div>
+                  <div style={{ fontSize:14, fontWeight:700, color:S.text, marginBottom:6 }}>No stems yet</div>
+                  <div style={{ fontSize:12, color:S.text3, lineHeight:1.7, marginBottom:18, maxWidth:240, margin:'0 auto 18px' }}>
+                    Drop your first audio file to start.<br/>Dizko will handle the BPM, key, and mix.
+                  </div>
+                  <button onClick={() => openModal('upload', { project: projects.find(p => p.id === activeId) })}
+                    style={{ height:32, padding:'0 18px', borderRadius:9, border:`1px solid ${C.coral}`,
+                      background:`${C.coral}12`, color:C.coral, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    + Upload first stem
+                  </button>
                 </div>
               )}
               </>
@@ -5095,17 +5324,90 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                           border: `1px solid ${isSolo ? '#3b82f655' : S.border}`,
                           color: isSolo ? '#2563eb' : S.text3 }}>S</button>
 
+                      {/* History button — only if multiple takes exist */}
+                      {(() => {
+                        const hKey = `${s.uploaded_by}::${s.instrument || 'recording'}`
+                        const takes = stemHistory[hKey]
+                        if (!takes || takes.length < 2) return null
+                        return (
+                          <button onClick={e => { e.stopPropagation(); setHistoryOpen(historyOpen === s.id ? null : s.id) }}
+                            title={`${takes.length} takes`}
+                            style={{ height:18, padding:'0 5px', borderRadius:4, border:`1px solid ${S.border}`,
+                              background: historyOpen === s.id ? `${color}18` : S.bg,
+                              color: historyOpen === s.id ? color : S.text3,
+                              fontSize:9, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
+                            <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                              <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                            </svg>
+                            {takes.length}
+                          </button>
+                        )
+                      })()}
+
+                      {/* Comment count badge */}
+                      <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === s.id ? null : s.id); if (expandedId !== s.id) loadComments(s.id) }}
+                        title="Comments"
+                        style={{ height:18, padding:'0 5px', borderRadius:4, border:`1px solid ${S.border}`,
+                          background: expandedId === s.id ? `${color}18` : S.bg,
+                          color: expandedId === s.id ? color : S.text3,
+                          fontSize:9, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
+                        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                        </svg>
+                        {(stemComments[s.id] || []).filter(c => !c.resolved).length || ''}
+                      </button>
+
                       {/* Delete */}
                       <button onClick={e => { e.stopPropagation(); deleteStem(s.id) }} disabled={isDeleting}
                         style={{ width:20, height:18, borderRadius:4, border:'none', cursor:'pointer',
-                          background:'rgba(239,68,68,.1)', color:'rgba(239,68,68,.65)',
-                          display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          background: stemConfirmPending === `del-${s.id}` ? 'rgba(239,68,68,.2)' : 'rgba(239,68,68,.1)',
+                          color: stemConfirmPending === `del-${s.id}` ? '#ef4444' : 'rgba(239,68,68,.65)',
+                          display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:700 }}>
                         {isDeleting ? <Spinner size={7} color="#ef4444"/>
+                          : stemConfirmPending === `del-${s.id}` ? '✓'
                           : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
                       </button>
                     </div>
 
-                    {/* Expanded: volume slider */}
+                    {/* Version history panel */}
+                    {historyOpen === s.id && (() => {
+                      const hKey = `${s.uploaded_by}::${s.instrument || 'recording'}`
+                      const takes = stemHistory[hKey] || []
+                      return (
+                        <div onClick={e => e.stopPropagation()}
+                          style={{ marginTop:8, padding:'10px 12px', borderRadius:10,
+                            background:S.surface, border:`1px solid ${S.border}` }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:S.text3, textTransform:'uppercase',
+                            letterSpacing:'1px', marginBottom:8 }}>Version History</div>
+                          {takes.map((t, ti) => {
+                            const isCurrent = t.id === s.id
+                            const n = (() => { try { return JSON.parse(t.notes||'{}') } catch { return {} } })()
+                            const isBest = aiAnalysis?.version_insights?.some(vi => vi.best_take_id === t.id)
+                            return (
+                              <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8,
+                                padding:'6px 8px', borderRadius:7, marginBottom:3,
+                                background: isCurrent ? `${color}12` : 'transparent',
+                                border: isCurrent ? `1px solid ${color}30` : '1px solid transparent' }}>
+                                <span style={{ fontSize:10, color:S.text3, minWidth:20 }}>T{ti+1}</span>
+                                <span style={{ flex:1, fontSize:11, color:S.text, fontWeight: isCurrent ? 700 : 400 }}>
+                                  {new Date(t.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })}
+                                  {isBest && <span style={{ marginLeft:5, color:'#f59e0b' }}>★ AI pick</span>}
+                                  {isCurrent && <span style={{ marginLeft:5, color:color, fontSize:9 }}>current</span>}
+                                </span>
+                                {n.bpm && <span style={{ fontSize:9, color:S.text3 }}>{Math.round(n.bpm)} BPM</span>}
+                                <button onClick={() => playTrack({ file_url: t.file_url, suggested_name: t.original_name, instrument: t.instrument })}
+                                  style={{ width:22, height:22, borderRadius:6, border:`1px solid ${S.border}`,
+                                    background:S.bg, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                  <svg width={9} height={9} viewBox="0 0 24 24" fill={S.text3}><polygon points="5,3 19,12 5,21"/></svg>
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+
+                    {/* Expanded: volume slider + comments */}
                     {isSelected && (
                       <div onClick={e => e.stopPropagation()}
                         style={{ marginTop:8, display:'flex', alignItems:'center', gap:7 }}>
@@ -5120,6 +5422,58 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                         <span style={{ fontSize:10, color: S.text3, minWidth:30, textAlign:'right' }}>
                           {Math.round(vol*100)}%
                         </span>
+                      </div>
+                    )}
+
+                    {/* Comments panel */}
+                    {expandedId === s.id && (
+                      <div onClick={e => e.stopPropagation()} style={{ marginTop:8 }}>
+                        {/* Existing comments */}
+                        {(stemComments[s.id] || []).filter(c => !c.resolved).map(c => (
+                          <div key={c.id} style={{ display:'flex', gap:7, marginBottom:7, alignItems:'flex-start' }}>
+                            <Avatar name={c.user_name} url={c.avatar_url} size={20} color={color} border="none"/>
+                            <div style={{ flex:1, padding:'6px 10px', borderRadius:8, background:S.surface, border:`1px solid ${S.border}` }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                                <span style={{ fontSize:11, fontWeight:700, color:S.text }}>{c.user_name}</span>
+                                <button onClick={() => {
+                                  const mins = Math.floor(c.timestamp_sec/60), secs = Math.floor(c.timestamp_sec%60)
+                                  playTrack({ file_url: s.file_url, suggested_name: s.suggested_name || s.original_name, instrument: s.instrument })
+                                }} style={{ fontSize:10, color:color, background:'none', border:'none', cursor:'pointer', padding:0, fontWeight:600 }}>
+                                  {String(Math.floor(c.timestamp_sec/60)).padStart(2,'0')}:{String(Math.floor(c.timestamp_sec%60)).padStart(2,'0')}
+                                </button>
+                                <span style={{ fontSize:10, color:S.text3, marginLeft:'auto' }}>
+                                  {new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                                </span>
+                              </div>
+                              <div style={{ fontSize:12, color:S.text, lineHeight:1.5 }}>{c.text}</div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* New comment input */}
+                        <div style={{ display:'flex', gap:6, alignItems:'flex-end', marginTop:4 }}>
+                          <input
+                            value={commentDraft[s.id] || ''}
+                            onChange={e => setCommentDraft(prev => ({ ...prev, [s.id]: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(s.id, currentTime) } }}
+                            placeholder={`Comment at ${String(Math.floor(currentTime/60)).padStart(2,'0')}:${String(Math.floor(currentTime%60)).padStart(2,'0')}…`}
+                            style={{ flex:1, padding:'7px 10px', borderRadius:8, fontSize:12,
+                              border:`1px solid ${S.border}`, background:S.surface, color:S.text,
+                              outline:'none', fontFamily:'inherit' }}/>
+                          <button onClick={() => postComment(s.id, currentTime)}
+                            disabled={!commentDraft[s.id]?.trim() || postingComment === s.id}
+                            style={{ width:30, height:30, borderRadius:8, border:'none',
+                              background: commentDraft[s.id]?.trim() ? color : S.bg,
+                              cursor: commentDraft[s.id]?.trim() ? 'pointer' : 'default',
+                              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            {postingComment === s.id
+                              ? <Spinner size={10} color="#fff"/>
+                              : <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>}
+                          </button>
+                        </div>
+                        <div style={{ fontSize:10, color:S.text3, marginTop:4 }}>
+                          Timestamps to current playhead position. Press Enter to post.
+                        </div>
                       </div>
                     )}
                   </div>
@@ -6220,6 +6574,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/analytics"     element={<PageAnalytics />} />
             <Route path="/distribution"  element={<PageDistribution openModal={openModal} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
+            <Route path="/invite/:token" element={<PageInvite user={user} />} />
           </Routes>
         </div>
       </div>

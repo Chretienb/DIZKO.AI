@@ -261,6 +261,34 @@ projects.get('/:id', async (c) => {
   return c.json({ data, error: null, status: 200 })
 })
 
+// ── GET /projects/:id/stem-history — all takes grouped by uploader×instrument ─
+projects.get('/:id/stem-history', async (c) => {
+  const projectId = c.req.param('projectId') || c.req.param('id')
+  const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', projectId)
+  if (!tracks?.length) return c.json({ data: {} })
+
+  const { data: stems } = await supabase
+    .from('stems')
+    .select('id, original_name, instrument, uploaded_by, created_at, notes, file_url')
+    .in('track_id', (tracks as any[]).map(t => t.id))
+    .neq('instrument', 'smart_bounce')
+    .order('created_at', { ascending: true })
+
+  const groups: Record<string, any[]> = {}
+  for (const s of (stems ?? []) as any[]) {
+    try { if (JSON.parse(s.notes || '{}').parent_stem_id) continue } catch {}
+    const key = `${s.uploaded_by}::${s.instrument || 'recording'}`
+    if (!groups[key]) groups[key] = []
+    groups[key].push(s)
+  }
+  // Only return groups with 2+ takes (single take = no history to show)
+  const history: Record<string, any[]> = {}
+  for (const [k, v] of Object.entries(groups)) {
+    if (v.length >= 2) history[k] = v
+  }
+  return c.json({ data: history })
+})
+
 // ── POST /projects ────────────────────────────────────────────────────────────
 projects.post('/', sanitize, async (c) => {
   const { title, type, notes, status } = c.var.body as {

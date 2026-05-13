@@ -19,6 +19,8 @@ import messageRoutes      from './routes/messages'
 import notificationRoutes   from './routes/notifications'
 import accessRequestRoutes  from './routes/accessRequests'
 import assistantRoutes       from './routes/assistant'
+import inviteLinkRoutes      from './routes/inviteLinks'
+import stemCommentRoutes     from './routes/stemComments'
 import { runSmartBounce }    from './lib/smartBounce'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 import { mixReadyEmail }               from './lib/emailTemplates'
@@ -79,6 +81,8 @@ app.route('/messages',      messageRoutes)
 app.route('/notifications',   notificationRoutes)
 app.route('/access-requests', accessRequestRoutes)
 app.route('/assistant',       assistantRoutes)
+app.route('/invite-links',    inviteLinkRoutes)
+app.route('/stem-comments',   stemCommentRoutes)
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {
