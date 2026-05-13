@@ -83,7 +83,7 @@ projects.get('/:id/export', async (c) => {
   // bpm/key live in stems.notes JSON — no separate columns
   const { data: allStems, error: stemsErr } = await supabase
     .from('stems')
-    .select('id, instrument, uploaded_by, suggested_name, file_url, created_at, notes')
+    .select('id, original_name, instrument, uploaded_by, suggested_name, file_url, created_at, notes')
     .in('track_id', trackIds)
     .order('created_at', { ascending: false })
 
@@ -95,36 +95,45 @@ projects.get('/:id/export', async (c) => {
 
   const parseNotes = (s: any) => { try { return JSON.parse(s.notes || '{}') } catch { return {} } }
 
+  // Include every uploaded file — skip only the AI-generated outputs
+  // (smart_bounce = auto-mix, parent_stem_id set = Demucs child)
+  const uploadedStems = (allStems as any[]).filter(s => {
+    if (!s.file_url) return false
+    if (s.instrument === 'smart_bounce') return false
+    if (parseNotes(s).parent_stem_id) return false
+    return true
+  })
+  if (!uploadedStems.length) return c.json({ error: 'No uploaded stems found' }, 400)
+
+  // Latest upload per collaborator × original filename
+  // (handles re-uploads: same person, same filename = new take of same part)
   const takeMap = new Map<string, any>()
-  for (const s of allStems as any[]) {
-    if (!s.file_url || !s.instrument) continue
-    if (s.instrument === 'smart_bounce') continue
-    if (parseNotes(s).parent_stem_id) continue
-    const key = `${s.uploaded_by}::${s.instrument}`
+  for (const s of uploadedStems) {
+    const baseName = (s.original_name || s.suggested_name || s.id).replace(/\.[^.]+$/, '')
+    const key = `${s.uploaded_by}::${baseName}`
     const ex = takeMap.get(key)
     if (!ex || new Date(s.created_at) > new Date(ex.created_at)) takeMap.set(key, s)
   }
   const latestTakes = [...takeMap.values()]
-  if (!latestTakes.length) return c.json({ error: 'No uploadable stems found' }, 400)
+
+  // Take number = how many times this person uploaded a file with this base name
+  const takeCountMap = new Map<string, number>()
+  for (const s of uploadedStems) {
+    const baseName = (s.original_name || s.suggested_name || s.id).replace(/\.[^.]+$/, '')
+    const k = `${s.uploaded_by}::${baseName}`
+    takeCountMap.set(k, (takeCountMap.get(k) ?? 0) + 1)
+  }
 
   const { data: collabs } = await supabase
     .from('collaborators').select('user_id, role').eq('project_id', projectId)
   const roleByUser = new Map((collabs ?? []).map((c: any) => [c.user_id, c.role]))
 
-  const takeCountMap = new Map<string, number>()
-  for (const s of allStems as any[]) {
-    if (!s.instrument || s.instrument === 'smart_bounce') continue
-    if (parseNotes(s).parent_stem_id) continue
-    const k = `${s.uploaded_by}::${s.instrument}`
-    takeCountMap.set(k, (takeCountMap.get(k) ?? 0) + 1)
-  }
-
-  // BPM and key are stored in stems.notes JSON by the analysis pipeline
+  // BPM and key from stems.notes JSON (set by audio analysis pipeline)
   let projectBpm = 120
   let projectKey = 'Unknown'
-  for (const s of allStems as any[]) {
+  for (const s of uploadedStems) {
     const n = parseNotes(s)
-    if (n.bpm && projectBpm === 120)      projectBpm = Math.round(n.bpm)
+    if (n.bpm && projectBpm === 120)       projectBpm = Math.round(n.bpm)
     if (n.key && projectKey === 'Unknown') projectKey = n.key
     if (projectBpm !== 120 && projectKey !== 'Unknown') break
   }
@@ -132,17 +141,21 @@ projects.get('/:id/export', async (c) => {
   const exportStems: ExportStem[] = []
   await Promise.all(latestTakes.map(async (s) => {
     try {
-      const n          = parseNotes(s)
+      const n = parseNotes(s)
       const { data: authUser } = await supabase.auth.admin.getUserById(s.uploaded_by)
       const name       = (authUser?.user?.user_metadata?.full_name as string | undefined)
         ?? authUser?.user?.email?.split('@')[0] ?? 'Unknown'
       const safeName   = name.replace(/[^a-zA-Z0-9]/g, '')
       const role       = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
-      const instrument = (s.instrument as string).replace(/[^a-zA-Z0-9]/g, '')
-      const takeNum    = takeCountMap.get(`${s.uploaded_by}::${s.instrument}`) ?? 1
+      // Use instrument if set, otherwise fall back to the original filename base
+      const instrLabel = (s.instrument && s.instrument !== 'recording')
+        ? s.instrument.replace(/[^a-zA-Z0-9]/g, '')
+        : (s.original_name || 'stem').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)
+      const baseName   = (s.original_name || s.suggested_name || s.id).replace(/\.[^.]+$/, '')
+      const takeNum    = takeCountMap.get(`${s.uploaded_by}::${baseName}`) ?? 1
       const bpmTag     = n.bpm ? Math.round(n.bpm) : projectBpm
       const keyTag     = (n.key ?? projectKey).replace(/[^a-zA-Z0-9#b]/g, '')
-      const filename   = `${safeName}_${role}_${instrument}_Take${takeNum}_${bpmTag}BPM_${keyTag}.wav`
+      const filename   = `${safeName}_${role}_${instrLabel}_Take${takeNum}_${bpmTag}BPM_${keyTag}.wav`
 
       const res = await fetch(s.file_url)
       if (!res.ok) return
