@@ -80,19 +80,26 @@ projects.get('/:id/export', async (c) => {
   if (!tracks?.length) return c.json({ error: 'No tracks in this project' }, 400)
 
   const trackIds = (tracks as any[]).map(t => t.id)
-  const { data: allStems } = await supabase
+  // bpm/key live in stems.notes JSON — no separate columns
+  const { data: allStems, error: stemsErr } = await supabase
     .from('stems')
-    .select('id, instrument, uploaded_by, suggested_name, file_url, created_at, bpm_detected, key_detected, notes')
+    .select('id, instrument, uploaded_by, suggested_name, file_url, created_at, notes')
     .in('track_id', trackIds)
     .order('created_at', { ascending: false })
 
+  if (stemsErr) {
+    console.error('[export] stems query error:', stemsErr.message)
+    return c.json({ error: 'Failed to load stems: ' + stemsErr.message }, 500)
+  }
   if (!allStems?.length) return c.json({ error: 'No stems uploaded yet' }, 400)
+
+  const parseNotes = (s: any) => { try { return JSON.parse(s.notes || '{}') } catch { return {} } }
 
   const takeMap = new Map<string, any>()
   for (const s of allStems as any[]) {
     if (!s.file_url || !s.instrument) continue
     if (s.instrument === 'smart_bounce') continue
-    try { if (JSON.parse(s.notes || '{}').parent_stem_id) continue } catch {}
+    if (parseNotes(s).parent_stem_id) continue
     const key = `${s.uploaded_by}::${s.instrument}`
     const ex = takeMap.get(key)
     if (!ex || new Date(s.created_at) > new Date(ex.created_at)) takeMap.set(key, s)
@@ -107,22 +114,25 @@ projects.get('/:id/export', async (c) => {
   const takeCountMap = new Map<string, number>()
   for (const s of allStems as any[]) {
     if (!s.instrument || s.instrument === 'smart_bounce') continue
-    try { if (JSON.parse(s.notes || '{}').parent_stem_id) continue } catch {}
+    if (parseNotes(s).parent_stem_id) continue
     const k = `${s.uploaded_by}::${s.instrument}`
     takeCountMap.set(k, (takeCountMap.get(k) ?? 0) + 1)
   }
 
+  // BPM and key are stored in stems.notes JSON by the analysis pipeline
   let projectBpm = 120
   let projectKey = 'Unknown'
   for (const s of allStems as any[]) {
-    if (s.bpm_detected && projectBpm === 120) projectBpm = Math.round(s.bpm_detected)
-    if (s.key_detected && projectKey === 'Unknown') projectKey = s.key_detected
+    const n = parseNotes(s)
+    if (n.bpm && projectBpm === 120)      projectBpm = Math.round(n.bpm)
+    if (n.key && projectKey === 'Unknown') projectKey = n.key
     if (projectBpm !== 120 && projectKey !== 'Unknown') break
   }
 
   const exportStems: ExportStem[] = []
   await Promise.all(latestTakes.map(async (s) => {
     try {
+      const n          = parseNotes(s)
       const { data: authUser } = await supabase.auth.admin.getUserById(s.uploaded_by)
       const name       = (authUser?.user?.user_metadata?.full_name as string | undefined)
         ?? authUser?.user?.email?.split('@')[0] ?? 'Unknown'
@@ -130,8 +140,8 @@ projects.get('/:id/export', async (c) => {
       const role       = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
       const instrument = (s.instrument as string).replace(/[^a-zA-Z0-9]/g, '')
       const takeNum    = takeCountMap.get(`${s.uploaded_by}::${s.instrument}`) ?? 1
-      const bpmTag     = s.bpm_detected ? Math.round(s.bpm_detected) : projectBpm
-      const keyTag     = (s.key_detected ?? projectKey).replace(/[^a-zA-Z0-9#b]/g, '')
+      const bpmTag     = n.bpm ? Math.round(n.bpm) : projectBpm
+      const keyTag     = (n.key ?? projectKey).replace(/[^a-zA-Z0-9#b]/g, '')
       const filename   = `${safeName}_${role}_${instrument}_Take${takeNum}_${bpmTag}BPM_${keyTag}.wav`
 
       const res = await fetch(s.file_url)
