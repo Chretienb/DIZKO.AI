@@ -284,58 +284,90 @@ export function generateMarketingPage(opts: ExportOptions): string {
 <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0A0A12;color:#E8E8F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}</style>
 </head><body><div style="max-width:720px;margin:0 auto;padding:40px 24px;">
 
-<div style="text-align:center;margin-bottom:48px;">
-  <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;">
-    <span style="color:#FF6B6B;">dizko</span><span style="color:#E8E8F0;">.ai</span></div>
-  <div style="color:#8B8B9A;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Collaborative Music Production</div>
-</div>
-
-<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;padding:28px;margin-bottom:32px;">
-  <div style="font-size:22px;font-weight:700;margin-bottom:16px;">${escHtml(projectName)}</div>
-  <div style="display:flex;gap:24px;flex-wrap:wrap;">
-    <div><div style="color:#8B8B9A;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">BPM</div>
-      <div style="color:#FF6B6B;font-size:20px;font-weight:700;">${bpm}</div></div>
-    <div><div style="color:#8B8B9A;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Key</div>
-      <div style="color:#FF6B6B;font-size:20px;font-weight:700;">${escHtml(key)}</div></div>
-    <div><div style="color:#8B8B9A;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Contributors</div>
-      <div style="color:#FF6B6B;font-size:20px;font-weight:700;">${stems.length}</div></div>
-    <div style="margin-left:auto;"><div style="color:#8B8B9A;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Exported</div>
-      <div style="color:#8B8B9A;font-size:13px;">${date}</div></div>
+<!-- Header -->
+<div style="text-align:center;margin-bottom:40px;">
+  <div style="font-size:30px;font-weight:900;letter-spacing:-0.5px;margin-bottom:6px;">
+    <span style="color:#FF6B6B;">dizko</span><span style="color:#E8E8F0;">.ai</span>
+  </div>
+  <div style="color:#8B8B9A;font-size:13px;margin-bottom:16px;">You create. We handle the rest.</div>
+  <div style="display:inline-flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+    ${['AI-Mixed','AI-Mastered','Organized','Ready to open'].map(t =>
+      `<span style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:100px;background:rgba(255,107,107,.12);color:#FF6B6B;border:1px solid rgba(255,107,107,.25);">${t}</span>`
+    ).join('')}
   </div>
 </div>
 
-<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;overflow:hidden;margin-bottom:32px;">
-  <div style="padding:20px 16px 12px;border-bottom:1px solid #1E1E2E;">
-    <span style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#8B8B9A;font-weight:600;">Stems in this package</span></div>
+<!-- Project card -->
+<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;padding:28px;margin-bottom:24px;">
+  <div style="font-size:22px;font-weight:700;margin-bottom:4px;">${escHtml(projectName)}</div>
+  <div style="color:#555;font-size:12px;margin-bottom:20px;">${date}</div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    <div><div style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">BPM</div><div style="color:#FF6B6B;font-size:22px;font-weight:800;">${bpm}</div></div>
+    <div><div style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Key</div><div style="color:#FF6B6B;font-size:22px;font-weight:800;">${escHtml(key)}</div></div>
+    <div><div style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Stems</div><div style="color:#FF6B6B;font-size:22px;font-weight:800;">${stems.length}</div></div>
+    <div style="margin-left:auto;text-align:right;">
+      <div style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Mix</div>
+      <div style="color:#22c55e;font-size:12px;font-weight:700;">AI-Mixed + Mastered</div>
+      <div style="color:#555;font-size:10px;">-14 LUFS · Spotify ready</div>
+    </div>
+  </div>
+</div>
+
+<!-- What Dizko did -->
+<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;padding:24px;margin-bottom:24px;">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600;margin-bottom:16px;">What Dizko AI did for this project</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    ${[
+      ['Organized every stem', 'Named by contributor, role & take number'],
+      ['AI-analyzed the mix', 'Claude set volume, EQ & compression per stem'],
+      ['Detected BPM & key', 'Flagged any conflicts between collaborators'],
+      ['Mastered the output', '-14 LUFS loudness · -1 dBTP true peak limit'],
+    ].map(([title, sub]) => `
+    <div style="padding:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;">
+      <div style="font-size:12px;font-weight:700;color:#E8E8F0;margin-bottom:3px;">${title}</div>
+      <div style="font-size:11px;color:#555;line-height:1.5;">${sub}</div>
+    </div>`).join('')}
+  </div>
+</div>
+
+<!-- Stems table -->
+<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;overflow:hidden;margin-bottom:24px;">
+  <div style="padding:18px 16px 12px;border-bottom:1px solid #1E1E2E;">
+    <span style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600;">Stems in this package</span>
+  </div>
   <table style="width:100%;border-collapse:collapse;">
     <thead><tr style="border-bottom:1px solid #1E1E2E;">
-      <th style="padding:8px 16px;text-align:left;color:#555;font-size:11px;">#</th>
-      <th style="padding:8px 16px;text-align:left;color:#555;font-size:11px;">CONTRIBUTOR</th>
-      <th style="padding:8px 16px;text-align:left;color:#555;font-size:11px;">INSTRUMENT</th>
-      <th style="padding:8px 16px;text-align:left;color:#555;font-size:11px;">FILE</th>
+      <th style="padding:8px 16px;text-align:left;color:#333;font-size:10px;">#</th>
+      <th style="padding:8px 16px;text-align:left;color:#333;font-size:10px;">CONTRIBUTOR</th>
+      <th style="padding:8px 16px;text-align:left;color:#333;font-size:10px;">INSTRUMENT</th>
+      <th style="padding:8px 16px;text-align:left;color:#333;font-size:10px;">FILE</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
 </div>
 
-<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;padding:28px;margin-bottom:32px;text-align:center;">
-  <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#8B8B9A;font-weight:600;margin-bottom:8px;">Works seamlessly with</div>
-  <div style="font-size:18px;font-weight:700;margin-bottom:24px;">Your Favorite DAW</div>
-  <div style="margin-bottom:24px;">${dawCards}</div>
-  <div style="background:#0A0A12;border-radius:12px;padding:16px;text-align:left;font-family:monospace;font-size:12px;color:#555;line-height:2;">
-    <div style="color:#8B8B9A;margin-bottom:4px;">// HOW TO OPEN</div>
-    <div><span style="color:#FF7A1A;">Ableton Live</span>  → double-click the .als file in this ZIP</div>
-    <div><span style="color:#5AC8FA;">Logic Pro</span>     → drag stems from the Logic/ folder into a new project</div>
-    <div><span style="color:#FF8C00;">FL Studio</span>     → File → Import → Audio → select all .wav from Stems/</div>
-    <div><span style="color:#00C5A2;">Pro Tools</span>     → File → Import → Audio → select all .wav from Stems/</div>
-    <div><span style="color:#F5A623;">GarageBand</span>    → drag Stems/*.wav onto the GarageBand timeline</div>
-    <div><span style="color:#C8A0E8;">Cubase</span>        → File → Import → Audio File → select Stems/*.wav</div>
+<!-- DAW section -->
+<div style="background:#13131C;border:1px solid #1E1E2E;border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600;margin-bottom:6px;">Opens directly in</div>
+  <div style="font-size:17px;font-weight:700;margin-bottom:20px;">Your Favorite DAW</div>
+  <div style="margin-bottom:20px;">${dawCards}</div>
+  <div style="background:#0A0A12;border-radius:10px;padding:14px;text-align:left;font-family:monospace;font-size:11px;color:#444;line-height:2.2;">
+    <div><span style="color:#FF7A1A;">Ableton Live</span>  → double-click <strong style="color:#666;">${projectName.replace(/[^a-zA-Z0-9 _-]/g,'_')}_Ableton.als</strong></div>
+    <div><span style="color:#5AC8FA;">Logic Pro</span>     → drag stems from <strong style="color:#666;">Logic/</strong> folder into a new project</div>
+    <div><span style="color:#FF8C00;">FL Studio</span>     → File → Import → Audio → <strong style="color:#666;">Stems/*.wav</strong></div>
+    <div><span style="color:#00C5A2;">Pro Tools</span>     → File → Import → Audio → <strong style="color:#666;">Stems/*.wav</strong></div>
+    <div><span style="color:#F5A623;">GarageBand</span>    → drag <strong style="color:#666;">Stems/*.wav</strong> onto the timeline</div>
+    <div><span style="color:#C8A0E8;">Cubase</span>        → File → Import → Audio File → <strong style="color:#666;">Stems/*.wav</strong></div>
   </div>
 </div>
 
-<div style="text-align:center;color:#3A3A4A;font-size:12px;line-height:1.8;padding-bottom:24px;">
-  <div>Generated by <span style="color:#FF6B6B;">Dizko.ai</span> — The Collaboration OS for Music Producers</div>
-  <div>All stems embedded — no internet connection required · dizko.ai</div>
+<!-- Footer -->
+<div style="text-align:center;padding-bottom:32px;">
+  <div style="color:#2A2A38;font-size:12px;line-height:2;">
+    <div style="font-size:14px;font-weight:700;color:#3A3A48;margin-bottom:4px;">dizko.ai</div>
+    <div>The collaboration OS for music producers</div>
+    <div>You create. We organize, mix, master, and deliver.</div>
+  </div>
 </div>
 
 </div></body></html>`

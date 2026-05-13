@@ -137,20 +137,38 @@ export default function Login({ onLogin }) {
         <div style={{ position:'absolute', bottom:0, left:0, right:0, zIndex:2, padding:'0 44px 44px' }}>
           <h1 style={{ margin:'0 0 12px', fontSize:36, fontWeight:900, color:'#fff',
             letterSpacing:'-1.5px', lineHeight:1.12 }}>
-            Your music.<br/>
+            You create.<br/>
             <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-              Organized.
+              We handle the rest.
             </span>
           </h1>
-          <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.5)', lineHeight:1.65, maxWidth:360 }}>
-            Seamlessly collaborate with engineers, vocalists, and producers — all in one place.
+          <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.5)', lineHeight:1.65, maxWidth:380 }}>
+            Dizko.ai organizes every stem, detects BPM conflicts, mixes your tracks with AI, and exports them straight to your DAW — so your team stays focused on the music.
           </p>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:28 }}>
-            {['File Organization','Real-time Collab','AI Smart Mix','Version Control'].map(f => (
-              <span key={f} style={{ fontSize:11.5, padding:'5px 14px', borderRadius:100,
-                background:'rgba(255,255,255,.1)', color:'rgba(255,255,255,.65)',
-                border:'1px solid rgba(255,255,255,.18)', fontWeight:500,
-                backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}>{f}</span>
+
+          {/* AI features row */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
+            {[
+              { icon:'M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z', label:'Auto-organizes stems', sub:'every upload, instantly' },
+              { icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', label:'AI mixes your tracks', sub:'volume, EQ, compression' },
+              { icon:'M22 12h-4l-3 9L9 3l-3 9H2', label:'BPM & key conflict alerts', sub:'catches clashes before you do' },
+              { icon:'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12', label:'Export to any DAW', sub:'Ableton, Logic, FL Studio…' },
+            ].map(f => (
+              <div key={f.label} style={{ display:'flex', alignItems:'flex-start', gap:9,
+                padding:'10px 12px', borderRadius:12,
+                background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)',
+                backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}>
+                <div style={{ width:26, height:26, borderRadius:7, flexShrink:0,
+                  background:'rgba(244,147,122,.15)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={f.icon}/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize:11.5, fontWeight:700, color:'rgba(255,255,255,.85)', lineHeight:1.3 }}>{f.label}</div>
+                  <div style={{ fontSize:10.5, color:'rgba(255,255,255,.38)', marginTop:1 }}>{f.sub}</div>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -160,7 +178,7 @@ export default function Login({ onLogin }) {
             border:'1px solid rgba(255,255,255,.1)', padding:'16px 20px' }}>
             <div style={{ fontSize:10, fontWeight:700, letterSpacing:'1.5px',
               textTransform:'uppercase', color:'rgba(255,255,255,.35)', marginBottom:14 }}>
-              Exports directly to your DAW
+              Opens directly in your DAW
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
 
