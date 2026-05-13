@@ -142,20 +142,106 @@ export default function Login({ onLogin }) {
               Organized.
             </span>
           </h1>
-          <p style={{ margin:'0 0 22px', fontSize:14, color:'rgba(255,255,255,.5)', lineHeight:1.65, maxWidth:360 }}>
+          <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.5)', lineHeight:1.65, maxWidth:360 }}>
             Seamlessly collaborate with engineers, vocalists, and producers — all in one place.
           </p>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:32 }}>
-            {['File Organization','Real-time Collab','AI Naming','Version Control'].map(f => (
+          <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:28 }}>
+            {['File Organization','Real-time Collab','AI Smart Mix','Version Control'].map(f => (
               <span key={f} style={{ fontSize:11.5, padding:'5px 14px', borderRadius:100,
                 background:'rgba(255,255,255,.1)', color:'rgba(255,255,255,.65)',
                 border:'1px solid rgba(255,255,255,.18)', fontWeight:500,
                 backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}>{f}</span>
             ))}
           </div>
-          <p style={{ margin:0, fontSize:12, color:'rgba(255,255,255,.28)', fontStyle:'italic', lineHeight:1.6 }}>
-            "I wanted AI to do my laundry so I can make music —<br/>not do my music so I can do laundry."
-          </p>
+
+          {/* DAW Integration strip */}
+          <div style={{ background:'rgba(0,0,0,.42)', backdropFilter:'blur(16px)',
+            WebkitBackdropFilter:'blur(16px)', borderRadius:16,
+            border:'1px solid rgba(255,255,255,.1)', padding:'16px 20px' }}>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'1.5px',
+              textTransform:'uppercase', color:'rgba(255,255,255,.35)', marginBottom:14 }}>
+              Exports directly to your DAW
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
+
+              {/* Ableton Live */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <rect x="3" y="4"  width="4" height="24" rx="1.5" fill="#FF7A1A"/>
+                  <rect x="10" y="4" width="4" height="24" rx="1.5" fill="#FF7A1A"/>
+                  <rect x="17" y="11" width="4" height="5"  rx="1.5" fill="#FF7A1A"/>
+                  <rect x="17" y="16" width="4" height="12" rx="1.5" fill="rgba(255,122,26,.3)"/>
+                  <rect x="24" y="11" width="4" height="17" rx="1.5" fill="#FF7A1A"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Ableton Live</span>
+              </div>
+
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+
+              {/* Logic Pro */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <circle cx="16" cy="16" r="11" stroke="#5AC8FA" strokeWidth="2" fill="none"/>
+                  <circle cx="16" cy="16" r="3.5" fill="#5AC8FA"/>
+                  <line x1="16" y1="5"  x2="16" y2="9"  stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="16" y1="23" x2="16" y2="27" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="5"  y1="16" x2="9"  y2="16" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="23" y1="16" x2="27" y2="16" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Logic Pro</span>
+              </div>
+
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+
+              {/* FL Studio */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <path d="M16 3L27 16L16 29L5 16Z" stroke="#FF8C00" strokeWidth="2" fill="none" strokeLinejoin="round"/>
+                  <circle cx="16" cy="16" r="4" fill="#FF8C00"/>
+                  <circle cx="16" cy="8"  r="2" fill="#FF8C00"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>FL Studio</span>
+              </div>
+
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+
+              {/* Pro Tools */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <rect x="4" y="9"  width="20" height="2.5" rx="1.25" fill="#00C5A2"/>
+                  <rect x="4" y="15" width="14" height="2.5" rx="1.25" fill="#00C5A2"/>
+                  <rect x="4" y="21" width="17" height="2.5" rx="1.25" fill="#00C5A2"/>
+                  <circle cx="26" cy="22.25" r="4" fill="#00C5A2"/>
+                  <polygon points="24.8,20.5 27.8,22.25 24.8,24" fill="#0A0A12"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Pro Tools</span>
+              </div>
+
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+
+              {/* GarageBand */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <path d="M10 23Q10 10 16 7Q22 10 22 23" stroke="#F5A623" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+                  <rect x="13" y="20" width="6" height="6" rx="1.5" fill="#F5A623"/>
+                  <rect x="14.5" y="18" width="3" height="3.5" rx="1" fill="#F5A623"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>GarageBand</span>
+              </div>
+
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+
+              {/* Cubase */}
+              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
+                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                  <path d="M22 10A10 10 0 1 0 22 22" stroke="#C8A0E8" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+                  <circle cx="16" cy="16" r="3.5" fill="#C8A0E8"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Cubase</span>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
 
