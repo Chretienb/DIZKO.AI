@@ -4,6 +4,8 @@ import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { generateStemName } from '../lib/naming'
+import { buildExportZip } from '../lib/dawExport'
+import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import type { HonoVariables } from '../types'
 
 const projects = new Hono<{ Variables: HonoVariables }>()
@@ -305,6 +307,131 @@ projects.post('/:id/files', sanitize, async (c) => {
   }
 
   return c.json({ data: file, error: null, status: 201 }, 201)
+})
+
+// ── POST /projects/:id/export ─────────────────────────────────────────────────
+// ?format=ableton|logic|all (default: all)
+// Returns a ZIP file containing all latest collaborator stems + DAW sessions
+projects.get('/:id/export', async (c) => {
+  const projectId = c.req.param('id')
+  const userId    = c.var.user.id
+  const format    = c.req.query('format') ?? 'all'
+
+  // Verify access
+  const { data: proj } = await supabase
+    .from('projects').select('id, title, owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ error: 'Project not found' }, 404)
+
+  const { data: collabRow } = await supabase
+    .from('collaborators').select('id').eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
+
+  if ((proj as any).owner_id !== userId && !collabRow)
+    return c.json({ error: 'Access denied' }, 403)
+
+  // Fetch all stems
+  const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', projectId)
+  if (!tracks?.length) return c.json({ error: 'No tracks in this project' }, 400)
+
+  const trackIds = (tracks as any[]).map(t => t.id)
+  const { data: allStems } = await supabase
+    .from('stems')
+    .select('id, instrument, uploaded_by, suggested_name, file_url, created_at, bpm_detected, key_detected, notes')
+    .in('track_id', trackIds)
+    .order('created_at', { ascending: false })
+
+  if (!allStems?.length) return c.json({ error: 'No stems uploaded yet' }, 400)
+
+  // Latest take per collaborator × instrument (same logic as smartBounce)
+  const takeMap = new Map<string, any>()
+  for (const s of allStems as any[]) {
+    if (!s.file_url || !s.instrument) continue
+    if (s.instrument === 'smart_bounce') continue
+    try { if (JSON.parse(s.notes || '{}').parent_stem_id) continue } catch {}
+    const key = `${s.uploaded_by}::${s.instrument}`
+    const ex = takeMap.get(key)
+    if (!ex || new Date(s.created_at) > new Date(ex.created_at)) takeMap.set(key, s)
+  }
+  const latestTakes = [...takeMap.values()]
+  if (!latestTakes.length) return c.json({ error: 'No uploadable stems found' }, 400)
+
+  // Fetch collaborator roles & user names
+  const { data: collabs } = await supabase
+    .from('collaborators').select('user_id, role').eq('project_id', projectId)
+  const roleByUser = new Map((collabs ?? []).map((c: any) => [c.user_id, c.role]))
+
+  // Count takes per user×instrument for take numbering
+  const takeCountMap = new Map<string, number>()
+  for (const s of allStems as any[]) {
+    if (!s.instrument || s.instrument === 'smart_bounce') continue
+    try { if (JSON.parse(s.notes || '{}').parent_stem_id) continue } catch {}
+    const k = `${s.uploaded_by}::${s.instrument}`
+    takeCountMap.set(k, (takeCountMap.get(k) ?? 0) + 1)
+  }
+
+  // Resolve project BPM/key from the first stem that has them
+  let projectBpm = 120
+  let projectKey = 'Unknown'
+  for (const s of allStems as any[]) {
+    if (s.bpm_detected && projectBpm === 120) projectBpm = Math.round(s.bpm_detected)
+    if (s.key_detected && projectKey === 'Unknown') projectKey = s.key_detected
+    if (projectBpm !== 120 && projectKey !== 'Unknown') break
+  }
+
+  // Build ExportStem list — download each WAV
+  const exportStems: ExportStem[] = []
+  await Promise.all(latestTakes.map(async (s) => {
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(s.uploaded_by)
+      const name = (authUser?.user?.user_metadata?.full_name as string | undefined)
+        ?? authUser?.user?.email?.split('@')[0]
+        ?? 'Unknown'
+      const safeName   = name.replace(/[^a-zA-Z0-9]/g, '')
+      const role       = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
+      const instrument = (s.instrument as string).replace(/[^a-zA-Z0-9]/g, '')
+      const takeNum    = takeCountMap.get(`${s.uploaded_by}::${s.instrument}`) ?? 1
+      const bpmTag     = s.bpm_detected ? Math.round(s.bpm_detected) : projectBpm
+      const keyTag     = (s.key_detected ?? projectKey).replace(/[^a-zA-Z0-9#b]/g, '')
+      const filename   = `${safeName}_${role}_${instrument}_Take${takeNum}_${bpmTag}BPM_${keyTag}.wav`
+
+      const res = await fetch(s.file_url)
+      if (!res.ok) return
+      const buffer = Buffer.from(await res.arrayBuffer())
+
+      // Estimate duration from WAV header (bytes 40–43 = data chunk size, 28–31 = sample rate)
+      let durationSec = 30 // fallback
+      if (buffer.length > 44) {
+        const sampleRate  = buffer.readUInt32LE(24)
+        const byteRate    = buffer.readUInt32LE(28)
+        const dataSize    = buffer.readUInt32LE(40)
+        if (byteRate > 0) durationSec = dataSize / byteRate
+        else if (sampleRate > 0) durationSec = buffer.length / (sampleRate * 2 * 2)
+      }
+
+      exportStems.push({ filename, buffer, contributor: name, instrument: s.instrument, durationSec })
+    } catch (e) {
+      console.error('[export] stem download failed:', (e as Error).message)
+    }
+  }))
+
+  if (!exportStems.length) return c.json({ error: 'Could not download any stems' }, 500)
+
+  const opts: ExportOptions = {
+    projectName: (proj as any).title,
+    bpm:         projectBpm,
+    key:         projectKey,
+    stems:       exportStems,
+  }
+
+  const zipBuffer = await buildExportZip(opts, format)
+  const safeProjName = ((proj as any).title as string).replace(/[^a-zA-Z0-9 _-]/g, '_')
+
+  return new Response(zipBuffer, {
+    headers: {
+      'Content-Type':        'application/zip',
+      'Content-Disposition': `attachment; filename="${safeProjName}_Dizko_Export.zip"`,
+      'Content-Length':      String(zipBuffer.length),
+    },
+  })
 })
 
 // ── GET /projects/:id/collaborators ───────────────────────────────────────────

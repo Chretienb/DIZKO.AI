@@ -21,6 +21,7 @@ import { watch }           from 'fs'
 import { mkdir, writeFile, readFile, stat } from 'fs/promises'
 import { join, basename, extname }          from 'path'
 import { homedir, platform }                from 'os'
+import { spawnSync }                        from 'child_process'
 
 const IS_WINDOWS = platform() === 'win32'
 const IS_MAC     = platform() === 'darwin'
@@ -138,6 +139,20 @@ async function downloadFile(stem: Stem, projectTitle: string) {
   console.log(`  ✓ Saved ${filename} (${(buf.length / 1048576).toFixed(1)} MB)`)
 }
 
+// ── Auto-open DAW export files ────────────────────────────────────────────────
+function tryOpenDAW(filePath: string) {
+  const ext = extname(filePath).toLowerCase()
+  if (ext === '.als') {
+    // Ableton Live
+    if (IS_MAC) spawnSync('open', ['-a', 'Ableton Live', filePath], { stdio: 'ignore' })
+    else if (IS_WINDOWS) spawnSync('cmd', ['/c', 'start', '', filePath], { stdio: 'ignore', shell: true })
+    console.log(`  ♫ Opened Ableton: ${basename(filePath)}`)
+  } else if (ext === '.logicx') {
+    if (IS_MAC) spawnSync('open', ['-a', 'Logic Pro', filePath], { stdio: 'ignore' })
+    console.log(`  ♫ Opened Logic Pro: ${basename(filePath)}`)
+  }
+}
+
 // ── Upload a file from Desktop to a project ───────────────────────────────────
 async function uploadFile(filePath: string, projectId: string, token: string) {
   if (recentlyDownloaded.has(filePath)) return  // skip loop
@@ -171,16 +186,23 @@ async function uploadFile(filePath: string, projectId: string, token: string) {
 
 // ── Watch a project folder for new files ──────────────────────────────────────
 function watchProjectFolder(folder: string, projectId: string, token: string) {
-  watch(folder, { persistent: false }, async (event, filename) => {
+  watch(folder, { persistent: false, recursive: true }, async (event, filename) => {
     if (!filename || event !== 'rename') return
     const filePath = join(folder, filename)
-    // Small delay — file might still be writing
     await new Promise(r => setTimeout(r, 800))
     try {
       const s = await stat(filePath)
-      if (s.isFile() && s.size > 0) {
-        await uploadFile(filePath, projectId, token)
+      if (!s.isFile() || s.size === 0) return
+
+      const ext = extname(filePath).toLowerCase()
+
+      // Auto-open DAW session files that appear in Dizko folders
+      if (ext === '.als' || ext === '.logicx') {
+        tryOpenDAW(filePath)
+        return
       }
+
+      await uploadFile(filePath, projectId, token)
     } catch {}
   })
 }

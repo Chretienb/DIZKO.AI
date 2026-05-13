@@ -4244,6 +4244,52 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const [bounceDur,      setBounceDur]      = useState(0)
   const [savingBounce,   setSavingBounce]   = useState(false)
   const bouncePlayerRef  = useRef(null)
+  const [dawExporting,   setDawExporting]   = useState(false)
+  const [dawMenuOpen,    setDawMenuOpen]    = useState(false)
+  const dawMenuRef       = useRef(null)
+
+  const DAW_OPTIONS = [
+    { id: 'all',     label: 'All DAWs',     sub: 'Ableton + Logic + Universal',      icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+    { id: 'ableton', label: 'Ableton Live', sub: '.als session + embedded stems',    icon: 'M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z' },
+    { id: 'logic',   label: 'Logic Pro',    sub: 'Logic folder + stem guide',        icon: 'M9 18V5l12-2v13M6 3v13.5M3 9h3m-3 4h3' },
+  ]
+
+  useEffect(() => {
+    if (!dawMenuOpen) return
+    const close = (e) => { if (!dawMenuRef.current?.contains(e.target)) setDawMenuOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [dawMenuOpen])
+
+  const exportToDAW = async (format) => {
+    if (!activeId) return
+    setDawMenuOpen(false)
+    setDawExporting(true)
+    try {
+      const token = localStorage.getItem('disco_token')
+      const res = await fetch(`/api/projects/${activeId}/export?format=${format}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        addToast(j.error || 'Export failed', 'error')
+        return
+      }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      const proj = projects.find(p => p.id === activeId)
+      a.href     = url
+      a.download = `${(proj?.title || 'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+      addToast('Export ready — check your downloads', 'success')
+    } catch (e) {
+      addToast('Export failed: ' + e.message, 'error')
+    } finally {
+      setDawExporting(false)
+    }
+  }
   const [volumes,        setVolumes]        = useState({})   // { stemId: 0-1 }
   const [trims,          setTrims]          = useState({})   // { stemId: { start: 0-1, end: 0-1 } }
   const [selectedIds,    setSelectedIds]    = useState(new Set()) // stems included in bounce
@@ -5054,8 +5100,69 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17,8 12,3 7,8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>Export</>}
+                  </svg>Mix</>}
             </button>
+
+            {/* DAW Export dropdown */}
+            <div ref={dawMenuRef} style={{ position:'relative' }}>
+              <button
+                onClick={() => !dawExporting && setDawMenuOpen(v => !v)}
+                disabled={dawExporting || !activeId}
+                style={{ height:32, padding:'0 14px', borderRadius:9, fontSize:12, fontWeight:700,
+                  background: dawExporting || !activeId ? S.bg : 'rgba(255,107,107,0.12)',
+                  border: `1px solid ${dawExporting || !activeId ? S.border : C.coral}`,
+                  color: dawExporting || !activeId ? S.text3 : C.coral,
+                  cursor: dawExporting || !activeId ? 'default' : 'pointer',
+                  display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}>
+                {dawExporting
+                  ? <><Spinner size={11} color={C.coral}/> Exporting…</>
+                  : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17,8 12,3 7,8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>Export to DAW
+                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+                  </>}
+              </button>
+
+              {dawMenuOpen && (
+                <div style={{ position:'absolute', bottom:'calc(100% + 8px)', right:0,
+                  background: S.card, border:`1px solid ${S.border}`, borderRadius:12,
+                  boxShadow:'0 8px 32px rgba(0,0,0,0.24)', padding:6, minWidth:240, zIndex:200 }}>
+                  <div style={{ padding:'6px 10px 8px', borderBottom:`1px solid ${S.border}`, marginBottom:4 }}>
+                    <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', color:S.text3 }}>
+                      Export stems + session
+                    </div>
+                  </div>
+                  {DAW_OPTIONS.map(opt => (
+                    <button key={opt.id} onClick={() => exportToDAW(opt.id)}
+                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10,
+                        padding:'9px 10px', borderRadius:8, border:'none', cursor:'pointer',
+                        background:'transparent', textAlign:'left', transition:'background .12s',
+                        color: S.text }}
+                      onMouseEnter={e => e.currentTarget.style.background = S.hover}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center',
+                        justifyContent:'center', background:'rgba(255,107,107,0.08)', flexShrink:0 }}>
+                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d={opt.icon}/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:600, color:S.text, lineHeight:1.3 }}>{opt.label}</div>
+                        <div style={{ fontSize:11, color:S.text3, lineHeight:1.3 }}>{opt.sub}</div>
+                      </div>
+                    </button>
+                  ))}
+                  <div style={{ borderTop:`1px solid ${S.border}`, margin:'4px 0 0', padding:'8px 10px 4px' }}>
+                    <div style={{ fontSize:10, color:S.text3, lineHeight:1.5 }}>
+                      Includes all collaborator stems, named by contributor, role &amp; take number.
+                      Open <code style={{ color:C.coral }}>about_dizko.html</code> inside the ZIP for full details.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
