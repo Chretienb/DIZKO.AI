@@ -12,6 +12,7 @@
     "test:watch": "bun test --watch src/tests/"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.2",
     "@supabase/supabase-js": "^2.105.4",
     "hono": "^4.7.10",
     "jszip": "^3.10.1",

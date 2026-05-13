@@ -18,6 +18,7 @@ import distributionRoutes from './routes/distribution'
 import messageRoutes      from './routes/messages'
 import notificationRoutes   from './routes/notifications'
 import accessRequestRoutes  from './routes/accessRequests'
+import assistantRoutes       from './routes/assistant'
 import { runSmartBounce }    from './lib/smartBounce'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 import { mixReadyEmail }               from './lib/emailTemplates'
@@ -77,6 +78,7 @@ app.route('/distribution', distributionRoutes)
 app.route('/messages',      messageRoutes)
 app.route('/notifications',   notificationRoutes)
 app.route('/access-requests', accessRequestRoutes)
+app.route('/assistant',       assistantRoutes)
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {

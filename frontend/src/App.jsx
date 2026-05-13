@@ -131,6 +131,7 @@ const SPIN_CSS = `
 @keyframes eq2 { 0%,100%{height:10px} 25%{height:3px}  75%{height:18px} }
 @keyframes eq3 { 0%,100%{height:16px} 40%{height:4px}  80%{height:12px} }
 @keyframes eq4 { 0%,100%{height:6px}  60%{height:18px} }
+@keyframes pulse { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
 `
 function Spinner({ size = 20, color }) {
   const col = color || C.coral
@@ -4105,6 +4106,12 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
 function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,    setProjects]    = useState([])
   const [activeId,    setActiveId]    = useState(null)
+  const [aiOpen,      setAiOpen]      = useState(false)
+  const [aiMessages,  setAiMessages]  = useState([])   // [{role,text}]
+  const [aiInput,     setAiInput]     = useState('')
+  const [aiStreaming, setAiStreaming] = useState(false)
+  const aiEndRef = useRef(null)
+  const aiInputRef = useRef(null)
   const [stems,       setStems]       = useState([])
   const [loading,     setLoading]     = useState(true)
   const [loadingStems,setLoadingStems]= useState(false)
@@ -4506,6 +4513,62 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       setDawExporting(false)
     }
   }
+
+  const sendToAI = async () => {
+    const msg = aiInput.trim()
+    if (!msg || !activeId || aiStreaming) return
+    setAiInput('')
+    setAiMessages(prev => [...prev, { role: 'user', text: msg }])
+    setAiStreaming(true)
+
+    // Add empty assistant message we'll stream into
+    setAiMessages(prev => [...prev, { role: 'assistant', text: '' }])
+
+    try {
+      const token = localStorage.getItem('disco_token')
+      const res   = await fetch(`/api/assistant/${activeId}/chat`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ message: msg }),
+      })
+      if (!res.ok) { const j = await res.json().catch(()=>({})); throw new Error(j.error || 'Failed'); }
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          try {
+            const d = JSON.parse(line.slice(5).trim())
+            if (d.text) {
+              setAiMessages(prev => {
+                const copy = [...prev]
+                copy[copy.length - 1] = { role: 'assistant', text: copy[copy.length - 1].text + d.text }
+                return copy
+              })
+              aiEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }
+          } catch {}
+        }
+      }
+    } catch (e) {
+      setAiMessages(prev => {
+        const copy = [...prev]
+        copy[copy.length - 1] = { role: 'assistant', text: 'Something went wrong. Try again.' }
+        return copy
+      })
+    }
+    setAiStreaming(false)
+    setTimeout(() => aiInputRef.current?.focus(), 50)
+  }
+
   const [volumes,        setVolumes]        = useState({})   // { stemId: 0-1 }
   const [trims,          setTrims]          = useState({})   // { stemId: { start: 0-1, end: 0-1 } }
   const [selectedIds,    setSelectedIds]    = useState(new Set()) // stems included in bounce
@@ -5382,6 +5445,112 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           </div>
         )}
       </div>
+
+      {/* ── AI Assistant panel ───────────────────────────────────────────── */}
+      {/* Floating button */}
+      <button onClick={() => setAiOpen(v => !v)} title="Ask Dizko AI"
+        style={{ position:'fixed', bottom:88, right:24, width:44, height:44, borderRadius:'50%',
+          background: aiOpen ? '#1a1a2e' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+          border: aiOpen ? '1px solid rgba(99,102,241,.4)' : 'none',
+          boxShadow: aiOpen ? 'none' : '0 4px 16px rgba(99,102,241,.45)',
+          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          zIndex:150, transition:'all .2s' }}>
+        {aiOpen
+          ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.8)" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          : <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a9.96 9.96 0 0 1-5.19-1.45L2 22l1.45-4.81A9.96 9.96 0 0 1 2 12 10 10 0 0 1 12 2z"/>
+              <path d="M8 10h8M8 14h5" strokeWidth={2}/>
+            </svg>}
+      </button>
+
+      {/* Chat panel */}
+      {aiOpen && (
+        <div style={{ position:'fixed', bottom:144, right:24, width:340, height:440,
+          background:'#0d0d18', border:'1px solid rgba(99,102,241,.25)', borderRadius:18,
+          boxShadow:'0 12px 40px rgba(0,0,0,.45)', display:'flex', flexDirection:'column',
+          zIndex:149, overflow:'hidden' }}>
+
+          {/* Header */}
+          <div style={{ padding:'14px 16px 12px', borderBottom:'1px solid rgba(255,255,255,.06)',
+            display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:28, height:28, borderRadius:8,
+              background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
+                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a9.96 9.96 0 0 1-5.19-1.45L2 22l1.45-4.81A9.96 9.96 0 0 1 2 12 10 10 0 0 1 12 2z"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#e8e8f0' }}>Dizko AI</div>
+              <div style={{ fontSize:10, color:'rgba(99,102,241,.7)' }}>
+                {projects.find(p => p.id === activeId)?.title || 'No project selected'}
+              </div>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+            {aiMessages.length === 0 && (
+              <div style={{ textAlign:'center', marginTop:40 }}>
+                <div style={{ fontSize:28, marginBottom:10 }}>
+                  <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.4)" strokeWidth={1.5} strokeLinecap="round" style={{ margin:'0 auto', display:'block' }}>
+                    <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize:13, fontWeight:600, color:'rgba(232,232,240,.5)', marginBottom:6 }}>Ask me anything</div>
+                {["What's missing from this project?","Any BPM issues?","What should we record next?"].map(s => (
+                  <button key={s} onClick={() => { setAiInput(s); setTimeout(() => aiInputRef.current?.focus(), 50) }}
+                    style={{ display:'block', width:'100%', margin:'5px 0', padding:'7px 12px',
+                      background:'rgba(99,102,241,.08)', border:'1px solid rgba(99,102,241,.2)',
+                      borderRadius:8, color:'rgba(232,232,240,.65)', fontSize:11.5, cursor:'pointer',
+                      textAlign:'left', fontFamily:'inherit' }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+            {aiMessages.map((m, i) => (
+              <div key={i} style={{ display:'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth:'85%', padding:'9px 13px', borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  background: m.role === 'user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,.06)',
+                  color: m.role === 'user' ? '#fff' : '#d4d4e8',
+                  fontSize:13, lineHeight:1.55, wordBreak:'break-word' }}>
+                  {m.text || (aiStreaming && i === aiMessages.length - 1
+                    ? <span style={{ display:'inline-flex', gap:3, alignItems:'center' }}>
+                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s infinite' }}/>
+                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s .2s infinite' }}/>
+                        <span style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', animation:'pulse 1s .4s infinite' }}/>
+                      </span>
+                    : '')}
+                </div>
+              </div>
+            ))}
+            <div ref={aiEndRef}/>
+          </div>
+
+          {/* Input */}
+          <div style={{ padding:'10px 12px', borderTop:'1px solid rgba(255,255,255,.06)',
+            display:'flex', gap:8, alignItems:'flex-end' }}>
+            <textarea ref={aiInputRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToAI() } }}
+              placeholder="Ask about the project…"
+              rows={1}
+              style={{ flex:1, padding:'9px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.1)',
+                background:'rgba(255,255,255,.06)', color:'#e8e8f0', fontSize:13, resize:'none',
+                outline:'none', fontFamily:'inherit', lineHeight:1.4,
+                maxHeight:80, overflowY:'auto' }}/>
+            <button onClick={sendToAI} disabled={!aiInput.trim() || aiStreaming || !activeId}
+              style={{ width:34, height:34, borderRadius:9, border:'none', flexShrink:0,
+                background: !aiInput.trim() || aiStreaming || !activeId ? 'rgba(255,255,255,.05)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                cursor: !aiInput.trim() || aiStreaming || !activeId ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}>
+              {aiStreaming
+                ? <Spinner size={13} color="#6366f1"/>
+                : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>}
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   )
