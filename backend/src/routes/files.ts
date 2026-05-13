@@ -16,8 +16,10 @@ import type { HonoVariables } from '../types'
 const files = new Hono<{ Variables: HonoVariables }>()
 files.use('*', requireAuth)
 
-const PROJECT_ROOT  = join(import.meta.dir, '../../..')
-const VENV_PYTHON   = join(PROJECT_ROOT, '.venv', 'bin', 'python3')
+// On Railway: WORKDIR=/app, files.ts is at /app/src/routes/files.ts
+// On local:   files.ts is at backend/src/routes/files.ts
+const PROJECT_ROOT    = join(import.meta.dir, '../..')   // = /app or backend/
+const PYTHON          = process.env.PYTHON_BIN || 'python3'
 const PIPELINE_SCRIPT = join(PROJECT_ROOT, 'dizko_ai.py')
 
 // ── Detect instrument type from filename (no AI needed) ───────────────────────
@@ -38,17 +40,19 @@ function detectInstrument(filename: string): string {
 function analyzeAudio(audioPath: string): Promise<{ bpm: number | null; key: string | null }> {
   return new Promise(resolve => {
     const code = `
-import sys, json
+import sys, json, warnings
+warnings.filterwarnings('ignore')
 sys.path.insert(0, '${PROJECT_ROOT}')
 from dizko_ai import analyze_audio
 try:
     r = analyze_audio('${audioPath.replace(/'/g, "\\'")}')
     print(json.dumps({'bpm': r['bpm'], 'key': r['key_str']}))
 except Exception as e:
+    sys.stderr.write(str(e) + '\\n')
     print(json.dumps({'bpm': None, 'key': None}))
 `.trim()
 
-    const proc = spawn(VENV_PYTHON, ['-c', code])
+    const proc = spawn(PYTHON, ['-c', code])
     let out = ''
     proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
     proc.on('close', () => {
