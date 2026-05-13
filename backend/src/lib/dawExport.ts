@@ -4,8 +4,10 @@
  */
 
 import JSZip from 'jszip'
+import type { ProjectAnalysis, MixParam } from './aiAnalysis'
 
 export interface ExportStem {
+  id:          string   // stem DB id — used to look up mix params
   filename:    string   // e.g. Jimmy_Vocals_Take3_93BPM_Fm.wav
   buffer:      Buffer
   contributor: string
@@ -18,31 +20,59 @@ export interface ExportOptions {
   bpm:         number
   key:         string
   stems:       ExportStem[]
+  analysis?:   ProjectAnalysis   // Claude's analysis — used for ordering, volumes, notes
+}
+
+// Canonical DAW track order: rhythm section first, then harmony, then melody, then vocals
+const INSTRUMENT_ORDER: Record<string, number> = {
+  drums: 0, percussion: 1, bass: 2, guitar: 3, piano: 4,
+  keys: 5, synth: 6, strings: 7, horns: 8, recording: 9,
+  other: 10, vocals: 11,
+}
+const instrPriority = (instr: string) =>
+  INSTRUMENT_ORDER[instr.toLowerCase()] ?? 9
+
+export function sortStemsByOrder(stems: ExportStem[]): ExportStem[] {
+  return [...stems].sort((a, b) => instrPriority(a.instrument) - instrPriority(b.instrument))
 }
 
 // ── Ableton Live (.als) — gzipped XML ────────────────────────────────────────
 export function generateAbletonSession(opts: ExportOptions): Buffer {
-  const { projectName, bpm, key, stems } = opts
+  const { projectName, bpm, key, stems, analysis } = opts
+  const mixParams = analysis?.mix_params ?? {}
 
-  const TRACK_COLORS = [
-    '-2435201',  // coral
-    '-6737049',  // purple
-    '-7667712',  // green
-    '-16711936', // amber
-    '-9109505',  // pink
-    '-16776961', // blue
-  ]
+  // Track color by instrument type
+  const INSTR_COLORS: Record<string, string> = {
+    drums: '-2435201', bass: '-7667712', guitar: '-16711936',
+    vocals: '-6737049', piano: '-9109505', synth: '-16776961',
+  }
 
   let pointeeId = 1
   const nextId = () => String(pointeeId++)
+
+  // dB → Ableton linear volume (1.0 = unity, range 0–1.905 in Live)
+  const dbToLinear = (db: number) => Math.pow(10, db / 20)
 
   const tracks = stems.map((s, i) => {
     const trackId  = nextId()
     const clipId   = nextId()
     const autoId1  = nextId()
     const autoId2  = nextId()
-    const color    = TRACK_COLORS[i % TRACK_COLORS.length]
+    const color    = INSTR_COLORS[s.instrument.toLowerCase()] ?? '-2435201'
     const beats    = s.durationSec * (bpm / 60)
+
+    // Use Claude's mix params if available for this stem
+    const mp: MixParam = mixParams[s.id] ?? {
+      volume_db: 0, pan: 0, eq_low_cut_hz: 0, compress: false, compress_ratio: 1,
+    }
+    const volumeLinear = dbToLinear(mp.volume_db).toFixed(6)
+    const panValue     = mp.pan.toFixed(6)
+
+    // Best-take annotation
+    const isBestTake = analysis?.version_insights?.some(vi => vi.best_take_id === s.id) ?? false
+    const trackLabel = isBestTake
+      ? `${escXml(s.contributor)} — ${escXml(s.instrument)} ★`
+      : `${escXml(s.contributor)} — ${escXml(s.instrument)}`
 
     return `
     <AudioTrack Id="${trackId}">
@@ -54,9 +84,9 @@ export function generateAbletonSession(opts: ExportOptions): Buffer {
       <DoRecordables Value="true"/>
       <CurrentMonitoringState Value="0"/>
       <Name>
-        <EffectiveName Value="${escXml(s.contributor)} — ${escXml(s.instrument)}"/>
+        <EffectiveName Value="${trackLabel}"/>
         <UserName Value=""/>
-        <Annotation Value=""/>
+        <Annotation Value="${escXml(isBestTake ? 'Best take — picked by Dizko AI' : `AI mix: ${mp.volume_db}dB`)}"/>
         <MemorizedFirstClipName Value="${escXml(s.filename)}"/>
       </Name>
       <Color Value="${color}"/>
@@ -66,8 +96,8 @@ export function generateAbletonSession(opts: ExportOptions): Buffer {
         <Mixer>
           <LomId Value="0"/>
           <On><LomId Value="0"/><Manual Value="true"/><AutomationTarget Id="${autoId1}"/></On>
-          <Volume><LomId Value="0"/><Manual Value="1"/><AutomationTarget Id="${autoId2}"/></Volume>
-          <Pan><LomId Value="0"/><Manual Value="0"/></Pan>
+          <Volume><LomId Value="0"/><Manual Value="${volumeLinear}"/><AutomationTarget Id="${autoId2}"/></Volume>
+          <Pan><LomId Value="0"/><Manual Value="${panValue}"/></Pan>
           <ViewStateSesstionTrackWidth Value="74"/>
           <SendsListWrapper LomId="0"/>
         </Mixer>
@@ -226,6 +256,7 @@ export async function addLogicProjectToZip(
   const logicFolder = zip.folder(`${folder}/${projectName}_Logic`)!
 
   // Add a plain-text project description that Logic's Session Import can read
+  const analysis = opts.analysis
   logicFolder.file('_DIZKO_SESSION.txt', [
     `DIZKO.AI — LOGIC PRO SESSION`,
     `================================`,
@@ -234,17 +265,27 @@ export async function addLogicProjectToZip(
     `Key: ${key}`,
     `Contributors: ${stems.map(s => s.contributor).join(', ')}`,
     ``,
+    ...(analysis?.brief ? [`AI NOTE: ${analysis.brief}`, ``] : []),
+    ...(analysis?.conflicts?.length ? [
+      `CONFLICTS:`,
+      ...analysis.conflicts.map(c => `  ⚠  [${c.type.toUpperCase()}] ${c.detail}`),
+      ``,
+    ] : []),
     `HOW TO IMPORT INTO LOGIC PRO:`,
     `1. Open Logic Pro`,
     `2. Create a new Empty Project`,
     `3. Set the BPM to ${bpm}`,
     `4. Drag all .wav files from this folder onto the Tracks area`,
+    `   (arranged in order: drums → bass → instruments → vocals)`,
     `5. Logic will create one track per stem, aligned at bar 1`,
     ``,
-    `TRACKS:`,
-    ...stems.map((s, i) => `  ${String(i+1).padStart(2,'0')}. ${s.filename}  (${s.contributor} — ${s.instrument})`),
+    `TRACKS (arrangement order):`,
+    ...stems.map((s, i) => {
+      const isBest = analysis?.version_insights?.some(vi => vi.best_take_id === s.id)
+      return `  ${String(i+1).padStart(2,'0')}. ${s.filename}  (${s.contributor} — ${s.instrument})${isBest ? '  ★ best take' : ''}`
+    }),
     ``,
-    `Generated by Dizko.ai — dizko.ai`,
+    `Generated by Dizko.ai`,
   ].join('\n'))
 
   // Add stems directly in the Logic folder
@@ -375,65 +416,127 @@ export function generateMarketingPage(opts: ExportOptions): string {
 
 // ── Universal ZIP builder ─────────────────────────────────────────────────────
 export async function buildExportZip(opts: ExportOptions, format: string): Promise<Buffer> {
-  const { projectName, bpm, key, stems } = opts
+  const { projectName, bpm, key, analysis } = opts
   const zip = new JSZip()
-
   const safeName = projectName.replace(/[^a-zA-Z0-9 _-]/g, '_')
 
-  // 1. All stems in /Stems folder (all formats)
+  // 1. Sort stems: drums → bass → guitar → keys → synth → strings → horns → vocals
+  const stems = sortStemsByOrder(opts.stems)
+
+  // 2. All stems in /Stems folder
   const stemsFolder = zip.folder('Stems')!
   for (const s of stems) {
     stemsFolder.file(s.filename, s.buffer)
   }
 
-  // 2. Session info text
-  zip.file('session_info.txt', [
-    `DIZKO.AI EXPORT`,
-    `═══════════════`,
-    `Project    : ${projectName}`,
-    `BPM        : ${bpm}`,
-    `Key        : ${key}`,
-    `Contributors: ${stems.length}`,
-    `Exported   : ${new Date().toUTCString()}`,
-    ``,
-    `CONTRIBUTORS`,
-    `────────────`,
-    ...stems.map(s => `${s.contributor.padEnd(20)} ${s.instrument.padEnd(15)} ${s.filename}`),
-    ``,
-    `HOW TO USE`,
-    `──────────`,
-    `Ableton Live : Double-click ${safeName}_Ableton.als`,
-    `Logic Pro    : Open the ${safeName}_Logic/ folder or drag stems to a new project`,
-    `FL Studio    : File → Import → Audio — select all .wav files from Stems/`,
-    `Pro Tools    : File → Import → Audio — select all .wav files from Stems/`,
-    ``,
-    `www.dizko.ai`,
-  ].join('\n'))
+  // 3. Claude-written session notes
+  const aiNotes = buildSessionNotes(projectName, bpm, key, stems, analysis)
+  zip.file('session_info.txt', aiNotes)
 
-  // 3. Ableton .als project
+  // 4. Ableton .als (with AI-set volumes + best-take annotations)
   if (format === 'ableton' || format === 'all') {
-    const alsBuffer = generateAbletonSession(opts)
+    const alsBuffer = generateAbletonSession({ ...opts, stems })
     zip.file(`${safeName}_Ableton.als`, alsBuffer)
-    // Ableton also needs stems in Samples/Imported/ (relative path in .als)
     const samplesFolder = zip.folder('Samples/Imported')!
     for (const s of stems) {
       samplesFolder.file(s.filename, s.buffer)
     }
   }
 
-  // 4. Logic folder
+  // 5. Logic folder
   if (format === 'logic' || format === 'all') {
-    await addLogicProjectToZip(zip, opts, '.')
+    await addLogicProjectToZip(zip, { ...opts, stems }, '.')
   }
 
-  // 5. Marketing page — always included
-  zip.file('about_dizko.html', generateMarketingPage(opts))
+  // 6. Marketing page
+  zip.file('about_dizko.html', generateMarketingPage({ ...opts, stems }))
 
   return zip.generateAsync({
     type:               'nodebuffer',
     compression:        'DEFLATE',
     compressionOptions: { level: 6 },
   })
+}
+
+// ── AI-written session notes ──────────────────────────────────────────────────
+function buildSessionNotes(
+  projectName: string,
+  bpm: number,
+  key: string,
+  stems: ExportStem[],
+  analysis?: ProjectAnalysis,
+): string {
+  const lines: string[] = [
+    `DIZKO.AI — SESSION NOTES`,
+    `═════════════════════════════════════════`,
+    `Project    : ${projectName}`,
+    `BPM        : ${bpm}`,
+    `Key        : ${key}`,
+    `Contributors: ${stems.length}`,
+    `Exported   : ${new Date().toUTCString()}`,
+    ``,
+  ]
+
+  // AI brief
+  if (analysis?.brief) {
+    lines.push(`AI ANALYSIS`)
+    lines.push(`────────────`)
+    lines.push(analysis.brief)
+    lines.push(``)
+  }
+
+  // Conflicts
+  if (analysis?.conflicts?.length) {
+    lines.push(`CONFLICTS DETECTED`)
+    lines.push(`────────────────────`)
+    for (const c of analysis.conflicts) {
+      lines.push(`⚠  [${c.type.toUpperCase()}] ${c.detail}`)
+    }
+    lines.push(``)
+  }
+
+  // Missing instruments
+  if (analysis?.missing?.length) {
+    lines.push(`MISSING INSTRUMENTS`)
+    lines.push(`────────────────────`)
+    lines.push(analysis.missing.map(m => `• ${m}`).join('\n'))
+    lines.push(``)
+  }
+
+  // Version intelligence
+  if (analysis?.version_insights?.length) {
+    lines.push(`BEST TAKES (AI-SELECTED)`)
+    lines.push(`─────────────────────────`)
+    for (const vi of analysis.version_insights) {
+      lines.push(`★ ${vi.instrument.toUpperCase()} → ${vi.best_take_name}`)
+      lines.push(`  Reason: ${vi.reason}`)
+    }
+    lines.push(``)
+  }
+
+  // Track list in arrangement order
+  lines.push(`TRACKS (arrangement order)`)
+  lines.push(`───────────────────────────`)
+  stems.forEach((s, i) => {
+    const mixP = analysis?.mix_params?.[s.id]
+    const isBest = analysis?.version_insights?.some(vi => vi.best_take_id === s.id)
+    const volTag  = mixP ? ` [${mixP.volume_db > 0 ? '+' : ''}${mixP.volume_db}dB]` : ''
+    const bestTag = isBest ? ' ★ best take' : ''
+    lines.push(`${String(i + 1).padStart(2, '0')}. ${s.contributor.padEnd(16)} ${s.instrument.padEnd(12)} ${s.filename}${volTag}${bestTag}`)
+  })
+
+  lines.push(``)
+  lines.push(`HOW TO OPEN`)
+  lines.push(`─────────────`)
+  lines.push(`Ableton Live : Double-click ${projectName.replace(/[^a-zA-Z0-9 _-]/g,'_')}_Ableton.als`)
+  lines.push(`Logic Pro    : Drag stems from the Logic/ folder into a new project`)
+  lines.push(`FL Studio    : File → Import → Audio → Stems/*.wav`)
+  lines.push(`Pro Tools    : File → Import → Audio → Stems/*.wav`)
+  lines.push(``)
+  lines.push(`Volumes in the .als are pre-set by Dizko AI. Mastered to -14 LUFS.`)
+  lines.push(`dizko.ai`)
+
+  return lines.join('\n')
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

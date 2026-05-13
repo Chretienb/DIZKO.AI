@@ -6,6 +6,7 @@ import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { generateStemName } from '../lib/naming'
 import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
+import { getLatestAnalysis } from '../lib/aiAnalysis'
 import type { HonoVariables } from '../types'
 
 const projects = new Hono<{ Variables: HonoVariables }>()
@@ -114,6 +115,27 @@ projects.get('/:id/export', async (c) => {
     const ex = takeMap.get(key)
     if (!ex || new Date(s.created_at) > new Date(ex.created_at)) takeMap.set(key, s)
   }
+  // Fetch AI analysis — used for best-take selection, ordering, and session notes
+  const analysis = await getLatestAnalysis(projectId).catch(() => null)
+
+  // Override "latest take" with Claude's best-take pick when available
+  const bestTakeIds = new Set((analysis?.version_insights ?? []).map(vi => vi.best_take_id))
+  if (bestTakeIds.size > 0) {
+    // For each instrument group that has a version insight, swap in Claude's pick
+    const bestByInstrument = new Map<string, string>() // instrument → best stem id
+    for (const vi of (analysis?.version_insights ?? [])) {
+      bestByInstrument.set(vi.instrument, vi.best_take_id)
+    }
+    for (const [key, stem] of takeMap.entries()) {
+      const instrument = (stem.instrument as string)?.toLowerCase()
+      const bestId     = bestByInstrument.get(instrument)
+      if (bestId) {
+        const bestStem = uploadedStems.find((s: any) => s.id === bestId)
+        if (bestStem) takeMap.set(key, bestStem)
+      }
+    }
+  }
+
   const latestTakes = [...takeMap.values()]
 
   // Take number = how many times this person uploaded a file with this base name
@@ -190,7 +212,7 @@ projects.get('/:id/export', async (c) => {
         if (byteRate > 0) durationSec = dataSize / byteRate
       }
 
-      exportStems.push({ filename, buffer, contributor: name || safeName, instrument: s.instrument || 'audio', durationSec })
+      exportStems.push({ id: s.id, filename, buffer, contributor: name || safeName, instrument: s.instrument || 'audio', durationSec })
     } catch (e) {
       console.error('[export] stem download failed:', (e as Error).message)
     }
@@ -203,6 +225,7 @@ projects.get('/:id/export', async (c) => {
     bpm:         projectBpm,
     key:         projectKey,
     stems:       exportStems,
+    analysis:    analysis ?? undefined,
   }
 
   const zipBuffer = await buildExportZip(opts, format)
