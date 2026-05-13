@@ -1,6 +1,55 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
+
+// ── Error Boundary — prevents white screen from any uncaught render error ─────
+export class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error, info) { /* Could log to Sentry here */ }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+        background:'#0d0d12', color:'#E8E8F0', fontFamily:'-apple-system,sans-serif', flexDirection:'column', gap:16 }}>
+        <div style={{ fontSize:32 }}>
+          <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.5} strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div style={{ fontSize:18, fontWeight:700 }}>Something went wrong</div>
+        <div style={{ fontSize:13, color:'#8B8B9A', maxWidth:320, textAlign:'center', lineHeight:1.6 }}>
+          {this.state.error?.message || 'An unexpected error occurred'}
+        </div>
+        <button onClick={() => window.location.reload()}
+          style={{ padding:'10px 24px', borderRadius:10, background:'#FF6B6B', border:'none',
+            color:'#fff', fontWeight:700, cursor:'pointer', fontSize:14 }}>
+          Reload
+        </button>
+      </div>
+    )
+  }
+}
+
+// ── Auth token helper — single source of truth ────────────────────────────────
+const getToken = () => localStorage.getItem('disco_token') || ''
+
+// ── useConfirm — replaces browser confirm() with inline state ─────────────────
+// Returns [pendingId, confirm(id), cancel] — call confirm(id) to arm,
+// then call confirm(id) again to execute. Resets after 4s of inactivity.
+function useConfirm() {
+  const [pending, setPending] = useState(null)
+  const timer = useRef(null)
+  const arm = (id) => {
+    if (pending === id) return true   // second click = confirmed
+    clearTimeout(timer.current)
+    setPending(id)
+    timer.current = setTimeout(() => setPending(null), 4000)
+    return false
+  }
+  const cancel = () => { clearTimeout(timer.current); setPending(null) }
+  return { pending, arm, cancel }
+}
 import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -534,9 +583,8 @@ async function setupPushNotifications() {
       },
       body: JSON.stringify({ endpoint: s.endpoint, p256dh: s.keys?.p256dh, auth: s.keys?.auth }),
     })
-    console.log('[push] subscribed')
-  } catch (e) {
-    console.warn('[push] setup failed:', e.message)
+  } catch {
+    // push setup is best-effort — silent failure is acceptable
   }
 }
 
@@ -783,24 +831,23 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user
   const [deletingId, setDeletingId] = useState(null)
   const [removingId, setRemovingId] = useState(null)
   const isOwner = user?.id && project?.owner_id === user.id
+  const { pending: confirmPending, arm: confirmArm } = useConfirm()
 
   const deleteFile = async (fileId) => {
-    if (!confirm('Delete this file?')) return
+    if (!confirmArm(`del-${fileId}`)) return  // first click arms; second executes
     setDeletingId(fileId)
-    const token = localStorage.getItem('disco_token')
     try {
-      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` } })
       setFiles(prev => prev.filter(f => f.id !== fileId))
     } catch {}
     setDeletingId(null)
   }
 
   const removeCollab = async (collabId) => {
-    if (!confirm('Remove this collaborator?')) return
+    if (!confirmArm(`rem-${collabId}`)) return
     setRemovingId(collabId)
-    const token = localStorage.getItem('disco_token')
     try {
-      await fetch(`/api/collaborators/${collabId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      await fetch(`/api/collaborators/${collabId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` } })
       setCollabs(prev => prev.filter(c => c.id !== collabId))
     } catch {}
     setRemovingId(null)
@@ -888,10 +935,13 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user
                   {isOwner && (
                     <button onClick={e => { e.stopPropagation(); deleteFile(f.id) }}
                       disabled={deletingId === f.id}
-                      style={{ width:22, height:22, borderRadius:6, border:'none', cursor:'pointer', flexShrink:0,
-                        background:'rgba(239,68,68,.08)', color:'rgba(239,68,68,.6)',
-                        display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      title={confirmPending === `del-${f.id}` ? 'Click again to confirm' : 'Delete'}
+                      style={{ height:22, padding:'0 7px', borderRadius:6, border:'none', cursor:'pointer', flexShrink:0,
+                        background: confirmPending === `del-${f.id}` ? 'rgba(239,68,68,.18)' : 'rgba(239,68,68,.08)',
+                        color: confirmPending === `del-${f.id}` ? '#ef4444' : 'rgba(239,68,68,.6)',
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:3, fontSize:9, fontWeight:700 }}>
                       {deletingId === f.id ? <Spinner size={7} color="#ef4444"/>
+                        : confirmPending === `del-${f.id}` ? 'Confirm?'
                         : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
                     </button>
                   )}
@@ -1032,7 +1082,7 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
   const applyAvatar = (url) => {
     setAvatarUrl(url)
     // Persist so it survives page refresh (JWT update is async)
-    localStorage.setItem('dizko_avatar_url', url)
+    localStorage.setItem('disco_avatar_url', url)
     onProfileUpdate?.({ avatar_url: url })
   }
 
@@ -1079,7 +1129,7 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
                   <circle cx="12" cy="13" r="4"/>
                 </svg>}
           </div>
-          <input ref={avatarInput} type="file" accept="image/*" style={{ display:'none' }} onChange={pickAvatar}/>
+          <input ref={avatarInput} type="file" accept="image/*" aria-label="Upload profile photo" style={{ display:'none' }} onChange={pickAvatar}/>
         </div>
         <div style={{ flex:1 }}>
           <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>{name || user?.full_name || 'Your Name'}</div>
@@ -1946,7 +1996,7 @@ function ModalUpload({ project, onClose, user }) {
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
         onClick={() => inputRef.current.click()}>
-        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
+        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip" aria-label="Upload audio files"
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
         <div style={{ width:44, height:44, borderRadius:12, background:C.grad, margin:'0 auto 10px',
           display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 12px ${C.coral}35` }}>
@@ -2422,7 +2472,7 @@ function ModalReleaseWizard({ onClose, project }) {
                   <div style={{ fontSize:11.5, color:'#bbb', marginTop:3 }}>JPEG · PNG · 3000×3000 px recommended</div>
                 </>}
           </div>
-          <input ref={coverRef} type="file" accept="image/*" style={{ display:'none' }} onChange={onCoverPick}/>
+          <input ref={coverRef} type="file" accept="image/*" aria-label="Upload cover artwork" style={{ display:'none' }} onChange={onCoverPick}/>
           <div style={{ display:'flex', gap:8 }}>
             <Btn onClick={() => setStep(2)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
             <Btn onClick={() => setStep(4)} style={{ flex:1 }}>
@@ -3294,12 +3344,13 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [overview,      setOverview]      = useState({})
   const [accessReqs,    setAccessReqs]    = useState([])
   const [reviewingId,   setReviewingId]   = useState(null)
+  const { pending: confirmPending, arm: confirmArm } = useConfirm()
   // onlineIds comes from root App via prop — no local channel needed
 
   const removeCollab = async (collabId) => {
-    if (!confirm('Remove this collaborator from the project?')) return
+    if (!confirmArm(`rem-${collabId}`)) return
     setRemovingId(collabId)
-    const token = localStorage.getItem('disco_token')
+    const token = getToken()
     try {
       await fetch(`/api/collaborators/${collabId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       setCollabs(prev => prev.filter(c => c.id !== collabId))
@@ -3697,6 +3748,7 @@ function PageLibrary({ openModal, playTrack, user }) {
   const [drag,         setDrag]         = useState(false)
   const [deletingId,    setDeletingId]    = useState(null)
   const [separatingId,  setSeparatingId]  = useState(null)
+  const { pending: confirmPending, arm: confirmArm } = useConfirm()
 
   const activeProject = projects.find(p => p.id === activeId)
   const isOwner = user?.id && activeProject?.owner_id === user.id
@@ -3715,11 +3767,10 @@ function PageLibrary({ openModal, playTrack, user }) {
   }
 
   const deleteFile = async (fileId) => {
-    if (!confirm('Delete this file from the project?')) return
+    if (!confirmArm(`del-${fileId}`)) return
     setDeletingId(fileId)
-    const token = localStorage.getItem('disco_token')
     try {
-      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      await fetch(`/api/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` } })
       setFiles(prev => prev.filter(f => f.id !== fileId))
     } catch {}
     setDeletingId(null)
@@ -4069,7 +4120,7 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
       })
       .catch(() => { setReady(true) })
     return () => { cancelled = true; ctx.close().catch(() => {}) }
-  }, [url])
+  }, [url, color])
 
   return (
     <div style={{ position:'relative', width:'100%', height }}>
@@ -4321,8 +4372,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       while (bpm <  60) bpm *= 2
 
       handleBpmChange(Math.round(bpm))
-    } catch (e) {
-      console.error('[BPM detect]', e)
+    } catch {
+      // BPM detect error — silent, BPM stays as-is
     } finally {
       setDetectingBpm(false)
     }
@@ -4520,6 +4571,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const [expandedId,     setExpandedId]     = useState(null)
   const [deletingId,     setDeletingId]     = useState(null)
   const [uploaders,      setUploaders]      = useState({})   // { userId: { name, email } }
+  const { pending: stemConfirmPending, arm: stemConfirmArm } = useConfirm()
 
   // Load uploader info when stems change
   useEffect(() => {
@@ -4527,7 +4579,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     ids.forEach(async uid => {
       if (uploaders[uid]) return
       try {
-        const res = await fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${localStorage.getItem('disco_token')}` } })
+        const res = await fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${getToken()}` } })
         if (res.ok) { const j = await res.json(); setUploaders(prev => ({ ...prev, [uid]: j.data })) }
       } catch {}
     })
@@ -4573,10 +4625,10 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const deleteStem = async (stemId) => {
-    if (!confirm('Remove this track from the project?')) return
+    if (!stemConfirmArm(`del-${stemId}`)) return
     setDeletingId(stemId)
     try {
-      await fetch(`/api/files/${stemId}`, { method:'DELETE', headers:{ Authorization:`Bearer ${localStorage.getItem('disco_token')}` } })
+      await fetch(`/api/files/${stemId}`, { method:'DELETE', headers:{ Authorization:`Bearer ${getToken()}` } })
       setStems(prev => prev.filter(s => s.id !== stemId))
     } catch {}
     setDeletingId(null)
@@ -4601,7 +4653,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       form.append('artist_name', 'Mix')
       await fetch('/api/files/upload', { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body: form })
       setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false)
-    } catch (e) { console.error('[SaveBounce]', e) }
+    } catch { /* save error — user can retry */ }
     finally { setSavingBounce(false) }
   }
 
@@ -4673,8 +4725,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       player.onloadedmetadata = () => setBounceDur(player.duration)
       player.onended = () => setBouncePlaying(false)
       bouncePlayerRef.current = player
-    } catch (e) {
-      console.error('[Bounce]', e)
+    } catch {
+      // bounce error — user sees no result, can retry
     } finally {
       setBouncing(false)
     }

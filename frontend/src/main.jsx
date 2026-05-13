@@ -8,10 +8,14 @@ import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
 import ResetPassword from './ResetPassword.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
+import { ErrorBoundary } from './App.jsx'
+
+const TOKEN_KEY  = 'disco_token'
+const AVATAR_KEY = 'disco_avatar_url'   // consistent key — was 'dizko_avatar_url' (typo)
 
 function userFromToken() {
   try {
-    const token = localStorage.getItem('disco_token')
+    const token = localStorage.getItem(TOKEN_KEY)
     if (!token) return null
     const payload = JSON.parse(atob(token.split('.')[1]))
     return {
@@ -19,7 +23,7 @@ function userFromToken() {
       email:      payload.email ?? '',
       full_name:  payload.user_metadata?.full_name  ?? '',
       avatar_url: payload.user_metadata?.avatar_url ??
-                  localStorage.getItem('dizko_avatar_url') ?? null,
+                  localStorage.getItem(AVATAR_KEY) ?? null,
     }
   } catch {
     return null
@@ -96,8 +100,10 @@ function Root() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <Root />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Root />
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>
 )
