@@ -1,23 +1,20 @@
-import { Hono }      from 'hono'
-import Anthropic      from '@anthropic-ai/sdk'
-import { supabase }   from '../lib/supabase'
+import { Hono }       from 'hono'
+import Anthropic       from '@anthropic-ai/sdk'
+import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
-import { streamSSE }  from 'hono/streaming'
 import type { HonoVariables } from '../types'
 
 const assistant = new Hono<{ Variables: HonoVariables }>()
 assistant.use('*', requireAuth)
 
-const anthropic = new Anthropic()
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// ── POST /assistant/:projectId/chat ───────────────────────────────────────────
-// Streams Claude's response as SSE so the UI shows tokens as they arrive
 assistant.post('/:projectId/chat', async (c) => {
   const projectId = c.req.param('projectId')
   const userId    = c.var.user.id
 
   const body = await c.req.json().catch(() => ({}))
-  const userMessage: string = body.message?.trim()
+  const userMessage: string = (body.message || '').trim()
   if (!userMessage) return c.json({ error: 'message is required' }, 400)
 
   // Verify access
@@ -42,29 +39,28 @@ assistant.post('/:projectId/chat', async (c) => {
       .from('stems')
       .select('original_name, instrument, uploaded_by, created_at, notes')
       .in('track_id', trackIds)
+      .neq('instrument', 'smart_bounce')
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(20)
 
     if (stems?.length) {
       const uploaderNames: Record<string, string> = {}
       await Promise.all([...new Set((stems as any[]).map(s => s.uploaded_by))].map(async uid => {
         try {
           const { data: u } = await supabase.auth.admin.getUserById(uid)
-          uploaderNames[uid] = u?.user?.user_metadata?.full_name || u?.user?.email?.split('@')[0] || uid.slice(0,8)
-        } catch { uploaderNames[uid] = uid.slice(0,8) }
+          uploaderNames[uid] = u?.user?.user_metadata?.full_name
+            || u?.user?.email?.split('@')[0]
+            || uid.slice(0, 8)
+        } catch { uploaderNames[uid] = uid.slice(0, 8) }
       }))
 
       stemsContext = (stems as any[]).map(s => {
-        const n = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
-        const instr = s.instrument && s.instrument !== 'smart_bounce' ? s.instrument : null
-        const bpm   = n.bpm ? `${Math.round(n.bpm)} BPM` : null
-        const key   = n.key || null
+        const n = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
         return [
           uploaderNames[s.uploaded_by],
-          instr,
-          bpm,
-          key,
-          new Date(s.created_at).toLocaleDateString(),
+          s.instrument || 'unknown instrument',
+          n.bpm ? `${Math.round(n.bpm)} BPM` : null,
+          n.key || null,
         ].filter(Boolean).join(' · ')
       }).join('\n')
     }
@@ -73,43 +69,32 @@ assistant.post('/:projectId/chat', async (c) => {
   const { data: collabs } = await supabase
     .from('collaborators').select('user_id, role, status').eq('project_id', projectId)
   const collabsContext = (collabs ?? []).length
-    ? (collabs as any[]).map(c => `${c.role} (${c.status})`).join(', ')
+    ? (collabs as any[]).map((c: any) => `${c.role} (${c.status})`).join(', ')
     : 'No collaborators yet'
 
-  const systemPrompt = `You are the Dizko.ai studio assistant — a sharp, friendly producer's right hand. You know this project inside out and give concise, useful advice.
+  const systemPrompt = `You are the Dizko.ai studio assistant. You know this project and give sharp, concise producer advice.
 
 PROJECT: ${(proj as any).title}
 COLLABORATORS: ${collabsContext}
-
-STEMS UPLOADED:
+STEMS:
 ${stemsContext}
 
-Your job:
-- Help the team understand what's missing (no drums? say so)
-- Spot problems (BPM mismatch, too many takes of the same part)
-- Suggest next steps based on what's actually there
-- Answer questions about the project, music production, mixing, collaboration
-- Be direct. 2-3 sentences max unless asked for more. No fluff.`
+Rules: be direct, max 3 sentences unless asked for more, no fluff. If something is missing from the project, say so clearly.`
 
-  return streamSSE(c, async (stream) => {
-    const response = await anthropic.messages.stream({
+  try {
+    const message = await anthropic.messages.create({
       model:      'claude-haiku-4-5-20251001',
-      max_tokens: 600,
+      max_tokens: 500,
       system:     systemPrompt,
       messages:   [{ role: 'user', content: userMessage }],
     })
 
-    for await (const chunk of response) {
-      if (
-        chunk.type === 'content_block_delta' &&
-        chunk.delta.type === 'text_delta'
-      ) {
-        await stream.writeSSE({ data: JSON.stringify({ text: chunk.delta.text }) })
-      }
-    }
-
-    await stream.writeSSE({ data: JSON.stringify({ done: true }) })
-  })
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    return c.json({ reply: text })
+  } catch (err: any) {
+    console.error('[assistant] Claude error:', err.message)
+    return c.json({ error: 'Claude API error: ' + err.message }, 500)
+  }
 })
 
 export default assistant

@@ -4499,8 +4499,6 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     setAiInput('')
     setAiMessages(prev => [...prev, { role: 'user', text: msg }])
     setAiStreaming(true)
-
-    // Add empty assistant message we'll stream into
     setAiMessages(prev => [...prev, { role: 'assistant', text: '' }])
 
     try {
@@ -4510,37 +4508,19 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ message: msg }),
       })
-      if (!res.ok) { const j = await res.json().catch(()=>({})); throw new Error(j.error || 'Failed'); }
-
-      const reader  = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue
-          try {
-            const d = JSON.parse(line.slice(5).trim())
-            if (d.text) {
-              setAiMessages(prev => {
-                const copy = [...prev]
-                copy[copy.length - 1] = { role: 'assistant', text: copy[copy.length - 1].text + d.text }
-                return copy
-              })
-              aiEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-            }
-          } catch {}
-        }
-      }
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
+      const reply = j.reply || 'No response.'
+      setAiMessages(prev => {
+        const copy = [...prev]
+        copy[copy.length - 1] = { role: 'assistant', text: reply }
+        return copy
+      })
+      aiEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     } catch (e) {
       setAiMessages(prev => {
         const copy = [...prev]
-        copy[copy.length - 1] = { role: 'assistant', text: 'Something went wrong. Try again.' }
+        copy[copy.length - 1] = { role: 'assistant', text: `Error: ${e.message}` }
         return copy
       })
     }
