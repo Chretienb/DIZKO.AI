@@ -1694,16 +1694,17 @@ const INSTR_LIST = [
 ]
 
 function detectInstrument(filename) {
-  const f = filename.toLowerCase()
-  if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric/.test(f)) return 'vocals'
+  const f = filename.toLowerCase().replace(/[_\-\.]/g, ' ')
+  if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric|acapella|adlib/.test(f)) return 'vocals'
   if (/guitar|gtr|acoustic|electric|strat|tele|riff|chord/.test(f))     return 'guitar'
-  if (/drum|kick|snare|hihat|hi-hat|cymbal|perc|loop/.test(f))          return 'drums'
-  if (/\bbass\b|bassline|808|sub/.test(f))                               return 'bass'
-  if (/piano|keys|keyboard|organ|clav|rhodes/.test(f))                  return 'piano'
-  if (/synth|pad|lead|arp|analog|wavetable|osc/.test(f))                return 'synth'
+  if (/drum|kick|snare|hihat|hi hat|cymbal|perc|clap|tom|rimshot|one shot|oneshot|shot|sample|loop|pattern/.test(f)) return 'drums'
+  if (/\bbass\b|bassline|808|sub|low end/.test(f))                       return 'bass'
+  if (/beat|prod|instrumental|trap|drill|afro|type beat/.test(f))        return 'drums'
+  if (/piano|keys|keyboard|organ|clav|rhodes|melody/.test(f))           return 'piano'
+  if (/synth|pad|lead|arp|analog|wavetable|osc|pluck|chord/.test(f))    return 'synth'
   if (/string|violin|cello|viola|orchestra|orch/.test(f))               return 'strings'
   if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'horns'
-  return ''  // no match — let user pick
+  return ''
 }
 
 function InstrPicker({ value, onChange }) {
@@ -1728,9 +1729,17 @@ function InstrPicker({ value, onChange }) {
         <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
       </button>
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300,
-          background:'#fff', border:'1px solid rgba(0,0,0,.1)', borderRadius:10,
-          boxShadow:'0 6px 20px rgba(0,0,0,.12)', padding:4, minWidth:140 }}>
+        <div style={{ position:'fixed', zIndex:9999,
+          background:'#fff', border:'1px solid rgba(0,0,0,.12)', borderRadius:10,
+          boxShadow:'0 8px 24px rgba(0,0,0,.18)', padding:4, minWidth:150 }}
+          ref={el => {
+            if (!el || !ref.current) return
+            const btn = ref.current.querySelector('button')
+            if (!btn) return
+            const r = btn.getBoundingClientRect()
+            el.style.top  = (r.top - el.offsetHeight - 6) + 'px'
+            el.style.left = r.left + 'px'
+          }}>
           {INSTR_LIST.map(ins => (
             <button key={ins.id} onClick={() => { onChange(ins.id); setOpen(false) }}
               style={{ width:'100%', padding:'7px 10px', border:'none', borderRadius:7,
@@ -1952,8 +1961,7 @@ function ModalUpload({ project, onClose, user }) {
 
       {/* Queue */}
       {queue.length > 0 && (
-        <div style={{ marginBottom:12, maxHeight:200, overflowY:'auto',
-          borderRadius:12, border:'1px solid rgba(0,0,0,.07)', overflow:'hidden' }}>
+        <div style={{ marginBottom:12, borderRadius:12, border:'1px solid rgba(0,0,0,.07)' }}>
           {queue.map((item, i) => {
             const ext = item.file.name.split('.').pop().toUpperCase()
             const mb  = (item.file.size / 1048576).toFixed(1)
