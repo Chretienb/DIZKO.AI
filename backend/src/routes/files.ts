@@ -1,6 +1,5 @@
 import { Hono }         from 'hono'
-import { mkdir, writeFile, unlink } from 'fs/promises'
-import { spawn }        from 'child_process'
+import { writeFile, unlink } from 'fs/promises'
 import { join }         from 'path'
 import { tmpdir }       from 'os'
 import { supabase }     from '../lib/supabase'
@@ -9,18 +8,13 @@ import { sanitize }     from '../middleware/sanitize'
 import { runLocalPipeline, uploadStemsToSupabase } from '../lib/localPipeline'
 import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
+import { analyzeWavBuffer } from '../lib/audioAnalysis'
 import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
 
 const files = new Hono<{ Variables: HonoVariables }>()
 files.use('*', requireAuth)
-
-// On Railway: WORKDIR=/app, files.ts is at /app/src/routes/files.ts
-// On local:   files.ts is at backend/src/routes/files.ts
-const PROJECT_ROOT    = join(import.meta.dir, '../..')   // = /app or backend/
-const PYTHON          = process.env.PYTHON_BIN || 'python3'
-const PIPELINE_SCRIPT = join(PROJECT_ROOT, 'dizko_ai.py')
 
 // ── Detect instrument type from filename (no AI needed) ───────────────────────
 function detectInstrument(filename: string): string {
@@ -36,36 +30,7 @@ function detectInstrument(filename: string): string {
   return 'recording'
 }
 
-// ── Fast BPM + key analysis (calls dizko_ai.py analyze only, no Demucs) ──────
-function analyzeAudio(audioPath: string): Promise<{ bpm: number | null; key: string | null }> {
-  return new Promise(resolve => {
-    const code = `
-import sys, json, warnings
-warnings.filterwarnings('ignore')
-sys.path.insert(0, '${PROJECT_ROOT}')
-from dizko_ai import analyze_audio
-try:
-    r = analyze_audio('${audioPath.replace(/'/g, "\\'")}')
-    print(json.dumps({'bpm': r['bpm'], 'key': r['key_str']}))
-except Exception as e:
-    sys.stderr.write(str(e) + '\\n')
-    print(json.dumps({'bpm': None, 'key': None}))
-`.trim()
-
-    const proc = spawn(PYTHON, ['-c', code])
-    let out = ''
-    proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
-    proc.on('close', () => {
-      try {
-        const r = JSON.parse(out.trim())
-        resolve({ bpm: r.bpm ?? null, key: r.key ?? null })
-      } catch {
-        resolve({ bpm: null, key: null })
-      }
-    })
-    proc.on('error', () => resolve({ bpm: null, key: null }))
-  })
-}
+// BPM + key analysis now handled by pure TypeScript audioAnalysis.ts
 
 // ── POST /files/upload ─────────────────────────────────────────────────────────
 // Accepts any audio file, saves it to the session, analyzes BPM/key,
@@ -163,17 +128,16 @@ files.post('/upload', async (c) => {
 
   // 5. Analyze BPM/key in background, then trigger Smart Mix update
   ;(async () => {
-    const tmpDir  = join(tmpdir(), 'dizko-analysis')
-    await mkdir(tmpDir, { recursive: true })
-    const tmpPath = join(tmpDir, `${Date.now()}_${file.name}`)
-    await writeFile(tmpPath, buffer)
-
     try {
-      const { bpm, key } = await analyzeAudio(tmpPath)
+      // Pure TS BPM + key detection — works on WAV buffers, no Python needed
+      const { bpm, key } = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
+
       await supabase.from('stems').update({
         notes: JSON.stringify({ status: 'ready', type: 'take', bpm, key }),
         ...(bpm ? { suggested_name: buildSuggestedName(file.name, instrument, bpm, key) } : {}),
       }).eq('id', takeId)
+
+      console.log(`[upload] ${file.name} → BPM: ${bpm ?? 'n/a'}, Key: ${key ?? 'n/a'}`)
 
       // AI analysis — runs first so mix params are ready for Smart Mix
       await analyzeProject(projectId, user.id).catch(e =>
@@ -184,8 +148,8 @@ files.post('/upload', async (c) => {
       await runSmartBounce(projectId, user.id).catch(e =>
         console.error('[upload] smart bounce error:', e.message)
       )
-    } finally {
-      await unlink(tmpPath).catch(() => {})
+    } catch (e) {
+      console.error('[upload] background analysis error:', (e as Error).message)
     }
   })()
 
