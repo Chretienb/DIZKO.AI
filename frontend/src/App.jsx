@@ -3274,7 +3274,7 @@ function PageProjects({ openModal, refreshKey, user }) {
 }
 
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
-function PageCollaborators({ openModal, user }) {
+function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [search,        setSearch]        = useState('')
   const [roleFilter,    setRoleFilter]    = useState('All')
   const [collabs,       setCollabs]       = useState([])
@@ -3284,30 +3284,9 @@ function PageCollaborators({ openModal, user }) {
   const [removingId,    setRemovingId]    = useState(null)
   const [ownedIds,      setOwnedIds]      = useState(new Set())
   const [overview,      setOverview]      = useState({})
-  const [onlineIds,     setOnlineIds]     = useState(new Set())
-  const [accessReqs,    setAccessReqs]    = useState([])   // pending access requests for owned projects
+  const [accessReqs,    setAccessReqs]    = useState([])
   const [reviewingId,   setReviewingId]   = useState(null)
-
-  // Read the shared presence channel (broadcast happens in root App for all pages)
-  useEffect(() => {
-    if (!user?.id) return
-    // Re-use the same channel name — Supabase deduplicates by name
-    const channel = supabase.channel('presence:app', {
-      config: { presence: { key: user.id } },
-    })
-    const sync = () => setOnlineIds(new Set(Object.keys(channel.presenceState())))
-    channel
-      .on('presence', { event: 'sync' },  sync)
-      .on('presence', { event: 'join' },  sync)
-      .on('presence', { event: 'leave' }, sync)
-      .subscribe(async status => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ user_id: user.id, name: user.full_name || '', at: Date.now() })
-          sync()
-        }
-      })
-    return () => { supabase.removeChannel(channel) }
-  }, [user?.id])
+  // onlineIds comes from root App via prop — no local channel needed
 
   const removeCollab = async (collabId) => {
     if (!confirm('Remove this collaborator from the project?')) return
@@ -6089,23 +6068,22 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
 
-  // ── Global presence broadcast — runs for every logged-in user on every page ──
-  // This is what makes "Online Now" work: every user tracks themselves here,
-  // not just users who happen to be on the Collaborators page.
+  // ── Global presence — single channel owned here, onlineIds passed as prop ──
+  const [onlineIds, setOnlineIds] = React.useState(new Set())
   React.useEffect(() => {
     if (!user?.id) return
     const channel = supabase.channel('presence:app', {
       config: { presence: { key: user.id } },
     })
+    const sync = () => setOnlineIds(new Set(Object.keys(channel.presenceState())))
     channel
-      .on('presence', { event: 'sync' }, () => {})   // PageCollaborators reads this channel too
+      .on('presence', { event: 'sync' },  sync)
+      .on('presence', { event: 'join' },  sync)
+      .on('presence', { event: 'leave' }, sync)
       .subscribe(async status => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({
-            user_id:  user.id,
-            name:     user.full_name || user.email || '',
-            at:       Date.now(),
-          })
+          await channel.track({ user_id: user.id, name: user.full_name || user.email || '', at: Date.now() })
+          sync()
         }
       })
     return () => { supabase.removeChannel(channel) }
@@ -6291,7 +6269,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/"              element={<PageDashboard playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} user={user} />} />
             <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} />} />
+            <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} onlineIds={onlineIds} />} />
             <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} user={user} />} />
             <Route path="/analytics"     element={<PageAnalytics />} />
             <Route path="/distribution"  element={<PageDistribution openModal={openModal} />} />
