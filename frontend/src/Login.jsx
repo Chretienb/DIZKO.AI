@@ -3,7 +3,7 @@ import logo   from './assets/logo.png'
 import studio from './assets/studio2.png'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { supabase } from './lib/supabase'
-import { useIsMobile } from './App'
+import { useIsMobile } from './lib/mobile'
 
 const C = {
   coral: '#F4937A', rose: '#E8709A', amber: '#F5C97A', pink: '#F28FB8',

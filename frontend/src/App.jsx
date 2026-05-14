@@ -37,16 +37,7 @@ export class ErrorBoundary extends React.Component {
 }
 
 // ── Mobile breakpoint context ─────────────────────────────────────────────────
-const MobileCtx = React.createContext(false)
-export function useIsMobile() {
-  const [w, setW] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth : 1200)
-  React.useEffect(() => {
-    const h = () => setW(window.innerWidth)
-    window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
-  }, [])
-  return w < 768
-}
+export { MobileCtx, useIsMobile } from './lib/mobile'
 
 // ── Auth token helper — single source of truth ────────────────────────────────
 const getToken = () => localStorage.getItem('disco_token') || ''
@@ -69,6 +60,7 @@ function useConfirm() {
 }
 import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch } from './lib/api'
 import { supabase } from './lib/supabase'
+import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
 // Module-level cache: url → ArrayBuffer
