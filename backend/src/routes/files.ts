@@ -1,11 +1,8 @@
 import { Hono }         from 'hono'
-import { writeFile, unlink } from 'fs/promises'
-import { join }         from 'path'
-import { tmpdir }       from 'os'
 import { supabase }     from '../lib/supabase'
 import { requireAuth }  from '../middleware/auth'
 import { sanitize }     from '../middleware/sanitize'
-import { runLocalPipeline, uploadStemsToSupabase } from '../lib/localPipeline'
+import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
 import { analyzeWavBuffer } from '../lib/audioAnalysis'
@@ -179,8 +176,8 @@ function buildSuggestedName(
 }
 
 // ── POST /files/:id/separate-stems ────────────────────────────────────────────
-// OPTIONAL utility — user-triggered stem separation via Demucs.
-// Only runs when explicitly requested, never automatically.
+// User-triggered stem separation via Replicate's hosted Demucs GPU.
+// Passes the file's public URL directly — no local download needed.
 files.post('/:id/separate-stems', async (c) => {
   const user   = c.var.user
   const takeId = c.req.param('id')
@@ -190,57 +187,75 @@ files.post('/:id/separate-stems', async (c) => {
 
   if (fetchErr || !take) return c.json({ data: null, error: 'Take not found', status: 404 }, 404)
 
-  const t = take as any
+  const t     = take as any
+  const notes = JSON.parse(t.notes || '{}')
+  const bpm   = notes.bpm ?? null
+  const key   = notes.key ?? null
+
+  const { data: track } = await supabase.from('tracks').select('project_id').eq('id', t.track_id).single()
+  const projectId = (track as any)?.project_id
 
   // Mark as separating
   await supabase.from('stems').update({
-    notes: JSON.stringify({ ...JSON.parse(t.notes || '{}'), separating: true }),
+    notes: JSON.stringify({ ...notes, separating: true }),
   }).eq('id', takeId)
 
-  // Download from Supabase Storage to a temp file
-  const tmpDir  = join(tmpdir(), 'dizko-separation')
-  await mkdir(tmpDir, { recursive: true })
-  const ext     = t.original_name.split('.').pop() || 'wav'
-  const tmpPath = join(tmpDir, `${Date.now()}_${t.original_name}`)
+  // Kick off Replicate prediction — passes the public Supabase URL directly (no local download)
+  const predictionId = await startStemSeparation(t.file_url)
+  if (!predictionId) {
+    await supabase.from('stems').update({
+      notes: JSON.stringify({ ...notes, error: 'Failed to start Replicate prediction' }),
+    }).eq('id', takeId)
+    return c.json({ data: null, error: 'Failed to start stem separation', status: 500 }, 500)
+  }
 
-  const res = await fetch(t.file_url)
-  if (!res.ok) return c.json({ data: null, error: 'Could not download audio', status: 500 }, 500)
-  await writeFile(tmpPath, Buffer.from(await res.arrayBuffer()))
+  // Poll Replicate in the background — onComplete fires when GPU is done (~30–90 s)
+  pollStemSeparation(predictionId, async (stemUrls) => {
+    const stemTypes = ['vocals', 'drums', 'bass', 'other'] as const
+    let count = 0
 
-  // Get project info
-  const { data: track } = await supabase.from('tracks').select('project_id').eq('id', t.track_id).single()
-  const projectId = (track as any)?.project_id
-  const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
-  const projectName = (proj as any)?.title ?? 'Project'
+    for (const type of stemTypes) {
+      const url = stemUrls[type]
+      if (!url) continue
+      try {
+        const res = await fetch(url)
+        if (!res.ok) continue
+        const buf         = Buffer.from(await res.arrayBuffer())
+        const filename    = `${type}_${takeId}.wav`
+        const storagePath = `stems/${user.id}/${projectId}/${filename}`
 
-  runLocalPipeline({
-    audioPath:   tmpPath,
-    projectName,
-    artistName:  user.email?.split('@')[0] ?? 'Artist',
-    trackNumber: 1,
-    takeNumber:  1,
-    onComplete: async ({ stems, bpm, key }) => {
-      await uploadStemsToSupabase({
-        stems,
-        trackId: t.track_id,
-        userId:  user.id,
-        projectId,
-        parentId: takeId,
-        bpm,
-        key,
-      })
-      await supabase.from('stems').update({
-        notes: JSON.stringify({ status: 'ready', type: 'take', bpm, key, separated: true, stem_count: stems.length }),
-      }).eq('id', takeId)
-      await unlink(tmpPath).catch(() => {})
-    },
-    onError: async (err) => {
-      console.error('[separate-stems] error:', err.message)
-      await supabase.from('stems').update({
-        notes: JSON.stringify({ status: 'ready', type: 'take', error: err.message }),
-      }).eq('id', takeId)
-      await unlink(tmpPath).catch(() => {})
-    },
+        const { error: upErr } = await supabase.storage
+          .from('stems').upload(storagePath, buf, { contentType: 'audio/wav', upsert: true })
+        if (upErr) { console.error(`[replicate] upload failed for ${type}:`, upErr.message); continue }
+
+        const { data: { publicUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
+        const suggestedName = [
+          type.charAt(0).toUpperCase() + type.slice(1),
+          bpm ? `${Math.round(bpm)} BPM` : null,
+          key  ? key : null,
+        ].filter(Boolean).join(' · ')
+
+        await supabase.from('stems').insert({
+          track_id:       t.track_id,
+          original_name:  filename,
+          suggested_name: suggestedName,
+          file_url:       publicUrl,
+          storage_path:   storagePath,
+          file_size:      buf.length,
+          mime_type:      'audio/wav',
+          instrument:     type,
+          notes:          JSON.stringify({ parent_stem_id: takeId, stem_type: type, bpm, key }),
+          uploaded_by:    user.id,
+        })
+        count++
+      } catch (e) {
+        console.error(`[replicate] error processing ${type}:`, (e as Error).message)
+      }
+    }
+
+    await supabase.from('stems').update({
+      notes: JSON.stringify({ status: 'ready', type: 'take', bpm, key, separated: true, stem_count: count }),
+    }).eq('id', takeId)
   })
 
   return c.json({

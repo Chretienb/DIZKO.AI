@@ -7,7 +7,7 @@
  */
 
 const REPLICATE_API   = 'https://api.replicate.com/v1'
-const DEMUCS_VERSION  = 'cd128044253523a545df30c4f16e50ab4a52e95b785ccb7ed55abc1ffbd0e3e2' // dango233/demucs
+const DEMUCS_VERSION  = '5a7041cc9b82e5a558fea6b3d7b12dea89625e89da33f0447bd727c2d0ab9e77' // ryan5453/demucs
 
 export interface StemResult {
   vocals?: string
@@ -29,7 +29,7 @@ export async function startStemSeparation(audioUrl: string): Promise<string | nu
     },
     body: JSON.stringify({
       version: DEMUCS_VERSION,
-      input:   { audio: audioUrl, stems: 'htdemucs' },
+      input:   { audio: audioUrl, model: 'htdemucs', output_format: 'wav' },
     }),
   })
 

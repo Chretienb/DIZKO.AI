@@ -9,6 +9,7 @@ import Welcome       from './Welcome.jsx'
 import ResetPassword from './ResetPassword.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
+import { supabase } from './lib/supabase'
 
 const TOKEN_KEY  = 'disco_token'
 const AVATAR_KEY = 'disco_avatar_url'   // consistent key — was 'dizko_avatar_url' (typo)
@@ -37,6 +38,55 @@ function RequireAuth({ children }) {
 
 function RequireGuest({ children }) {
   return userFromToken() ? <Navigate to="/" replace /> : children
+}
+
+// ── OAuth callback — handles Spotify (and any future OAuth) redirect ────────
+function OAuthCallback({ onLogin }) {
+  const navigate = useNavigate()
+  const [status, setStatus] = useState('Finishing sign-in…')
+
+  useEffect(() => {
+    // Supabase with detectSessionInUrl:true automatically processes the URL
+    // hash/fragment that Spotify returns. We just need to read the session.
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error || !session) {
+        setStatus('Sign-in failed — redirecting…')
+        setTimeout(() => navigate('/login'), 2000)
+        return
+      }
+
+      // Store tokens exactly like email/password login does
+      setToken(session.access_token)
+      setRefreshToken(session.refresh_token)
+
+      const u = session.user
+      const fullName = u.user_metadata?.full_name
+        || u.user_metadata?.name          // Spotify sends "name"
+        || u.email?.split('@')[0]
+        || ''
+
+      onLogin(fullName, false, {
+        id:         u.id,
+        email:      u.email ?? '',
+        full_name:  fullName,
+        avatar_url: u.user_metadata?.avatar_url ?? u.user_metadata?.picture ?? null,
+      })
+
+      navigate('/', { replace: true })
+    })
+  }, [])
+
+  return (
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center', gap:16,
+      fontFamily:"-apple-system,BlinkMacSystemFont,'Inter',sans-serif",
+      background:'#fafafa' }}>
+      <svg width={40} height={40} viewBox="0 0 24 24" fill="#1DB954">
+        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+      </svg>
+      <p style={{ fontSize:15, fontWeight:600, color:'#555', margin:0 }}>{status}</p>
+    </div>
+  )
 }
 
 // ── Welcome wrapper (needs navigate) ────────────────────────────────────────
@@ -82,6 +132,7 @@ function Root() {
           <Login onLogin={handleLogin} />
         </RequireGuest>
       } />
+      <Route path="/auth/callback" element={<OAuthCallback onLogin={handleLogin} />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />

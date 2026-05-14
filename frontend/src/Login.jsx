@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import logo   from './assets/logo.png'
 import studio from './assets/studio2.png'
 import { auth, setToken, setRefreshToken } from './lib/api'
+import { supabase } from './lib/supabase'
+import { useIsMobile } from './App'
 
 const C = {
   coral: '#F4937A', rose: '#E8709A', amber: '#F5C97A', pink: '#F28FB8',
@@ -51,14 +53,24 @@ const SOCIALS = [
 ]
 
 export default function Login({ onLogin }) {
+  const isMobile = useIsMobile()
   const [tab, setTab]              = useState('signin')  // 'signin' | 'signup' | 'forgot' | 'forgot-sent'
   const [name, setName]            = useState('')
   const [email, setEmail]          = useState('')
   const [password, setPass]        = useState('')
+  const [showPass, setShowPass]    = useState(false)
   const [focus, setFocus]          = useState('')
   const [loading, setLoading]      = useState(false)
   const [socialLoading, setSocial] = useState(null)
   const [error, setError]          = useState('')
+  const [sessionExpired, setExpired] = useState(false)
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('expired') === '1') {
+      setExpired(true)
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [])
 
   const submit = async e => {
     e.preventDefault()
@@ -91,9 +103,22 @@ export default function Login({ onLogin }) {
     }
   }
 
-  const socialLogin = id => {
-    setSocial(id)
-    setTimeout(() => { setSocial(null) }, 1200)
+  const socialLogin = async id => {
+    if (id !== 'spotify') return
+    setSocial('spotify')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'spotify',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: 'user-read-email user-read-private',
+        },
+      })
+      if (error) throw error
+    } catch (err) {
+      setError(err.message || 'Spotify login failed')
+      setSocial(null)
+    }
   }
 
   const field = (id, type, placeholder, val, set) => (
@@ -114,148 +139,124 @@ export default function Login({ onLogin }) {
       WebkitFontSmoothing:'antialiased' }}>
 
       {/* ══ LEFT — studio photo ══ */}
-      <div style={{ width:'52%', flexShrink:0, position:'relative', overflow:'hidden' }}>
+      <div style={{ width: isMobile ? 0 : '52%', flexShrink:0, position:'relative', overflow:'hidden', display: isMobile ? 'none' : 'flex', flexDirection:'column' }}>
 
-        {/* Full-bleed studio photo */}
+        {/* Photo + layered overlays */}
         <img src={studio} alt="" style={{ position:'absolute', inset:0,
-          width:'100%', height:'100%', objectFit:'cover', objectPosition:'center' }} />
-
-        {/* Gradient overlay — light at top, heavy at bottom for legibility */}
+          width:'100%', height:'100%', objectFit:'cover', objectPosition:'center' }}/>
         <div style={{ position:'absolute', inset:0,
-          background:'linear-gradient(to bottom,rgba(0,0,0,.18) 0%,rgba(0,0,0,.55) 55%,rgba(0,0,0,.92) 100%)' }} />
+          background:'linear-gradient(160deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.55) 40%, rgba(0,0,0,.92) 100%)' }}/>
+        {/* Coral glow */}
+        <div style={{ position:'absolute', bottom:'-10%', right:'-5%', width:360, height:360,
+          borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}20 0%, transparent 65%)`,
+          pointerEvents:'none' }}/>
 
-        {/* Logo — top left */}
-        <div style={{ position:'absolute', top:28, left:32, zIndex:2,
-          display:'flex', alignItems:'center', gap:10 }}>
-          <img src={logo} alt="" style={{ width:52, height:52, borderRadius:14, objectFit:'cover' }} />
-          <span style={{ fontSize:19, fontWeight:800, color:'#fff', letterSpacing:'-.5px' }}>
-            Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-          </span>
+        {/* Top bar */}
+        <div style={{ position:'relative', zIndex:2, padding:'30px 36px',
+          display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <img src={logo} alt="" style={{ width:56, height:56, borderRadius:16, objectFit:'cover', boxShadow:'0 4px 18px rgba(0,0,0,.4)' }}/>
+            <span style={{ fontSize:24, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>
+              Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+            </span>
+          </div>
         </div>
 
-        {/* Bottom content */}
-        <div style={{ position:'absolute', bottom:0, left:0, right:0, zIndex:2, padding:'0 44px 44px' }}>
-          <h1 style={{ margin:'0 0 12px', fontSize:36, fontWeight:900, color:'#fff',
-            letterSpacing:'-1.5px', lineHeight:1.12 }}>
-            You create.<br/>
-            <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-              We handle the rest.
-            </span>
-          </h1>
-          <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.5)', lineHeight:1.65, maxWidth:380 }}>
-            Dizko.ai organizes every stem, detects BPM conflicts, mixes your tracks with AI, and exports them straight to your DAW — so your team stays focused on the music.
-          </p>
+        {/* Main content — fills remaining space */}
+        <div style={{ position:'relative', zIndex:2, flex:1, display:'flex', flexDirection:'column',
+          justifyContent:'flex-end', padding:'0 36px 36px' }}>
 
-          {/* AI features row */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
-            {[
-              { icon:'M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z', label:'Auto-organizes stems', sub:'every upload, instantly' },
-              { icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', label:'AI mixes your tracks', sub:'volume, EQ, compression' },
-              { icon:'M22 12h-4l-3 9L9 3l-3 9H2', label:'BPM & key conflict alerts', sub:'catches clashes before you do' },
-              { icon:'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12', label:'Export to any DAW', sub:'Ableton, Logic, FL Studio…' },
-            ].map(f => (
-              <div key={f.label} style={{ display:'flex', alignItems:'flex-start', gap:9,
-                padding:'10px 12px', borderRadius:12,
-                background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)',
-                backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}>
-                <div style={{ width:26, height:26, borderRadius:7, flexShrink:0,
-                  background:'rgba(244,147,122,.15)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d={f.icon}/>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize:11.5, fontWeight:700, color:'rgba(255,255,255,.85)', lineHeight:1.3 }}>{f.label}</div>
-                  <div style={{ fontSize:10.5, color:'rgba(255,255,255,.38)', marginTop:1 }}>{f.sub}</div>
-                </div>
-              </div>
-            ))}
+          {/* Headline */}
+          <div style={{ marginBottom:28 }}>
+            <h1 style={{ margin:'0 0 14px', fontSize:44, fontWeight:900, color:'#fff',
+              letterSpacing:'-2px', lineHeight:1.08 }}>
+              You create.
+              <br/>
+              <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                We handle
+              </span>
+              <br/>
+              <span style={{ color:'rgba(255,255,255,.9)' }}>the rest.</span>
+            </h1>
+            <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:340,
+              textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
+              Stems organized, BPM conflicts caught, AI mixing done — all automatically. Your team just plays.
+            </p>
           </div>
 
-          {/* DAW Integration strip */}
-          <div style={{ background:'rgba(0,0,0,.42)', backdropFilter:'blur(16px)',
-            WebkitBackdropFilter:'blur(16px)', borderRadius:16,
-            border:'1px solid rgba(255,255,255,.1)', padding:'16px 20px' }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'1.5px',
-              textTransform:'uppercase', color:'rgba(255,255,255,.35)', marginBottom:14 }}>
-              Opens directly in your DAW
+
+          {/* DAW logos */}
+          <div style={{ background:'rgba(0,0,0,.5)', backdropFilter:'blur(20px)',
+            WebkitBackdropFilter:'blur(20px)', borderRadius:16,
+            border:'1px solid rgba(255,255,255,.08)', padding:'14px 18px' }}>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em',
+              textTransform:'uppercase', color:'rgba(255,255,255,.25)', marginBottom:14 }}>
+              Works with your DAW
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:18, flexWrap:'wrap' }}>
 
-              {/* Ableton Live */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <rect x="3" y="4"  width="4" height="24" rx="1.5" fill="#FF7A1A"/>
-                  <rect x="10" y="4" width="4" height="24" rx="1.5" fill="#FF7A1A"/>
-                  <rect x="17" y="11" width="4" height="5"  rx="1.5" fill="#FF7A1A"/>
-                  <rect x="17" y="16" width="4" height="12" rx="1.5" fill="rgba(255,122,26,.3)"/>
-                  <rect x="24" y="11" width="4" height="17" rx="1.5" fill="#FF7A1A"/>
+              {/* Ableton — session-view grid mark */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                  {/* Ableton's iconic session/clip-launcher grid */}
+                  {[0,7,14].map(x =>
+                    [0,7,14].map(y => (
+                      <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1}
+                        fill={x===14&&y===14 ? 'rgba(255,255,255,.25)' : '#fff'}
+                        opacity={x===14&&y===14 ? 1 : x===14||y===14 ? 0.45 : 0.85}/>
+                    ))
+                  )}
                 </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Ableton Live</span>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Ableton</span>
               </div>
 
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
 
-              {/* Logic Pro */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="11" stroke="#5AC8FA" strokeWidth="2" fill="none"/>
-                  <circle cx="16" cy="16" r="3.5" fill="#5AC8FA"/>
-                  <line x1="16" y1="5"  x2="16" y2="9"  stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="16" y1="23" x2="16" y2="27" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="5"  y1="16" x2="9"  y2="16" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="23" y1="16" x2="27" y2="16" stroke="#5AC8FA" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Logic Pro</span>
+              {/* Logic Pro — Apple (verified ✓) */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <img src="https://cdn.simpleicons.org/apple/ffffff" width={18} height={18} alt="Logic Pro" style={{ opacity:.8 }}/>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Logic Pro</span>
               </div>
 
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
 
-              {/* FL Studio */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <path d="M16 3L27 16L16 29L5 16Z" stroke="#FF8C00" strokeWidth="2" fill="none" strokeLinejoin="round"/>
-                  <circle cx="16" cy="16" r="4" fill="#FF8C00"/>
-                  <circle cx="16" cy="8"  r="2" fill="#FF8C00"/>
+              {/* FL Studio — fruity orange diamond */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                  {/* FL Studio's diamond/rhombus shape */}
+                  <path d="M10 1L19 10L10 19L1 10Z" fill="#FF8C00"/>
+                  <path d="M10 4L16 10L10 16L4 10Z" fill="#FFA500"/>
+                  {/* F letter */}
+                  <rect x="7" y="7" width="6" height="1.5" rx=".5" fill="#fff"/>
+                  <rect x="7" y="9.5" width="4" height="1.5" rx=".5" fill="#fff"/>
+                  <rect x="7" y="12" width="6" height="1.5" rx=".5" fill="#fff"/>
+                  <rect x="7" y="7" width="1.5" height="6.5" rx=".5" fill="#fff"/>
                 </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>FL Studio</span>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>FL Studio</span>
               </div>
 
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
 
-              {/* Pro Tools */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <rect x="4" y="9"  width="20" height="2.5" rx="1.25" fill="#00C5A2"/>
-                  <rect x="4" y="15" width="14" height="2.5" rx="1.25" fill="#00C5A2"/>
-                  <rect x="4" y="21" width="17" height="2.5" rx="1.25" fill="#00C5A2"/>
-                  <circle cx="26" cy="22.25" r="4" fill="#00C5A2"/>
-                  <polygon points="24.8,20.5 27.8,22.25 24.8,24" fill="#0A0A12"/>
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Pro Tools</span>
+              {/* Pro Tools — verified ✓ SimpleIcons */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <img src="https://cdn.simpleicons.org/protools/ffffff" width={20} height={20} alt="Pro Tools" style={{ opacity:.8 }}/>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Pro Tools</span>
               </div>
 
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
 
-              {/* GarageBand */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <path d="M10 23Q10 10 16 7Q22 10 22 23" stroke="#F5A623" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-                  <rect x="13" y="20" width="6" height="6" rx="1.5" fill="#F5A623"/>
-                  <rect x="14.5" y="18" width="3" height="3.5" rx="1" fill="#F5A623"/>
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>GarageBand</span>
+              {/* GarageBand — Apple (verified ✓) */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <img src="https://cdn.simpleicons.org/apple/F7931E" width={18} height={18} alt="GarageBand" style={{ opacity:.8 }}/>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>GarageBand</span>
               </div>
 
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,.12)' }}/>
+              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
 
-              {/* Cubase */}
-              <div style={{ display:'flex', alignItems:'center', gap:7, opacity:.85 }}>
-                <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
-                  <path d="M22 10A10 10 0 1 0 22 22" stroke="#C8A0E8" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-                  <circle cx="16" cy="16" r="3.5" fill="#C8A0E8"/>
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.75)', letterSpacing:'-.2px' }}>Cubase</span>
+              {/* Cubase — Steinberg (verified ✓) */}
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <img src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={20} height={20} alt="Cubase" style={{ opacity:.85 }}/>
+                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Cubase</span>
               </div>
 
             </div>
@@ -263,161 +264,261 @@ export default function Login({ onLogin }) {
         </div>
       </div>
 
-      {/* ══ RIGHT — sign in / sign up ══ */}
-      <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center',
-        justifyContent:'center', padding:'40px 48px', overflowY:'auto' }}>
-        <div style={{ width:'100%', maxWidth:380 }}>
+      {/* ══ RIGHT — dark auth panel ══ */}
+      <div style={{ flex:1, width: isMobile ? '100%' : undefined, background:'#0a0a0f', display:'flex', flexDirection:'column',
+        position:'relative', overflow:'hidden' }}>
 
-          {/* Header */}
-          <div style={{ marginBottom:28 }}>
-            <h2 style={{ margin:'0 0 7px', fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.1px' }}>
-              {tab === 'signin'      ? 'Welcome back.'        :
-               tab === 'signup'     ? 'Get started.'         :
-               tab === 'forgot'     ? 'Reset password.'      :
-                                      'Check your inbox.'}
-            </h2>
-            <p style={{ margin:0, fontSize:13.5, color:'#aaa', lineHeight:1.5 }}>
-              {tab === 'signin'      ? 'Sign in to your workspace.'             :
-               tab === 'signup'     ? 'Create your free account in seconds.'   :
-               tab === 'forgot'     ? "Enter your email and we'll send a link." :
-                                      `We sent a reset link to ${email || 'your email'}.`}
-            </p>
-          </div>
+        {/* Ambient glow blobs */}
+        <div style={{ position:'absolute', top:'-10%', right:'-5%', width:400, height:400,
+          borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}18 0%, transparent 65%)`,
+          pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', bottom:'-5%', left:'10%', width:320, height:320,
+          borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,.12) 0%, transparent 65%)',
+          pointerEvents:'none' }}/>
 
-          {/* Tab toggle — hidden on forgot screens */}
-          {(tab === 'forgot' || tab === 'forgot-sent') && (
-            <button onClick={() => { setTab('signin'); setError('') }}
-              style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
-                color:'#aaa', fontSize:13, cursor:'pointer', marginBottom:24, padding:0 }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
-              Back to sign in
-            </button>
-          )}
-          <div style={{ display:'flex', background:'#f2f2f2', borderRadius:10, padding:3, marginBottom:24,
-            ...(tab === 'forgot' || tab === 'forgot-sent' ? { display:'none' } : {}) }}>
-            {[['signin','Sign in'],['signup','Create account']].map(([t, label]) => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                flex:1, padding:'8px 12px', borderRadius:8, border:'none', cursor:'pointer',
-                fontSize:12.5, fontWeight:600, transition:'all .18s',
-                background: tab===t ? '#fff' : 'transparent',
-                color: tab===t ? '#111' : '#aaa',
-                boxShadow: tab===t ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
-              }}>{label}</button>
-            ))}
-          </div>
-
-          {/* Divider — hidden on forgot screens */}
+        {/* Top bar */}
+        <div style={{ padding: isMobile ? '20px 24px' : '28px 40px', display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0 }}>
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:22 }}>
-              <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
-              <span style={{ fontSize:11, color:'#ccc', fontWeight:500, letterSpacing:'.5px' }}>
-                {tab === 'signin' ? 'SIGN IN WITH EMAIL' : 'CREATE ACCOUNT'}
-              </span>
-              <div style={{ flex:1, height:1, background:'rgba(0,0,0,.07)' }} />
+            <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.06)', borderRadius:10, padding:3 }}>
+              {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
+                <button key={t} onClick={() => { setTab(t); setError('') }} style={{
+                  padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
+                  fontSize:12, fontWeight:600, transition:'all .18s',
+                  background: tab===t ? 'rgba(255,255,255,.12)' : 'transparent',
+                  color: tab===t ? '#fff' : 'rgba(255,255,255,.35)',
+                }}>{label}</button>
+              ))}
             </div>
           )}
+        </div>
 
-          {/* Email / password form — or forgot-sent confirmation */}
-          {tab === 'forgot-sent' ? (
-            <div>
-              <div style={{ padding:'20px 18px', borderRadius:14,
-                background:'rgba(34,197,94,.06)', border:'1px solid rgba(34,197,94,.2)',
-                marginBottom:20, display:'flex', alignItems:'flex-start', gap:12 }}>
-                <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, marginTop:1 }}>
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.09a16 16 0 006 6l.41-.41a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-                </svg>
-                <div>
-                  <div style={{ fontSize:13.5, fontWeight:700, color:'#15803d', marginBottom:4 }}>
-                    Reset link sent
-                  </div>
-                  <div style={{ fontSize:12.5, color:'#16a34a', lineHeight:1.55 }}>
-                    Check your inbox at <strong>{email}</strong> and click the link to set a new password. The link expires in 1 hour.
-                  </div>
+        {/* Main content — vertically centered */}
+        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding: isMobile ? '0 24px 32px' : '0 40px 40px' }}>
+          <div style={{ width:'100%', maxWidth:400 }}>
+
+            {/* Session expired */}
+            {sessionExpired && (
+              <div style={{ padding:'10px 16px', borderRadius:10, marginBottom:24,
+                background:'rgba(245,201,122,.1)', border:'1px solid rgba(245,201,122,.25)',
+                fontSize:13, color:'#f5c97a', lineHeight:1.45 }}>
+                Your session expired — please sign in again.
+              </div>
+            )}
+
+            {/* Heading */}
+            {tab !== 'forgot' && tab !== 'forgot-sent' ? (
+              <div style={{ marginBottom:36 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.coral, textTransform:'uppercase',
+                  letterSpacing:'.14em', marginBottom:14 }}>
+                  {tab === 'signin' ? '— Welcome back' : '— Create account'}
                 </div>
+                <h2 style={{ margin:0, fontSize:52, fontWeight:900, lineHeight:1.02, letterSpacing:'-2.5px',
+                  color:'#fff' }}>
+                  {tab === 'signin'
+                    ? <><span style={{ display:'block' }}>Your music</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>awaits.</span></>
+                    : <><span style={{ display:'block' }}>Start your</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>session.</span></>
+                  }
+                </h2>
               </div>
-              <button onClick={() => { setTab('signin'); setError('') }} style={{
-                width:'100%', padding:'13px', borderRadius:12, border:`1.5px solid rgba(0,0,0,.1)`,
-                background:'transparent', color:'#555', fontSize:14, fontWeight:600,
-                cursor:'pointer' }}>
-                Back to sign in
-              </button>
-              <p style={{ textAlign:'center', fontSize:12, color:'#bbb', marginTop:14 }}>
-                Didn't get it?{' '}
-                <button onClick={() => { setTab('forgot'); setError('') }}
-                  style={{ background:'none', border:'none', fontSize:12, color:C.coral,
-                    fontWeight:600, cursor:'pointer', padding:0 }}>
-                  Resend
-                </button>
-              </p>
-            </div>
-          ) : (
-          <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {tab === 'signup' && field('name','text','Full name', name, setName)}
-            {field('email','email','Email address', email, setEmail)}
-            {tab !== 'forgot' && field('pw','password','Password', password, setPass)}
-
-            {tab === 'signin' && (
-              <div style={{ textAlign:'right', marginTop:-4 }}>
-                <button type="button"
-                  onClick={() => { setTab('forgot'); setError('') }}
-                  style={{ background:'none', border:'none', fontSize:12,
-                    color:C.coral, fontWeight:600, cursor:'pointer', padding:0 }}>
-                  Forgot password?
-                </button>
+            ) : (
+              <div style={{ marginBottom:32 }}>
+                {tab === 'forgot-sent' ? null : (
+                  <button onClick={() => { setTab('signin'); setError('') }}
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
+                      color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', marginBottom:20, padding:0 }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                    Back
+                  </button>
+                )}
+                <h2 style={{ margin:'0 0 8px', fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1.5px' }}>
+                  {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
+                </h2>
+                <p style={{ margin:0, fontSize:14, color:'rgba(255,255,255,.35)', lineHeight:1.6 }}>
+                  {tab === 'forgot'
+                    ? "Enter your email and we'll send a reset link."
+                    : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
+                </p>
               </div>
             )}
 
-            {error && (
-              <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(239,68,68,.07)',
-                border:'1px solid rgba(239,68,68,.18)', fontSize:13, color:'#ef4444', lineHeight:1.4 }}>
-                {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={loading || !!socialLoading} style={{
-              marginTop:2, width:'100%', padding:'14px', borderRadius:12, border:'none',
-              background: loading ? '#f0f0f0' : C.grad,
-              color: loading ? '#bbb' : '#fff', fontSize:14, fontWeight:700,
-              cursor: loading ? 'default' : 'pointer', letterSpacing:'-.2px',
-              boxShadow: loading ? 'none' : `0 4px 20px ${C.coral}45`,
-              transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-              opacity: socialLoading ? 0.4 : 1 }}>
-              {loading
-                ? <><svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#bbb"
-                    strokeWidth={2.5} strokeLinecap="round"
-                    style={{ animation:'spin .9s linear infinite' }}>
+            {/* Spotify — primary for sign in/sign up */}
+            {tab !== 'forgot' && tab !== 'forgot-sent' && (
+              <button type="button" onClick={() => socialLogin('spotify')}
+                disabled={!!socialLoading || loading}
+                style={{ width:'100%', padding:'15px 20px', borderRadius:14,
+                  background: socialLoading === 'spotify' ? '#1a3d22' : '#1DB954',
+                  border:'none', color:'#fff', fontSize:15, fontWeight:800,
+                  cursor: socialLoading ? 'default' : 'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:11,
+                  boxShadow: socialLoading ? 'none' : '0 6px 28px rgba(29,185,84,.35)',
+                  transition:'all .2s', marginBottom:20,
+                  opacity: loading ? 0.4 : 1 }}>
+                {socialLoading === 'spotify' ? (
+                  <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
                     <path d="M12 3a9 9 0 019 9"/>
                   </svg>
-                  {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating account…'}</>
-                : tab === 'forgot' ? 'Send reset link →'
-                : tab === 'signin' ? 'Sign in →'
-                : 'Create account →'}
-            </button>
-          </form>
-          )}
+                ) : (
+                  <svg width={20} height={20} viewBox="0 0 24 24" fill="#fff">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                )}
+                {socialLoading === 'spotify' ? 'Opening Spotify…' : 'Continue with Spotify'}
+              </button>
+            )}
 
-          <p style={{ margin:'18px 0 0', textAlign:'center', fontSize:13, color:'#bbb' }}>
-            {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-            <button onClick={() => setTab(tab === 'signin' ? 'signup' : 'signin')}
-              style={{ background:'none', border:'none', fontSize:13,
-                color:C.coral, fontWeight:700, cursor:'pointer', padding:0 }}>
-              {tab === 'signin' ? 'Sign up free' : 'Sign in'}
-            </button>
-          </p>
+            {/* Divider */}
+            {tab !== 'forgot' && tab !== 'forgot-sent' && (
+              <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20 }}>
+                <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }}/>
+                <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.2)', letterSpacing:'.08em' }}>
+                  or with email
+                </span>
+                <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }}/>
+              </div>
+            )}
 
-          <p style={{ margin:'28px 0 0', textAlign:'center', fontSize:11, color:'#ddd' }}>
-            <span style={{ cursor:'pointer' }}>Privacy Policy</span>
-            {' · '}
-            <span style={{ cursor:'pointer' }}>Terms</span>
-            {' · '}
-            <span style={{ cursor:'pointer' }}>Help</span>
-          </p>
+            {/* Forgot sent */}
+            {tab === 'forgot-sent' ? (
+              <div style={{ background:'rgba(34,197,94,.08)', border:'1px solid rgba(34,197,94,.2)',
+                borderRadius:14, padding:'20px', marginBottom:20 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:'#4ade80', marginBottom:6 }}>Link sent ✓</div>
+                <div style={{ fontSize:13, color:'rgba(74,222,128,.7)', lineHeight:1.6 }}>
+                  Check your inbox at <strong style={{ color:'#4ade80' }}>{email}</strong>. The link expires in 1 hour.
+                </div>
+                <button onClick={() => { setTab('signin'); setError('') }}
+                  style={{ marginTop:14, background:'none', border:'1px solid rgba(255,255,255,.12)',
+                    borderRadius:9, padding:'8px 16px', color:'rgba(255,255,255,.5)',
+                    fontSize:12, fontWeight:600, cursor:'pointer', width:'100%' }}>
+                  Back to sign in
+                </button>
+                <button onClick={() => { setTab('forgot'); setError('') }}
+                  style={{ marginTop:8, background:'none', border:'none', color:'rgba(255,255,255,.2)',
+                    fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
+                  Resend
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {tab === 'signup' && (
+                  <input type="text" placeholder="Full name" value={name}
+                    onChange={e => setName(e.target.value)} required
+                    style={{ width:'100%', padding:'13px 16px', fontSize:14, borderRadius:12,
+                      border:`1.5px solid ${focus==='name' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
+                      background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
+                      boxSizing:'border-box', transition:'border-color .18s' }}
+                    onFocus={() => setFocus('name')} onBlur={() => setFocus('')}/>
+                )}
+                <input type="email" placeholder="Email address" value={email}
+                  onChange={e => setEmail(e.target.value)} required
+                  style={{ width:'100%', padding:'13px 16px', fontSize:14, borderRadius:12,
+                    border:`1.5px solid ${focus==='email' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
+                    background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
+                    boxSizing:'border-box', transition:'border-color .18s' }}
+                  onFocus={() => setFocus('email')} onBlur={() => setFocus('')}/>
+                {tab !== 'forgot' && (
+                  <div style={{ position:'relative' }}>
+                    <input type={showPass ? 'text' : 'password'} placeholder="Password" value={password}
+                      onChange={e => setPass(e.target.value)} required
+                      style={{ width:'100%', padding:'13px 48px 13px 16px', fontSize:14, borderRadius:12,
+                        border:`1.5px solid ${focus==='pw' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
+                        background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
+                        boxSizing:'border-box', transition:'border-color .18s' }}
+                      onFocus={() => setFocus('pw')} onBlur={() => setFocus('')}/>
+                    <button type="button" onClick={() => setShowPass(v => !v)}
+                      style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)',
+                        background:'none', border:'none', cursor:'pointer', padding:4,
+                        color: showPass ? C.coral : 'rgba(255,255,255,.3)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        transition:'color .15s' }}>
+                      {showPass ? (
+                        /* Eye-off */
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        /* Eye */
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {tab === 'signin' && (
+                  <div style={{ textAlign:'right', marginTop:-2 }}>
+                    <button type="button" onClick={() => { setTab('forgot'); setError('') }}
+                      style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
+                        color:'rgba(255,255,255,.3)', cursor:'pointer', padding:0,
+                        transition:'color .15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.color=C.coral}
+                      onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+
+                {error && (
+                  <div style={{ padding:'10px 14px', borderRadius:10,
+                    background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
+                    fontSize:13, color:'#f87171', lineHeight:1.45 }}>
+                    {error}
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading || !!socialLoading}
+                  style={{ marginTop:4, width:'100%', padding:'14px', borderRadius:12, border:'none',
+                    background: loading ? 'rgba(255,255,255,.06)' : C.grad,
+                    color: loading ? 'rgba(255,255,255,.3)' : '#fff',
+                    fontSize:14, fontWeight:800, cursor: loading ? 'default' : 'pointer',
+                    boxShadow: loading ? 'none' : `0 6px 24px ${C.coral}40`,
+                    transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
+                  {loading
+                    ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)"
+                        strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
+                        <path d="M12 3a9 9 0 019 9"/>
+                      </svg>
+                      {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating…'}</>
+                    : tab === 'forgot' ? 'Send reset link'
+                    : tab === 'signin' ? 'Sign in'
+                    : 'Create account'}
+                </button>
+              </form>
+            )}
+
+            {/* Switch tab link */}
+            {tab !== 'forgot' && tab !== 'forgot-sent' && (
+              <p style={{ margin:'22px 0 0', textAlign:'center', fontSize:13,
+                color:'rgba(255,255,255,.25)' }}>
+                {tab === 'signin' ? "New to Dizko? " : 'Already have an account? '}
+                <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setError('') }}
+                  style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
+                    color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,
+                    transition:'color .15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.color='#fff'}
+                  onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.6)'}>
+                  {tab === 'signin' ? 'Create a free account →' : 'Sign in →'}
+                </button>
+              </p>
+            )}
+
+            {/* Footer */}
+            <p style={{ margin:'32px 0 0', textAlign:'center', fontSize:11,
+              color:'rgba(255,255,255,.12)', letterSpacing:'.02em' }}>
+              Privacy Policy · Terms · Help
+            </p>
+          </div>
         </div>
       </div>
 
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-        input::placeholder { color:#bbb }
+        input::placeholder { color: rgba(255,255,255,.25) !important; }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #16161f inset !important; -webkit-text-fill-color: #fff !important; }
       `}</style>
     </div>
   )

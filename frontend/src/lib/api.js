@@ -4,6 +4,40 @@
 
 const BASE = '/api'
 
+// ── SWR cache ─────────────────────────────────────────────────────────────────
+// GET responses are cached for CACHE_TTL ms. Stale entries are served instantly
+// while a background revalidation updates the cache for the next read.
+const _cache  = new Map()   // path → { data, ts, promise }
+const CACHE_TTL = 20_000    // 20 s
+
+function _cacheRead(path) {
+  const e = _cache.get(path)
+  if (!e) return null
+  return Date.now() - e.ts < CACHE_TTL ? e.data : null
+}
+
+function _cacheWrite(path, data) {
+  _cache.set(path, { data, ts: Date.now() })
+}
+
+// Bust all entries whose path starts with prefix (call after mutations).
+export function cacheBust(...prefixes) {
+  for (const key of _cache.keys())
+    if (prefixes.some(p => key.startsWith(p))) _cache.delete(key)
+}
+
+// Warm the cache for a path without blocking (fire-and-forget).
+export function prefetch(path) {
+  if (_cacheRead(path)) return           // already fresh
+  const e = _cache.get(path)
+  if (e?.promise) return                 // already in flight
+  const promise = request('GET', path)
+    .then(data => { _cacheWrite(path, data); return data })
+    .catch(() => {})
+    .finally(() => { if (_cache.get(path)?.promise === promise) delete _cache.get(path).promise })
+  _cache.set(path, { ...(_cache.get(path) || {}), promise })
+}
+
 function getToken() {
   return localStorage.getItem('disco_token') || ''
 }
@@ -79,7 +113,7 @@ async function request(method, path, body) {
     if (res.status === 401) {
       setToken(null)
       setRefreshToken(null)
-      window.location.href = '/login'
+      window.location.href = '/login?expired=1'
       throw new Error('Session expired. Please log in again.')
     }
   }
@@ -89,7 +123,18 @@ async function request(method, path, body) {
   return json
 }
 
-const get   = (path)        => request('GET',    path)
+function get(path) {
+  const cached = _cacheRead(path)
+  if (cached) {
+    // Serve stale data immediately; revalidate in background
+    request('GET', path).then(data => _cacheWrite(path, data)).catch(() => {})
+    return Promise.resolve(cached)
+  }
+  // In-flight dedup: if a prefetch already started, wait for it
+  const inflight = _cache.get(path)?.promise
+  if (inflight) return inflight
+  return request('GET', path).then(data => { _cacheWrite(path, data); return data })
+}
 const post  = (path, body)  => request('POST',   path, body)
 const patch = (path, body)  => request('PATCH',  path, body)
 const del   = (path)        => request('DELETE', path)
@@ -214,27 +259,4 @@ export const messagesApi = {
   conversation: (userId) => get(`/messages/${userId}`),
   send:         (toUserId, text) => post('/messages', { to_user_id: toUserId, text }),
   unread:       () => get('/messages'),
-}
-
-// ── Distribution ──────────────────────────────────────────────────────────────
-export const distribution = {
-  list:    (projectId)       => get(`/distribution/projects/${projectId}`),
-  save:    (projectId, body) => post(`/distribution/projects/${projectId}`, body),
-  submit:  (projectId, body) => post(`/distribution/projects/${projectId}/submit`, body),
-  update:  (id, body)        => patch(`/distribution/${id}`, body),
-
-  // Download ZIP package — returns a Blob
-  package: async (projectId, body) => {
-    const token = getToken()
-    const res = await fetch(`${BASE}/distribution/projects/${projectId}/package`, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) throw new Error(`Package error: ${res.status}`)
-    return res.blob()
-  },
 }

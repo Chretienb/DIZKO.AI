@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import logo from './assets/logo.png'
+import folderIcon from './assets/open-folder.png'
 
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
 export class ErrorBoundary extends React.Component {
@@ -31,6 +36,18 @@ export class ErrorBoundary extends React.Component {
   }
 }
 
+// ── Mobile breakpoint context ─────────────────────────────────────────────────
+const MobileCtx = React.createContext(false)
+export function useIsMobile() {
+  const [w, setW] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth : 1200)
+  React.useEffect(() => {
+    const h = () => setW(window.innerWidth)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [])
+  return w < 768
+}
+
 // ── Auth token helper — single source of truth ────────────────────────────────
 const getToken = () => localStorage.getItem('disco_token') || ''
 
@@ -50,7 +67,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, distribution as distributionApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch } from './lib/api'
 import { supabase } from './lib/supabase'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
@@ -226,17 +243,18 @@ const NAV = [
   { id:'collaborators', path:'/collaborators',  label:'Collaborators',icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
   { id:'library',       path:'/library',        label:'File Library', icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
   { id:'analytics',     path:'/analytics',      label:'Analytics',    icon:'M18 20V10M12 20V4M6 20v-6' },
-  { id:'distribution',  path:'/distribution',   label:'Distribution', icon:'M18 5a2 2 0 100-4 2 2 0 000 4zM6 12a2 2 0 100-4 2 2 0 000 4zM18 19a2 2 0 100-4 2 2 0 000 4zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98' },
 ]
 
-const PROJECTS = [
-  { title:'Summer Album',  status:'In Progress', tracks:8,  collab:['CJ','MR','DK'], updated:'2 hrs ago',   g:'linear-gradient(160deg,#F4937A,#c0394f 60%,#12060e)' },
-  { title:'Late Night EP', status:'Review',      tracks:4,  collab:['MR','DK'],      updated:'Yesterday',   g:'linear-gradient(160deg,#F7D98B,#d4793a 60%,#110900)' },
-  { title:'Collab Vol. 2', status:'New Takes',   tracks:6,  collab:['CJ','MR'],      updated:'3 days ago',  g:'linear-gradient(160deg,#E8709A,#8b1a4a 60%,#0e0010)' },
-  { title:'Demo Sessions', status:'Draft',       tracks:12, collab:['DK','SL'],      updated:'1 week ago',  g:'linear-gradient(160deg,#F5C97A,#c06020 60%,#110700)' },
-  { title:'Acoustic Side', status:'In Progress', tracks:5,  collab:['CJ','SL'],      updated:'4 days ago',  g:'linear-gradient(160deg,#a0e0f0,#2060b0 60%,#000820)' },
-  { title:'Remixes Vol.1', status:'Draft',       tracks:3,  collab:['MR','DK'],      updated:'2 weeks ago', g:'linear-gradient(160deg,#c0a0f0,#6020c0 60%,#080010)' },
-]
+// Paths to pre-warm when hovering each nav item
+const NAV_PREFETCH = {
+  '/':               ['/projects', '/analytics/overview'],
+  '/projects':       ['/projects'],
+  '/studio':         ['/projects'],
+  '/collaborators':  ['/projects', '/invitations', '/analytics/overview'],
+  '/library':        ['/projects'],
+  '/analytics':      ['/projects'],
+}
+
 
 const TRACKS = [
   { num:1, name:'Intro',       meta:'vocals · keys · drums',          status:'done'      },
@@ -395,159 +413,6 @@ function ToastContainer({ toasts, remove }) {
   )
 }
 
-// ─── NOTIFICATION BELL + PANEL ─────────────────────────────────────────────
-function NotificationBell({ user }) {
-  const [notifs,  setNotifs]  = React.useState([])
-  const [open,    setOpen]    = React.useState(false)
-  const [loading, setLoading] = React.useState(false)
-  const panelRef = React.useRef()
-
-  const unread = notifs.filter(n => !n.read).length
-
-  const load = React.useCallback(() => {
-    setLoading(true)
-    notificationsApi.list()
-      .then(r => setNotifs(r.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  React.useEffect(() => { load() }, [])
-
-  // Real-time: new notification inserted → refresh list
-  React.useEffect(() => {
-    if (!user?.id) return
-    const ch = supabase.channel(`notifs:${user.id}`)
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
-        filter:`user_id=eq.${user.id}` }, () => load())
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [user?.id])
-
-  // Close panel on outside click
-  React.useEffect(() => {
-    const handler = e => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const markAllRead = async () => {
-    await notificationsApi.readAll()
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
-  }
-
-  const markRead = async (id) => {
-    await notificationsApi.read(id)
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }
-
-  const typeIcon = type => ({
-    upload:     { icon:'↑', color: C.coral      },
-    mix_ready:  { icon:'♪', color: '#22c55e'    },
-    message:    { icon:'✉', color: '#6366f1'    },
-    invite:     { icon:'★', color: C.amber      },
-    stems_ready:{ icon:'⊞', color: '#8b5cf6'   },
-  }[type] || { icon:'•', color: '#aaa' })
-
-  return (
-    <div style={{ position:'relative' }} ref={panelRef}>
-      {/* Bell button */}
-      <button onClick={() => { setOpen(o => !o); if (!open) load() }}
-        style={{ width:36, height:36, borderRadius:10, border:'none', background:'none',
-          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          color:'rgba(255,255,255,.5)', position:'relative', transition:'color .15s' }}
-        onMouseEnter={e => e.currentTarget.style.color='rgba(255,255,255,.9)'}
-        onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.5)'}>
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
-        {unread > 0 && (
-          <div style={{ position:'absolute', top:4, right:4, width:16, height:16,
-            borderRadius:'50%', background:C.coral, border:'2px solid #1a1a2e',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:8.5, fontWeight:900, color:'#fff', lineHeight:1 }}>
-            {unread > 9 ? '9+' : unread}
-          </div>
-        )}
-      </button>
-
-      {/* Notification panel */}
-      {open && (
-        <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:360,
-          background:'#fff', borderRadius:16, boxShadow:'0 16px 50px rgba(0,0,0,.18)',
-          border:'1px solid rgba(0,0,0,.08)', zIndex:9999, overflow:'hidden' }}>
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'14px 18px', borderBottom:'1px solid rgba(0,0,0,.06)' }}>
-            <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>
-              Notifications
-              {unread > 0 && <span style={{ marginLeft:8, fontSize:11, fontWeight:700,
-                color:C.coral, background:`${C.coral}15`, padding:'2px 8px', borderRadius:100 }}>
-                {unread} new
-              </span>}
-            </div>
-            {unread > 0 && (
-              <button onClick={markAllRead}
-                style={{ fontSize:11.5, fontWeight:600, color:'#aaa', background:'none',
-                  border:'none', cursor:'pointer' }}>
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          {/* List */}
-          <div style={{ maxHeight:420, overflowY:'auto' }}>
-            {loading && notifs.length === 0 && (
-              <div style={{ padding:'24px', textAlign:'center' }}><Spinner size={18} color={C.coral}/></div>
-            )}
-            {!loading && notifs.length === 0 && (
-              <div style={{ padding:'32px', textAlign:'center', color:'#bbb', fontSize:13 }}>
-                No notifications yet
-              </div>
-            )}
-            {notifs.map((n, i) => {
-              const { icon, color } = typeIcon(n.type)
-              return (
-                <div key={n.id}
-                  onClick={() => { markRead(n.id); if (n.action_url) window.location.hash = n.action_url }}
-                  style={{ display:'flex', gap:12, padding:'12px 18px', cursor:'pointer',
-                    background: n.read ? 'transparent' : `${C.coral}04`,
-                    borderBottom: i < notifs.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
-                    transition:'background .12s' }}
-                  onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
-                  onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : `${C.coral}04`}>
-                  {/* Icon */}
-                  <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
-                    background:`${color}15`, display:'flex', alignItems:'center',
-                    justifyContent:'center', fontSize:14, color }}>
-                    {icon}
-                  </div>
-                  {/* Content */}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
-                      lineHeight:1.4, marginBottom:2 }}>{n.title}</div>
-                    {n.message && (
-                      <div style={{ fontSize:12, color:'#888', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.message}</div>
-                    )}
-                    <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>
-                      {timeAgo(n.created_at)}
-                    </div>
-                  </div>
-                  {/* Unread dot */}
-                  {!n.read && (
-                    <div style={{ width:7, height:7, borderRadius:'50%',
-                      background:C.coral, flexShrink:0, marginTop:4 }}/>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // Register service worker + request push permission
 async function setupPushNotifications() {
@@ -593,6 +458,7 @@ function NotificationBellLight({ user }) {
   const [notifs,  setNotifs]  = React.useState([])
   const [open,    setOpen]    = React.useState(false)
   const panelRef = React.useRef()
+  const navigate = useNavigate()
 
   const unread = notifs.filter(n => !n.read).length
 
@@ -685,8 +551,13 @@ function NotificationBellLight({ user }) {
             {notifs.map((n, i) => {
               const { icon, color } = typeIcon(n.type)
               return (
-                <div key={n.id} onClick={() => markRead(n.id)}
-                  style={{ display:'flex', gap:12, padding:'12px 18px', cursor:'pointer',
+                <div key={n.id}
+                  onClick={() => {
+                    markRead(n.id)
+                    if (n.action_url) { navigate(n.action_url); setOpen(false) }
+                  }}
+                  style={{ display:'flex', gap:12, padding:'12px 18px',
+                    cursor: n.action_url ? 'pointer' : 'default',
                     background: n.read ? 'transparent' : `${C.coral}04`,
                     borderBottom: i < notifs.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
                     transition:'background .12s' }}
@@ -700,16 +571,22 @@ function NotificationBellLight({ user }) {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
                       lineHeight:1.4, marginBottom:2 }}>{n.title}</div>
-                    {n.message && (
+                    {n.body && (
                       <div style={{ fontSize:12, color:'#888', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.message}</div>
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.body}</div>
                     )}
                     <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>{timeAgo(n.created_at)}</div>
                   </div>
-                  {!n.read && (
-                    <div style={{ width:7, height:7, borderRadius:'50%',
-                      background:C.coral, flexShrink:0, marginTop:4 }}/>
-                  )}
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                    {!n.read && (
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:C.coral }}/>
+                    )}
+                    {n.action_url && (
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round">
+                        <polyline points="9,18 15,12 9,6"/>
+                      </svg>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -932,6 +809,13 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user
                       overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fileLabel(f)}</div>
                     <div style={{ fontSize:10.5, color:'#bbb', marginTop:1 }}>{fileMeta(f)}</div>
                   </div>
+                  {f.instrument && (
+                    <span style={{ fontSize:9.5, fontWeight:700, padding:'2px 7px', borderRadius:5, flexShrink:0,
+                      background:`${stemColor}15`, color:stemColor,
+                      textTransform:'capitalize', border:`1px solid ${stemColor}25` }}>
+                      {f.instrument}
+                    </span>
+                  )}
                   {isOwner && (
                     <button onClick={e => { e.stopPropagation(); deleteFile(f.id) }}
                       disabled={deletingId === f.id}
@@ -1345,7 +1229,6 @@ function ModalKeyboardShortcuts({ onClose }) {
         { keys:['G', 'C'], desc:'Go to Collaborators' },
         { keys:['G', 'L'], desc:'Go to Library' },
         { keys:['G', 'A'], desc:'Go to Analytics' },
-        { keys:['G', 'R'], desc:'Go to Distribution' },
       ],
     },
     {
@@ -2147,426 +2030,6 @@ function ModalUpload({ project, onClose, user }) {
   )
 }
 
-// ─── MODAL: RELEASE WIZARD (New Release + Schedule combined) ──────────────────
-const PLATFORM_COLORS = {
-  'Spotify':      '#1DB954',
-  'Apple Music':  '#fc3c44',
-  'YouTube Music':'#FF0000',
-  'Tidal':        '#00bfbf',
-  'SoundCloud':   '#FF5500',
-}
-const DIRECT_PLATFORMS  = ['SoundCloud', 'YouTube Music']  // live API upload
-const PACKAGE_PLATFORMS = ['Spotify', 'Apple Music', 'Tidal'] // export ZIP
-
-function ModalNewRelease({ onClose, project }) {
-  return <ModalReleaseWizard onClose={onClose} project={project} />
-}
-
-function ModalSchedule({ release, onClose }) {
-  return <ModalReleaseWizard onClose={onClose} project={release} />
-}
-
-function ModalReleaseWizard({ onClose, project }) {
-  const [step,      setStep]      = useState(1)   // 1=meta 2=tracks 3=art 4=platforms
-  const [stems,     setStems]     = useState([])
-  const [loadingStems, setLS]     = useState(false)
-
-  // Step 1 — metadata
-  const [artist,    setArtist]    = useState('')
-  const [releaseDate, setDate]    = useState(project?.release_date?.slice(0,10) || '')
-  const [genre,     setGenre]     = useState('Pop')
-  const [relType,   setRelType]   = useState('Single')
-
-  // Step 2 — tracks
-  const [selected,  setSelected]  = useState(new Set())
-
-  // Step 3 — cover art
-  const [coverFile, setCoverFile] = useState(null)
-  const [coverUrl,  setCoverUrl]  = useState(null)
-  const coverRef = useRef()
-
-  // Step 4 — platforms + submit
-  const [platforms, setPlatforms] = useState(['Spotify','Apple Music','SoundCloud'])
-  const [submitting,setSubmitting]= useState(false)
-  const [result,    setResult]    = useState(null)  // null | { scUrl, ytUrl, isrcs }
-  const [error,     setError]     = useState(null)
-
-  const projectId    = project?.id
-  const releaseTitle = project?.title || 'My Release'
-
-  // Load stems for the project
-  useEffect(() => {
-    if (!projectId) return
-    setLS(true)
-    filesApi.list(projectId)
-      .then(r => {
-        // Show only separated stems (vocals, drums, bass, other) not originals
-        const list = (r.data || []).filter(f => f.instrument && f.instrument !== 'original')
-        setStems(list)
-        setSelected(new Set(list.map(s => s.id)))
-      })
-      .catch(() => {})
-      .finally(() => setLS(false))
-  }, [projectId])
-
-  const togglePlatform = p =>
-    setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
-
-  const onCoverPick = e => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setCoverFile(f)
-    setCoverUrl(URL.createObjectURL(f))
-  }
-
-  const selectedStems = stems.filter(s => selected.has(s.id))
-
-  // ── Upload cover art to Supabase Storage ──────────────────────────────────
-  const uploadCover = async () => {
-    if (!coverFile || !projectId) return null
-    const token = localStorage.getItem('disco_token')
-    const form  = new FormData()
-    form.append('file', coverFile)
-    form.append('project_id', projectId)
-    const res = await fetch('/api/files/upload', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    })
-    if (!res.ok) return null
-    const j = await res.json()
-    return j.data?.file_url ?? null
-  }
-
-  // ── Submit ────────────────────────────────────────────────────────────────
-  const submit = async () => {
-    if (!projectId || !artist || !releaseDate || selectedStems.length === 0) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      let coverArtUrl = null
-      if (coverFile) coverArtUrl = await uploadCover()
-
-      const tracks = selectedStems.map((s, i) => ({
-        stem_id: s.id,
-        title:   s.suggested_name || s.original_name || `Track ${i+1}`,
-      }))
-
-      const res = await distributionApi.submit(projectId, {
-        artist_name:  artist,
-        release_date: releaseDate,
-        genre,
-        release_type: relType,
-        platforms,
-        tracks,
-        cover_art_url: coverArtUrl,
-      })
-
-      setResult({
-        scUrl:  res.data?.soundcloud_url,
-        ytUrl:  res.data?.youtube_url,
-        isrcs:  res.data?.isrcs || [],
-        direct: platforms.filter(p => DIRECT_PLATFORMS.includes(p)),
-        pkg:    platforms.filter(p => PACKAGE_PLATFORMS.includes(p)),
-      })
-    } catch (e) {
-      setError(e.message || 'Submission failed')
-    }
-    setSubmitting(false)
-  }
-
-  // ── Download ZIP package ──────────────────────────────────────────────────
-  const downloadPackage = async () => {
-    if (!projectId) return
-    setSubmitting(true)
-    try {
-      const tracks = selectedStems.map((s, i) => ({
-        stem_id: s.id,
-        title:   s.suggested_name || s.original_name || `Track ${i+1}`,
-      }))
-      const blob = await distributionApi.package(projectId, {
-        artist_name: artist, release_date: releaseDate,
-        genre, release_type: relType, platforms,
-        tracks, cover_art_url: coverUrl,
-      })
-      const url = URL.createObjectURL(blob)
-      const a   = document.createElement('a')
-      a.href     = url
-      a.download = `${releaseTitle.replace(/[^a-z0-9]/gi,'_')}_distribution.zip`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (e) { setError(e.message) }
-    setSubmitting(false)
-  }
-
-  // ── Step indicators ───────────────────────────────────────────────────────
-  const steps = ['Metadata','Tracks','Cover Art','Distribute']
-
-  if (result) return (
-    <Modal title="Release Submitted! 🎉" sub={releaseTitle} onClose={onClose} width={520}>
-      <div style={{ padding:'8px 0 4px' }}>
-        {result.scUrl && (
-          <a href={result.scUrl} target="_blank" rel="noreferrer"
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:12,
-              background:'rgba(255,85,0,.07)', border:'1px solid rgba(255,85,0,.2)', marginBottom:10,
-              textDecoration:'none', color:'#FF5500', fontWeight:700, fontSize:13 }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M11.56 8.87V17h8.76c1.18 0 1.68-.86 1.68-1.56 0-1.11-.87-1.56-1.68-1.56h-.44c.1-.37.15-.76.15-1.15C20.03 10.01 18.03 8 15.5 8c-.98 0-1.88.3-2.62.8-.36-.5-1.4-1.93-3.16-1.93C8.72 6.87 7 8.49 7 10.5c0 .54.13 1.05.35 1.5H7c-.55 0-1 .45-1 1s.45 1 1 1h1.56V8.87h3z"/></svg>
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-            Live on SoundCloud → {result.scUrl}
-          </a>
-        )}
-        {result.ytUrl && (
-          <a href={result.ytUrl} target="_blank" rel="noreferrer"
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderRadius:12,
-              background:'rgba(255,0,0,.07)', border:'1px solid rgba(255,0,0,.2)', marginBottom:10,
-              textDecoration:'none', color:'#FF0000', fontWeight:700, fontSize:13 }}>
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-            Live on YouTube → {result.ytUrl}
-          </a>
-        )}
-        {result.pkg?.length > 0 && (
-          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'14px', marginBottom:10 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:6, display:'flex', alignItems:'center', gap:7 }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth={2} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-              Export Package for {result.pkg.join(', ')}
-            </div>
-            <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
-              Download the ZIP and upload to RouteNote (free) or Amuse (free) to reach Spotify, Apple Music and Tidal.
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={downloadPackage} disabled={submitting}
-                style={{ flex:1, padding:'9px', borderRadius:9, background:C.grad, border:'none',
-                  color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                {submitting ? <Spinner size={12} color="#fff"/> : '⬇ Download ZIP'}
-              </button>
-              <a href="https://routenote.com/upload" target="_blank" rel="noreferrer"
-                style={{ flex:1, padding:'9px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
-                  background:'#fff', color:'#333', fontWeight:600, fontSize:12, cursor:'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}>
-                Open RouteNote →
-              </a>
-            </div>
-          </div>
-        )}
-        {result.isrcs?.length > 0 && (
-          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'12px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>ISRC Codes</div>
-            {result.isrcs.map((t, i) => (
-              <div key={i} style={{ fontSize:12, color:'#555', padding:'3px 0' }}>
-                <strong>{t.title}</strong> — <code style={{ fontFamily:'monospace', color:C.coral }}>{t.isrc}</code>
-              </div>
-            ))}
-          </div>
-        )}
-        <Btn onClick={onClose} style={{ width:'100%', marginTop:14 }}>Done</Btn>
-      </div>
-    </Modal>
-  )
-
-  return (
-    <Modal title="Distribute Release" sub={releaseTitle} onClose={onClose} width={540}>
-      {/* Step indicator */}
-      <div style={{ display:'flex', gap:0, marginBottom:24 }}>
-        {steps.map((s, i) => {
-          const n = i + 1
-          const active = n === step
-          const done   = n < step
-          return (
-            <div key={s} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-              <div style={{ width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center',
-                justifyContent:'center', fontSize:11, fontWeight:700,
-                background: done ? '#22c55e' : active ? C.coral : 'rgba(0,0,0,.07)',
-                color: done || active ? '#fff' : '#bbb' }}>
-                {done ? '✓' : n}
-              </div>
-              <div style={{ fontSize:10, fontWeight:600, color: active ? C.coral : done ? '#22c55e' : '#bbb',
-                textTransform:'uppercase', letterSpacing:'.04em' }}>{s}</div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Step 1 — Metadata */}
-      {step === 1 && (
-        <div>
-          <Field label="Artist Name" placeholder="e.g. Christian" value={artist} onChange={e => setArtist(e.target.value)} />
-          <Field label="Release Date" type="date" value={releaseDate} onChange={e => setDate(e.target.value)} />
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18 }}>
-            <div>
-              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Genre</label>
-              <select value={genre} onChange={e => setGenre(e.target.value)}
-                style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
-                  fontSize:13, fontFamily:'inherit', background:'#fff', color:'#111' }}>
-                {['Pop','R&B','Hip-Hop','Electronic','Gospel','Afrobeats','Soul','Jazz','Rock','Country','Classical','Other'].map(g =>
-                  <option key={g}>{g}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Type</label>
-              <select value={relType} onChange={e => setRelType(e.target.value)}
-                style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
-                  fontSize:13, fontFamily:'inherit', background:'#fff', color:'#111' }}>
-                {['Single','EP','Album','Mixtape'].map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-          <Btn onClick={() => setStep(2)} style={{ width:'100%' }}
-            disabled={!artist || !releaseDate}>Next: Select Tracks →</Btn>
-        </div>
-      )}
-
-      {/* Step 2 — Track selection */}
-      {step === 2 && (
-        <div>
-          <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
-            Select which stems to include in this release.
-          </div>
-          {loadingStems ? <LoadingBlock /> : stems.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'24px', color:'#bbb', fontSize:13 }}>
-              No separated stems found. Upload audio first so Dizko.Ai can process it.
-            </div>
-          ) : (
-            <div style={{ maxHeight:240, overflowY:'auto', marginBottom:16 }}>
-              {stems.map(s => {
-                const on = selected.has(s.id)
-                const notes = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
-                return (
-                  <div key={s.id} onClick={() => setSelected(prev => { const n = new Set(prev); on ? n.delete(s.id) : n.add(s.id); return n })}
-                    style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10,
-                      cursor:'pointer', marginBottom:4, transition:'background .12s',
-                      background: on ? `${C.coral}0a` : 'rgba(0,0,0,.02)',
-                      border: `1.5px solid ${on ? C.coral+'33' : 'transparent'}` }}>
-                    <input type="checkbox" checked={on} readOnly
-                      style={{ accentColor: C.coral, width:14, height:14 }}/>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#111', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {s.suggested_name || s.original_name}
-                      </div>
-                      <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>
-                        {s.instrument || '—'}
-                        {notes.bpm ? ` · ${Math.round(notes.bpm)} BPM` : ''}
-                        {notes.key  ? ` · ${notes.key}` : ''}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          <div style={{ fontSize:12, color:'#888', marginBottom:14 }}>
-            {selected.size} track{selected.size !== 1 ? 's' : ''} selected · ISRCs auto-generated
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={() => setStep(1)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
-            <Btn onClick={() => setStep(3)} style={{ flex:1 }} disabled={selected.size === 0}>Next: Cover Art →</Btn>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3 — Cover art */}
-      {step === 3 && (
-        <div>
-          <div style={{ fontSize:12, color:'#888', marginBottom:14 }}>
-            JPEG or PNG, 3000×3000 px minimum. Required by Spotify & Apple Music.
-          </div>
-          <div onClick={() => coverRef.current?.click()}
-            style={{ borderRadius:14, border:`2px dashed ${coverUrl ? C.coral : 'rgba(0,0,0,.15)'}`,
-              padding:'28px', textAlign:'center', cursor:'pointer', marginBottom:16,
-              background: coverUrl ? `${C.coral}07` : 'rgba(0,0,0,.02)', transition:'all .15s' }}>
-            {coverUrl
-              ? <img src={coverUrl} alt="cover" style={{ width:140, height:140, objectFit:'cover', borderRadius:10 }}/>
-              : <>
-                  <div style={{ width:44, height:44, borderRadius:12, background:`${C.coral}12`, margin:'0 auto 10px',
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21,15 16,10 5,21"/>
-                    </svg>
-                  </div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#222' }}>Click to upload cover art</div>
-                  <div style={{ fontSize:11.5, color:'#bbb', marginTop:3 }}>JPEG · PNG · 3000×3000 px recommended</div>
-                </>}
-          </div>
-          <input ref={coverRef} type="file" accept="image/*" aria-label="Upload cover artwork" style={{ display:'none' }} onChange={onCoverPick}/>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={() => setStep(2)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
-            <Btn onClick={() => setStep(4)} style={{ flex:1 }}>
-              {coverUrl ? 'Next: Distribute →' : 'Skip for now →'}
-            </Btn>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4 — Platform selection + submit */}
-      {step === 4 && (
-        <div>
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="#22c55e"><path d="M13 2L4.09 12.26 11 12l-2 10 8.91-10.26L11 12z"/></svg>
-              Direct upload (requires API keys in .env)
-            </div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
-              {DIRECT_PLATFORMS.map(p => {
-                const on = platforms.includes(p)
-                return (
-                  <button key={p} onClick={() => togglePlatform(p)} style={{
-                    padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
-                    background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
-                    color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
-                    {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ marginRight:4, verticalAlign:'middle' }}><polyline points="20,6 9,17 4,12"/></svg>}{p}
-                  </button>
-                )
-              })}
-            </div>
-            <div style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth={2.2} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-              Export package — submit free on RouteNote or Amuse
-            </div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {PACKAGE_PLATFORMS.map(p => {
-                const on = platforms.includes(p)
-                return (
-                  <button key={p} onClick={() => togglePlatform(p)} style={{
-                    padding:'7px 16px', borderRadius:100, border:`1.5px solid ${on ? PLATFORM_COLORS[p] : 'rgba(0,0,0,.1)'}`,
-                    background: on ? `${PLATFORM_COLORS[p]}15` : 'transparent',
-                    color: on ? PLATFORM_COLORS[p] : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
-                    {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ marginRight:4, verticalAlign:'middle' }}><polyline points="20,6 9,17 4,12"/></svg>}{p}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div style={{ background:'rgba(0,0,0,.03)', borderRadius:12, padding:'12px 14px', marginBottom:16, fontSize:12, color:'#666', lineHeight:1.7 }}>
-            <strong style={{ color:'#111' }}>{releaseTitle}</strong> by {artist}<br/>
-            {releaseDate} · {relType} · {genre}<br/>
-            {selectedStems.length} track{selectedStems.length !== 1 ? 's' : ''} · {platforms.length} platform{platforms.length !== 1 ? 's' : ''}
-            {coverFile ? ' · Cover art ✓' : ' · No cover art'}
-          </div>
-
-          {error && (
-            <div style={{ background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)',
-              borderRadius:10, padding:'10px 14px', fontSize:12.5, color:'#ef4444', marginBottom:12 }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={() => setStep(3)} variant="ghost" style={{ flex:1 }}>← Back</Btn>
-            <Btn onClick={submit} style={{ flex:2 }} disabled={submitting || platforms.length === 0}>
-              {submitting
-                ? <><Spinner size={13} color="#fff"/> Submitting…</>
-                : `Submit to ${platforms.length} platform${platforms.length !== 1 ? 's' : ''} →`}
-            </Btn>
-          </div>
-        </div>
-      )}
-    </Modal>
-  )
-}
-
 // ─── PAGE: DASHBOARD ──────────────────────────────────────────────────────
 const CARD_GRADIENTS = [
   'linear-gradient(160deg,#F4937A,#c0394f 60%,#12060e)',
@@ -2579,6 +2042,7 @@ const CARD_GRADIENTS = [
 
 function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playTrack }) {
   const navigate = useNavigate()
+  const isMobile = React.useContext(MobileCtx)
   const [projects,      setProjects]  = useState([])
   const [overview,      setOverview]  = useState({ projects: null, files: null })
   const [loadingData,   setLoading]   = useState(true)
@@ -2675,30 +2139,27 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
           <p style={{ margin:'0 0 4px', fontSize:11.5, fontWeight:600, color:'#aaa', letterSpacing:'.06em', textTransform:'uppercase' }}>{todayLabel()}</p>
           <h1 style={{ margin:0, fontSize:26, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>{getGreeting()}, {firstName(user?.full_name)}.</h1>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8, background:'#fff',
-          borderRadius:10, padding:'8px 14px', boxShadow:'0 1px 4px rgba(0,0,0,.08)', cursor:'pointer' }}
-          onClick={() => navigate('/distribution')}>
-          <span style={{ fontSize:11, color:'#aaa', fontWeight:500 }}>Release date</span>
-          <span style={{ fontSize:12.5, fontWeight:800, color:C.rose }}>March 15, 2026</span>
-        </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3,1fr)', gap:14, marginBottom:24 }}>
         {statCards.map(s => (
-          <Card key={s.label} style={{ padding:'18px 20px', display:'flex', alignItems:'center', gap:16, cursor:'pointer', transition:'transform .15s' }}
-            onClick={() => navigate(`/${s.page}`)}
-            onMouseEnter={e => e.currentTarget.style.transform='translateY(-2px)'}
-            onMouseLeave={e => e.currentTarget.style.transform='none'}>
-            <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:`${s.accent}14`,
-              display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
-            <div>
-              <div style={{ fontSize:10.5, color:'#aaa', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>{s.label}</div>
-              <div style={{ fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.5px', lineHeight:1 }}>
-                {s.val === null ? <Spinner size={22} color={s.accent} /> : s.val}
-              </div>
-              <div style={{ fontSize:11, color:s.accent, fontWeight:600, marginTop:5 }}>{s.sub}</div>
+          <div key={s.label}
+            onClick={isMobile ? undefined : () => navigate(`/${s.page}`)}
+            style={{ borderRadius:20, padding:'22px 24px', cursor: isMobile ? 'default' : 'pointer', background:'#fff',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)',
+              transition:'transform .18s, box-shadow .18s' }}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
+              <div style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`,
+                display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
             </div>
-          </Card>
+            <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
+              {s.val === null ? <Spinner size={28} color={s.accent} /> : s.val}
+            </div>
+            <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+          </div>
         ))}
       </div>
 
@@ -2821,9 +2282,9 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
         </div>
 
         {loadingData ? (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12 }}>
             {[0,1,2,3].map(i => (
-              <div key={i} style={{ borderRadius:20, height:230, background:'linear-gradient(160deg,#e8e8e8,#d0d0d0)',
+              <div key={i} style={{ borderRadius:20, height: isMobile ? 220 : 280, background:'linear-gradient(160deg,#e8e8e8,#d0d0d0)',
                 animation:'pulse 1.6s ease-in-out infinite' }} />
             ))}
           </div>
@@ -2839,44 +2300,52 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
               padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>+ New Project</button>
           </div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:16 }}>
             {projects.slice(0,4).map((p, i) => {
               const g       = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
               const isOwner = p.owner_id === user?.id
               return (
-                <div key={p.id ?? i} style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', background:g,
-                  position:'relative', height:230, display:'flex', flexDirection:'column', justifyContent:'flex-end',
-                  boxShadow:'0 4px 20px rgba(0,0,0,.15)', transition:'transform .22s, box-shadow .22s' }}
-                  onMouseEnter={e => { e.currentTarget.style.transform='translateY(-5px) scale(1.01)'; e.currentTarget.style.boxShadow='0 16px 40px rgba(0,0,0,.22)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,.15)' }}>
-                  <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,transparent 20%,rgba(0,0,0,.45) 55%,rgba(0,0,0,.88) 100%)' }} />
+                <div key={p.id ?? i}
+                  onClick={() => openModal('project', { ...p, g, tracks:0, collab:[] })}
+                  style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', position:'relative',
+                    height: isMobile ? 220 : 280, display:'flex', flexDirection:'column',
+                    boxShadow:'0 6px 24px rgba(0,0,0,.16)', transition:'transform .22s, box-shadow .22s' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow='0 20px 48px rgba(0,0,0,.24)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,.16)' }}>
 
-                  {/* Role badge */}
-                  <div style={{ position:'absolute', top:12, right:12, zIndex:2,
-                    padding:'3px 9px', borderRadius:100, fontSize:10, fontWeight:700,
-                    backdropFilter:'blur(8px)',
-                    background: isOwner ? `${C.coral}cc` : 'rgba(255,255,255,.18)',
-                    color:'#fff',
-                    border: isOwner ? `1px solid ${C.coral}` : '1px solid rgba(255,255,255,.25)' }}>
-                    {isOwner ? <><svg width={10} height={10} viewBox='0 0 24 24' fill='#fff' style={{marginRight:4,verticalAlign:'middle'}}><path d='M3 18h18v2H3zm0-5l4-8 5 5 4-7 5 8H3z'/></svg>Creator</> : 'Invited'}
+                  {/* Gradient art */}
+                  <div style={{ flex:1, background:g, position:'relative', overflow:'hidden' }}>
+                    <div style={{ position:'absolute', top:-30, right:-30, width:130, height:130,
+                      borderRadius:'50%', border:'1.5px solid rgba(255,255,255,.1)' }}/>
+                    <div style={{ position:'absolute', top:0, right:0, width:80, height:80,
+                      borderRadius:'50%', border:'1px solid rgba(255,255,255,.08)' }}/>
+                    <div style={{ position:'absolute', bottom:16, right:16, opacity:.15 }}>
+                      <svg width={36} height={36} viewBox="0 0 24 24" fill="white">
+                        <path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6zM18 18a3 3 0 100-6 3 3 0 000 6z"/>
+                      </svg>
+                    </div>
+                    <div style={{ position:'absolute', top:12, left:12, zIndex:2,
+                      padding:'4px 10px', borderRadius:100, fontSize:10, fontWeight:700,
+                      backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)',
+                      background: isOwner ? 'rgba(244,147,122,.7)' : 'rgba(255,255,255,.16)',
+                      color:'#fff', border:`1px solid ${isOwner ? 'rgba(244,147,122,.4)' : 'rgba(255,255,255,.2)'}` }}>
+                      {isOwner ? '★ Creator' : 'Invited'}
+                    </div>
                   </div>
 
-                  <div style={{ position:'relative', padding:'0 14px 14px' }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:'#fff', letterSpacing:'-.4px', marginBottom:6 }}>{p.title}</div>
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginBottom:10 }}>
-                      {[p.type, p.status].filter(Boolean).map(t => (
-                        <span key={t} style={{ fontSize:10, padding:'3px 9px', borderRadius:100,
-                          background:'rgba(255,255,255,.15)', color:'rgba(255,255,255,.9)',
-                          border:'1px solid rgba(255,255,255,.2)', fontWeight:500, backdropFilter:'blur(6px)' }}>{t}</span>
-                      ))}
-                    </div>
-                    <button onClick={() => openModal('project', { ...p, g, tracks: 0, collab: [] })}
-                      style={{ width:'100%', padding:'9px', borderRadius:100, background:'#fff',
-                        border:'none', cursor:'pointer', fontSize:12, fontWeight:700, color:'#111',
-                        boxShadow:'0 2px 8px rgba(0,0,0,.2)', transition:'opacity .15s' }}
-                      onMouseEnter={e => e.currentTarget.style.opacity='.9'}
+                  {/* Info panel */}
+                  <div style={{ background:'#fff', padding:'14px 16px 16px', flexShrink:0 }}>
+                    {p.type && <div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{p.type}</div>}
+                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.4px',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>{p.title}</div>
+                    <button
+                      onClick={e => { e.stopPropagation(); openModal('project', { ...p, g, tracks:0, collab:[] }) }}
+                      style={{ width:'100%', padding:'8px', borderRadius:100, border:'none',
+                        background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer',
+                        boxShadow:'0 3px 10px rgba(0,0,0,.18)', transition:'opacity .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.opacity='.85'}
                       onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                      Open project
+                      Open →
                     </button>
                   </div>
                 </div>
@@ -2888,18 +2357,18 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
 
       {/* ── Bottom grid ───────────────────────────────────────────────── */}
       {projects.length > 0 && (
-        <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap:16 }}>
 
           {/* ── Files card ──────────────────────────────────────────── */}
-          <Card style={{ overflow:'hidden' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 12px' }}>
+          <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
+            boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 22px 14px' }}>
               <div>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>
+                <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>
                   {projects[0]?.title || 'Project Files'}
                 </div>
-                <div style={{ fontSize:11.5, color:'#aaa', marginTop:2, display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ fontSize:12, color:'#bbb', marginTop:3, display:'flex', alignItems:'center', gap:6 }}>
                   {(() => {
-                    // Count only original takes — not separated child stems
                     const takeCount = projectFiles.filter(f => {
                       if (!f.instrument || f.instrument === 'original' || f.instrument === 'smart_bounce') return false
                       const n = (() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })()
@@ -2917,9 +2386,9 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                 </div>
               </div>
               <button onClick={() => openModal('upload', { project: projects[0] })}
-                style={{ padding:'7px 14px', borderRadius:9, background:C.grad, border:'none',
+                style={{ padding:'8px 16px', borderRadius:10, background:C.grad, border:'none',
                   color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer',
-                  display:'flex', alignItems:'center', gap:6, boxShadow:`0 2px 8px ${C.coral}30` }}>
+                  display:'flex', alignItems:'center', gap:6, boxShadow:`0 3px 10px ${C.coral}30` }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round">
                   <polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/>
                   <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
@@ -2998,7 +2467,12 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                                 {f.suggested_name || f.original_name}
                               </div>
                             </div>
-                            <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                            <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
+                              <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6,
+                                background:`${stemColor}15`, color:stemColor,
+                                textTransform:'capitalize', border:`1px solid ${stemColor}25` }}>
+                                {f.instrument}
+                              </span>
                               {notes.bpm && (
                                 <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6,
                                   background:`${stemColor}12`, color:stemColor }}>
@@ -3024,11 +2498,11 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
             {/* Drop zone */}
             <div style={{ margin:'8px 14px 14px' }}>
               <div onClick={() => openModal('upload', { project: projects[0] })}
-                style={{ borderRadius:10, border:'1.5px dashed rgba(0,0,0,.1)', padding:'11px 16px',
+                style={{ borderRadius:12, border:'1.5px dashed rgba(0,0,0,.09)', padding:'12px 16px',
                   display:'flex', alignItems:'center', gap:10, cursor:'pointer', transition:'all .15s',
-                  background:'rgba(0,0,0,.01)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background=`${C.coral}06` }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.background='rgba(0,0,0,.01)' }}
+                  background:'transparent' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background=`${C.coral}05` }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.09)'; e.currentTarget.style.background='transparent' }}
                 onDragOver={e => { e.preventDefault(); setDrag(true) }}
                 onDragLeave={() => setDrag(false)}
                 onDrop={e => { e.preventDefault(); setDrag(false) }}>
@@ -3036,28 +2510,29 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                   <polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/>
                   <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
                 </svg>
-                <span style={{ fontSize:12, color:'#999', fontWeight:500 }}>Drop to upload · WAV · MP3 · AIFF</span>
+                <span style={{ fontSize:12, color:'#bbb', fontWeight:500 }}>Drop to upload · WAV · MP3 · AIFF</span>
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* ── Right column ────────────────────────────────────────── */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
             {/* Collaborators */}
-            <Card style={{ overflow:'hidden' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px 10px' }}>
-                <div style={{ fontSize:13, fontWeight:800, color:'#111' }}>Team</div>
+            <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
+                <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Team</div>
                 <button onClick={() => openModal('invite', {})}
-                  style={{ fontSize:11.5, fontWeight:700, color:C.coral, background:'none', border:'none',
-                    cursor:'pointer', padding:'4px 10px', borderRadius:8, background:`${C.coral}10` }}>
+                  style={{ fontSize:12, fontWeight:700, color:C.coral, background:`${C.coral}10`,
+                    border:'none', cursor:'pointer', padding:'5px 12px', borderRadius:9 }}>
                   + Invite
                 </button>
               </div>
               {loadingDetail ? (
-                <div style={{ padding:'12px 18px' }}><Spinner size={16}/></div>
+                <div style={{ padding:'12px 20px' }}><Spinner size={16}/></div>
               ) : projectCollabs.length === 0 ? (
-                <div style={{ padding:'12px 18px 16px', fontSize:12, color:'#bbb' }}>
+                <div style={{ padding:'12px 20px 18px', fontSize:13, color:'#bbb' }}>
                   No team members yet.
                 </div>
               ) : projectCollabs.slice(0,4).map((c, i) => {
@@ -3065,34 +2540,35 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                 const name  = collabName(c)
                 const filesUploaded = projectFiles.filter(f => f.uploaded_by === c.user_id).length
                 return (
-                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:11, padding:'9px 18px',
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 20px',
                     transition:'background .12s', cursor:'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
+                    onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <Avatar name={collabName(c)} url={c.user?.avatar_url} size={34} color={color}/>
+                    <Avatar name={name} url={c.user?.avatar_url} size={36} color={color}/>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12.5, fontWeight:700, color:'#111',
+                      <div style={{ fontSize:13, fontWeight:700, color:'#111',
                         overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
-                      <div style={{ fontSize:10.5, color:'#bbb', marginTop:1 }}>{c.role || 'Collaborator'}</div>
+                      <div style={{ fontSize:11, color:'#bbb', marginTop:2 }}>{c.role || 'Collaborator'}</div>
                     </div>
                     {filesUploaded > 0 && (
-                      <span style={{ fontSize:10.5, fontWeight:600, color:'#aaa',
-                        background:'rgba(0,0,0,.04)', padding:'2px 8px', borderRadius:100, flexShrink:0 }}>
+                      <span style={{ fontSize:11, fontWeight:600, color:'#bbb',
+                        background:'rgba(0,0,0,.04)', padding:'3px 9px', borderRadius:100, flexShrink:0 }}>
                         {filesUploaded} file{filesUploaded !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
                 )
               })}
-            </Card>
+            </div>
 
             {/* Recent Activity */}
-            <Card style={{ overflow:'hidden', flex:1 }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px 10px' }}>
-                <div style={{ fontSize:13, fontWeight:800, color:'#111' }}>Recent Activity</div>
+            <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', flex:1,
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
+                <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
                 <button onClick={() => navigate('/analytics')}
-                  style={{ fontSize:11.5, color:'#aaa', fontWeight:600, background:'none', border:'none', cursor:'pointer' }}>
-                  See all
+                  style={{ fontSize:12, color:'#bbb', fontWeight:600, background:'none', border:'none', cursor:'pointer' }}>
+                  See all →
                 </button>
               </div>
               {loadingDetail ? (
@@ -3164,7 +2640,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
                   </div>
                 ))
               })()}
-            </Card>
+            </div>
           </div>
         </div>
       )}
@@ -3179,6 +2655,7 @@ function PageProjects({ openModal, refreshKey, user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [myRoles, setMyRoles] = useState({})  // { projectId: 'Owner' | roleName }
+  const isMobile = React.useContext(MobileCtx)
   const filters = ['All','In Progress','Review','New Takes','Draft']
 
   useEffect(() => {
@@ -3250,14 +2727,15 @@ function PageProjects({ openModal, refreshKey, user }) {
       )}
 
       {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:20 }}>
           {[0,1,2].map(i => (
-            <div key={i} style={{ borderRadius:20, height:280,
-              background:'linear-gradient(160deg,#e8e8e8,#d4d4d4)', opacity:.6 }} />
+            <div key={i} style={{ borderRadius:24, height: isMobile ? 300 : 360,
+              background:'linear-gradient(160deg,#e8e8e8,#d4d4d4)', opacity:.5,
+              animation:'pulse 1.6s ease-in-out infinite' }} />
           ))}
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:20 }}>
           {visible.length === 0 && filter !== 'All' && (
             <div style={{ gridColumn:'1/-1', padding:'40px 0', textAlign:'center', color:'#bbb', fontSize:13 }}>
               No projects with status "{filter}".
@@ -3265,59 +2743,89 @@ function PageProjects({ openModal, refreshKey, user }) {
           )}
 
           {visible.map((p, i) => {
-            const g    = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
-            const st   = statusStyle(p.status)
-            const role = myRoles[p.id]
+            const g       = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
+            const st      = statusStyle(p.status)
+            const role    = myRoles[p.id]
             const isOwner = role === 'Owner'
             return (
-              <div key={p.id} style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', background:g,
-                position:'relative', height:280, display:'flex', flexDirection:'column', justifyContent:'flex-end',
-                boxShadow:'0 4px 20px rgba(0,0,0,.15)', transition:'transform .22s, box-shadow .22s' }}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow='0 20px 50px rgba(0,0,0,.25)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,.15)' }}>
-                <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,transparent 30%,rgba(0,0,0,.6) 65%,rgba(0,0,0,.92) 100%)' }} />
+              <div key={p.id}
+                onClick={() => openModal('project', { ...p, g })}
+                style={{ borderRadius:24, overflow:'hidden', cursor:'pointer', position:'relative',
+                  height: isMobile ? 300 : 360, display:'flex', flexDirection:'column',
+                  boxShadow:'0 8px 32px rgba(0,0,0,.18)', transition:'transform .25s, box-shadow .25s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-8px)'; e.currentTarget.style.boxShadow='0 24px 60px rgba(0,0,0,.28)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.18)' }}>
 
-                {/* Role badge — top right */}
-                {role && (
-                  <div style={{ position:'absolute', top:14, right:14, zIndex:2,
-                    padding:'4px 10px', borderRadius:100, fontSize:10.5, fontWeight:700,
-                    backdropFilter:'blur(8px)',
-                    background: isOwner ? `${C.coral}cc` : 'rgba(255,255,255,.18)',
-                    color: '#fff',
-                    border: isOwner ? `1px solid ${C.coral}` : '1px solid rgba(255,255,255,.25)' }}>
-                    {isOwner ? <><svg width={10} height={10} viewBox='0 0 24 24' fill='#fff' style={{marginRight:4,verticalAlign:'middle'}}><path d='M3 18h18v2H3zm0-5l4-8 5 5 4-7 5 8H3z'/></svg>Creator</> : `Invited · ${role}`}
-                  </div>
-                )}
+                {/* Gradient art area */}
+                <div style={{ flex:1, background:g, position:'relative', overflow:'hidden' }}>
 
-                <div style={{ position:'relative', padding:'0 18px 18px' }}>
-                  <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
-                    {p.status && (
-                      <span style={{ fontSize:10, padding:'3px 10px', borderRadius:100, fontWeight:700,
-                        background:st.bg, color:st.color, border:`1px solid ${st.border}`,
-                        backdropFilter:'blur(8px)' }}>{p.status}</span>
-                    )}
-                    {p.type && (
-                      <span style={{ fontSize:10, padding:'3px 10px', borderRadius:100, fontWeight:600,
-                        background:'rgba(255,255,255,.14)', color:'rgba(255,255,255,.85)',
-                        border:'1px solid rgba(255,255,255,.2)', backdropFilter:'blur(8px)' }}>{p.type}</span>
-                    )}
+                  {/* Decorative rings */}
+                  <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180,
+                    borderRadius:'50%', border:'1.5px solid rgba(255,255,255,.12)' }}/>
+                  <div style={{ position:'absolute', top:-10, right:-10, width:110, height:110,
+                    borderRadius:'50%', border:'1.5px solid rgba(255,255,255,.1)' }}/>
+                  <div style={{ position:'absolute', bottom:20, left:20, width:60, height:60,
+                    borderRadius:'50%', border:'1px solid rgba(255,255,255,.08)' }}/>
+
+                  {/* Music note icon */}
+                  <div style={{ position:'absolute', bottom:24, right:22, opacity:.18 }}>
+                    <svg width={52} height={52} viewBox="0 0 24 24" fill="white">
+                      <path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6zM18 18a3 3 0 100-6 3 3 0 000 6z"/>
+                    </svg>
                   </div>
-                  <div style={{ fontSize:17, fontWeight:900, color:'#fff', letterSpacing:'-.5px', marginBottom:4,
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginBottom:12 }}>
-                    {isOwner ? `Created ${timeAgo(p.created_at)}` : `Invited as ${role || 'Collaborator'}`}
-                  </div>
-                  {p.notes && (
-                    <div style={{ fontSize:11.5, color:'rgba(255,255,255,.45)', marginBottom:10,
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.notes}</div>
+
+                  {/* Role badge */}
+                  {role && (
+                    <div style={{ position:'absolute', top:16, left:16, zIndex:2,
+                      padding:'5px 11px', borderRadius:100, fontSize:10.5, fontWeight:700,
+                      backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
+                      background: isOwner ? 'rgba(244,147,122,.75)' : 'rgba(255,255,255,.18)',
+                      color:'#fff', border:`1px solid ${isOwner ? 'rgba(244,147,122,.5)' : 'rgba(255,255,255,.2)'}`,
+                      display:'flex', alignItems:'center', gap:5 }}>
+                      {isOwner
+                        ? <><svg width={9} height={9} viewBox="0 0 24 24" fill="#fff"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>Creator</>
+                        : role}
+                    </div>
                   )}
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
-                    <button onClick={() => openModal('project', { ...p, g })} style={{ padding:'8px 18px', borderRadius:100,
-                      background:'rgba(255,255,255,.15)', border:'1px solid rgba(255,255,255,.2)',
-                      color:'#fff', fontSize:11.5, fontWeight:700, cursor:'pointer',
-                      backdropFilter:'blur(6px)', transition:'background .15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.25)'}
-                      onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.15)'}>
+
+                  {/* Status pill — top right */}
+                  {p.status && (
+                    <div style={{ position:'absolute', top:16, right:16, zIndex:2,
+                      padding:'5px 11px', borderRadius:100, fontSize:10.5, fontWeight:700,
+                      backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
+                      background: st.bg, color: st.color,
+                      border:`1px solid ${st.border}` }}>
+                      {p.status}
+                    </div>
+                  )}
+                </div>
+
+                {/* Info panel — frosted white */}
+                <div style={{ background:'#fff', padding:'18px 20px 20px', flexShrink:0 }}>
+                  {/* Type tag */}
+                  {p.type && (
+                    <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', textTransform:'uppercase',
+                      letterSpacing:'.08em', marginBottom:6 }}>{p.type}</div>
+                  )}
+
+                  {/* Title */}
+                  <div style={{ fontSize:20, fontWeight:900, color:'#111', letterSpacing:'-.6px',
+                    marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                    lineHeight:1.2 }}>{p.title}</div>
+
+                  {/* Meta + Open button */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
+                    <div style={{ fontSize:12, color:'#bbb' }}>
+                      {isOwner ? timeAgo(p.created_at) : `Joined as ${role || 'Collaborator'}`}
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); openModal('project', { ...p, g }) }}
+                      style={{ padding:'7px 18px', borderRadius:100, border:'none',
+                        background: g, color:'#fff', fontSize:12, fontWeight:700,
+                        cursor:'pointer', boxShadow:`0 3px 12px rgba(0,0,0,.2)`,
+                        transition:'opacity .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.opacity='.85'}
+                      onMouseLeave={e => e.currentTarget.style.opacity='1'}>
                       Open →
                     </button>
                   </div>
@@ -3326,19 +2834,19 @@ function PageProjects({ openModal, refreshKey, user }) {
             )
           })}
 
-          {/* New project card — always last */}
-          <div style={{ borderRadius:20, border:'2px dashed rgba(0,0,0,.1)', height:280, cursor:'pointer',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12,
-            background:'rgba(0,0,0,.015)', transition:'all .2s' }}
+          {/* New project card */}
+          <div style={{ borderRadius:24, border:'2px dashed rgba(0,0,0,.09)', height:360,
+            cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center',
+            justifyContent:'center', gap:14, background:'rgba(0,0,0,.012)', transition:'all .2s' }}
             onClick={() => openModal('new-project', {})}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background=`${C.coral}07` }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.background='rgba(0,0,0,.015)' }}>
-            <div style={{ width:48, height:48, borderRadius:14, background:C.grad, display:'flex',
-              alignItems:'center', justifyContent:'center', boxShadow:`0 4px 14px ${C.coral}40`,
-              fontSize:24, color:'#fff' }}>+</div>
+            onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background=`${C.coral}06` }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.09)'; e.currentTarget.style.background='rgba(0,0,0,.012)' }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:C.grad, display:'flex',
+              alignItems:'center', justifyContent:'center', boxShadow:`0 6px 20px ${C.coral}40`,
+              fontSize:28, color:'#fff', fontWeight:200 }}>+</div>
             <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:13.5, fontWeight:700, color:'#333' }}>New Project</div>
-              <div style={{ fontSize:12, color:'#bbb', marginTop:3 }}>Start from scratch</div>
+              <div style={{ fontSize:14, fontWeight:800, color:'#222' }}>New Project</div>
+              <div style={{ fontSize:12, color:'#bbb', marginTop:4 }}>Start from scratch</div>
             </div>
           </div>
         </div>
@@ -3351,6 +2859,7 @@ function PageProjects({ openModal, refreshKey, user }) {
 function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [search,        setSearch]        = useState('')
   const [roleFilter,    setRoleFilter]    = useState('All')
+  const isMobile = React.useContext(MobileCtx)
   const [collabs,       setCollabs]       = useState([])
   const [invites,       setInvites]       = useState([])
   const [loading,       setLoading]       = useState(true)
@@ -3452,19 +2961,17 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   return (
     <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Team</h1>
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:4 }}>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Collaborators</h1>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:2 }}>
             <span style={{ fontSize:13, color:'#aaa' }}>
               {loading ? <Spinner size={12}/> : `${collabs.length} member${collabs.length !== 1 ? 's' : ''}`}
             </span>
             {onlineNow > 0 && (
-              <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:12,
-                fontWeight:700, color:'#22c55e' }}>
-                <span style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e',
-                  display:'inline-block', boxShadow:'0 0 6px #22c55e' }}/>
-                {onlineNow} online now
+              <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700, color:'#16a34a' }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', display:'inline-block', boxShadow:'0 0 5px #22c55e' }}/>
+                {onlineNow} online
               </span>
             )}
           </div>
@@ -3472,305 +2979,290 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
         <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
       </div>
 
-      {/* ── Pending invitations ────────────────────────────────────────── */}
-      {/* ── Access Requests — owner approves/denies ────────────────────── */}
+      {/* ── Notification banners ───────────────────────────────────────── */}
       {accessReqs.length > 0 && (
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:C.amber, textTransform:'uppercase',
-            letterSpacing:'.08em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Access Requests ({accessReqs.length})
+        <div style={{ background:`${C.amber}08`, border:`1px solid ${C.amber}30`, borderRadius:14,
+          padding:'14px 18px', marginBottom:12 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#92621a', textTransform:'uppercase',
+            letterSpacing:'.07em', marginBottom:10, display:'flex', alignItems:'center', gap:5 }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Access requests · {accessReqs.length}
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {accessReqs.map(req => (
-              <div key={req.id} style={{ display:'flex', alignItems:'center', gap:14,
-                background:'#fff', borderRadius:14, padding:'14px 18px',
-                border:`1.5px solid ${C.amber}35`, boxShadow:`0 2px 8px ${C.amber}10` }}>
-                <div style={{ width:38, height:38, borderRadius:'50%', background:`${C.amber}15`,
-                  border:`2px solid ${C.amber}35`, display:'flex', alignItems:'center',
-                  justifyContent:'center', fontSize:13, fontWeight:800, color:C.amber, flexShrink:0 }}>
-                  {(req.requester_name || '?')[0]?.toUpperCase()}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13.5, fontWeight:700, color:'#111' }}>
-                    <strong>{req.requester_name}</strong> wants to upload <strong style={{ color:C.amber }}>{req.instrument}</strong>
-                  </div>
-                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>
-                    {req.reason || `Requesting access outside their assigned role`}
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:7, flexShrink:0 }}>
-                  <button onClick={() => reviewRequest(req.id, 'approved')}
-                    disabled={reviewingId === req.id}
-                    style={{ padding:'7px 16px', borderRadius:9, border:'none', background:C.grad,
-                      color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer',
-                      opacity: reviewingId === req.id ? .6 : 1 }}>
-                    {reviewingId === req.id ? <Spinner size={13} color="#fff"/> : 'Approve'}
-                  </button>
-                  <button onClick={() => reviewRequest(req.id, 'denied')}
-                    disabled={reviewingId === req.id}
-                    style={{ padding:'7px 14px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
-                      background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                    Deny
-                  </button>
-                </div>
+          {accessReqs.map(req => (
+            <div key={req.id} style={{ display:'flex', alignItems:'center', gap:12,
+              padding:'10px 0', borderTop:'1px solid rgba(0,0,0,.05)' }}>
+              <div style={{ width:32, height:32, borderRadius:'50%', background:`${C.amber}18`, flexShrink:0,
+                display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:C.amber }}>
+                {(req.requester_name || '?')[0]?.toUpperCase()}
               </div>
-            ))}
-          </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:'#111' }}>{req.requester_name}</span>
+                <span style={{ fontSize:13, color:'#555' }}> wants to upload </span>
+                <span style={{ fontSize:13, fontWeight:700, color:C.amber }}>{req.instrument}</span>
+                {req.reason && <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{req.reason}</div>}
+              </div>
+              <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                <button onClick={() => reviewRequest(req.id, 'approved')} disabled={reviewingId === req.id}
+                  style={{ padding:'6px 14px', borderRadius:8, border:'none', background:C.grad,
+                    color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', opacity: reviewingId === req.id ? .6 : 1 }}>
+                  {reviewingId === req.id ? <Spinner size={11} color="#fff"/> : 'Approve'}
+                </button>
+                <button onClick={() => reviewRequest(req.id, 'denied')} disabled={reviewingId === req.id}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
+                    background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  Deny
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {invites.length > 0 && (
-        <div style={{ marginBottom:20 }}>
-          {invites.map(inv => {
-            const proj   = inv.projects || {}
-            const acting = actingId === inv.id
-            return (
-              <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8,
-                background:'#fff', borderRadius:14, padding:'14px 18px',
-                border:`1.5px solid ${C.amber}35`, boxShadow:`0 2px 8px ${C.amber}12` }}>
-                <div style={{ width:38, height:38, borderRadius:'50%', background:`${C.amber}15`,
-                  border:`2px solid ${C.amber}35`, display:'flex', alignItems:'center',
-                  justifyContent:'center', flexShrink:0 }}>
-                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth={2} strokeLinecap="round">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                  </svg>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>
-                    Invited to <strong>{proj.title || 'a project'}</strong>
-                  </div>
-                  <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                    as <strong style={{ color:'#555' }}>{inv.role || 'Collaborator'}</strong>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:7, flexShrink:0 }}>
-                  <button onClick={() => acceptInvite(inv)} disabled={acting}
-                    style={{ padding:'7px 16px', borderRadius:9, border:'none', background:C.grad,
-                      color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', opacity: acting ? .6 : 1 }}>
-                    {acting ? <Spinner size={13} color="#fff"/> : 'Accept'}
-                  </button>
-                  <button onClick={() => declineInvite(inv)} disabled={acting}
-                    style={{ padding:'7px 14px', borderRadius:9, border:'1.5px solid rgba(0,0,0,.1)',
-                      background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                    Decline
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── Stats row ─────────────────────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:22 }}>
-        {[
-          { label:'Members',      val: loading ? null : collabs.length,                             color:C.coral,   icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8z' },
-          { label:'Online Now',   val: loading ? null : onlineNow,                                  color:'#22c55e', icon:'M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a5 5 0 100 10A5 5 0 0012 7z' },
-          { label:'Projects',     val: loading ? null : (overview.projects ?? ownedIds.size),       color:'#6366f1', icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z' },
-          { label:'Files Shared', val: loading ? null : (overview.sharedFiles ?? '—'),              color:C.amber,   icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
-        ].map(s => (
-          <Card key={s.label} style={{ padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:`${s.color}12`, flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={1.8} strokeLinecap="round">
-                <path d={s.icon}/>
+      {invites.length > 0 && invites.map(inv => {
+        const proj = inv.projects || {}
+        const acting = actingId === inv.id
+        return (
+          <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:14, marginBottom:10,
+            background:'rgba(99,102,241,.05)', border:'1px solid rgba(99,102,241,.2)', borderRadius:14,
+            padding:'14px 18px' }}>
+            <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(99,102,241,.12)',
+              border:'1.5px solid rgba(99,102,241,.25)', display:'flex', alignItems:'center',
+              justifyContent:'center', flexShrink:0 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
               </svg>
             </div>
-            <div>
-              <div style={{ fontSize:22, fontWeight:900, color:s.color, letterSpacing:'-1px', lineHeight:1 }}>
-                {s.val === null ? <Spinner size={18} color={s.color}/> : String(s.val)}
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>
+                You've been invited to <strong>{proj.title || 'a project'}</strong>
               </div>
-              <div style={{ fontSize:10.5, color:'#aaa', fontWeight:600, marginTop:3 }}>{s.label}</div>
+              <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>as <strong style={{ color:'#555' }}>{inv.role || 'Collaborator'}</strong></div>
             </div>
-          </Card>
-        ))}
-      </div>
+            <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+              <button onClick={() => acceptInvite(inv)} disabled={acting}
+                style={{ padding:'7px 16px', borderRadius:9, border:'none', background:C.grad,
+                  color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', opacity: acting ? .6 : 1 }}>
+                {acting ? <Spinner size={11} color="#fff"/> : 'Accept'}
+              </button>
+              <button onClick={() => declineInvite(inv)} disabled={acting}
+                style={{ padding:'7px 12px', borderRadius:9, border:'1px solid rgba(0,0,0,.1)',
+                  background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                Decline
+              </button>
+            </div>
+          </div>
+        )
+      })}
 
       {/* ── Search + role filter ───────────────────────────────────────── */}
-      <div style={{ display:'flex', gap:10, marginBottom:20, alignItems:'center' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, background:'#fff',
-          border:'1.5px solid rgba(0,0,0,.08)', borderRadius:12, padding:'9px 14px', flex:1,
-          boxShadow:'0 1px 3px rgba(0,0,0,.05)' }}>
+          border:'1px solid rgba(0,0,0,.08)', borderRadius:12, padding:'8px 14px', flex:1,
+          boxShadow:'0 1px 3px rgba(0,0,0,.04)' }}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or role…"
+            placeholder="Search name or role…"
             style={{ background:'none', border:'none', outline:'none', fontSize:13, color:'#111', flex:1 }}/>
+          {search && (
+            <button onClick={() => setSearch('')} style={{ background:'none', border:'none', cursor:'pointer',
+              color:'#ccc', fontSize:14, padding:0, lineHeight:1 }}>×</button>
+          )}
         </div>
-        {/* Role filter pills */}
-        <div style={{ display:'flex', gap:6 }}>
+        <div style={{ display:'flex', gap:5 }}>
           {['All', ...roles].map(r => (
             <button key={r} onClick={() => setRoleFilter(r)} style={{
-              padding:'7px 14px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
-              border:`1.5px solid ${roleFilter === r ? C.coral : 'rgba(0,0,0,.08)'}`,
-              background: roleFilter === r ? `${C.coral}12` : '#fff',
-              color: roleFilter === r ? C.coral : '#888',
+              padding:'7px 13px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
+              border:`1px solid ${roleFilter === r ? C.coral : 'rgba(0,0,0,.08)'}`,
+              background: roleFilter === r ? `${C.coral}10` : '#fff',
+              color: roleFilter === r ? C.coral : '#888', transition:'all .12s',
             }}>{r}</button>
           ))}
         </div>
       </div>
 
-      {/* ── Cards ──────────────────────────────────────────────────────── */}
+      {/* ── Member roster ──────────────────────────────────────────────── */}
       {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
-          {[0,1,2].map(i => (
-            <div key={i} style={{ borderRadius:20, height:260, background:'linear-gradient(160deg,#f0f0f0,#e8e8e8)',
-              animation:'pulse 1.6s ease-in-out infinite' }}/>
+        <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
+          boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.05)' }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 20px',
+              borderBottom: i < 3 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+              <div style={{ width:40, height:40, borderRadius:'50%', background:'#f0f0f0', flexShrink:0, animation:'pulse 1.6s ease-in-out infinite' }}/>
+              <div style={{ flex:1 }}>
+                <div style={{ width:120, height:13, borderRadius:6, background:'#f0f0f0', marginBottom:7, animation:'pulse 1.6s ease-in-out infinite' }}/>
+                <div style={{ width:70, height:10, borderRadius:6, background:'#f5f5f5', animation:'pulse 1.6s ease-in-out infinite' }}/>
+              </div>
+            </div>
           ))}
         </div>
       ) : visible.length === 0 ? (
         search || roleFilter !== 'All' ? (
-          <div style={{ textAlign:'center', padding:'48px 24px', background:'#fff', borderRadius:20 }}>
-            <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:6 }}>No matches</div>
-            <div style={{ fontSize:13, color:'#aaa' }}>Try a different search or filter.</div>
+          <div style={{ textAlign:'center', padding:'48px 24px', background:'#fff', borderRadius:16,
+            boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.05)' }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No matches</div>
+            <div style={{ fontSize:13, color:'#aaa' }}>Try a different name or role filter.</div>
           </div>
         ) : (
-          <div style={{ textAlign:'center', padding:'64px 24px', background:'#fff',
-            borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-            {/* Role icons row */}
-            <div style={{ display:'flex', justifyContent:'center', gap:10, marginBottom:24 }}>
-              {[['Vocalist','#8b5cf6'],['Producer',C.coral],['Engineer','#22c55e'],['Guitarist',C.amber]].map(([role, color]) => (
+          <div style={{ textAlign:'center', padding:'64px 24px', background:'#fff', borderRadius:16,
+            boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.05)' }}>
+            <div style={{ display:'flex', justifyContent:'center', gap:12, marginBottom:24 }}>
+              {[['#8b5cf6','Vocalist'],[C.coral,'Producer'],['#22c55e','Engineer'],[C.amber,'Guitarist']].map(([color, role]) => (
                 <div key={role} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-                  <div style={{ width:44, height:44, borderRadius:12, background:`${color}15`,
+                  <div style={{ width:44, height:44, borderRadius:13, background:`${color}12`,
                     border:`1.5px dashed ${color}40`, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round">
                       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
                     </svg>
                   </div>
-                  <span style={{ fontSize:9, color:'#bbb', fontWeight:600 }}>{role}</span>
+                  <span style={{ fontSize:9.5, color:'#bbb', fontWeight:600 }}>{role}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize:16, fontWeight:800, color:'#111', marginBottom:8 }}>Build your team</div>
-            <div style={{ fontSize:13, color:'#aaa', lineHeight:1.7, marginBottom:24, maxWidth:320, margin:'0 auto 24px' }}>
-              Invite vocalists, producers, engineers, and more.<br/>
-              Share a link or send an email invite — they join in seconds.
+            <div style={{ fontSize:16, fontWeight:800, color:'#111', marginBottom:8 }}>No collaborators yet</div>
+            <div style={{ fontSize:13, color:'#aaa', lineHeight:1.7, marginBottom:24 }}>
+              Invite vocalists, producers, and engineers to your projects.
             </div>
-            <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-              <Btn onClick={() => openModal('invite', {})}>Invite your first collaborator</Btn>
-            </div>
+            <Btn onClick={() => openModal('invite', {})}>Invite someone</Btn>
           </div>
         )
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
+        <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
+          boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.05)' }}>
+          {/* Column headers — desktop only */}
+          {!isMobile && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 130px 160px 90px auto',
+              padding:'9px 20px', borderBottom:'1px solid rgba(0,0,0,.05)',
+              fontSize:10.5, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em' }}>
+              <span>Member</span>
+              <span>Role</span>
+              <span>Project</span>
+              <span>Status</span>
+              <span>Actions</span>
+            </div>
+          )}
+
           {visible.map((c, i) => {
-            const color   = collabColor(i)
-            const name    = collabName(c)
+            const color    = collabColor(i)
+            const name     = collabName(c)
             const isOnline = onlineIds.has(c.user_id)
 
-            return (
-              <div key={c.id} style={{ borderRadius:20, overflow:'hidden', background:'#fff',
-                boxShadow:'0 2px 12px rgba(0,0,0,.07)', transition:'transform .2s, box-shadow .2s' }}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,.12)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.07)' }}>
-
-                {/* Coloured header band */}
-                <div style={{ height:64, background:`linear-gradient(135deg,${color}55,${color}22)`,
-                  position:'relative' }}>
-                  {/* Online indicator badge */}
-                  <div style={{ position:'absolute', top:10, right:12,
-                    display:'flex', alignItems:'center', gap:5, padding:'3px 9px',
-                    borderRadius:100, fontSize:10.5, fontWeight:700,
-                    background: isOnline ? 'rgba(34,197,94,.15)' : 'rgba(0,0,0,.1)',
-                    color: isOnline ? '#16a34a' : 'rgba(255,255,255,.5)',
-                    border: `1px solid ${isOnline ? 'rgba(34,197,94,.3)' : 'rgba(255,255,255,.15)'}`,
-                    backdropFilter:'blur(4px)' }}>
-                    <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0,
-                      background: isOnline ? '#22c55e' : 'rgba(255,255,255,.4)',
-                      boxShadow: isOnline ? '0 0 6px #22c55e' : 'none' }}/>
-                    {isOnline ? 'Online' : 'Offline'}
-                  </div>
-                </div>
-
-                {/* Avatar — overlaps the band */}
-                <div style={{ display:'flex', justifyContent:'center', marginTop:-28, marginBottom:10 }}>
-                  <div style={{ position:'relative' }}>
-                    <Avatar name={collabName(c)} url={c.user?.avatar_url} size={56} color={color}
-                      border="3px solid #fff" style={{ boxShadow:`0 4px 14px ${color}40` }}/>
-                    {/* Online dot */}
-                    <div style={{ position:'absolute', bottom:2, right:2, width:13, height:13,
-                      borderRadius:'50%', border:'2.5px solid #fff',
+            if (isMobile) {
+              return (
+                <div key={c.id}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
+                    borderBottom: i < visible.length - 1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+                  {/* Avatar + online dot */}
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <Avatar name={name} url={c.user?.avatar_url} size={40} color={color} border="none"/>
+                    <div style={{ position:'absolute', bottom:0, right:0, width:10, height:10,
+                      borderRadius:'50%', border:'2px solid #fff',
                       background: isOnline ? '#22c55e' : '#d1d5db',
-                      boxShadow: isOnline ? '0 0 8px #22c55e80' : 'none' }}/>
+                      boxShadow: isOnline ? '0 0 6px #22c55e70' : 'none' }}/>
+                  </div>
+                  {/* Name + role */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13.5, fontWeight:700, color:'#111',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:100,
+                      background:`${color}12`, color, display:'inline-block', marginTop:3 }}>
+                      {c.role || 'Collaborator'}
+                    </span>
+                  </div>
+                  {/* Status dot */}
+                  <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0,
+                    background: isOnline ? '#22c55e' : '#e5e7eb',
+                    boxShadow: isOnline ? '0 0 5px #22c55e' : 'none' }}/>
+                  {/* Work button only */}
+                  <button onClick={() => openModal('view-work', c)}
+                    style={{ padding:'8px 14px', borderRadius:8, border:'none', minHeight:44,
+                      background:C.grad, fontSize:12, fontWeight:700, color:'#fff',
+                      cursor:'pointer', boxShadow:`0 2px 8px ${C.coral}25`, flexShrink:0 }}>
+                    Work
+                  </button>
+                </div>
+              )
+            }
+
+            return (
+              <div key={c.id}
+                style={{ display:'grid', gridTemplateColumns:'1fr 130px 160px 90px auto',
+                  padding:'12px 20px', alignItems:'center',
+                  borderBottom: i < visible.length - 1 ? '1px solid rgba(0,0,0,.04)' : 'none',
+                  transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.018)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+
+                {/* Avatar + name */}
+                <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <Avatar name={name} url={c.user?.avatar_url} size={38} color={color} border="none"/>
+                    <div style={{ position:'absolute', bottom:0, right:0, width:10, height:10,
+                      borderRadius:'50%', border:'2px solid #fff',
+                      background: isOnline ? '#22c55e' : '#d1d5db',
+                      boxShadow: isOnline ? '0 0 6px #22c55e70' : 'none' }}/>
+                  </div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13.5, fontWeight:700, color:'#111',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
+                    <div style={{ fontSize:11.5, color:'#bbb', marginTop:1 }}>
+                      {c.email || c.user?.email || ''}
+                    </div>
                   </div>
                 </div>
 
-                {/* Info */}
-                <div style={{ padding:'0 18px 16px', textAlign:'center' }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px',
-                    marginBottom:2 }}>{name}</div>
+                {/* Role */}
+                <span style={{ fontSize:11.5, fontWeight:700, padding:'3px 10px', borderRadius:100,
+                  background:`${color}12`, color, display:'inline-block', width:'fit-content' }}>
+                  {c.role || 'Collaborator'}
+                </span>
 
-                  {/* Role badge */}
-                  <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:100,
-                    background:`${color}15`, color, display:'inline-block', marginBottom:12 }}>
-                    {c.role || 'Collaborator'}
+                {/* Project */}
+                <div style={{ fontSize:12.5, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  {c.projectTitle || '—'}
+                </div>
+
+                {/* Online status */}
+                <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <span style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
+                    background: isOnline ? '#22c55e' : '#e5e7eb',
+                    boxShadow: isOnline ? '0 0 5px #22c55e' : 'none' }}/>
+                  <span style={{ fontSize:12, color: isOnline ? '#16a34a' : '#bbb', fontWeight: isOnline ? 600 : 400 }}>
+                    {isOnline ? 'Online' : 'Away'}
                   </span>
+                </div>
 
-                  {/* Permissions + joined */}
-                  {(() => {
-                    const permMap = {
-                      Vocalist:'vocals, harmonies', Guitarist:'guitar',
-                      Drummer:'drums', Producer:'beats, demos',
-                      Engineer:'exports, finals', Mixer:'exports, finals',
-                      Collaborator:'anything',
-                    }
-                    const perm = permMap[c.role] || 'anything'
-                    return (
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
-                        <div style={{ background:`${color}0a`, borderRadius:10, padding:'9px 8px', border:`1px solid ${color}20` }}>
-                          <div style={{ fontSize:11, fontWeight:700, color, overflow:'hidden',
-                            textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{perm}</div>
-                          <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Can upload</div>
-                        </div>
-                        <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px',
-                          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                          <div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
-                              {c.projectTitle || '—'}
-                            </div>
-                            <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Actions */}
-                  <div style={{ display:'flex', gap:7 }}>
-                    <button onClick={() => openModal('message', c)}
-                      style={{ flex:1, padding:'8px', borderRadius:10,
-                        border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
-                        fontSize:12, fontWeight:600, color:'#444', cursor:'pointer',
-                        transition:'background .12s' }}
-                      onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
-                      onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                      Message
+                {/* Actions */}
+                <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+                  <button onClick={() => openModal('message', c)}
+                    style={{ padding:'6px 13px', borderRadius:8, border:'1px solid rgba(0,0,0,.09)',
+                      background:'transparent', fontSize:12, fontWeight:600, color:'#555', cursor:'pointer',
+                      transition:'background .12s' }}
+                    onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    Message
+                  </button>
+                  <button onClick={() => openModal('view-work', c)}
+                    style={{ padding:'6px 13px', borderRadius:8, border:'none',
+                      background:C.grad, fontSize:12, fontWeight:700, color:'#fff',
+                      cursor:'pointer', boxShadow:`0 2px 8px ${C.coral}25` }}>
+                    Work
+                  </button>
+                  {ownedIds.has(c.project_id) && (
+                    <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
+                      style={{ width:30, height:30, borderRadius:8, flexShrink:0,
+                        border:'1px solid rgba(239,68,68,.2)', background:'rgba(239,68,68,.05)',
+                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                        color:'#ef4444', transition:'background .12s' }}
+                      onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}
+                      onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,.05)'}>
+                      {removingId === c.id
+                        ? <Spinner size={10} color="#ef4444"/>
+                        : <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
                     </button>
-                    <button onClick={() => openModal('view-work', c)}
-                      style={{ flex:1, padding:'8px', borderRadius:10, border:'none',
-                        background:C.grad, fontSize:12, fontWeight:700, color:'#fff',
-                        cursor:'pointer', boxShadow:`0 2px 8px ${C.coral}25`,
-                        transition:'opacity .12s' }}
-                      onMouseEnter={e => e.currentTarget.style.opacity='.88'}
-                      onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                      View work
-                    </button>
-                    {ownedIds.has(c.project_id) && (
-                      <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
-                        style={{ width:36, height:36, borderRadius:10, flexShrink:0,
-                          border:'1.5px solid rgba(239,68,68,.25)',
-                          background:'rgba(239,68,68,.06)', cursor:'pointer',
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          color:'#ef4444' }}>
-                        {removingId === c.id
-                          ? <Spinner size={11} color="#ef4444"/>
-                          : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>}
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             )
@@ -3782,32 +3274,19 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
 }
 
 // ─── PAGE: FILE LIBRARY ────────────────────────────────────────────────────
-function PageLibrary({ openModal, playTrack, user }) {
+function PageLibrary({ openModal, playTrack, addToast, user }) {
   const [projects,     setProjects]     = useState([])
   const [activeId,     setActiveId]     = useState(null)
+  const isMobile = React.useContext(MobileCtx)
   const [files,        setFiles]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [drag,         setDrag]         = useState(false)
   const [deletingId,    setDeletingId]    = useState(null)
-  const [separatingId,  setSeparatingId]  = useState(null)
   const { pending: confirmPending, arm: confirmArm } = useConfirm()
 
   const activeProject = projects.find(p => p.id === activeId)
   const isOwner = user?.id && activeProject?.owner_id === user.id
-
-  const separateStems = async (fileId) => {
-    setSeparatingId(fileId)
-    try {
-      await filesApi.separateStems(fileId)
-      // Optimistically update notes to show separating state
-      setFiles(prev => prev.map(f => f.id === fileId
-        ? { ...f, notes: JSON.stringify({ ...(() => { try { return JSON.parse(f.notes||'{}') } catch { return {} } })(), separating: true }) }
-        : f
-      ))
-    } catch (e) { alert(e.message) }
-    setSeparatingId(null)
-  }
 
   const deleteFile = async (fileId) => {
     if (!confirmArm(`del-${fileId}`)) return
@@ -3839,6 +3318,30 @@ function PageLibrary({ openModal, playTrack, user }) {
       .finally(() => setLoadingFiles(false))
   }, [activeId])
 
+  // Realtime: patch parent take when Replicate finishes and show toast
+  useEffect(() => {
+    if (!activeId) return
+    const channel = supabase
+      .channel(`library-sep:${activeId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stems' }, payload => {
+        const s = payload.new
+        if (!s?.id) return
+        let notes = {}
+        try { notes = JSON.parse(s.notes || '{}') } catch {}
+        // Patch the file in local state so the UI reflects the new notes immediately
+        setFiles(prev => prev.map(f => f.id === s.id ? { ...f, notes: s.notes } : f))
+        // Toast when separation completes (separated flips to true)
+        if (notes.separated && !notes.separating) {
+          addToast?.(
+            <><strong style={{ color: '#fff' }}>Stems ready</strong> — {notes.stem_count || 4} stems split and saved</>,
+            { type: 'success', duration: 8000 }
+          )
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [activeId])
+
   const totalFiles = files.length
 
   // Group files: parent stems + their separated children
@@ -3846,7 +3349,6 @@ function PageLibrary({ openModal, playTrack, user }) {
   const childIds    = new Set(files.filter(f => parsedNotes(f).parent_stem_id).map(f => parsedNotes(f).parent_stem_id))
   const parentFiles = files.filter(f => !parsedNotes(f).parent_stem_id)
   const childrenOf  = (parentId) => files.filter(f => parsedNotes(f).parent_stem_id === parentId)
-  const isSeparating = (f) => parsedNotes(f).separating === true
 
   return (
     <>
@@ -3868,30 +3370,52 @@ function PageLibrary({ openModal, playTrack, user }) {
           <div style={{ fontSize:13, color:'#aaa' }}>Create a project first, then upload files to it.</div>
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:16 }}>
-          <Card style={{ padding:'12px 0', height:'fit-content' }}>
-            <div style={{ padding:'4px 16px 10px', fontSize:10, fontWeight:700, color:'#bbb',
-              textTransform:'uppercase', letterSpacing:'.08em' }}>Projects</div>
-            {projects.map(p => {
-              const on = activeId === p.id
-              return (
-                <button key={p.id} onClick={() => setActiveId(p.id)} style={{
-                  display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 16px',
-                  border:'none', cursor:'pointer', textAlign:'left', fontSize:13, fontWeight: on ? 700 : 400,
-                  color: on ? '#111' : '#666',
-                  background: on ? `${C.coral}10` : 'transparent',
-                  borderLeft: on ? `3px solid ${C.coral}` : '3px solid transparent',
-                  transition:'all .12s',
-                }}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                    stroke={on ? C.coral : '#bbb'} strokeWidth={2} strokeLinecap="round">
-                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-                  </svg>
-                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</span>
-                </button>
-              )
-            })}
-          </Card>
+        <div style={{ display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined,
+          gridTemplateColumns: isMobile ? undefined : '220px 1fr', gap:16 }}>
+
+          {/* Project selector — sidebar on desktop, horizontal pill list on mobile */}
+          {isMobile ? (
+            <div style={{ display:'flex', overflowX:'auto', flexDirection:'row', gap:8, paddingBottom:4,
+              WebkitOverflowScrolling:'touch' }}>
+              {projects.map(p => {
+                const on = activeId === p.id
+                return (
+                  <button key={p.id} onClick={() => setActiveId(p.id)} style={{
+                    padding:'8px 16px', borderRadius:100, border:`1.5px solid ${on ? C.coral : 'rgba(0,0,0,.1)'}`,
+                    background: on ? `${C.coral}12` : '#fff',
+                    color: on ? C.coral : '#666',
+                    fontSize:12.5, fontWeight: on ? 700 : 500, cursor:'pointer',
+                    whiteSpace:'nowrap', flexShrink:0, minHeight:44,
+                    transition:'all .12s',
+                  }}>
+                    {p.title}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <Card style={{ padding:'12px 0', height:'fit-content' }}>
+              <div style={{ padding:'4px 16px 10px', fontSize:10, fontWeight:700, color:'#bbb',
+                textTransform:'uppercase', letterSpacing:'.08em' }}>Projects</div>
+              {projects.map(p => {
+                const on = activeId === p.id
+                return (
+                  <button key={p.id} onClick={() => setActiveId(p.id)} style={{
+                    display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 16px',
+                    border:'none', cursor:'pointer', textAlign:'left', fontSize:13, fontWeight: on ? 700 : 400,
+                    color: on ? '#111' : '#666',
+                    background: on ? `${C.coral}10` : 'transparent',
+                    borderLeft: on ? `3px solid ${C.coral}` : '3px solid transparent',
+                    transition:'all .12s',
+                  }}>
+                    <img src={folderIcon} alt="" width={16} height={16}
+                      style={{ objectFit:'contain', opacity: on ? 1 : 0.35 }}/>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</span>
+                  </button>
+                )
+              })}
+            </Card>
+          )}
 
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             <div style={{ borderRadius:14, border:`2px dashed ${drag ? C.coral : 'rgba(0,0,0,.1)'}`,
@@ -3936,7 +3460,6 @@ function PageLibrary({ openModal, playTrack, user }) {
                 const ext      = f.mime_type?.split('/')?.[1]?.toUpperCase() || 'FILE'
                 const color    = typeColor(ext)
                 const children = childrenOf(f.id)
-                const separating = isSeparating(f)
                 const hasChildren = children.length > 0
                 const stemColors  = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
                 return (
@@ -3958,11 +3481,6 @@ function PageLibrary({ openModal, playTrack, user }) {
                             {fileLabel(f)}
                           </span>
                           <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
-                          {separating && (
-                            <span style={{ fontSize:10, color:C.amber, fontWeight:700, display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                              <Spinner size={10} color={C.amber}/> Separating stems…
-                            </span>
-                          )}
                           {hasChildren && (
                             <span style={{ fontSize:10, color:'#22c55e', fontWeight:600, marginTop:1, display:'block' }}>
                               ✓ {children.length} stems ready
@@ -3997,29 +3515,6 @@ function PageLibrary({ openModal, playTrack, user }) {
                             background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                           <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                         </button>
-
-                        {/* Separate Stems — always visible, user-triggered */}
-                        {!separating && (
-                          <button onClick={() => separateStems(f.id)}
-                            disabled={separatingId === f.id}
-                            style={{ height:30, padding:'0 12px', borderRadius:9, fontSize:12, fontWeight:700,
-                              border:`1.5px solid ${hasChildren ? '#22c55e55' : C.coral+'55'}`,
-                              background: hasChildren ? 'rgba(34,197,94,.08)' : `${C.coral}10`,
-                              color: hasChildren ? '#16a34a' : C.coral,
-                              cursor: separatingId === f.id ? 'default' : 'pointer',
-                              display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap',
-                              opacity: separatingId === f.id ? .6 : 1 }}>
-                            {separatingId === f.id
-                              ? <><Spinner size={10} color={C.coral}/> Separating…</>
-                              : hasChildren
-                              ? <><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>Re-separate</>
-                              : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-                                  <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
-                                  <line x1="12" y1="22.08" x2="12" y2="12"/>
-                                </svg>Separate Stems</>}
-                          </button>
-                        )}
 
                         {/* Delete */}
                         {isOwner && (
@@ -4183,10 +3678,23 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
   )
 }
 
+// ─── STUDIO ICON HELPERS ───────────────────────────────────────────────────
+const IconPlay   = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
+const IconPause  = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+const IconStop   = ({size=11}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><rect x={4} y={4} width={16} height={16} rx={3}/></svg>
+const IconVol    = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>
+const IconVolX   = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+const IconTrash  = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+const IconDown   = ({size=13,rotate=false}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" style={{transform:rotate?'rotate(180deg)':'none',transition:'transform .2s'}}><polyline points="6,9 12,15 18,9"/></svg>
+const IconDl     = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+const IconMix    = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
+const IconWave   = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+
 // ─── PAGE: STUDIO ──────────────────────────────────────────────────────────
 function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,    setProjects]    = useState([])
   const [activeId,    setActiveId]    = useState(null)
+  const isMobile = React.useContext(MobileCtx)
   const [aiAnalysis,  setAiAnalysis]  = useState(null)  // latest project analysis from Claude
   const [stems,       setStems]       = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -4201,12 +3709,15 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const [smartMixing,  setSmartMixing]  = useState(false)  // manual smart mix in progress
   const [smartMixInfo, setSmartMixInfo] = useState(null)   // { contributors, stem_count }
   const audioRefs    = useRef({})
+  const gainRefs     = useRef({})
   const ctxRef       = useRef(null)
   const startAtRef   = useRef(0)
   const offsetRef    = useRef(0)
   const rafRef       = useRef(null)
   const [bpm, setBpm] = useState(120)
   const [beatFlash, setBeatFlash] = useState(false)
+  const [metronomeOn, setMetronomeOn] = useState(true)
+  const metronomeRef = useRef(true)
   const bpmRef = useRef(120)              // always-current value for scheduler
   const nextBeatRef = useRef(0)           // AudioContext time of next scheduled beat
   const beatTimerRef = useRef(null)       // setInterval handle for beat flash
@@ -4319,6 +3830,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const stopAll = () => {
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
     audioRefs.current = {}
+    gainRefs.current  = {}
     if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
     cancelAnimationFrame(rafRef.current)
     clearInterval(beatTimerRef.current)
@@ -4467,6 +3979,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const playAll = async () => {
     stopAll()
+    gainRefs.current = {}
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctxRef.current = ctx
     const playableStems = stems.filter(s => s.file_url && !mutedIds.has(s.id) && (soloId === null || soloId === s.id))
@@ -4489,6 +4002,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         src.buffer = decoded
         const gain = ctx.createGain()
         gain.gain.value = vol
+        gainRefs.current[s.id] = gain
         src.connect(gain)
         gain.connect(ctx.destination)
         src.start(0, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
@@ -4500,14 +4014,16 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     startAtRef.current = ctx.currentTime - offsetRef.current
     setPlaying(true)
 
-    // Schedule metronome clicks for the full duration
-    const secPerBeat = 60 / bpmRef.current
-    let beatTime = ctx.currentTime
-    let beatNum  = 0
-    while (beatTime < ctx.currentTime + maxDur) {
-      scheduleClick(ctx, beatTime, beatNum % 4 === 0)
-      beatTime += secPerBeat
-      beatNum++
+    // Schedule metronome clicks (only if enabled)
+    if (metronomeRef.current) {
+      const secPerBeat = 60 / bpmRef.current
+      let beatTime = ctx.currentTime
+      let beatNum  = 0
+      while (beatTime < ctx.currentTime + maxDur) {
+        scheduleClick(ctx, beatTime, beatNum % 4 === 0)
+        beatTime += secPerBeat
+        beatNum++
+      }
     }
 
     // Start beat flash indicator
@@ -4541,8 +4057,32 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     setCurrentTime(0)
   }
 
-  const toggleMute = (id) => setMutedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const toggleSolo = (id) => setSoloId(prev => prev === id ? null : id)
+  const toggleMute = (id) => {
+    setMutedIds(prev => {
+      const n = new Set(prev)
+      const willMute = !n.has(id)
+      willMute ? n.add(id) : n.delete(id)
+      if (gainRefs.current[id] && ctxRef.current) {
+        gainRefs.current[id].gain.setTargetAtTime(willMute ? 0 : (volumes[id] ?? 1), ctxRef.current.currentTime, 0.02)
+      }
+      return n
+    })
+  }
+  const toggleSolo = (id) => {
+    setSoloId(prev => {
+      const newSolo = prev === id ? null : id
+      if (ctxRef.current) {
+        stems.forEach(s => {
+          const g = gainRefs.current[s.id]
+          if (!g) return
+          const muted  = mutedIds.has(s.id)
+          const active = !muted && (newSolo === null || s.id === newSolo)
+          g.gain.setTargetAtTime(active ? (volumes[s.id] ?? 1) : 0, ctxRef.current.currentTime, 0.02)
+        })
+      }
+      return newSolo
+    })
+  }
 
   const [bouncing,       setBouncing]       = useState(false)
   const [bounceProgress, setBounceProgress] = useState(0)
@@ -4892,1200 +4432,933 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     return !n.parent_stem_id  // exclude Demucs-separated child stems — they belong in File Library
   })
 
+
+
   return (
-    <div style={{ display:'flex', flexDirection:'column',
-      height:'calc(100vh - 52px)', margin:'-24px',
-      background: S.bg, fontFamily:"-apple-system,BlinkMacSystemFont,'Inter',sans-serif",
-      overflow:'hidden', userSelect:'none' }}>
-
-      {/* ══ TRANSPORT ═══════════════════════════════════════════════════ */}
-      <div style={{ height:64, flexShrink:0, background: S.surface,
-        borderBottom:`1px solid ${S.border}`,
-        display:'grid', gridTemplateColumns:'1fr auto 1fr',
-        alignItems:'center', padding:'0 24px' }}>
-
-        {/* Left — project info */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:13, fontWeight:800, color: S.text, letterSpacing:'-.3px',
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:180 }}>
-              {activeProject?.title || 'Studio'}
-            </div>
-            <div style={{ fontSize:10, color: S.text3, marginTop:1 }}>
-              {mixerStems.length} stem{mixerStems.length !== 1 ? 's' : ''}
-              {playing && <span style={{ color:C.coral, marginLeft:6 }}>● playing</span>}
-            </div>
-          </div>
+    <>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+        <div>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Studio</h1>
+          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>
+            {loading ? 'Loading…' : `${mixerStems.length} track${mixerStems.length !== 1 ? 's' : ''} · ${activeProject?.title || '—'}`}
+          </p>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           {projects.length > 1 && projects.map(p => (
             <button key={p.id} onClick={() => setActiveId(p.id)} style={{
-              padding:'3px 10px', borderRadius:100, fontSize:11, fontWeight:600, cursor:'pointer',
+              padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
               background: activeId === p.id ? `${C.coral}12` : 'transparent',
-              border: `1px solid ${activeId === p.id ? C.coral+'35' : S.border}`,
-              color: activeId === p.id ? C.coral : S.text3, flexShrink:0 }}>
-              {p.title}
-            </button>
+              border:`1px solid ${activeId === p.id ? C.coral+'40' : 'rgba(0,0,0,.1)'}`,
+              color: activeId === p.id ? C.coral : '#888',
+            }}>{p.title}</button>
           ))}
-        </div>
-
-        {/* Centre — transport cluster */}
-        <div style={{ display:'flex', alignItems:'center', gap:0,
-          background: S.bg, borderRadius:16, border:`1px solid ${S.border}`,
-          padding:'6px 8px', gap:2 }}>
-
-          {/* Stop */}
-          <button onClick={stop}
-            style={{ width:36, height:36, borderRadius:10, border:'none',
-              background:'transparent', display:'flex', alignItems:'center',
-              justifyContent:'center', cursor:'pointer', color: S.text3,
-              transition:'background .12s, color .12s' }}
-            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(0,0,0,.06)'; e.currentTarget.style.color=S.text }}
-            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=S.text3 }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <rect x={4} y={4} width={16} height={16} rx={2}/>
-            </svg>
-          </button>
-
-          {/* Play */}
-          {Object.keys(loadingPct).length > 0 ? (
-            <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-              size={40} stroke={2.5} color={C.coral} bg={S.border}>
-              <span style={{ fontSize:9.5, fontWeight:800, color:C.coral }}>
-                {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
-              </span>
-            </ProgressRing>
-          ) : (
-            <button onClick={playing ? pause : playAll}
-              style={{ width:40, height:40, borderRadius:12, border:'none',
-                background: playing ? S.grad : S.grad,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer',
-                boxShadow: playing ? `0 0 16px ${C.coral}50, 0 2px 8px rgba(0,0,0,.12)` : '0 2px 8px rgba(0,0,0,.1)',
-                transition:'box-shadow .2s, transform .1s' }}
-              onMouseEnter={e => e.currentTarget.style.transform='scale(1.06)'}
-              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
-              {playing
-                ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
-                : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><path d="M6 3l15 9-15 9V3z"/></svg>}
-            </button>
-          )}
-
-          {/* Divider */}
-          <div style={{ width:1, height:24, background: S.border, margin:'0 6px' }}/>
-
-          {/* Timecode — BAR.BEAT.TICK */}
-          <div style={{ fontFamily:"'SF Mono','Fira Code',monospace", display:'flex',
-            alignItems:'baseline', gap:1, padding:'0 6px', userSelect:'none' }}>
-            <span style={{ fontSize:18, fontWeight:700, color: S.text, letterSpacing:'-.5px' }}>
-              {String(bar).padStart(2,'0')}
-            </span>
-            <span style={{ fontSize:11, color: S.text3, fontWeight:500, margin:'0 1px' }}>.</span>
-            <span style={{ fontSize:18, fontWeight:700, color: S.text, letterSpacing:'-.5px' }}>
-              {String(beat).padStart(2,'0')}
-            </span>
-            <span style={{ fontSize:11, color: S.text3, fontWeight:500, margin:'0 1px' }}>.</span>
-            <span style={{ fontSize:13, fontWeight:500, color: S.text3, letterSpacing:'-.3px' }}>
-              {String(tick).padStart(2,'0')}
-            </span>
-          </div>
-
-          {/* Divider */}
-          <div style={{ width:1, height:24, background: S.border, margin:'0 6px' }}/>
-
-          {/* Elapsed + beat flash */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 4px' }}>
-            <span style={{ fontSize:12, color: S.text2, fontFamily:'monospace', minWidth:36 }}>
-              {fmt(currentTime)}
-            </span>
-            <div style={{ width:7, height:7, borderRadius:'50%',
-              background: beatFlash ? C.coral : 'rgba(0,0,0,.12)',
-              boxShadow: beatFlash ? `0 0 8px ${C.coral}` : 'none',
-              transition: beatFlash ? 'none' : 'background .15s, box-shadow .15s' }}/>
-          </div>
-        </div>
-
-        {/* Right — BPM */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent:'flex-end' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:0,
-            background: S.bg, border:`1px solid ${S.border}`, borderRadius:12,
-            overflow:'hidden' }}>
-            <button onClick={() => handleBpmChange(bpm - 1)} disabled={bpm <= 40}
-              style={{ width:30, height:34, border:'none', background:'transparent',
-                cursor:'pointer', color: S.text3, fontSize:16, display:'flex',
-                alignItems:'center', justifyContent:'center', transition:'background .1s' }}
-              onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.05)'}
-              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>−</button>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
-              padding:'0 8px', borderLeft:`1px solid ${S.border}`, borderRight:`1px solid ${S.border}` }}>
-              <input type="number" min={40} max={250} value={bpm} step={1}
-                onChange={e => handleBpmChange(e.target.value)}
-                style={{ width:42, background:'none', border:'none', outline:'none',
-                  fontSize:16, fontWeight:800, color: S.text, fontFamily:'monospace',
-                  textAlign:'center', padding:0, cursor:'text' }}/>
-              <span style={{ fontSize:8.5, fontWeight:700, color: S.text3,
-                textTransform:'uppercase', letterSpacing:'.1em', marginTop:-1 }}>BPM</span>
-            </div>
-            <button onClick={() => handleBpmChange(bpm + 1)} disabled={bpm >= 250}
-              style={{ width:30, height:34, border:'none', background:'transparent',
-                cursor:'pointer', color: S.text3, fontSize:16, display:'flex',
-                alignItems:'center', justifyContent:'center', transition:'background .1s' }}
-              onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.05)'}
-              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>+</button>
-          </div>
-
-          <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
-            style={{ height:34, padding:'0 13px', borderRadius:11, fontSize:11.5, fontWeight:700,
-              background: detectingBpm ? S.bg : `${C.coral}12`,
-              border: `1px solid ${detectingBpm ? S.border : C.coral+'30'}`,
-              color: detectingBpm ? S.text3 : C.coral,
-              cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
-              display:'flex', alignItems:'center', gap:6, transition:'all .12s' }}>
-            {detectingBpm
-              ? <><Spinner size={9} color={S.text3}/> Detecting…</>
-              : <>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-                  </svg>
-                  Detect BPM
-                </>}
-          </button>
+          <Btn onClick={() => openModal('upload', { project: activeProject })}>+ Upload</Btn>
         </div>
       </div>
 
-      {/* ══ BODY ═══════════════════════════════════════════════════════════ */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+      {/* ── Transport ────────────────────────────────────────────────── */}
+      <div style={{ background:'#fff', borderRadius:20, padding:'16px 22px', marginBottom:20,
+        boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)',
+        display:'flex', alignItems:'center', gap:14 }}>
 
-        {/* ── TRACK LIST (left) ──────────────────────────────────────── */}
-        <div style={{ width:240, flexShrink:0, background: S.surface,
-          borderRight:`1px solid ${S.border}`, display:'flex', flexDirection:'column' }}>
+        {/* Stop */}
+        <button onClick={stop}
+          style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
+            background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', color:'#bbb', transition:'all .12s', flexShrink:0 }}
+          onMouseEnter={e=>{e.currentTarget.style.background='rgba(0,0,0,.05)';e.currentTarget.style.color='#555'}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#bbb'}}>
+          <IconStop size={11}/>
+        </button>
 
-          {/* Header */}
-          <div style={{ height:40, display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'0 16px', borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
-            <span style={{ fontSize:10, fontWeight:700, color: S.text3,
-              textTransform:'uppercase', letterSpacing:'.1em' }}>
-              {mixerStems.length} Track{mixerStems.length !== 1 ? 's' : ''}
+        {/* Play / loading */}
+        {Object.keys(loadingPct).length > 0 ? (
+          <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
+            size={40} stroke={2.5} color={C.coral} bg="rgba(0,0,0,.06)">
+            <span style={{ fontSize:9, fontWeight:800, color:C.coral }}>
+              {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
             </span>
-            <button onClick={() => openModal('upload', { project: activeProject })}
-              style={{ fontSize:11, fontWeight:700, color: C.coral, background:`${C.coral}12`,
-                border:'none', borderRadius:7, padding:'4px 11px', cursor:'pointer' }}>
-              + Upload
-            </button>
+          </ProgressRing>
+        ) : (
+          <button onClick={playing ? pause : playAll}
+            style={{ width:40, height:40, borderRadius:12, border:'none', cursor:'pointer',
+              background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:`0 4px 14px ${C.coral}40`, transition:'transform .12s, box-shadow .2s', flexShrink:0 }}
+            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.07)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+            {playing ? <IconPause size={13} color="#fff"/> : <IconPlay size={13} color="#fff"/>}
+          </button>
+        )}
+
+        {/* Progress scrubber */}
+        <div style={{ flex:1, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ flex:1, height:4, borderRadius:2, background:'rgba(0,0,0,.07)', cursor:'pointer', position:'relative', overflow:'hidden' }}
+            onClick={e => {
+              if (!duration) return
+              const r = e.currentTarget.getBoundingClientRect()
+              offsetRef.current = ((e.clientX - r.left) / r.width) * duration
+              setCurrentTime(offsetRef.current)
+            }}>
+            <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress*100}%`,
+              background:C.grad, borderRadius:2, transition:'width .08s' }}/>
           </div>
+          <span style={{ fontSize:12.5, fontFamily:'monospace', fontWeight:600, color:'#333', minWidth:40, flexShrink:0 }}>{fmt(currentTime)}</span>
+          <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
+            background: beatFlash ? C.coral : 'rgba(0,0,0,.1)',
+            boxShadow: beatFlash ? `0 0 8px ${C.coral}` : 'none',
+            transition: beatFlash ? 'none' : 'all .2s' }}/>
+        </div>
 
-          {/* Track rows */}
-          <div style={{ flex:1, overflowY:'auto' }}>
-            {loading || loadingStems ? (
-              <div style={{ display:'flex', justifyContent:'center', paddingTop:32 }}>
-                <Spinner size={22} color={C.coral}/>
-              </div>
-            ) : (
-              <>
-              {/* Processing originals */}
-              {stems.filter(s => s.instrument === 'original').map(s => {
-                const n = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
-                if (n.status !== 'processing' && n.pipeline !== 'local') return null
-                return (
-                  <div key={s.id} style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`,
-                    background:'rgba(245,158,11,.04)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                      <Spinner size={11} color={C.amber}/>
-                      <span style={{ fontSize:12, fontWeight:600, color: S.text,
-                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                        {s.original_name}
-                      </span>
-                    </div>
-                    <div style={{ fontSize:10, color:C.amber, fontWeight:600, marginBottom:6 }}>
-                      AI analyzing…
-                    </div>
-                    <div style={{ height:2, background: S.border, borderRadius:1, overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:'60%', borderRadius:1, background:C.amber, opacity:.4,
-                        animation:'pulse 1.6s ease-in-out infinite' }}/>
-                    </div>
-                  </div>
-                )
-              })}
+        {/* Divider */}
+        <div style={{ width:1, height:28, background:'rgba(0,0,0,.07)', flexShrink:0 }}/>
 
-              {mixerStems.length === 0 && stems.filter(s => s.instrument === 'original').length === 0 && (
-                <div style={{ padding:'40px 24px', textAlign:'center' }}>
-                  <div style={{ width:56, height:56, borderRadius:16, background:`${C.coral}12`,
-                    border:`1.5px dashed ${C.coral}40`, margin:'0 auto 16px',
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round">
-                      <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
-                    </svg>
-                  </div>
-                  <div style={{ fontSize:14, fontWeight:700, color:S.text, marginBottom:6 }}>No stems yet</div>
-                  <div style={{ fontSize:12, color:S.text3, lineHeight:1.7, marginBottom:18, maxWidth:240, margin:'0 auto 18px' }}>
-                    Drop your first audio file to start.<br/>Dizko will handle the BPM, key, and mix.
-                  </div>
-                  <button onClick={() => openModal('upload', { project: projects.find(p => p.id === activeId) })}
-                    style={{ height:32, padding:'0 18px', borderRadius:9, border:`1px solid ${C.coral}`,
-                      background:`${C.coral}12`, color:C.coral, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    + Upload first stem
-                  </button>
-                </div>
+        {/* BPM cluster */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+
+          {/* Metronome on/off */}
+          {!isMobile && (
+            <button
+              onClick={() => { setMetronomeOn(v => { metronomeRef.current = !v; return !v }) }}
+              title={metronomeOn ? 'Metronome on — click to mute' : 'Metronome off — click to enable'}
+              style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
+                background: metronomeOn ? `${C.coral}12` : 'rgba(0,0,0,.04)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'all .15s', position:'relative' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                stroke={metronomeOn ? C.coral : '#ccc'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12,2 2,20 22,20"/>
+                <line x1="12" y1="12" x2="16" y2="8"/>
+                <line x1="12" y1="20" x2="12" y2="14"/>
+              </svg>
+              {!metronomeOn && (
+                <div style={{ position:'absolute', top:4, right:4, width:6, height:6,
+                  borderRadius:'50%', background:'#ef4444', border:'1.5px solid #fff' }}/>
               )}
-              </>
-            )}
-            {mixerStems.map((s, i) => {
-              const color      = trackColor(s, i)
-              const isMuted    = mutedIds.has(s.id)
-              const isSolo     = soloId === s.id
-              const label      = s.suggested_name || s.original_name || `Track ${i + 1}`
-              const stemType   = s.instrument || parsedNotes(s).stem_type || ''
-              const vol        = getVolume(s.id)
-              const isSelected = expandedId === s.id
-              const isDeleting = deletingId === s.id
-              const uploader   = uploaders[s.uploaded_by]
-              const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
+            </button>
+          )}
 
+          {/* BPM stepper — desktop only */}
+          {!isMobile && (
+            <div style={{ display:'flex', alignItems:'center', background:'rgba(0,0,0,.04)',
+              border:'1px solid rgba(0,0,0,.09)', borderRadius:12, overflow:'hidden', height:38 }}>
+
+              <button onClick={() => handleBpmChange(bpm - 1)} disabled={bpm <= 40}
+                style={{ width:32, height:'100%', border:'none', background:'transparent',
+                  cursor: bpm <= 40 ? 'default' : 'pointer',
+                  color: bpm <= 40 ? '#ddd' : '#888', fontSize:18, fontWeight:300,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'background .1s' }}
+                onMouseEnter={e => { if (bpm > 40) e.currentTarget.style.background='rgba(0,0,0,.06)' }}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                −
+              </button>
+
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+                padding:'0 12px', borderLeft:'1px solid rgba(0,0,0,.07)', borderRight:'1px solid rgba(0,0,0,.07)',
+                minWidth:60 }}>
+                <input
+                  type="number" min={40} max={250} value={bpm} step={1}
+                  onChange={e => handleBpmChange(e.target.value)}
+                  style={{ width:48, background:'none', border:'none', outline:'none',
+                    fontSize:17, fontWeight:900, color:'#111', fontFamily:'monospace',
+                    textAlign:'center', padding:0, cursor:'text' }}/>
+                <span style={{ fontSize:7.5, fontWeight:800, color:'#bbb', textTransform:'uppercase',
+                  letterSpacing:'.14em', marginTop:-2 }}>BPM</span>
+              </div>
+
+              <button onClick={() => handleBpmChange(bpm + 1)} disabled={bpm >= 250}
+                style={{ width:32, height:'100%', border:'none', background:'transparent',
+                  cursor: bpm >= 250 ? 'default' : 'pointer',
+                  color: bpm >= 250 ? '#ddd' : '#888', fontSize:18, fontWeight:300,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'background .1s' }}
+                onMouseEnter={e => { if (bpm < 250) e.currentTarget.style.background='rgba(0,0,0,.06)' }}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                +
+              </button>
+            </div>
+          )}
+
+          {/* Detect BPM */}
+          <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
+            style={{ height:38, padding:'0 13px', borderRadius:12, fontSize:12, fontWeight:700,
+              background: detectingBpm ? 'rgba(0,0,0,.04)' : `${C.coral}10`,
+              border:`1px solid ${detectingBpm ? 'rgba(0,0,0,.08)' : C.coral+'30'}`,
+              color: detectingBpm ? '#bbb' : C.coral, cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
+              display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}>
+            {detectingBpm
+              ? <><Spinner size={10} color="#bbb"/> Detecting…</>
+              : <><IconWave size={12} color={C.coral}/> Detect</>}
+          </button>
+
+          {/* Reset BPM — desktop only */}
+          {!isMobile && bpm !== 120 && (
+            <button onClick={() => handleBpmChange(120)}
+              title="Reset to 120 BPM"
+              style={{ height:38, padding:'0 10px', borderRadius:12, fontSize:11, fontWeight:700,
+                background:'rgba(0,0,0,.03)', border:'1px solid rgba(0,0,0,.08)',
+                color:'#bbb', cursor:'pointer', display:'flex', alignItems:'center', gap:4,
+                transition:'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color='#555'; e.currentTarget.style.borderColor='rgba(0,0,0,.15)' }}
+              onMouseLeave={e => { e.currentTarget.style.color='#bbb'; e.currentTarget.style.borderColor='rgba(0,0,0,.08)' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              120
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Main layout ──────────────────────────────────────────────── */}
+      {loading ? <LoadingBlock /> : (
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap:20, alignItems:'start' }}>
+
+          {/* ── Track list ───────────────────────────────────────────── */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+
+            {/* Processing */}
+            {stems.filter(s => s.instrument === 'original').map(s => {
+              const n = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
+              if (n.status !== 'processing' && n.pipeline !== 'local') return null
               return (
-                <div key={s.id} onClick={() => setExpandedId(isSelected ? null : s.id)}
-                  style={{ display:'flex', alignItems:'center', gap:0,
-                    borderBottom:`1px solid ${S.border}`, cursor:'pointer',
-                    background: isSelected ? `${color}08` : isMuted ? 'rgba(0,0,0,.02)' : 'transparent',
-                    opacity: isMuted && !isSelected ? 0.4 : 1,
-                    transition:'background .12s' }}
-                  onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background=`${color}06` }}
-                  onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background='transparent' }}>
-
-                  {/* Colour accent bar */}
-                  <div style={{ width:4, alignSelf:'stretch', background: color,
-                    opacity: isMuted ? 0.3 : 1, flexShrink:0 }}/>
-
-                  <div style={{ flex:1, padding:'10px 12px 10px 10px' }}>
-                    {/* Loading bar */}
-                    {loadingPct[s.id] != null && loadingPct[s.id] < 100 && (
-                      <div style={{ height:2, background: S.border, borderRadius:1, overflow:'hidden', marginBottom:6 }}>
-                        <div style={{ height:'100%', width:`${loadingPct[s.id]}%`, background: color, transition:'width .15s' }}/>
-                      </div>
-                    )}
-
-                    {/* Row 1: checkbox + name */}
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
-                      <input type="checkbox" checked={selectedIds.has(s.id)}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n=new Set(prev); e.target.checked?n.add(s.id):n.delete(s.id); return n }) }}
-                        style={{ accentColor: color, width:13, height:13, cursor:'pointer', flexShrink:0 }}/>
-                      <span style={{ fontSize:12.5, fontWeight:600, color: S.text,
-                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{label}</span>
-                    </div>
-
-                    {/* Row 2: type + uploader + controls */}
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      {stemType && (
-                        <span style={{ fontSize:9.5, fontWeight:700, color, textTransform:'uppercase',
-                          letterSpacing:'.08em', background:`${color}15`,
-                          padding:'1px 6px', borderRadius:4 }}>{stemType}</span>
-                      )}
-                      <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
-                      <span style={{ fontSize:10.5, color: S.text3, flex:1 }}>{uploaderName}</span>
-
-                      {/* M / S */}
-                      <button onClick={e => { e.stopPropagation(); toggleMute(s.id) }}
-                        style={{ width:22, height:18, borderRadius:4, fontSize:9, fontWeight:800, cursor:'pointer',
-                          background: isMuted ? '#f59e0b18' : S.bg,
-                          border: `1px solid ${isMuted ? '#f59e0b55' : S.border}`,
-                          color: isMuted ? '#b45309' : S.text3 }}>M</button>
-                      <button onClick={e => { e.stopPropagation(); toggleSolo(s.id) }}
-                        style={{ width:22, height:18, borderRadius:4, fontSize:9, fontWeight:800, cursor:'pointer',
-                          background: isSolo ? '#3b82f618' : S.bg,
-                          border: `1px solid ${isSolo ? '#3b82f655' : S.border}`,
-                          color: isSolo ? '#2563eb' : S.text3 }}>S</button>
-
-                      {/* History button — only if multiple takes exist */}
-                      {(() => {
-                        const hKey = `${s.uploaded_by}::${s.instrument || 'recording'}`
-                        const takes = stemHistory[hKey]
-                        if (!takes || takes.length < 2) return null
-                        return (
-                          <button onClick={e => { e.stopPropagation(); setHistoryOpen(historyOpen === s.id ? null : s.id) }}
-                            title={`${takes.length} takes`}
-                            style={{ height:18, padding:'0 5px', borderRadius:4, border:`1px solid ${S.border}`,
-                              background: historyOpen === s.id ? `${color}18` : S.bg,
-                              color: historyOpen === s.id ? color : S.text3,
-                              fontSize:9, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
-                            <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                              <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
-                            </svg>
-                            {takes.length}
-                          </button>
-                        )
-                      })()}
-
-                      {/* Comment count badge */}
-                      <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === s.id ? null : s.id); if (expandedId !== s.id) loadComments(s.id) }}
-                        title="Comments"
-                        style={{ height:18, padding:'0 5px', borderRadius:4, border:`1px solid ${S.border}`,
-                          background: expandedId === s.id ? `${color}18` : S.bg,
-                          color: expandedId === s.id ? color : S.text3,
-                          fontSize:9, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
-                        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                        </svg>
-                        {(stemComments[s.id] || []).filter(c => !c.resolved).length || ''}
-                      </button>
-
-                      {/* Delete */}
-                      <button onClick={e => { e.stopPropagation(); deleteStem(s.id) }} disabled={isDeleting}
-                        style={{ width:20, height:18, borderRadius:4, border:'none', cursor:'pointer',
-                          background: stemConfirmPending === `del-${s.id}` ? 'rgba(239,68,68,.2)' : 'rgba(239,68,68,.1)',
-                          color: stemConfirmPending === `del-${s.id}` ? '#ef4444' : 'rgba(239,68,68,.65)',
-                          display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:700 }}>
-                        {isDeleting ? <Spinner size={7} color="#ef4444"/>
-                          : stemConfirmPending === `del-${s.id}` ? '✓'
-                          : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
-                      </button>
-                    </div>
-
-                    {/* Version history panel */}
-                    {historyOpen === s.id && (() => {
-                      const hKey = `${s.uploaded_by}::${s.instrument || 'recording'}`
-                      const takes = stemHistory[hKey] || []
-                      return (
-                        <div onClick={e => e.stopPropagation()}
-                          style={{ marginTop:8, padding:'10px 12px', borderRadius:10,
-                            background:S.surface, border:`1px solid ${S.border}` }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:S.text3, textTransform:'uppercase',
-                            letterSpacing:'1px', marginBottom:8 }}>Version History</div>
-                          {takes.map((t, ti) => {
-                            const isCurrent = t.id === s.id
-                            const n = (() => { try { return JSON.parse(t.notes||'{}') } catch { return {} } })()
-                            const isBest = aiAnalysis?.version_insights?.some(vi => vi.best_take_id === t.id)
-                            return (
-                              <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8,
-                                padding:'6px 8px', borderRadius:7, marginBottom:3,
-                                background: isCurrent ? `${color}12` : 'transparent',
-                                border: isCurrent ? `1px solid ${color}30` : '1px solid transparent' }}>
-                                <span style={{ fontSize:10, color:S.text3, minWidth:20 }}>T{ti+1}</span>
-                                <span style={{ flex:1, fontSize:11, color:S.text, fontWeight: isCurrent ? 700 : 400 }}>
-                                  {new Date(t.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })}
-                                  {isBest && <span style={{ marginLeft:5, color:'#f59e0b' }}>★ AI pick</span>}
-                                  {isCurrent && <span style={{ marginLeft:5, color:color, fontSize:9 }}>current</span>}
-                                </span>
-                                {n.bpm && <span style={{ fontSize:9, color:S.text3 }}>{Math.round(n.bpm)} BPM</span>}
-                                <button onClick={() => playTrack({ file_url: t.file_url, suggested_name: t.original_name, instrument: t.instrument })}
-                                  style={{ width:22, height:22, borderRadius:6, border:`1px solid ${S.border}`,
-                                    background:S.bg, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                  <svg width={9} height={9} viewBox="0 0 24 24" fill={S.text3}><polygon points="5,3 19,12 5,21"/></svg>
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Expanded: volume slider + comments */}
-                    {isSelected && (
-                      <div onClick={e => e.stopPropagation()}
-                        style={{ marginTop:8, display:'flex', alignItems:'center', gap:7 }}>
-                        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={S.text3} strokeWidth={2} strokeLinecap="round">
-                          <line x1="18" y1="20" x2="18" y2="10"/>
-                          <line x1="12" y1="20" x2="12" y2="4"/>
-                          <line x1="6"  y1="20" x2="6"  y2="14"/>
-                        </svg>
-                        <input type="range" min={0} max={1} step={0.01} value={vol}
-                          onChange={e => setVolumes(v => ({ ...v, [s.id]: parseFloat(e.target.value) }))}
-                          style={{ flex:1, accentColor: color, cursor:'pointer' }}/>
-                        <span style={{ fontSize:10, color: S.text3, minWidth:30, textAlign:'right' }}>
-                          {Math.round(vol*100)}%
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Comments panel */}
-                    {expandedId === s.id && (
-                      <div onClick={e => e.stopPropagation()} style={{ marginTop:8 }}>
-                        {/* Existing comments */}
-                        {(stemComments[s.id] || []).filter(c => !c.resolved).map(c => (
-                          <div key={c.id} style={{ display:'flex', gap:7, marginBottom:7, alignItems:'flex-start' }}>
-                            <Avatar name={c.user_name} url={c.avatar_url} size={20} color={color} border="none"/>
-                            <div style={{ flex:1, padding:'6px 10px', borderRadius:8, background:S.surface, border:`1px solid ${S.border}` }}>
-                              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                                <span style={{ fontSize:11, fontWeight:700, color:S.text }}>{c.user_name}</span>
-                                <button onClick={() => {
-                                  const mins = Math.floor(c.timestamp_sec/60), secs = Math.floor(c.timestamp_sec%60)
-                                  playTrack({ file_url: s.file_url, suggested_name: s.suggested_name || s.original_name, instrument: s.instrument })
-                                }} style={{ fontSize:10, color:color, background:'none', border:'none', cursor:'pointer', padding:0, fontWeight:600 }}>
-                                  {String(Math.floor(c.timestamp_sec/60)).padStart(2,'0')}:{String(Math.floor(c.timestamp_sec%60)).padStart(2,'0')}
-                                </button>
-                                <span style={{ fontSize:10, color:S.text3, marginLeft:'auto' }}>
-                                  {new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                                </span>
-                              </div>
-                              <div style={{ fontSize:12, color:S.text, lineHeight:1.5 }}>{c.text}</div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* New comment input */}
-                        <div style={{ display:'flex', gap:6, alignItems:'flex-end', marginTop:4 }}>
-                          <input
-                            value={commentDraft[s.id] || ''}
-                            onChange={e => setCommentDraft(prev => ({ ...prev, [s.id]: e.target.value }))}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(s.id, currentTime) } }}
-                            placeholder={`Comment at ${String(Math.floor(currentTime/60)).padStart(2,'0')}:${String(Math.floor(currentTime%60)).padStart(2,'0')}…`}
-                            style={{ flex:1, padding:'7px 10px', borderRadius:8, fontSize:12,
-                              border:`1px solid ${S.border}`, background:S.surface, color:S.text,
-                              outline:'none', fontFamily:'inherit' }}/>
-                          <button onClick={() => postComment(s.id, currentTime)}
-                            disabled={!commentDraft[s.id]?.trim() || postingComment === s.id}
-                            style={{ width:30, height:30, borderRadius:8, border:'none',
-                              background: commentDraft[s.id]?.trim() ? color : S.bg,
-                              cursor: commentDraft[s.id]?.trim() ? 'pointer' : 'default',
-                              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            {postingComment === s.id
-                              ? <Spinner size={10} color="#fff"/>
-                              : <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>}
-                          </button>
-                        </div>
-                        <div style={{ fontSize:10, color:S.text3, marginTop:4 }}>
-                          Timestamps to current playhead position. Press Enter to post.
-                        </div>
-                      </div>
-                    )}
+                <div key={s.id} style={{ background:'#fff', borderRadius:20, padding:'16px 20px',
+                  border:'1px solid rgba(245,158,11,.2)', boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <Spinner size={13} color={C.amber}/>
+                    <span style={{ fontSize:13.5, fontWeight:700, color:'#111', flex:1 }}>{s.original_name}</span>
+                    <span style={{ fontSize:11, color:C.amber, fontWeight:700 }}>AI analyzing…</span>
+                  </div>
+                  <div style={{ height:2, background:'rgba(0,0,0,.05)', borderRadius:1, overflow:'hidden', marginTop:12 }}>
+                    <div style={{ height:'100%', width:'60%', background:C.amber, opacity:.5, animation:'pulse 1.6s ease-in-out infinite' }}/>
                   </div>
                 </div>
               )
             })}
-          </div>
-        </div>
 
-        {/* ── ARRANGEMENT (right) ──────────────────────────────────────── */}
-        <div ref={clipAreaRef} style={{ flex:1, overflowX:'auto', overflowY:'auto',
-          position:'relative', background: S.bg }}>
-          <div style={{ minWidth: arrangementW, position:'relative' }}>
-
-            {/* Ruler */}
-            <div style={{ height:40, background: S.surface,
-              borderBottom:`1px solid ${S.border}`,
-              position:'sticky', top:0, zIndex:3 }}>
-              {Array.from({ length: Math.ceil((duration || 30) / secsPerBar) + 2 }, (_, bar) => {
-                const x = Math.round(bar * secsPerBar * PPS)
-                return (
-                  <React.Fragment key={bar}>
-                    <span style={{ position:'absolute', left: x + 6, top:'50%', transform:'translateY(-50%)',
-                      fontSize:10.5, color: S.text3, fontFamily:'monospace', fontWeight:600,
-                      userSelect:'none' }}>{bar + 1}</span>
-                    <div style={{ position:'absolute', left: x, bottom:0, width:1, height:14,
-                      background: S.border }}/>
-                    {[1,2,3].map(b => (
-                      <div key={b} style={{ position:'absolute',
-                        left: Math.round(x + b*(secsPerBar/4)*PPS), bottom:0,
-                        width:1, height:7, background: S.border }}/>
-                    ))}
-                  </React.Fragment>
-                )
-              })}
-            </div>
-
-            {/* Track rows + playhead */}
-            <div style={{ position:'relative' }}>
-              {/* Playhead */}
-              <div style={{ position:'absolute', top:0, bottom:0,
-                left: Math.round(currentTime * PPS), width:2,
-                background: C.coral, zIndex:5, pointerEvents:'none',
-                boxShadow:`0 0 8px ${C.coral}60` }}>
-                <div style={{ position:'absolute', top:-1, left:-5,
-                  width:12, height:12, borderRadius:'50%', background: C.coral,
-                  boxShadow:`0 0 10px ${C.coral}` }}/>
+            {/* Empty state */}
+            {mixerStems.length === 0 && stems.filter(s => s.instrument === 'original').length === 0 && (
+              <div style={{ background:'#fff', borderRadius:20, padding:'64px 24px', textAlign:'center',
+                boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ width:60, height:60, borderRadius:18, background:`${C.coral}10`,
+                  border:`1.5px dashed ${C.coral}40`, margin:'0 auto 18px',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round">
+                    <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize:16, fontWeight:900, color:'#111', marginBottom:6 }}>No tracks yet</div>
+                <div style={{ fontSize:13, color:'#aaa', marginBottom:22 }}>Upload audio to start your session</div>
+                <Btn onClick={() => openModal('upload', { project: activeProject })}>+ Upload first stem</Btn>
               </div>
+            )}
 
-              {loading || loadingStems ? (
-                <div style={{ height:120, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Spinner size={24} color={C.coral}/>
-                </div>
-              ) : mixerStems.length === 0 ? (
-                <div style={{ height:160, display:'flex', flexDirection:'column',
-                  alignItems:'center', justifyContent:'center', gap:12 }}>
-                  <div style={{ fontSize:13, color: S.text3 }}>No tracks yet</div>
-                  <button onClick={() => openModal('upload', { project: activeProject })}
-                    style={{ padding:'8px 20px', background: S.grad, border:'none',
-                      color:'#fff', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                    + Upload audio
-                  </button>
-                </div>
-              ) : mixerStems.map((s, i) => {
-                const color    = trackColor(s, i)
-                const isMuted  = mutedIds.has(s.id)
-                const isSolo   = soloId === s.id
-                const isActive = soloId === null || isSolo
-                const label    = s.suggested_name || s.original_name || `Track ${i+1}`
-                const trim     = getTrim(s.id)
-                const clipDur  = duration || 30
-                const clipW    = Math.max((clipDur*(trim.end-trim.start))*PPS, 60)
-                const clipLeft = Math.round(clipDur*trim.start*PPS)
-                const hasTrim  = trim.start > 0.01 || trim.end < 0.99
+            {/* Track rows */}
+            {mixerStems.map((s, i) => {
+              const color        = trackColor(s, i)
+              const isMuted      = mutedIds.has(s.id)
+              const isSolo       = soloId === s.id
+              const label        = s.suggested_name || s.original_name || `Track ${i + 1}`
+              const stemType     = s.instrument || parsedNotes(s).stem_type || ''
+              const vol          = getVolume(s.id)
+              const isExpanded   = expandedId === s.id
+              const uploader     = uploaders[s.uploaded_by]
+              const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
+              const isDeleting   = deletingId === s.id
+              const loadPct      = loadingPct[s.id]
+              const hKey         = `${s.uploaded_by}::${s.instrument || 'recording'}`
+              const takes        = stemHistory[hKey]
+              const comments     = stemComments[s.id] || []
+              const commentCount = comments.filter(c => !c.resolved).length
 
-                return (
-                  <div key={s.id} style={{ height: TRACK_H,
-                    borderBottom:`1px solid ${S.border}`,
-                    position:'relative',
-                    background: i%2===0 ? S.surface : S.bg,
-                    opacity: isMuted ? 0.2 : !isActive ? 0.1 : 1 }}>
+              return (
+                <div key={s.id} style={{ background:'#fff', borderRadius:20,
+                  border:`1px solid ${isExpanded ? color+'28' : 'rgba(0,0,0,.05)'}`,
+                  boxShadow: isExpanded ? `0 6px 24px ${color}10` : '0 1px 4px rgba(0,0,0,.05)',
+                  overflow:'hidden', transition:'all .2s',
+                  opacity: isMuted ? 0.5 : 1 }}>
 
-                    {/* Clip block */}
-                    <div style={{ position:'absolute', top:10, left:clipLeft, width:clipW,
-                      height: TRACK_H-20, borderRadius:8, overflow:'visible', cursor:'pointer',
-                      border:`1.5px solid ${color}55`,
-                      background:`${color}20`,
-                      zIndex:1 }}
-                      onClick={() => playTrack(s)}>
+                  {/* Loading bar */}
+                  {loadPct != null && loadPct < 100 && (
+                    <div style={{ height:3, background:'rgba(0,0,0,.04)' }}>
+                      <div style={{ height:'100%', width:`${loadPct}%`, background:color, transition:'width .15s' }}/>
+                    </div>
+                  )}
 
-                      <div style={{ padding:'5px 8px', overflow:'hidden', height:'100%',
-                        borderRadius:8, display:'flex', alignItems:'center', gap:6 }}>
-                        <div style={{ width:3, height:'70%', borderRadius:2, background: color, flexShrink:0 }}/>
-                        <span style={{ fontSize:11, fontWeight:600, color, overflow:'hidden',
-                          textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{label}</span>
+                  <div style={{ display:'flex', alignItems:'center', padding:'14px 18px', gap:0,
+                    cursor:'pointer' }}
+                    onClick={() => { setExpandedId(isExpanded ? null : s.id); if (!isExpanded) loadComments(s.id) }}>
+
+                    {/* Color bar + checkbox */}
+                    <div style={{ display:'flex', alignItems:'center', gap:12, marginRight:16, flexShrink:0 }}>
+                      <div style={{ width:4, height:40, borderRadius:2, background:color, flexShrink:0 }}/>
+                      <input type="checkbox" checked={selectedIds.has(s.id)}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n=new Set(prev); e.target.checked?n.add(s.id):n.delete(s.id); return n }) }}
+                        style={{ accentColor:color, width:15, height:15, cursor:'pointer', flexShrink:0 }}/>
+                    </div>
+
+                    {/* Name + meta */}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>{label}</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                        {stemType && (
+                          <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`,
+                            padding:'2px 8px', borderRadius:100, textTransform:'capitalize' }}>{stemType}</span>
+                        )}
+                        <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
+                        <span style={{ fontSize:11.5, color:'#bbb' }}>{uploaderName}</span>
+                        {takes && takes.length > 1 && (
+                          <span style={{ fontSize:10.5, color:'#bbb', background:'rgba(0,0,0,.04)',
+                            padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Trim handles */}
-                      {['start','end'].map(edge => (
-                        <div key={edge}
-                          style={{ position:'absolute', top:0, bottom:0, width:8, cursor:'ew-resize', zIndex:2,
-                            [edge==='start'?'left':'right']: -4,
-                            display:'flex', alignItems:'center', justifyContent:'center' }}
-                          onMouseDown={e => onTrimHandleMouseDown(e, s.id, edge, clipDur)}
-                          onMouseEnter={() => setHoveredHandle({ stemId:s.id, edge })}
-                          onMouseLeave={() => setHoveredHandle(null)}>
-                          <div style={{ width:3, height:16, borderRadius:2,
-                            background: hoveredHandle?.stemId===s.id&&hoveredHandle?.edge===edge ? color : `${color}66` }}/>
+                    {/* Volume — desktop only */}
+                    {!isMobile && (
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:14, flexShrink:0 }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ color:'#ccc' }}>{isMuted ? <IconVolX size={13}/> : <IconVol size={13}/>}</div>
+                        <input type="range" min={0} max={1} step={0.01} value={vol}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value)
+                            setVolumes(prev => ({...prev, [s.id]: v}))
+                            if (gainRefs.current[s.id] && !isMuted) gainRefs.current[s.id].gain.value = v
+                          }}
+                          style={{ width:72, accentColor:color, cursor:'pointer' }}/>
+                      </div>
+                    )}
+
+                    {/* Mute / Solo */}
+                    <div style={{ display:'flex', gap:isMobile ? 4 : 5, marginRight: isMobile ? 6 : 10, flexShrink:0 }}
+                      onClick={e => e.stopPropagation()}>
+                      <button onClick={() => toggleMute(s.id)} style={{
+                        padding: isMobile ? '4px 8px' : '5px 12px', borderRadius:100,
+                        fontSize: isMobile ? 10 : 11.5, fontWeight:700, cursor:'pointer',
+                        minHeight:44,
+                        background: isMuted ? '#f59e0b15' : 'rgba(0,0,0,.04)',
+                        border:`1px solid ${isMuted ? '#f59e0b50' : 'rgba(0,0,0,.08)'}`,
+                        color: isMuted ? '#b45309' : '#bbb', transition:'all .15s',
+                        display:'flex', alignItems:'center', gap:3 }}>
+                        {isMuted ? <IconVolX size={10}/> : <IconVol size={10}/>}
+                        {isMobile ? '' : (isMuted ? 'Muted' : 'Mute')}
+                      </button>
+                      <button onClick={() => toggleSolo(s.id)} style={{
+                        padding: isMobile ? '4px 8px' : '5px 12px', borderRadius:100,
+                        fontSize: isMobile ? 10 : 11.5, fontWeight:700, cursor:'pointer',
+                        minHeight:44,
+                        background: isSolo ? '#6366f112' : 'rgba(0,0,0,.04)',
+                        border:`1px solid ${isSolo ? '#6366f145' : 'rgba(0,0,0,.08)'}`,
+                        color: isSolo ? '#6366f1' : '#bbb', transition:'all .15s' }}>
+                        S
+                      </button>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display:'flex', gap:6, flexShrink:0 }}
+                      onClick={e => e.stopPropagation()}>
+                      <button onClick={() => playTrack(s)}
+                        style={{ width:32, height:32, borderRadius:10, border:`1px solid ${color}28`,
+                          background:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center',
+                          cursor:'pointer', color, transition:'all .12s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background=`${color}20`}
+                        onMouseLeave={e=>e.currentTarget.style.background=`${color}10`}>
+                        <IconPlay size={10} color={color}/>
+                      </button>
+                      {commentCount > 0 && (
+                        <div style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(0,0,0,.07)',
+                          background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:10, fontWeight:800, color:'#888' }}>{commentCount}</div>
+                      )}
+                      <button onClick={() => deleteStem(s.id)} disabled={isDeleting}
+                        style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(0,0,0,.07)',
+                          background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
+                          cursor:'pointer', color:'#ccc', transition:'all .12s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
+                        onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(0,0,0,.07)';e.currentTarget.style.background='transparent'}}>
+                        {isDeleting ? <Spinner size={10} color="#ef4444"/> : <IconTrash size={12}/>}
+                      </button>
+                      <div style={{ color:'#ccc', display:'flex', alignItems:'center' }}>
+                        <IconDown size={14} rotate={isExpanded}/>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded panel */}
+                  {isExpanded && (
+                    <div style={{ borderTop:'1px solid rgba(0,0,0,.05)', padding:'16px 22px', background:'rgba(0,0,0,.014)' }}>
+                      {takes && takes.length > 1 && (
+                        <div style={{ marginBottom:14 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase',
+                            letterSpacing:'.07em', marginBottom:10 }}>Take History</div>
+                          {takes.map((t, ti) => (
+                            <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0',
+                              borderBottom: ti < takes.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+                              <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`,
+                                padding:'2px 8px', borderRadius:100 }}>v{takes.length - ti}</span>
+                              <span style={{ fontSize:12.5, color:'#333', flex:1 }}>{t.suggested_name || t.original_name}</span>
+                              <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(t.created_at)}</span>
+                              <button onClick={() => playTrack(t)}
+                                style={{ width:26, height:26, borderRadius:8, border:`1px solid ${color}28`,
+                                  background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color }}>
+                                <IconPlay size={8} color={color}/>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Comments</div>
+                      {comments.length === 0 && <div style={{ fontSize:12.5, color:'#ccc', marginBottom:12 }}>No comments yet</div>}
+                      {comments.map(cm => (
+                        <div key={cm.id} style={{ display:'flex', gap:10, marginBottom:10 }}>
+                          <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}15`, flexShrink:0,
+                            display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color }}>
+                            {initials(cm.user?.full_name || '?')}
+                          </div>
+                          <div style={{ flex:1, background:'rgba(0,0,0,.03)', borderRadius:10, padding:'8px 12px' }}>
+                            <div style={{ fontSize:11.5, fontWeight:700, color:'#555', marginBottom:3 }}>
+                              {cm.user?.full_name || 'Someone'}
+                              {cm.timestamp_sec > 0 && <span style={{ color:'#bbb', fontWeight:400 }}> @ {fmt(cm.timestamp_sec)}</span>}
+                            </div>
+                            <div style={{ fontSize:12.5, color:'#333', lineHeight:1.5 }}>{cm.text}</div>
+                          </div>
                         </div>
                       ))}
-                    </div>
-
-                    {/* Faded trim regions */}
-                    {trim.start > 0.01 && (
-                      <div style={{ position:'absolute', top:10, left:0, width:clipLeft,
-                        height:TRACK_H-20, background:'rgba(0,0,0,.07)', zIndex:2,
-                        pointerEvents:'none', borderRadius:'8px 0 0 8px' }}/>
-                    )}
-                    {trim.end < 0.99 && (
-                      <div style={{ position:'absolute', top:10, left:clipLeft+clipW,
-                        right:0, height:TRACK_H-20, background:'rgba(0,0,0,.07)', zIndex:2,
-                        pointerEvents:'none', borderRadius:'0 8px 8px 0' }}/>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══ BOTTOM ACTION BAR ════════════════════════════════════════════ */}
-      <div style={{ height:52, flexShrink:0, background: S.surface,
-        borderTop:`1px solid ${S.border}`,
-        display:'flex', alignItems:'center', padding:'0 24px', gap:12 }}>
-
-        {/* Smart Mix */}
-        {smartMixUrl ? (
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
-            <span style={{ fontSize:12, fontWeight:700, color: S.text }}>Smart Mix</span>
-            {smartMixInfo?.stem_count && (
-              <span style={{ fontSize:11, color: S.text3 }}>· {smartMixInfo.stem_count} tracks</span>
-            )}
-            <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.coral}35`,
-                background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', color:C.coral }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21" fill="currentColor" stroke="none"/></svg>
-            </button>
-            <a href={smartMixUrl} download="smart_mix.wav"
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
-                background: S.bg, display:'flex', alignItems:'center', justifyContent:'center',
-                color: S.text3, textDecoration:'none' }}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </a>
-          </div>
-        ) : (
-          <button onClick={async () => {
-            if (!activeId || smartMixing) return
-            setSmartMixing(true)
-            try {
-              const r = await smartBounceApi(activeId)
-              setSmartMixUrl(r.data?.bounce_url)
-              setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
-            } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
-            setSmartMixing(false)
-          }} disabled={smartMixing || mixerStems.length < 2}
-            style={{ display:'flex', alignItems:'center', gap:6, height:32, padding:'0 14px',
-              borderRadius:9, border:`1px solid ${S.border}`, background: S.bg,
-              color: S.text2, fontSize:12, fontWeight:600, cursor:'pointer' }}>
-            {smartMixing
-              ? <><Spinner size={11} color={S.text3}/> Mixing…</>
-              : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6"/>
-                  <line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/>
-                  <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>
-                  <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>
-                  <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
-                </svg>Smart Mix</>}
-          </button>
-        )}
-
-        <div style={{ width:1, height:24, background: S.border }}/>
-
-        {/* Bounce */}
-        {bounceUrl ? (
-          <div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}>
-            <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e' }}/>
-            <span style={{ fontSize:12, fontWeight:700, color: S.text }}>Bounce ready</span>
-
-            <button onClick={toggleBouncePlayer} style={{ width:28, height:28, borderRadius:8,
-              border:'1px solid rgba(34,197,94,.3)', background:'rgba(34,197,94,.1)',
-              display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-              {bouncePlaying
-                ? <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2.5} strokeLinecap="round"><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
-                : <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21" fill="#16a34a" stroke="none"/></svg>}
-            </button>
-
-            <div onClick={e => {
-              if (!bouncePlayerRef.current || !bounceDur) return
-              const rect = e.currentTarget.getBoundingClientRect()
-              bouncePlayerRef.current.currentTime = ((e.clientX-rect.left)/rect.width)*bounceDur
-            }} style={{ width:120, height:3, background: S.border, borderRadius:2, cursor:'pointer', position:'relative' }}>
-              <div style={{ position:'absolute', inset:'0 auto 0 0',
-                width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%',
-                background:'#22c55e', borderRadius:2 }}/>
-            </div>
-
-            <span style={{ fontSize:10.5, color: S.text3, fontVariantNumeric:'tabular-nums', minWidth:32 }}>
-              {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
-            </span>
-
-            <a href={bounceUrl} download={`${activeProject?.title||'mix'}_bounce.wav`}
-              style={{ height:30, padding:'0 12px', borderRadius:8, border:'1px solid rgba(34,197,94,.3)',
-                background:'rgba(34,197,94,.1)', color:'#16a34a', fontSize:12, fontWeight:700,
-                display:'flex', alignItems:'center', gap:5, textDecoration:'none' }}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download
-            </a>
-
-            <button onClick={saveBounce} disabled={savingBounce}
-              style={{ height:30, padding:'0 12px', borderRadius:8,
-                border:'1px solid rgba(99,102,241,.3)', background:'rgba(99,102,241,.1)',
-                color:'#6366f1', fontSize:12, fontWeight:700, cursor:'pointer',
-                display:'flex', alignItems:'center', gap:5 }}>
-              {savingBounce ? <Spinner size={11} color="#6366f1"/> : 'Save'}
-            </button>
-
-            <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }}
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${S.border}`,
-                background: S.bg, cursor:'pointer', color: S.text3,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-        ) : (
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:12, color: S.text3 }}>
-              {selectedIds.size} track{selectedIds.size !== 1 ? 's' : ''} selected
-            </span>
-            <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0}
-              style={{ height:32, padding:'0 16px', borderRadius:9, fontSize:12, fontWeight:700,
-                background: bouncing || selectedIds.size === 0 ? S.bg : S.grad,
-                border: bouncing || selectedIds.size === 0 ? `1px solid ${S.border}` : 'none',
-                color: bouncing || selectedIds.size === 0 ? S.text3 : '#fff',
-                cursor: bouncing || selectedIds.size === 0 ? 'default' : 'pointer',
-                display:'flex', alignItems:'center', gap:6,
-                boxShadow: bouncing || selectedIds.size === 0 ? 'none' : `0 4px 12px ${C.coral}35` }}>
-              {bouncing
-                ? <><Spinner size={11} color={S.text3}/> {bounceProgress}%</>
-                : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17,8 12,3 7,8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>Mix</>}
-            </button>
-
-            {/* DAW Export dropdown */}
-            <div ref={dawMenuRef} style={{ position:'relative' }}>
-              <button
-                onClick={() => !dawExporting && setDawMenuOpen(v => !v)}
-                disabled={dawExporting || !activeId}
-                style={{ height:32, padding:'0 14px', borderRadius:9, fontSize:12, fontWeight:700,
-                  background: dawExporting || !activeId ? S.bg : 'rgba(255,107,107,0.12)',
-                  border: `1px solid ${dawExporting || !activeId ? S.border : C.coral}`,
-                  color: dawExporting || !activeId ? S.text3 : C.coral,
-                  cursor: dawExporting || !activeId ? 'default' : 'pointer',
-                  display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}>
-                {dawExporting
-                  ? <><Spinner size={11} color={C.coral}/> Exporting…</>
-                  : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17,8 12,3 7,8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>Export to DAW
-                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
-                  </>}
-              </button>
-
-              {dawMenuOpen && (
-                <div style={{ position:'absolute', bottom:'calc(100% + 8px)', right:0,
-                  background: S.card, border:`1px solid ${S.border}`, borderRadius:12,
-                  boxShadow:'0 8px 32px rgba(0,0,0,0.24)', padding:6, minWidth:240, zIndex:200 }}>
-                  <div style={{ padding:'6px 10px 8px', borderBottom:`1px solid ${S.border}`, marginBottom:4 }}>
-                    <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'1px', color:S.text3 }}>
-                      Export stems + session
-                    </div>
-                  </div>
-                  {DAW_OPTIONS.map(opt => (
-                    <button key={opt.id} onClick={() => exportToDAW(opt.id)}
-                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10,
-                        padding:'9px 10px', borderRadius:8, border:'none', cursor:'pointer',
-                        background:'transparent', textAlign:'left', transition:'background .12s',
-                        color: S.text }}
-                      onMouseEnter={e => e.currentTarget.style.background = S.hover}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <div style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center',
-                        justifyContent:'center', background:'rgba(255,107,107,0.08)', flexShrink:0 }}>
-                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d={opt.icon}/>
-                        </svg>
+                      <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                        <input placeholder="Add a comment…" value={commentDraft[s.id] || ''}
+                          onChange={e => setCommentDraft(prev => ({...prev, [s.id]: e.target.value}))}
+                          onKeyDown={e => { if (e.key === 'Enter') postComment(s.id, currentTime) }}
+                          style={{ flex:1, padding:'9px 14px', borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
+                            fontSize:12.5, outline:'none', background:'#fff' }}/>
+                        <button onClick={() => postComment(s.id, currentTime)} disabled={postingComment === s.id}
+                          style={{ padding:'9px 16px', borderRadius:10, border:'none', background:color,
+                            color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+                          {postingComment === s.id ? <Spinner size={11} color="#fff"/> : 'Post'}
+                        </button>
                       </div>
-                      <div>
-                        <div style={{ fontSize:13, fontWeight:600, color:S.text, lineHeight:1.3 }}>{opt.label}</div>
-                        <div style={{ fontSize:11, color:S.text3, lineHeight:1.3 }}>{opt.sub}</div>
-                      </div>
-                    </button>
-                  ))}
-                  <div style={{ borderTop:`1px solid ${S.border}`, margin:'4px 0 0', padding:'8px 10px 4px' }}>
-                    <div style={{ fontSize:10, color:S.text3, lineHeight:1.5 }}>
-                      Includes all collaborator stems, named by contributor, role &amp; take number.
-                      Open <code style={{ color:C.coral }}>about_dizko.html</code> inside the ZIP for full details.
                     </div>
-                  </div>
+                  )}
                 </div>
+              )
+            })}
+          </div>
+
+          {/* ── Right panel ──────────────────────────────────────────── */}
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+            {/* Smart Mix */}
+            <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}12`,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <IconMix size={14}/>
+                  </div>
+                  <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Smart Mix</span>
+                </div>
+                {smartMixUrl && smartMixInfo?.stem_count && (
+                  <span style={{ fontSize:11, color:'#bbb', fontWeight:500 }}>{smartMixInfo.stem_count} tracks</span>
+                )}
+              </div>
+              {smartMixUrl ? (
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
+                    style={{ flex:1, height:36, borderRadius:10, border:`1px solid ${C.coral}28`,
+                      background:`${C.coral}10`, color:C.coral, fontSize:13, fontWeight:700, cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    <IconPlay size={11} color={C.coral}/> Listen
+                  </button>
+                  <a href={smartMixUrl} download="smart_mix.wav"
+                    style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
+                      background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center',
+                      color:'#aaa', textDecoration:'none' }}>
+                    <IconDl size={13}/>
+                  </a>
+                </div>
+              ) : (
+                <button onClick={async () => {
+                  if (!activeId || smartMixing) return
+                  setSmartMixing(true)
+                  try {
+                    const r = await smartBounceApi(activeId)
+                    setSmartMixUrl(r.data?.bounce_url)
+                    setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
+                  } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
+                  setSmartMixing(false)
+                }} disabled={smartMixing || mixerStems.length < 2}
+                  style={{ width:'100%', height:38, borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
+                    background: mixerStems.length < 2 ? 'rgba(0,0,0,.03)' : C.grad,
+                    color: mixerStems.length < 2 ? '#ccc' : '#fff',
+                    fontSize:13, fontWeight:700, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                    boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 4px 14px ${C.coral}30` : 'none' }}>
+                  {smartMixing ? <><Spinner size={12} color="#fff"/> Mixing…</> : <><IconMix size={13}/> Generate Smart Mix</>}
+                </button>
               )}
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* ── AI Brief + Conflict bar (silent, no chat) ───────────────────── */}
-      {aiAnalysis && (
-        <div style={{ position:'absolute', bottom:72, left:0, right:0, zIndex:10, padding:'0 20px 8px', pointerEvents:'none' }}>
-          {aiAnalysis.conflicts?.map((c, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', marginBottom:4, borderRadius:10, background:'rgba(245,158,11,.12)', border:'1px solid rgba(245,158,11,.3)', pointerEvents:'all' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <span style={{ fontSize:12, color:'#f59e0b', fontWeight:600 }}>{c.type === 'bpm' ? 'BPM' : 'Key'} Conflict —</span>
-              <span style={{ fontSize:12, color:'rgba(245,158,11,.8)' }}>{c.detail}</span>
+            {/* Bounce */}
+            <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:32, height:32, borderRadius:10, background:'rgba(34,197,94,.1)',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Bounce</span>
+                </div>
+                <span style={{ fontSize:11, color:'#bbb', fontWeight:500 }}>{selectedIds.size} selected</span>
+              </div>
+              {bounceUrl ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:2 }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e', flexShrink:0, boxShadow:'0 0 6px #22c55e' }}/>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#111', flex:1 }}>Ready</span>
+                    <span style={{ fontSize:12, fontFamily:'monospace', color:'#bbb' }}>
+                      {`${Math.floor(bounceTime/60)}:${String(Math.floor(bounceTime%60)).padStart(2,'0')}`}
+                    </span>
+                  </div>
+                  <div onClick={e => {
+                    if (!bouncePlayerRef.current || !bounceDur) return
+                    const r = e.currentTarget.getBoundingClientRect()
+                    bouncePlayerRef.current.currentTime = ((e.clientX-r.left)/r.width)*bounceDur
+                  }} style={{ height:4, background:'rgba(0,0,0,.06)', borderRadius:2, cursor:'pointer', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width: bounceDur ? `${(bounceTime/bounceDur)*100}%` : '0%',
+                      background:'#22c55e', borderRadius:2, transition:'width .1s' }}/>
+                  </div>
+                  <div style={{ display:'flex', gap:7, marginTop:2 }}>
+                    <button onClick={toggleBouncePlayer} style={{ flex:1, height:34, borderRadius:10,
+                      border:'1px solid rgba(34,197,94,.3)', background:'rgba(34,197,94,.08)',
+                      color:'#16a34a', fontSize:12.5, fontWeight:700, cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                      {bouncePlaying ? <IconPause size={10} color="#16a34a"/> : <IconPlay size={10} color="#16a34a"/>}
+                      {bouncePlaying ? 'Pause' : 'Play'}
+                    </button>
+                    <a href={bounceUrl} download={`${activeProject?.title||'mix'}_bounce.wav`}
+                      style={{ width:34, height:34, borderRadius:10, border:'1px solid rgba(34,197,94,.3)',
+                        background:'rgba(34,197,94,.08)', color:'#16a34a', textDecoration:'none',
+                        display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <IconDl size={13}/>
+                    </a>
+                    <button onClick={() => { bouncePlayerRef.current?.pause(); setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false) }}
+                      style={{ width:34, height:34, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
+                        background:'transparent', cursor:'pointer', color:'#ccc',
+                        display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  <button onClick={saveBounce} disabled={savingBounce}
+                    style={{ width:'100%', height:34, borderRadius:10, border:'1px solid rgba(99,102,241,.28)',
+                      background:'rgba(99,102,241,.08)', color:'#6366f1', fontSize:12.5, fontWeight:700,
+                      cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    {savingBounce ? <Spinner size={11} color="#6366f1"/> : <><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg> Save to project</>}
+                  </button>
+                </div>
+              ) : (
+                <button onClick={bounceToMix} disabled={bouncing || selectedIds.size === 0}
+                  style={{ width:'100%', height:40, borderRadius:10, border:'none',
+                    background: bouncing || selectedIds.size === 0 ? 'rgba(0,0,0,.05)' : C.grad,
+                    color: bouncing || selectedIds.size === 0 ? '#ccc' : '#fff',
+                    fontSize:13.5, fontWeight:700, cursor: selectedIds.size === 0 ? 'default' : 'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    boxShadow: selectedIds.size > 0 && !bouncing ? `0 4px 14px ${C.coral}35` : 'none' }}>
+                  {bouncing
+                    ? <><Spinner size={12} color="#aaa"/> {bounceProgress}%</>
+                    : <>Mix {selectedIds.size} Track{selectedIds.size !== 1 ? 's' : ''}</>}
+                </button>
+              )}
             </div>
-          ))}
-          {aiAnalysis.version_insights?.slice(0,1).map((vi, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', marginBottom:4, borderRadius:10, background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.25)', pointerEvents:'all' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth={2} strokeLinecap="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-              <span style={{ fontSize:12, color:'#818cf8', fontWeight:600 }}>Best take:</span>
-              <span style={{ fontSize:12, color:'rgba(165,180,252,.9)' }}>{vi.best_take_name} — {vi.reason}</span>
-            </div>
-          ))}
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', borderRadius:10, background:'rgba(0,0,0,.45)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,.08)', pointerEvents:'all' }}>
-            <div style={{ width:16, height:16, borderRadius:4, flexShrink:0, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={9} height={9} viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            </div>
-            <span style={{ fontSize:12, fontWeight:600, color:'rgba(165,180,252,.9)', flexShrink:0 }}>AI</span>
-            <span style={{ fontSize:12, color:'rgba(255,255,255,.6)' }}>{aiAnalysis.brief}</span>
-            {aiAnalysis.missing?.length > 0 && (
-              <div style={{ marginLeft:'auto', display:'flex', gap:4, flexShrink:0 }}>
-                {aiAnalysis.missing.slice(0,3).map(m => (
-                  <span key={m} style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:100, background:'rgba(239,68,68,.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,.25)' }}>No {m}</span>
+
+            {/* Export */}
+            <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`,
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <IconDl size={14}/>
+                </div>
+                <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Export</span>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                {DAW_OPTIONS.map(opt => (
+                  <button key={opt.id} onClick={() => exportToDAW(opt.id)}
+                    disabled={dawExporting || !activeId}
+                    style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 14px',
+                      borderRadius:12, border:'1px solid rgba(0,0,0,.07)', background:'rgba(0,0,0,.02)',
+                      cursor: dawExporting || !activeId ? 'default' : 'pointer', textAlign:'left',
+                      transition:'background .12s' }}
+                    onMouseEnter={e=>{ if (!dawExporting) e.currentTarget.style.background='rgba(0,0,0,.05)' }}
+                    onMouseLeave={e=>e.currentTarget.style.background='rgba(0,0,0,.02)'}>
+                    <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:`${C.coral}10`,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d={opt.icon}/>
+                      </svg>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{opt.label}</div>
+                      <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>{opt.sub}</div>
+                    </div>
+                    {dawExporting && <Spinner size={11} color={C.coral}/>}
+                  </button>
                 ))}
+              </div>
+            </div>
+
+            {/* AI Brief */}
+            {aiAnalysis && (
+              <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+                  <div style={{ width:32, height:32, borderRadius:10,
+                    background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  </div>
+                  <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>AI Brief</span>
+                </div>
+                <p style={{ margin:'0 0 12px', fontSize:13, color:'#555', lineHeight:1.65 }}>{aiAnalysis.brief}</p>
+                {aiAnalysis.conflicts?.map((c, i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px',
+                    borderRadius:10, background:'rgba(245,158,11,.07)', border:'1px solid rgba(245,158,11,.2)', marginBottom:7 }}>
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span style={{ fontSize:12, color:'#92621a', lineHeight:1.5 }}><strong>{c.type === 'bpm' ? 'BPM' : 'Key'} conflict:</strong> {c.detail}</span>
+                  </div>
+                ))}
+                {aiAnalysis.missing?.length > 0 && (
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:6 }}>
+                    {aiAnalysis.missing.slice(0,4).map(m => (
+                      <span key={m} style={{ fontSize:10.5, fontWeight:700, padding:'3px 9px', borderRadius:100,
+                        background:'rgba(239,68,68,.07)', color:'#ef4444', border:'1px solid rgba(239,68,68,.18)' }}>
+                        Missing {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
+    </>
+  )
+}
+const CHART_PALETTE = ['#F4937A','#E8709A','#6366f1','#a855f7','#22c55e','#06b6d4','#f59e0b','#94a3b8']
 
+const STEM_COLORS = {
+  vocals:'#E8709A', drums:'#F4937A', bass:'#6366f1', guitar:'#a855f7',
+  keys:'#22c55e', piano:'#22c55e', synth:'#06b6d4',
+  original:'#94a3b8', smart_bounce:'#f59e0b', other:'#cbd5e1',
+}
+const stemColor = k => STEM_COLORS[k?.toLowerCase?.()] || '#94a3b8'
+
+function AnalyticsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,.08)', borderRadius:10,
+      padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,.1)', fontSize:12 }}>
+      {label && <div style={{ fontWeight:700, color:'#111', marginBottom:6 }}>{label}</div>}
+      {payload.map((p, i) => (
+        <div key={i} style={{ display:'flex', alignItems:'center', gap:6, color:'#555', marginTop: i ? 3 : 0 }}>
+          <div style={{ width:8, height:8, borderRadius:2, background:p.color || p.fill, flexShrink:0 }}/>
+          <span style={{ textTransform:'capitalize' }}>{p.name}</span>
+          <span style={{ fontWeight:800, color:'#111', marginLeft:'auto', paddingLeft:16 }}>{p.value}</span>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ─── PAGE: ANALYTICS ──────────────────────────────────────────────────────
 function PageAnalytics() {
-  const [overview,      setOverview]      = useState({})
   const [projects,      setProjects]      = useState([])
-  const [topFiles,      setTopFiles]      = useState([])
-  const [loading,       setLoading]       = useState(true)
+  const [allFiles,      setAllFiles]      = useState([])
   const [uploaderNames, setUploaderNames] = useState({})
-
-  useEffect(() => {
-    Promise.all([
-      analyticsApi.overview().catch(() => ({ data: {} })),
-      projectsApi.list().catch(() => ({ data: [] })),
-    ]).then(([overRes, projRes]) => {
-      const projs = projRes.data || []
-      setOverview(overRes.data || {})
-      setProjects(projs)
-      if (projs.length) {
-        return filesApi.list(projs[0].id).catch(() => ({ data: [] }))
-      }
-      return { data: [] }
-    }).then(filesRes => {
-      const files = (filesRes?.data || []).slice(0, 5)
-      setTopFiles(files)
-      const token = localStorage.getItem('disco_token')
-      const ids = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
-      ids.forEach(uid => {
-        fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(j => {
-            if (!j?.data) return
-            const u = j.data
-            const name = u.full_name || u.email?.split('@')[0] || 'Someone'
-            setUploaderNames(prev => ({ ...prev, [uid]: name }))
-          }).catch(() => {})
-      })
-    }).finally(() => setLoading(false))
-  }, [])
-
-  const totalProjects = overview.projects ?? projects.length
-  const totalFiles    = overview.files ?? '—'
-
-  return (
-    <>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
-        <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Analytics</h1>
-          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Track uploads, projects, and team activity</p>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:24 }}>
-        {[
-          { label:'Total Projects',  val: loading ? null : String(totalProjects), color:C.coral,   icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z' },
-          { label:'Files Uploaded',  val: loading ? null : String(totalFiles),    color:'#3b82f6', icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
-          { label:'Team Members',    val: loading ? null : String(overview.collaborators ?? 0), color:'#22c55e', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z' },
-        ].map(s => (
-          <Card key={s.label} style={{ padding:'20px 22px', display:'flex', alignItems:'center', gap:16 }}>
-            <div style={{ width:42, height:42, borderRadius:12, background:`${s.color}12`, flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                <path d={s.icon}/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize:11, color:'#aaa', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>{s.label}</div>
-              <div style={{ fontSize:26, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>
-                {s.val === null ? <Spinner size={20} color={s.color} /> : s.val}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        {/* Recent Files */}
-        <Card style={{ overflow:'hidden' }}>
-          <SectionHeader title="Recent Files" sub="Latest uploads across projects" />
-          {loading ? (
-            <LoadingBlock />
-          ) : topFiles.length === 0 ? (
-            <div style={{ padding:'32px', textAlign:'center' }}>
-              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}>
-                <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7"/>
-              </svg>
-              <div style={{ fontSize:13, color:'#bbb' }}>No files yet — upload your first file</div>
-            </div>
-          ) : topFiles.map((f, i) => (
-            <div key={f.id} style={{ padding:'12px 22px', borderBottom: i < topFiles.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
-              display:'flex', alignItems:'center', gap:12 }}>
-              <div style={{ width:34, height:34, borderRadius:9, background:`${C.coral}12`, flexShrink:0,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-                </svg>
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  {f.suggested_name || f.original_name || f.label || 'Untitled file'}
-                </div>
-                <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                  <strong style={{ color:'#888', fontWeight:600 }}>{uploaderNames[f.uploaded_by] || 'Someone'}</strong>
-                  {' · '}{f.instrument || (f.mime_type ? f.mime_type.split('/')[1].toUpperCase() : 'audio')} · {timeAgo(f.created_at)}
-                </div>
-              </div>
-            </div>
-          ))}
-        </Card>
-
-        {/* Your Projects */}
-        <Card style={{ overflow:'hidden' }}>
-          <SectionHeader title="Your Projects" sub="By creation date" />
-          {loading ? (
-            <LoadingBlock />
-          ) : projects.length === 0 ? (
-            <div style={{ padding:'32px', textAlign:'center' }}>
-              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}>
-                <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-              </svg>
-              <div style={{ fontSize:13, color:'#bbb' }}>No projects yet</div>
-            </div>
-          ) : projects.slice(0, 5).map((p, i) => {
-            const color = collabColor(i)
-            return (
-              <div key={p.id} style={{ padding:'12px 22px', borderBottom: i < Math.min(4, projects.length-1) ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <div style={{ width:22, height:22, borderRadius:'50%', background:`${color}25`,
-                      border:`1.5px solid ${color}40`, display:'flex', alignItems:'center', justifyContent:'center',
-                      fontSize:9, fontWeight:800, color }}>{initials(p.title)}</div>
-                    <span style={{ fontSize:13, fontWeight:600, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:160 }}>{p.title}</span>
-                  </div>
-                  <span style={{ fontSize:11.5, color:'#aaa' }}>{timeAgo(p.created_at)}</span>
-                </div>
-                <div style={{ display:'flex', gap:6 }}>
-                  {p.status && (
-                    <span style={{ fontSize:10.5, padding:'2px 8px', borderRadius:100,
-                      background:`${C.coral}12`, color:C.coral, fontWeight:600 }}>{p.status}</span>
-                  )}
-                  {p.type && (
-                    <span style={{ fontSize:10.5, padding:'2px 8px', borderRadius:100,
-                      background:'rgba(0,0,0,.05)', color:'#888', fontWeight:500 }}>{p.type}</span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </Card>
-      </div>
-    </>
-  )
-}
-
-// ─── PAGE: DISTRIBUTION ────────────────────────────────────────────────────
-const PLATFORMS = [
-  { name:'Spotify',       color:'#1DB954', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/spotify/1DB954'       },
-  { name:'Apple Music',   color:'#fc3c44', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/applemusic/fc3c44'     },
-  { name:'YouTube Music', color:'#FF0000', method:'direct',  hint:'Add Google API key',  logo:'https://cdn.simpleicons.org/youtubemusic/FF0000'   },
-  { name:'Tidal',         color:'#00bfbf', method:'package', hint:'Free via RouteNote',  logo:'https://cdn.simpleicons.org/tidal/00bfbf'          },
-  { name:'SoundCloud',    color:'#FF5500', method:'direct',  hint:'Add SoundCloud key',  logo:'https://cdn.simpleicons.org/soundcloud/FF5500'     },
-]
-
-function PageDistribution({ openModal }) {
-  const [projects,     setProjects]     = useState([])
-  const [fileCounts,   setFileCounts]   = useState({})
-  const [submissions,  setSubmissions]  = useState([])
-  const [loading,      setLoading]      = useState(true)
+  const [loading,       setLoading]       = useState(true)
+  const isMobile = React.useContext(MobileCtx)
 
   useEffect(() => {
     projectsApi.list()
       .then(async res => {
         const projs = res.data || []
         setProjects(projs)
-        const counts = {}
-        await Promise.all(projs.map(p =>
-          filesApi.list(p.id)
-            .then(r => { counts[p.id] = (r.data || []).filter(f => f.instrument !== 'original').length })
-            .catch(() => { counts[p.id] = 0 })
-        ))
-        setFileCounts(counts)
-        // Load past submissions
-        if (projs.length) {
-          const subs = await Promise.all(
-            projs.map(p => distributionApi.list(p.id)
-              .then(r => (r.data || []).map(d => ({ ...d, projectTitle: p.title })))
-              .catch(() => []))
-          )
-          setSubmissions(subs.flat().sort((a,b) => new Date(b.created_at) - new Date(a.created_at)))
-        }
+        if (!projs.length) return
+        const fileResults = await Promise.all(
+          projs.map(p => filesApi.list(p.id).catch(() => ({ data: [] })))
+        )
+        const merged = fileResults.flatMap((r, i) =>
+          (r.data || []).map(f => ({ ...f, projectTitle: projs[i].title, projectId: projs[i].id }))
+        )
+        setAllFiles(merged)
+        const token = localStorage.getItem('disco_token')
+        const ids = [...new Set(merged.map(f => f.uploaded_by).filter(Boolean))]
+        ids.forEach(uid => {
+          fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.ok ? r.json() : null)
+            .then(j => {
+              if (!j?.data) return
+              const u = j.data
+              setUploaderNames(prev => ({ ...prev, [uid]: u.full_name || u.email?.split('@')[0] || 'Someone' }))
+            }).catch(() => {})
+        })
       })
-      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  const gradients = [
-    'linear-gradient(135deg,#F4937A,#c0394f)',
-    'linear-gradient(135deg,#F7D98B,#d4793a)',
-    'linear-gradient(135deg,#E8709A,#8b1a4a)',
-    'linear-gradient(135deg,#a0e0f0,#2060b0)',
-    'linear-gradient(135deg,#c0a0f0,#6020c0)',
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const byInstrument = useMemo(() => {
+    const acc = {}
+    allFiles.forEach(f => { const k = f.instrument || 'other'; acc[k] = (acc[k] || 0) + 1 })
+    return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }))
+  }, [allFiles])
+
+  const byProject = useMemo(() =>
+    projects.map((p, i) => ({
+      name: p.title.length > 18 ? p.title.slice(0, 16) + '…' : p.title,
+      fullName: p.title,
+      files: allFiles.filter(f => f.projectId === p.id).length,
+      fill: CHART_PALETTE[i % CHART_PALETTE.length],
+    })), [projects, allFiles])
+
+  const byContributor = useMemo(() => {
+    const acc = {}
+    allFiles.forEach(f => { if (f.uploaded_by) acc[f.uploaded_by] = (acc[f.uploaded_by] || 0) + 1 })
+    return Object.entries(acc).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }, [allFiles])
+
+  const activityByDay = useMemo(() => {
+    const days = {}
+    const now = new Date()
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      days[key] = { date: key, uploads: 0, label: d.toLocaleDateString('en', { month:'short', day:'numeric' }) }
+    }
+    allFiles.forEach(f => {
+      const key = f.created_at?.slice(0, 10)
+      if (key && days[key]) days[key].uploads++
+    })
+    return Object.values(days)
+  }, [allFiles])
+
+  const recentActivity = useMemo(() =>
+    [...allFiles].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8),
+    [allFiles])
+
+  const totalFiles    = allFiles.length
+  const totalProjects = projects.length
+  const uniqueContribs = new Set(allFiles.map(f => f.uploaded_by).filter(Boolean)).size
+  const mostActiveProj = [...byProject].sort((a, b) => b.files - a.files)[0]
+
+  const isEmpty = !loading && allFiles.length === 0
+
+  const statCards = [
+    { label:'Total Files',    val: totalFiles,    icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7', color:'#6366f1' },
+    { label:'Projects',       val: totalProjects, icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z', color:C.coral },
+    { label:'Contributors',   val: uniqueContribs, icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z', color:'#a855f7' },
+    { label:'Most Active',    val: mostActiveProj?.files ?? 0, sub: mostActiveProj?.fullName, icon:'M18 20V10M12 20V4M6 20v-6', color:'#22c55e' },
   ]
 
   return (
     <>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28 }}>
-        <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Distribution</h1>
-          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Release your music — direct to SoundCloud & YouTube, or export for Spotify & Apple Music</p>
-        </div>
-        <Btn onClick={() => openModal('new-release', {})}>+ New Release</Btn>
+      <div style={{ marginBottom:24 }}>
+        <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Analytics</h1>
+        <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Breakdown across all your projects</p>
       </div>
 
-      {/* ── Platform tiles ─────────────────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:24 }}>
-        {PLATFORMS.map(p => (
-          <div key={p.name} style={{ borderRadius:14, padding:'16px', background:'#fff',
-            boxShadow:'0 1px 4px rgba(0,0,0,.07)', border:'1.5px solid rgba(0,0,0,.06)',
-            display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ width:40, height:40, borderRadius:12, background:`${p.color}14`,
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <img src={p.logo} alt={p.name} width={22} height={22} style={{ objectFit:'contain' }}/>
-            </div>
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, color:'#111', marginBottom:3 }}>{p.name}</div>
-              <div style={{ fontSize:10.5, fontWeight:600, padding:'2px 8px', borderRadius:100, display:'inline-flex',
-                alignItems:'center', gap:4,
-                background: p.method === 'direct' ? 'rgba(34,197,94,.1)' : 'rgba(99,102,241,.1)',
-                color: p.method === 'direct' ? '#16a34a' : '#6366f1' }}>
-                {p.method === 'direct'
-                  ? <><svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4.09 12.26 11 12l-2 10 8.91-10.26L11 12z"/></svg>Direct</>
-                  : <><svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>Package</>}
-              </div>
-              <div style={{ fontSize:10.5, color:'#bbb', marginTop:4 }}>{p.hint}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Project release cards ───────────────────────────────────────── */}
-      <div style={{ marginBottom:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <h2 style={{ margin:0, fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Your Releases</h2>
-        <span style={{ fontSize:12, color:'#aaa' }}>{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {loading ? <LoadingBlock /> : projects.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
-          borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <div style={{ marginBottom:12, display:'flex', justifyContent:'center' }}>
-            <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-            </svg>
-          </div>
-          <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No projects yet</div>
-          <div style={{ fontSize:13, color:'#aaa', marginBottom:20 }}>Create a project to start distributing your music</div>
-          <Btn onClick={() => openModal('new-release', {})}>+ New Release</Btn>
+      {loading ? <LoadingBlock /> : isEmpty ? (
+        <div style={{ textAlign:'center', padding:'80px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:12 }}>
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No data yet</div>
+          <div style={{ fontSize:13, color:'#aaa' }}>Upload files to your projects to see analytics here</div>
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:28 }}>
-          {projects.map((p, i) => {
-            const stems  = fileCounts[p.id] ?? 0
-            const ready  = stems > 0 && !!p.type
-            const sub    = submissions.find(s => s.project_id === p.id)
-            const status = sub?.status ?? (ready ? 'ready' : 'draft')
-            const statusStyle = {
-              submitted: { bg:'rgba(34,197,94,.1)',  color:'#16a34a', label:'Submitted' },
-              ready:     { bg:`${C.coral}12`,         color:C.coral,   label:'Ready'     },
-              draft:     { bg:'rgba(0,0,0,.05)',       color:'#888',    label:'Draft'     },
-            }[status] ?? { bg:'rgba(0,0,0,.05)', color:'#888', label: status }
-
-            return (
-              <div key={p.id} style={{ borderRadius:18, overflow:'hidden', background:'#fff',
-                boxShadow:'0 2px 12px rgba(0,0,0,.08)', transition:'transform .2s, box-shadow .2s',
-                cursor:'pointer', display:'flex', flexDirection:'column' }}
-                onClick={() => openModal('schedule', p)}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,.13)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.08)' }}>
-
-                {/* Artwork banner */}
-                <div style={{ height:100, background:gradients[i % gradients.length],
-                  position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={1.5} strokeLinecap="round">
-                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                  </svg>
-                  <div style={{ position:'absolute', top:10, right:10,
-                    fontSize:10.5, fontWeight:700, padding:'3px 10px', borderRadius:100,
-                    background: statusStyle.bg, color: statusStyle.color }}>
-                    {statusStyle.label}
+        <>
+          {/* ── Stat cards ────────────────────────────────────────────────── */}
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+            {statCards.map(s => (
+              <div key={s.label} style={{ background:'#fff', borderRadius:16, padding:'18px 20px',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.06em' }}>{s.label}</div>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${s.color}12`,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={s.icon}/>
+                    </svg>
                   </div>
                 </div>
+                <div style={{ fontSize:32, fontWeight:900, color:'#111', letterSpacing:'-1.5px', lineHeight:1 }}>{s.val}</div>
+                {s.sub && <div style={{ fontSize:11, color:'#bbb', marginTop:5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
 
-                {/* Info */}
-                <div style={{ padding:'14px 16px 16px', flex:1, display:'flex', flexDirection:'column', gap:6 }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px',
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
-                  <div style={{ fontSize:11.5, color:'#aaa' }}>
-                    {p.type || 'Project'} · {timeAgo(p.created_at)}
-                  </div>
+          {/* ── Upload activity area chart ─────────────────────────────── */}
+          <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px', marginBottom:16,
+            boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Upload Activity</div>
+              <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Files uploaded per day — last 30 days</div>
+            </div>
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={activityByDay} margin={{ top:4, right:4, bottom:0, left:-20 }}>
+                <defs>
+                  <linearGradient id="uploadGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={C.coral} stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor={C.coral} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
+                <XAxis dataKey="label" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}
+                  interval={Math.floor(activityByDay.length / 6)}/>
+                <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
+                <Tooltip content={<AnalyticsTooltip />} cursor={{ stroke:'rgba(0,0,0,.06)', strokeWidth:1 }}/>
+                <Area type="monotone" dataKey="uploads" name="Uploads" stroke={C.coral} strokeWidth={2}
+                  fill="url(#uploadGrad)" dot={false} activeDot={{ r:4, fill:C.coral, strokeWidth:0 }}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
 
-                  {/* Mini checklist */}
-                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}>
-                    {[
-                      { label:'Files',    done: stems > 0,     sub: `${stems}` },
-                      { label:'Type',     done: !!p.type                        },
-                      { label:'Cover',    done: false                           },
-                      { label:'Date',     done: !!p.release_date                },
-                    ].map(c => (
-                      <div key={c.label} style={{ fontSize:10, fontWeight:600, padding:'2px 7px',
-                        borderRadius:6, background: c.done ? 'rgba(34,197,94,.1)' : 'rgba(0,0,0,.05)',
-                        color: c.done ? '#16a34a' : '#bbb',
-                        display:'flex', alignItems:'center', gap:3 }}>
-                        {c.done
-                          ? <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-                          : <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="9"/></svg>}
-                        {' '}{c.sub ? `${c.label} (${c.sub})` : c.label}
-                      </div>
-                    ))}
-                  </div>
+          {/* ── Donut + bar row ───────────────────────────────────────────── */}
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16, marginBottom:16 }}>
 
-                  {/* CTA */}
-                  <button style={{ marginTop:'auto', paddingTop:10, width:'100%', padding:'9px',
-                    borderRadius:10, border:'none', background: ready ? C.grad : 'rgba(0,0,0,.05)',
-                    color: ready ? '#fff' : '#bbb', fontWeight:700, fontSize:12.5, cursor:'pointer',
-                    boxShadow: ready ? `0 3px 10px ${C.coral}30` : 'none' }}>
-                    {ready ? 'Distribute Now →' : 'Complete Setup'}
-                  </button>
+            {/* Stem type donut */}
+            <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', marginBottom:4 }}>Stem Types</div>
+              <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Breakdown by instrument</div>
+              <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+                <ResponsiveContainer width={140} height={140}>
+                  <PieChart>
+                    <Pie data={byInstrument} cx="50%" cy="50%" innerRadius={42} outerRadius={64}
+                      paddingAngle={2} dataKey="value" strokeWidth={0}>
+                      {byInstrument.map((entry, i) => (
+                        <Cell key={entry.name} fill={stemColor(entry.name)}/>
+                      ))}
+                    </Pie>
+                    <Tooltip content={<AnalyticsTooltip />}/>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:7 }}>
+                  {byInstrument.slice(0, 6).map(entry => (
+                    <div key={entry.name} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ width:8, height:8, borderRadius:2, background:stemColor(entry.name), flexShrink:0 }}/>
+                      <span style={{ fontSize:11.5, color:'#555', textTransform:'capitalize', flex:1 }}>
+                        {entry.name.replace(/_/g, ' ')}
+                      </span>
+                      <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{entry.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
+            </div>
 
-      {/* ── Submission history ──────────────────────────────────────────── */}
-      {submissions.length > 0 && (
-        <>
-          <h2 style={{ margin:'0 0 12px', fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>
-            Submission History
-          </h2>
-          <Card style={{ overflow:'hidden' }}>
-            {submissions.map((s, i) => {
-              const plats = Array.isArray(s.platforms) ? s.platforms : []
-              return (
-                <div key={s.id} style={{ display:'grid', gridTemplateColumns:'1fr 160px 140px 100px',
-                  alignItems:'center', padding:'13px 22px',
-                  borderBottom: i < submissions.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>{s.projectTitle}</div>
-                    <div style={{ fontSize:11.5, color:'#aaa', marginTop:1 }}>
-                      {s.artist_name || '—'} · {s.release_type || 'Release'} · {s.genre || '—'}
+            {/* Files per project bar chart */}
+            <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', marginBottom:4 }}>Files per Project</div>
+              <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Total uploads per project</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart data={byProject} margin={{ top:4, right:4, bottom:0, left:-20 }} barSize={18}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" horizontal={true} vertical={false}/>
+                  <XAxis dataKey="name" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
+                  <Tooltip content={<AnalyticsTooltip />} cursor={{ fill:'rgba(0,0,0,.03)' }}/>
+                  <Bar dataKey="files" name="Files" radius={[5,5,0,0]}>
+                    {byProject.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill}/>
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ── Contributors + activity feed row ──────────────────────────── */}
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.6fr', gap:16 }}>
+
+            {/* Top contributors */}
+            <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ padding:'18px 22px 14px' }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Top Contributors</div>
+                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>By total uploads</div>
+              </div>
+              {byContributor.length === 0 ? (
+                <div style={{ padding:'32px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
+              ) : byContributor.map(([uid, count], i) => {
+                const name    = uploaderNames[uid] || '…'
+                const color   = CHART_PALETTE[i % CHART_PALETTE.length]
+                const maxCount = byContributor[0][1]
+                const pct     = Math.round((count / maxCount) * 100)
+                return (
+                  <div key={uid} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                    display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:32, height:32, borderRadius:'50%', flexShrink:0,
+                      background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:11, fontWeight:800, color }}>
+                      {initials(name)}
                     </div>
-                  </div>
-                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    {plats.slice(0,4).map(p => {
-                      const meta = PLATFORMS.find(x => x.name === p)
-                      return meta ? (
-                        <img key={p} src={meta.logo} title={p} alt={p} width={16} height={16}
-                          style={{ objectFit:'contain', opacity:.85 }}/>
-                      ) : (
-                        <span key={p} style={{ fontSize:10, color:'#bbb' }}>{p}</span>
-                      )
-                    })}
-                    {plats.length > 4 && <span style={{ fontSize:10, color:'#bbb' }}>+{plats.length-4}</span>}
-                  </div>
-                  <div style={{ fontSize:11.5, color:'#aaa' }}>{timeAgo(s.created_at)}</div>
-                  <div style={{ textAlign:'right' }}>
-                    {s.soundcloud_url || s.youtube_url ? (
-                      <span style={{ fontSize:11, fontWeight:700, color:'#16a34a',
-                        background:'rgba(34,197,94,.1)', padding:'3px 10px', borderRadius:100,
-                        display:'inline-flex', alignItems:'center', gap:4 }}>
-                        <svg width={7} height={7} viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#16a34a"/></svg>
-                        Live
-                      </span>
-                    ) : (
-                      <span style={{ fontSize:11, fontWeight:700, color:'#b45309',
-                        background:'rgba(245,201,122,.15)', padding:'3px 10px', borderRadius:100 }}>Pending</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:5 }}>
+                        <span style={{ fontSize:12.5, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>{name}</span>
+                        <span style={{ fontSize:12, fontWeight:800, color:'#111', flexShrink:0, marginLeft:6 }}>{count} files</span>
+                      </div>
+                      <div style={{ height:4, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
+                        <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:color, transition:'width .5s' }}/>
+                      </div>
+                    </div>
+                    {i === 0 && (
+                      <div style={{ flexShrink:0, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:100,
+                        background:`${color}15`, color }}>MVP</div>
                     )}
                   </div>
-                </div>
-              )
-            })}
-          </Card>
+                )
+              })}
+            </div>
+
+            {/* Recent activity feed */}
+            <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
+              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ padding:'18px 22px 14px' }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
+                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Latest uploads across all projects</div>
+              </div>
+              {recentActivity.map((f, i) => {
+                const color = stemColor(f.instrument)
+                return (
+                  <div key={f.id} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                    display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:34, height:34, borderRadius:10, background:`${color}12`, flexShrink:0,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                      </svg>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {f.suggested_name || f.original_name || 'Untitled'}
+                      </div>
+                      <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
+                        <span style={{ fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
+                        {' · '}<span style={{ textTransform:'capitalize' }}>{(f.instrument || 'audio').replace(/_/g,' ')}</span>
+                        {' · '}{timeAgo(f.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </>
       )}
     </>
@@ -6233,6 +5506,8 @@ function MiniPlayer({ track, onClose }) {
 
 export default function App({ onLogout, user, onProfileUpdate }) {
   const { toasts, add: addToast, remove: removeToast } = useToasts()
+  const isMobile = useIsMobile()
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
 
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
@@ -6278,173 +5553,256 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       : location.pathname.startsWith(n.path)
   ) ?? NAV[0]
 
+  // ── Sidebar content — shared between desktop aside and mobile drawer ─────────
+  const SidebarContent = () => (
+    <>
+      <div style={{ padding:'20px 16px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
+        onClick={() => { navigate('/'); if (isMobile) setDrawerOpen(false) }}>
+        <img src={logo} style={{ width:36, height:36, borderRadius:10, objectFit:'cover', flexShrink:0 }} alt="" />
+        <div>
+          <div style={{ fontSize:15, fontWeight:800, color:'#fff', letterSpacing:'-.4px', lineHeight:1.1 }}>
+            Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+          </div>
+          <div style={{ fontSize:9, color:'rgba(255,255,255,.3)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
+        </div>
+      </div>
+      <nav style={{ flex:1, padding:'8px 10px', overflowY:'auto' }}>
+        {NAV.map(n => {
+          const on = currentNav?.id === n.id
+          return (
+            <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }} style={{
+              display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px',
+              borderRadius:9, border:'none', cursor:'pointer', marginBottom:2, textAlign:'left',
+              fontSize:13, fontWeight: on ? 600 : 400,
+              color: on ? '#fff' : 'rgba(255,255,255,.38)',
+              background: on ? 'rgba(255,255,255,.1)' : 'transparent', transition:'all .15s',
+            }}
+            onMouseEnter={e => {
+              if (!on) { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.7)' }
+              ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
+            }}
+            onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.38)' }}}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
+                stroke={on ? C.coral : 'rgba(255,255,255,.38)'}
+                strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+                <path d={n.icon}/>
+              </svg>
+              {n.label}
+              {on && <span style={{ marginLeft:'auto', width:5, height:5, borderRadius:'50%', background:C.coral }} />}
+            </button>
+          )
+        })}
+      </nav>
+      <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:8 }}>
+          <span style={{ color:'rgba(255,255,255,.3)' }}>Storage</span>
+          <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>— / — GB</span>
+        </div>
+        <div style={{ height:3, background:'rgba(255,255,255,.08)', borderRadius:3 }}>
+          <div style={{ width:'0%', height:'100%', background:C.grad, borderRadius:3 }} />
+        </div>
+      </div>
+      <div style={{ padding:'10px 10px 16px', borderTop:'1px solid rgba(255,255,255,.07)', position:'relative' }}>
+        {userMenu && (
+          <>
+            <div style={{ position:'fixed', inset:0, zIndex:50 }} onClick={() => setMenu(false)} />
+            <div style={{ position:'absolute', bottom:'calc(100% + 6px)', left:10, right:10, zIndex:51,
+              background:'#1c1c1e', borderRadius:12, overflow:'hidden',
+              boxShadow:'0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08)' }}>
+              <div style={{ padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
+                <div style={{ fontSize:12.5, fontWeight:700, color:'rgba(255,255,255,.9)' }}>{user?.full_name || 'My Account'}</div>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,.35)', marginTop:2 }}>{user?.email || ''} · Pro plan</div>
+              </div>
+              {[
+                { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z',  modal:'account-settings' },
+                { label:'Billing & Plan',     icon:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', modal:'billing' },
+                { label:'Keyboard Shortcuts', icon:'M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z', modal:'shortcuts' },
+              ].map(item => (
+                <button key={item.label} onClick={() => { setMenu(false); openModal(item.modal, {}) }} style={{
+                  display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
+                  background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
+                  fontSize:12.5, color:'rgba(255,255,255,.7)', fontWeight:500, transition:'background .12s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(255,255,255,.4)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={item.icon}/>
+                  </svg>
+                  {item.label}
+                </button>
+              ))}
+              <div style={{ height:1, background:'rgba(255,255,255,.07)', margin:'2px 0' }} />
+              <button onClick={() => { setMenu(false); onLogout(); navigate('/login') }} style={{
+                display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
+                background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
+                fontSize:12.5, color:'#ff6b6b', fontWeight:600, transition:'background .12s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                  stroke="#ff6b6b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+                </svg>
+                Log out
+              </button>
+            </div>
+          </>
+        )}
+
+        <button onClick={() => setMenu(m => !m)} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 8px',
+          borderRadius:9, border:'none', background: userMenu ? 'rgba(255,255,255,.1)' : 'transparent',
+          cursor:'pointer', textAlign:'left', transition:'background .15s' }}
+          onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
+          onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background='transparent' }}>
+          <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)' }}>{user?.full_name || 'My Account'}</div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>Pro plan</div>
+          </div>
+          <span style={{ color: userMenu ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)', fontSize:16, transition:'color .15s' }}>···</span>
+        </button>
+      </div>
+    </>
+  )
+
   return (
+    <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:'#f6f6f7',
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', color:'#111' }}>
 
-      {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
-      <aside style={{ width:220, background:'#111', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
-        <div style={{ padding:'20px 16px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
-          onClick={() => navigate('/')}>
-          <img src={logo} style={{ width:36, height:36, borderRadius:10, objectFit:'cover', flexShrink:0 }} alt="" />
-          <div>
-            <div style={{ fontSize:15, fontWeight:800, color:'#fff', letterSpacing:'-.4px', lineHeight:1.1 }}>
-              Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-            </div>
-            <div style={{ fontSize:9, color:'rgba(255,255,255,.3)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
+      {/* ══ MOBILE DRAWER ════════════════════════════════════════════════════ */}
+      {isMobile && drawerOpen && (
+        <>
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:200 }}
+            onClick={() => setDrawerOpen(false)} />
+          <div style={{ position:'fixed', top:0, left:0, bottom:0, width:260, background:'#111',
+            zIndex:201, display:'flex', flexDirection:'column', overflowY:'auto',
+            boxShadow:'4px 0 24px rgba(0,0,0,.4)',
+            transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition:'transform .25s ease' }}>
+            <SidebarContent />
           </div>
-        </div>
-        <nav style={{ flex:1, padding:'8px 10px', overflowY:'auto' }}>
-          {NAV.map(n => {
-            const on = currentNav?.id === n.id
-            return (
-              <button key={n.id} onClick={() => navigate(n.path)} style={{
-                display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px',
-                borderRadius:9, border:'none', cursor:'pointer', marginBottom:2, textAlign:'left',
-                fontSize:13, fontWeight: on ? 600 : 400,
-                color: on ? '#fff' : 'rgba(255,255,255,.38)',
-                background: on ? 'rgba(255,255,255,.1)' : 'transparent', transition:'all .15s',
-              }}
-              onMouseEnter={e => { if(!on){ e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.7)' }}}
-              onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.38)' }}}>
-                <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
-                  stroke={on ? C.coral : 'rgba(255,255,255,.38)'}
-                  strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
-                  <path d={n.icon}/>
-                </svg>
-                {n.label}
-                {on && <span style={{ marginLeft:'auto', width:5, height:5, borderRadius:'50%', background:C.coral }} />}
-              </button>
-            )
-          })}
-        </nav>
-        <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:8 }}>
-            <span style={{ color:'rgba(255,255,255,.3)' }}>Storage</span>
-            <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>— / — GB</span>
-          </div>
-          <div style={{ height:3, background:'rgba(255,255,255,.08)', borderRadius:3 }}>
-            <div style={{ width:'0%', height:'100%', background:C.grad, borderRadius:3 }} />
-          </div>
-        </div>
-        <div style={{ padding:'10px 10px 16px', borderTop:'1px solid rgba(255,255,255,.07)', position:'relative' }}>
-          {userMenu && (
-            <>
-              <div style={{ position:'fixed', inset:0, zIndex:50 }} onClick={() => setMenu(false)} />
-              <div style={{ position:'absolute', bottom:'calc(100% + 6px)', left:10, right:10, zIndex:51,
-                background:'#1c1c1e', borderRadius:12, overflow:'hidden',
-                boxShadow:'0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08)' }}>
-                <div style={{ padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
-                  <div style={{ fontSize:12.5, fontWeight:700, color:'rgba(255,255,255,.9)' }}>{user?.full_name || 'My Account'}</div>
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,.35)', marginTop:2 }}>{user?.email || ''} · Pro plan</div>
-                </div>
-                {[
-                  { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z',  modal:'account-settings' },
-                  { label:'Billing & Plan',     icon:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', modal:'billing' },
-                  { label:'Keyboard Shortcuts', icon:'M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z', modal:'shortcuts' },
-                ].map(item => (
-                  <button key={item.label} onClick={() => { setMenu(false); openModal(item.modal, {}) }} style={{
-                    display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
-                    background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-                    fontSize:12.5, color:'rgba(255,255,255,.7)', fontWeight:500, transition:'background .12s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
-                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                      stroke="rgba(255,255,255,.4)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={item.icon}/>
-                    </svg>
-                    {item.label}
-                  </button>
-                ))}
-                <div style={{ height:1, background:'rgba(255,255,255,.07)', margin:'2px 0' }} />
-                <button onClick={() => { setMenu(false); onLogout(); navigate('/login') }} style={{
-                  display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
-                  background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-                  fontSize:12.5, color:'#ff6b6b', fontWeight:600, transition:'background .12s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                    stroke="#ff6b6b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-                  </svg>
-                  Log out
-                </button>
-              </div>
-            </>
-          )}
+        </>
+      )}
 
-          <button onClick={() => setMenu(m => !m)} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 8px',
-            borderRadius:9, border:'none', background: userMenu ? 'rgba(255,255,255,.1)' : 'transparent',
-            cursor:'pointer', textAlign:'left', transition:'background .15s' }}
-            onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
-            onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background='transparent' }}>
-            <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)' }}>{user?.full_name || 'My Account'}</div>
-              <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>Pro plan</div>
-            </div>
-            <span style={{ color: userMenu ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)', fontSize:16, transition:'color .15s' }}>···</span>
-          </button>
-        </div>
-      </aside>
+      {/* ══ SIDEBAR (desktop only) ════════════════════════════════════════════ */}
+      {!isMobile && (
+        <aside style={{ width:220, background:'#111', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
+          <SidebarContent />
+        </aside>
+      )}
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:'#f6f6f7' }}>
-        <header style={{ height:52, background:'#fff', borderBottom:'1px solid rgba(0,0,0,.07)',
-          display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0 }}>
-          <div style={{ display:'flex', gap:4 }}>
-            <button onClick={() => navigate(-1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
-              border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
-              cursor:'pointer', color:'#999', transition:'background .12s' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
-            </button>
-            <button onClick={() => navigate(1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
-              border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
-              cursor:'pointer', color:'#999', transition:'background .12s' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-            </button>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'#999' }}>
-            <span style={{ cursor:'pointer' }} onClick={() => navigate('/')}>Workspace</span>
-            <span style={{ opacity:.4 }}>/</span>
-            <span style={{ color:'#111', fontWeight:600 }}>{currentNav?.label}</span>
-          </div>
-          <div style={{ flex:1 }} />
-          <div style={{ display:'flex', alignItems:'center', gap:7, background:'rgba(0,0,0,.05)',
-            border:'1px solid rgba(0,0,0,.08)', borderRadius:9, padding:'6px 12px', width:200 }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2.5} strokeLinecap="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input placeholder="Search files…" style={{ background:'none', border:'none', outline:'none', fontSize:12.5, color:'#111', width:'100%' }} />
-          </div>
-          <button onClick={() => openModal('upload', {})} style={{ background:C.grad, border:'none', borderRadius:9, padding:'7px 18px',
-            color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer', letterSpacing:'-.2px',
-            boxShadow:`0 2px 12px ${C.coral}40`, transition:'opacity .15s' }}
-            onMouseEnter={e => e.currentTarget.style.opacity='.9'}
-            onMouseLeave={e => e.currentTarget.style.opacity='1'}>+ Upload</button>
-          <NotificationBellLight user={user} />
-          <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
-        </header>
 
-        <div style={{ flex:1, overflowY:'auto', padding:'24px', paddingBottom: nowPlaying ? 100 : 24 }}>
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {isMobile ? (
+          <header style={{ height:52, background:'#fff', borderBottom:'1px solid rgba(0,0,0,.07)',
+            display:'flex', alignItems:'center', padding:'0 16px', gap:10, flexShrink:0,
+            position:'relative', zIndex:100 }}>
+            <button onClick={() => setDrawerOpen(true)}
+              style={{ width:36, height:36, borderRadius:9, background:'transparent', border:'none',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#333' }}>
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <div style={{ flex:1, display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}
+              onClick={() => navigate('/')}>
+              <img src={logo} style={{ width:28, height:28, borderRadius:7, objectFit:'cover' }} alt="" />
+              <span style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>
+                Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+              </span>
+            </div>
+            <NotificationBellLight user={user} />
+            <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+          </header>
+        ) : (
+          <header style={{ height:52, background:'#fff', borderBottom:'1px solid rgba(0,0,0,.07)',
+            display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0,
+            position:'relative', zIndex:100 }}>
+            <div style={{ display:'flex', gap:4 }}>
+              <button onClick={() => navigate(-1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
+                border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', color:'#999', transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+              </button>
+              <button onClick={() => navigate(1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
+                border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', color:'#999', transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'#999' }}>
+              <span style={{ cursor:'pointer' }} onClick={() => navigate('/')}>Workspace</span>
+              <span style={{ opacity:.4 }}>/</span>
+              <span style={{ color:'#111', fontWeight:600 }}>{currentNav?.label}</span>
+            </div>
+            <div style={{ flex:1 }} />
+            <div style={{ display:'flex', alignItems:'center', gap:7, background:'rgba(0,0,0,.05)',
+              border:'1px solid rgba(0,0,0,.08)', borderRadius:9, padding:'6px 12px', width:200 }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2.5} strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input placeholder="Search files…" style={{ background:'none', border:'none', outline:'none', fontSize:12.5, color:'#111', width:'100%' }} />
+            </div>
+            <button onClick={() => openModal('upload', {})} style={{ background:C.grad, border:'none', borderRadius:9, padding:'7px 18px',
+              color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer', letterSpacing:'-.2px',
+              boxShadow:`0 2px 12px ${C.coral}40`, transition:'opacity .15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity='.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity='1'}>+ Upload</button>
+            <NotificationBellLight user={user} />
+            <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+          </header>
+        )}
+
+        <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '16px' : '24px',
+          paddingBottom: nowPlaying ? (isMobile ? 160 : 100) : (isMobile ? 80 : 24) }}>
           <Routes>
             <Route path="/"              element={<PageDashboard playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjects openModal={openModal} refreshKey={refreshKey} playTrack={playTrack} user={user} />} />
             <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} onlineIds={onlineIds} />} />
-            <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} user={user} />} />
+            <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/analytics"     element={<PageAnalytics />} />
-            <Route path="/distribution"  element={<PageDistribution openModal={openModal} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </div>
+
+        {/* ── Mobile bottom tab bar ──────────────────────────────────────── */}
+        {isMobile && (
+          <nav style={{ position:'fixed', bottom:0, left:0, right:0, height:60,
+            background:'#fff', borderTop:'1px solid rgba(0,0,0,.08)',
+            display:'flex', alignItems:'stretch', zIndex:150,
+            boxShadow:'0 -4px 16px rgba(0,0,0,.06)' }}>
+            {NAV.filter(n => ['dashboard','projects','studio','collaborators','library'].includes(n.id)).map(n => {
+              const on = currentNav?.id === n.id
+              return (
+                <button key={n.id} onClick={() => navigate(n.path)}
+                  style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+                    justifyContent:'center', gap:3, border:'none', cursor:'pointer',
+                    background:'transparent', minHeight:44, padding:'4px 2px',
+                    color: on ? C.coral : '#aaa', transition:'color .12s' }}>
+                  <svg width={20} height={20} viewBox="0 0 24 24" fill="none"
+                    stroke={on ? C.coral : '#aaa'}
+                    strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={n.icon}/>
+                  </svg>
+                  <span style={{ fontSize:9.5, fontWeight: on ? 700 : 500, letterSpacing:'-.2px',
+                    color: on ? C.coral : '#aaa' }}>
+                    {n.id === 'library' ? 'Library' : n.label}
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
+        )}
       </div>
 
       {/* ══ MODALS ═══════════════════════════════════════════════════════════ */}
@@ -6460,9 +5818,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
       {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  onClose={closeModal} user={user} />}
-      {modal?.type==='new-release' && <ModalNewRelease onClose={closeModal} />}
-      {modal?.type==='schedule'    && <ModalSchedule   release={modal.data}           onClose={closeModal} />}
       <ToastContainer toasts={toasts} remove={removeToast} />
     </div>
+    </MobileCtx.Provider>
   )
 }
