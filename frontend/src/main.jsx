@@ -87,12 +87,6 @@ function Root() {
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />
 
-      {/* Invite page — public, works before login */}
-      <Route path="/invite/:token" element={
-        <App onLogout={handleLogout} user={user}
-          onProfileUpdate={updates => setUser(prev => ({ ...prev, ...updates }))} />
-      } />
-
       {/* Protected — App shell owns /*, child routes defined inside App */}
       <Route path="/*" element={
         <RequireAuth>

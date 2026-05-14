@@ -1453,11 +1453,27 @@ function ModalInvite({ project: initialProject, onClose }) {
 
   if (sent) return (
     <Modal title="Invite Sent!" onClose={onClose}>
-      <ModalSuccess
-        title={`Invite sent to ${email}`}
-        body={<>as <strong style={{ color:'#555' }}>{role}</strong> on <strong style={{ color:'#555' }}>{selProj?.title}</strong></>}
-        onClose={onClose}
-      />
+      <div style={{ textAlign:'center', padding:'8px 0 4px' }}>
+        <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(34,197,94,.1)',
+          border:'2px solid rgba(34,197,94,.2)', display:'flex', alignItems:'center',
+          justifyContent:'center', margin:'0 auto 14px' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round">
+            <polyline points="20,6 9,17 4,12"/>
+          </svg>
+        </div>
+        <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:4 }}>
+          Invite sent to {email}
+        </div>
+        <div style={{ fontSize:13, color:'#aaa', marginBottom:24 }}>
+          as <strong style={{ color:'#555' }}>{role}</strong> on <strong style={{ color:'#555' }}>{selProj?.title}</strong>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn onClick={() => { setEmail(''); setSent(false); setErr(null) }} variant="ghost" style={{ flex:1 }}>
+            Invite another
+          </Btn>
+          <Btn onClick={onClose} style={{ flex:1 }}>Done</Btn>
+        </div>
+      </div>
     </Modal>
   )
 
@@ -3331,213 +3347,6 @@ function PageProjects({ openModal, refreshKey, user }) {
   )
 }
 
-// ─── INVITE LINK BUTTON ───────────────────────────────────────────────────────
-function InviteLinkButton({ ownedIds, projects = [] }) {
-  const [copying,    setCopying]    = useState(false)
-  const [copied,     setCopied]     = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const ref = useRef()
-
-  const ownedProjects = projects.filter(p => ownedIds?.has(p.id))
-  if (!ownedProjects.length) return null
-
-  useEffect(() => {
-    if (!pickerOpen) return
-    const close = e => { if (!ref.current?.contains(e.target)) setPickerOpen(false) }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [pickerOpen])
-
-  const generate = async (projectId, projectTitle) => {
-    setPickerOpen(false)
-    setCopying(true)
-    try {
-      const res = await fetch(`/api/invite-links/${projectId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ role: 'Collaborator' }),
-      })
-      const j = await res.json()
-      if (j.data?.url) {
-        await navigator.clipboard.writeText(j.data.url)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2500)
-      }
-    } catch {}
-    setCopying(false)
-  }
-
-  const handleClick = () => {
-    if (ownedProjects.length === 1) {
-      generate(ownedProjects[0].id, ownedProjects[0].title)
-    } else {
-      setPickerOpen(v => !v)
-    }
-  }
-
-  return (
-    <div ref={ref} style={{ position:'relative' }}>
-      <button onClick={handleClick} disabled={copying}
-        style={{ height:36, padding:'0 14px', borderRadius:10, fontSize:12, fontWeight:700,
-          border:'1px solid rgba(0,0,0,.1)', background: copied ? '#22c55e' : '#fff',
-          color: copied ? '#fff' : '#555', cursor:'pointer',
-          display:'flex', alignItems:'center', gap:6, transition:'all .2s' }}>
-        {copying ? <Spinner size={12} color="#888"/> :
-          copied
-            ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-            : <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>}
-        {copied ? 'Link copied!' : 'Copy invite link'}
-        {ownedProjects.length > 1 && !copied && (
-          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <polyline points="6,9 12,15 18,9"/>
-          </svg>
-        )}
-      </button>
-
-      {/* Project picker — only shown when owner has multiple projects */}
-      {pickerOpen && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200,
-          background:'#fff', border:'1px solid rgba(0,0,0,.1)', borderRadius:12,
-          boxShadow:'0 8px 24px rgba(0,0,0,.12)', padding:6, minWidth:220 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase',
-            letterSpacing:'1px', padding:'6px 10px 4px' }}>
-            Pick a project to invite to
-          </div>
-          {ownedProjects.map(p => (
-            <button key={p.id} onClick={() => generate(p.id, p.title)}
-              style={{ width:'100%', padding:'9px 12px', border:'none', borderRadius:8,
-                background:'transparent', textAlign:'left', cursor:'pointer',
-                display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#111',
-                fontFamily:'inherit' }}
-              onMouseEnter={e => e.currentTarget.style.background='#f5f5f7'}
-              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-              <div style={{ width:28, height:28, borderRadius:7, background:`${C.coral}15`,
-                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
-                  <path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontWeight:600, fontSize:13 }}>{p.title}</div>
-                <div style={{ fontSize:11, color:'#aaa' }}>{p.type || 'Project'}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── PAGE: INVITE (public join page) ──────────────────────────────────────────
-function PageInvite({ user }) {
-  const token = window.location.pathname.split('/invite/')[1]
-  const [info,     setInfo]     = useState(null)
-  const [loading,  setLoading]  = useState(true)
-  const [joining,  setJoining]  = useState(false)
-  const [joined,   setJoined]   = useState(false)
-  const [error,    setError]    = useState('')
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!token) { setError('Invalid invite link'); setLoading(false); return }
-    fetch(`/api/invite-links/preview/${token}`)
-      .then(r => r.json()).then(j => {
-        if (j.data) setInfo(j.data)
-        else setError('This invite link is invalid or has expired.')
-      }).catch(() => setError('Could not load invite.')).finally(() => setLoading(false))
-  }, [token])
-
-  const join = async () => {
-    if (!user) { navigate(`/login?redirect=/invite/${token}`); return }
-    setJoining(true)
-    try {
-      const res = await fetch(`/api/invite-links/join/${token}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-      const j = await res.json()
-      if (j.data?.joined || j.data?.already_member) {
-        setJoined(true)
-        setTimeout(() => navigate('/collaborators'), 1800)
-      } else {
-        setError(j.error || 'Failed to join.')
-      }
-    } catch { setError('Something went wrong.') }
-    setJoining(false)
-  }
-
-  if (loading) return (
-    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0a0a12' }}>
-      <Spinner size={28} color="#FF6B6B"/>
-    </div>
-  )
-
-  return (
-    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#0a0a12', fontFamily:"-apple-system,'Inter',sans-serif", padding:24 }}>
-      <div style={{ width:'100%', maxWidth:420, textAlign:'center' }}>
-        <div style={{ fontSize:24, fontWeight:900, marginBottom:6 }}>
-          <span style={{ color:'#FF6B6B' }}>dizko</span><span style={{ color:'#e8e8f0' }}>.ai</span>
-        </div>
-
-        {error ? (
-          <div style={{ background:'#13131c', border:'1px solid rgba(239,68,68,.3)', borderRadius:16,
-            padding:32, marginTop:24 }}>
-            <div style={{ fontSize:15, color:'#fca5a5', marginBottom:8 }}>{error}</div>
-            <button onClick={() => navigate('/login')}
-              style={{ marginTop:16, padding:'10px 24px', borderRadius:10, background:'#FF6B6B',
-                border:'none', color:'#fff', fontWeight:700, cursor:'pointer' }}>
-              Go to Dizko
-            </button>
-          </div>
-        ) : joined ? (
-          <div style={{ background:'#13131c', border:'1px solid rgba(34,197,94,.3)', borderRadius:16, padding:32, marginTop:24 }}>
-            <div style={{ fontSize:32, marginBottom:12 }}>
-              <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2} strokeLinecap="round" style={{ margin:'0 auto', display:'block' }}>
-                <circle cx="12" cy="12" r="10"/><polyline points="20,6 9,17 4,12"/>
-              </svg>
-            </div>
-            <div style={{ fontSize:16, fontWeight:700, color:'#e8e8f0', marginBottom:4 }}>You're in!</div>
-            <div style={{ fontSize:13, color:'#8b8b9a' }}>Taking you to the team page…</div>
-          </div>
-        ) : info ? (
-          <div style={{ background:'#13131c', border:'1px solid rgba(255,255,255,.08)', borderRadius:16, padding:32, marginTop:24 }}>
-            <div style={{ width:56, height:56, borderRadius:16, background:'rgba(255,107,107,.12)',
-              border:'1px solid rgba(255,107,107,.25)', margin:'0 auto 18px',
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.8} strokeLinecap="round">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-              </svg>
-            </div>
-            <div style={{ fontSize:13, color:'#8b8b9a', marginBottom:4 }}>
-              <strong style={{ color:'#e8e8f0' }}>{info.inviter_name}</strong> invited you to join
-            </div>
-            <div style={{ fontSize:22, fontWeight:800, color:'#e8e8f0', marginBottom:4 }}>{info.project_title}</div>
-            <div style={{ fontSize:12, color:'#8b8b9a', marginBottom:20 }}>
-              {info.project_type} · {info.collab_count} collaborator{info.collab_count !== 1 ? 's' : ''} · joining as <strong style={{ color:'#FF6B6B' }}>{info.role}</strong>
-            </div>
-            <button onClick={join} disabled={joining}
-              style={{ width:'100%', padding:'13px', borderRadius:12, border:'none',
-                background:'linear-gradient(135deg,#FF6B6B,#F28FB8)',
-                color:'#fff', fontSize:14, fontWeight:700, cursor: joining ? 'default' : 'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                boxShadow:'0 4px 16px rgba(255,107,107,.35)' }}>
-              {joining ? <><Spinner size={14} color="#fff"/> Joining…</> : user ? `Join as ${info.role} →` : 'Sign in to join →'}
-            </button>
-            {!user && (
-              <div style={{ fontSize:11, color:'#555', marginTop:10 }}>
-                You'll be redirected to sign in first
-              </div>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 // ─── PAGE: COLLABORATORS ───────────────────────────────────────────────────
 function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
   const [search,        setSearch]        = useState('')
@@ -3660,10 +3469,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
             )}
           </div>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <InviteLinkButton ownedIds={ownedIds} projects={allProjects} />
-          <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
-        </div>
+        <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
       </div>
 
       {/* ── Pending invitations ────────────────────────────────────────── */}
@@ -3844,8 +3650,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
               Share a link or send an email invite — they join in seconds.
             </div>
             <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-              <InviteLinkButton ownedIds={ownedIds} projects={allProjects} />
-              <Btn onClick={() => openModal('invite', {})}>Invite by email</Btn>
+              <Btn onClick={() => openModal('invite', {})}>Invite your first collaborator</Btn>
             </div>
           </div>
         )
@@ -3920,11 +3725,14 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
                             textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{perm}</div>
                           <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Can upload</div>
                         </div>
-                        <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px' }}>
-                          <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
-                            {c.projectTitle || '—'}
+                        <div style={{ background:'rgba(0,0,0,.03)', borderRadius:10, padding:'9px 8px',
+                          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <div>
+                            <div style={{ fontSize:12, fontWeight:700, color:'#111' }}>
+                              {c.projectTitle || '—'}
+                            </div>
+                            <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
                           </div>
-                          <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Project</div>
                         </div>
                       </div>
                     )
@@ -6635,7 +6443,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/analytics"     element={<PageAnalytics />} />
             <Route path="/distribution"  element={<PageDistribution openModal={openModal} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
-            <Route path="/invite/:token" element={<PageInvite user={user} />} />
           </Routes>
         </div>
       </div>
