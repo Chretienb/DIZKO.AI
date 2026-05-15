@@ -96,8 +96,9 @@ async function request(method, path, body) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  // On 401, try a silent refresh then retry once
-  if (res.status === 401) {
+  // On 401, try a silent refresh then retry once.
+  // Skip this for auth endpoints — their 401 means bad credentials, not expired session.
+  if (res.status === 401 && !path.startsWith('/auth/')) {
     const refreshed = await tryRefresh()
     if (refreshed) {
       const newToken = getToken()
