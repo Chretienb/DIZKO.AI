@@ -120,6 +120,25 @@ function Root() {
     setUser(null)
   }
 
+  // Sync Supabase's automatic token refresh into our localStorage keys.
+  // Supabase silently refreshes the JWT before it expires — we just need
+  // to mirror the new tokens so our backend calls keep working.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
+        setToken(session.access_token)
+        setRefreshToken(session.refresh_token)
+        setUser(prev => prev ? { ...prev } : userFromToken())
+      }
+      if (event === 'SIGNED_OUT') {
+        setToken(null)
+        setRefreshToken(null)
+        setUser(null)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   // While splash is showing, render it over everything
   if (showSplash) {
     return <Splash onDone={() => setShowSplash(false)} />
