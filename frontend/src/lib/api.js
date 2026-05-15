@@ -113,7 +113,7 @@ async function request(method, path, body) {
     if (res.status === 401) {
       setToken(null)
       setRefreshToken(null)
-      window.location.href = '/login?expired=1'
+      window.location.href = '/login'
       throw new Error('Session expired. Please log in again.')
     }
   }

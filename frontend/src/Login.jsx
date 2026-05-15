@@ -63,15 +63,6 @@ export default function Login({ onLogin }) {
   const [loading, setLoading]      = useState(false)
   const [socialLoading, setSocial] = useState(null)
   const [error, setError]          = useState('')
-  const [sessionExpired, setExpired] = useState(false)
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('expired') === '1') {
-      setExpired(true)
-      window.history.replaceState({}, '', '/login')
-    }
-  }, [])
-
   const submit = async e => {
     e.preventDefault()
     setError('')
@@ -295,15 +286,6 @@ export default function Login({ onLogin }) {
         {/* Main content — vertically centered */}
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding: isMobile ? '0 24px 32px' : '0 40px 40px' }}>
           <div style={{ width:'100%', maxWidth:400 }}>
-
-            {/* Session expired */}
-            {sessionExpired && (
-              <div style={{ padding:'10px 16px', borderRadius:10, marginBottom:24,
-                background:'rgba(245,201,122,.1)', border:'1px solid rgba(245,201,122,.25)',
-                fontSize:13, color:'#f5c97a', lineHeight:1.45 }}>
-                Your session expired — please sign in again.
-              </div>
-            )}
 
             {/* Heading */}
             {tab !== 'forgot' && tab !== 'forgot-sent' ? (
