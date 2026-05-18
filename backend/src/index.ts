@@ -21,6 +21,7 @@ import accessRequestRoutes  from './routes/accessRequests'
 import assistantRoutes       from './routes/assistant'
 import inviteLinkRoutes      from './routes/inviteLinks'
 import stemCommentRoutes     from './routes/stemComments'
+import venueRoutes            from './routes/venues'
 import { runSmartBounce }    from './lib/smartBounce'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 import { mixReadyEmail }               from './lib/emailTemplates'
@@ -82,6 +83,7 @@ app.route('/access-requests', accessRequestRoutes)
 app.route('/assistant',       assistantRoutes)
 app.route('/invite-links',    inviteLinkRoutes)
 app.route('/stem-comments',   stemCommentRoutes)
+app.route('/venues',          venueRoutes)
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {

@@ -58,7 +58,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -2042,6 +2042,10 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
   const [projectCollabs,setCollabs]   = useState([])
   const [loadingDetail, setLoadingDet]= useState(false)
   const [uploaderNames, setUploaderNames] = useState({}) // { userId: displayName }
+  const [listenerCities, setListenerCities] = useState([])
+  const [cityVenues,     setCityVenues]     = useState({}) // { city: [venues] }
+  const [selectedCity,   setSelectedCity]   = useState(null)
+  const [loadingVenues,  setLoadingVenues]  = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -2102,6 +2106,33 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [firstProjectId])
+
+  // Fetch collaborator cities, then venues for the top one
+  useEffect(() => {
+    venuesApi.cities().then(res => {
+      const cities = res.data || []
+      setListenerCities(cities)
+      if (cities.length > 0) {
+        const top = cities[0]
+        setSelectedCity(top.city)
+        setLoadingVenues(true)
+        venuesApi.search(top.city, top.region)
+          .then(r => setCityVenues(prev => ({ ...prev, [top.city]: r.data || [] })))
+          .catch(() => {})
+          .finally(() => setLoadingVenues(false))
+      }
+    }).catch(() => {})
+  }, [projects.length])
+
+  const loadVenuesForCity = (city, region = '') => {
+    setSelectedCity(city)
+    if (cityVenues[city]) return
+    setLoadingVenues(true)
+    venuesApi.search(city, region)
+      .then(r => setCityVenues(prev => ({ ...prev, [city]: r.data || [] })))
+      .catch(() => {})
+      .finally(() => setLoadingVenues(false))
+  }
 
   const projectCount = overview.projects ?? projects.length
   const fileCount    = overview.files    ?? '—'
@@ -2346,6 +2377,88 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
           </div>
         )}
       </div>
+
+      {/* ── Listener cities + venues ────────────────────────────────────── */}
+      {listenerCities.length > 0 && (
+        <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', marginBottom:20,
+          boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div>
+              <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>
+                Your listeners are in{' '}
+                <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                  {listenerCities.slice(0,3).map(c => c.city).join(', ')}
+                </span>
+              </div>
+              <div style={{ fontSize:12, color:'#aaa', marginTop:3 }}>
+                Music venues near your collaborators
+              </div>
+            </div>
+            {/* City pills */}
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'flex-end' }}>
+              {listenerCities.slice(0,4).map(c => (
+                <button key={c.city} onClick={() => loadVenuesForCity(c.city, c.region)}
+                  style={{ padding:'5px 13px', borderRadius:100, fontSize:12, fontWeight:600,
+                    cursor:'pointer', transition:'all .15s',
+                    background: selectedCity === c.city ? C.grad : 'rgba(0,0,0,.04)',
+                    border: selectedCity === c.city ? 'none' : '1px solid rgba(0,0,0,.08)',
+                    color: selectedCity === c.city ? '#fff' : '#555',
+                    boxShadow: selectedCity === c.city ? `0 3px 10px ${C.coral}30` : 'none' }}>
+                  {c.city} <span style={{ opacity:.6, fontSize:10 }}>·{c.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Venue cards */}
+          {loadingVenues ? (
+            <div style={{ display:'flex', gap:10 }}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{ flex:1, height:90, borderRadius:14,
+                  background:'linear-gradient(160deg,#f0f0f0,#e8e8e8)',
+                  animation:'pulse 1.6s ease-in-out infinite' }}/>
+              ))}
+            </div>
+          ) : (cityVenues[selectedCity] || []).length === 0 ? (
+            <div style={{ textAlign:'center', padding:'24px', fontSize:13, color:'#bbb' }}>
+              No music venues found in {selectedCity}
+            </div>
+          ) : (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10 }}>
+              {(cityVenues[selectedCity] || []).map(v => (
+                <a key={v.id} href={v.url || '#'} target="_blank" rel="noopener noreferrer"
+                  style={{ textDecoration:'none', display:'flex', flexDirection:'column', gap:6,
+                    padding:'14px 16px', borderRadius:14, background:'rgba(0,0,0,.02)',
+                    border:'1px solid rgba(0,0,0,.06)', transition:'all .15s', cursor:'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}06`; e.currentTarget.style.borderColor=`${C.coral}30` }}
+                  onMouseLeave={e => { e.currentTarget.style.background='rgba(0,0,0,.02)'; e.currentTarget.style.borderColor='rgba(0,0,0,.06)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ width:32, height:32, borderRadius:9, background:`${C.coral}12`, flexShrink:0,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                        <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                      </svg>
+                    </div>
+                    <div style={{ fontSize:12.5, fontWeight:700, color:'#111', lineHeight:1.3,
+                      overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box',
+                      WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{v.name}</div>
+                  </div>
+                  <div style={{ fontSize:11, color:'#aaa', paddingLeft:40 }}>
+                    {v.address || `${v.city}, ${v.state}`}
+                  </div>
+                  {v.url && (
+                    <div style={{ fontSize:11, color:C.coral, fontWeight:600, paddingLeft:40,
+                      display:'flex', alignItems:'center', gap:3 }}>
+                      View venue
+                      <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Bottom grid ───────────────────────────────────────────────── */}
       {projects.length > 0 && (

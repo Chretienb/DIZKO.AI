@@ -10,6 +10,7 @@ import { supabase }      from '../lib/supabase'
 import { requireAuth }   from '../middleware/auth'
 import { sanitize }      from '../middleware/sanitize'
 import { rateLimit }     from '../middleware/rateLimit'
+import { geolocateIp }  from '../lib/geoip'
 import type { HonoVariables } from '../types'
 
 const auth = new Hono<{ Variables: HonoVariables }>()
@@ -105,6 +106,16 @@ auth.post('/login', loginLimit, sanitize, async (c) => {
 
   // Use generic message to avoid user enumeration
   if (error) return c.json({ data: null, error: 'Invalid email or password', status: 401 }, 401)
+
+  // Silently capture location from IP (non-blocking)
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? ''
+  geolocateIp(ip).then(loc => {
+    if (loc?.city && data.user?.id) {
+      supabase.auth.admin.updateUserById(data.user.id, {
+        user_metadata: { location: loc },
+      }).catch(() => {})
+    }
+  })
 
   return c.json({ data: { user: data.user, session: data.session }, error: null, status: 200 })
 })

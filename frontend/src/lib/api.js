@@ -261,3 +261,9 @@ export const messagesApi = {
   send:         (toUserId, text) => post('/messages', { to_user_id: toUserId, text }),
   unread:       () => get('/messages'),
 }
+
+// ── Venues ────────────────────────────────────────────────────────────────────
+export const venuesApi = {
+  search: (city, state = '') => get(`/venues?city=${encodeURIComponent(city)}${state ? `&state=${encodeURIComponent(state)}` : ''}&size=5`),
+  cities: ()                 => get('/venues/cities'),
+}
