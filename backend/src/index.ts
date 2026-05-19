@@ -86,6 +86,7 @@ app.route('/invite-links',    inviteLinkRoutes)
 app.route('/stem-comments',   stemCommentRoutes)
 app.route('/venues',          venueRoutes)
 app.route('/youtube',         youtubeRoutes)
+app.route('/auth/youtube',   youtubeRoutes)  // alias — matches Google OAuth redirect URI
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
 app.get('/users/:id', requireAuth, async (c) => {
