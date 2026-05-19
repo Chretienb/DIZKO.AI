@@ -489,9 +489,18 @@ export default function Login({ onLogin }) {
             )}
 
             {/* Footer */}
-            <p style={{ margin:'32px 0 0', textAlign:'center', fontSize:11,
-              color:'rgba(255,255,255,.12)', letterSpacing:'.02em' }}>
-              Privacy Policy · Terms · Help
+            <p style={{ margin:'32px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
+              <a href="/privacy" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
+                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Privacy Policy</a>
+              <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>
+              <a href="/terms" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
+                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Terms</a>
+              <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>
+              <a href="mailto:team@dizko.ai" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
+                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Help</a>
             </p>
           </div>
         </div>

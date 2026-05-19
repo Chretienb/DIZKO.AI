@@ -23,7 +23,8 @@ export default function Terms() {
 
   return (
     <div style={{ fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
-      WebkitFontSmoothing:'antialiased', background:'#fafafa', minHeight:'100vh' }}>
+      WebkitFontSmoothing:'antialiased', background:'#fafafa', minHeight:'100vh',
+      overflowY:'auto', height:'auto' }}>
 
       {/* Header */}
       <div style={{ background:'#0a0a0f', padding:'0 24px' }}>
