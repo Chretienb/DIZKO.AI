@@ -5342,165 +5342,192 @@ function PageAnalytics() {
 
   return (
     <>
-      <div style={{ marginBottom:24 }}>
-        <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Analytics</h1>
-        <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Breakdown across all your projects</p>
-      </div>
+      {/* ══ YouTube Hero ════════════════════════════════════════════════ */}
+      <div style={{ borderRadius:24, overflow:'hidden', marginBottom:24,
+        background: ytConnected ? '#fff' : 'linear-gradient(135deg,#0f0f14 0%,#1a0820 60%,#0a1018 100%)',
+        boxShadow: ytConnected ? '0 1px 4px rgba(0,0,0,.06)' : '0 8px 40px rgba(0,0,0,.25)',
+        border: ytConnected ? '1px solid rgba(0,0,0,.05)' : 'none',
+        position:'relative' }}>
 
-      {/* ── YouTube Listener Intelligence ─────────────────────────────── */}
-      <div style={{ background: ytConnected ? '#fff' : 'linear-gradient(135deg,#0f0f14,#1a0a20)',
-        borderRadius:20, padding:'24px', marginBottom:20,
-        boxShadow:'0 2px 12px rgba(0,0,0,.1)', border: ytConnected ? '1px solid rgba(0,0,0,.05)' : 'none',
-        position:'relative', overflow:'hidden' }}>
-
-        {!ytConnected && (
-          <>
-            {/* Glow */}
-            <div style={{ position:'absolute', top:'-20%', right:'-5%', width:300, height:300,
-              borderRadius:'50%', background:'radial-gradient(circle,rgba(255,0,0,.15) 0%,transparent 65%)', pointerEvents:'none' }}/>
-            <div style={{ position:'absolute', bottom:'-10%', left:'10%', width:200, height:200,
-              borderRadius:'50%', background:'radial-gradient(circle,rgba(244,147,122,.12) 0%,transparent 65%)', pointerEvents:'none' }}/>
-          </>
-        )}
+        {/* ambient blobs when disconnected */}
+        {!ytConnected && <>
+          <div style={{ position:'absolute', top:'-20%', right:'-5%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,0,0,.18) 0%,transparent 65%)', pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', bottom:'-10%', left:'15%', width:300, height:300, borderRadius:'50%', background:`radial-gradient(circle,${C.coral}18 0%,transparent 65%)`, pointerEvents:'none' }}/>
+        </>}
 
         {!ytConnected ? (
-          <div style={{ position:'relative', display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
-            <div style={{ flex:1, minWidth:200 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                {/* YouTube icon */}
-                <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,0,0,.15)',
-                  display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={18} height={18} viewBox="0 0 24 24" fill="#ff0000">
-                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize:15, fontWeight:900, color:'#fff', letterSpacing:'-.3px' }}>
-                    Connect YouTube Analytics
-                  </div>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,.4)', marginTop:2 }}>
-                    See where your listeners are — find venues near them
-                  </div>
-                </div>
+          /* ── Connect CTA ── */
+          <div style={{ position:'relative', padding:'48px 40px', display:'flex', alignItems:'center', gap:32, flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:240 }}>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'5px 14px', borderRadius:100,
+                background:'rgba(255,0,0,.12)', border:'1px solid rgba(255,0,0,.25)', marginBottom:20 }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="#ff4444">
+                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <span style={{ fontSize:11, fontWeight:700, color:'#ff6666', letterSpacing:'.06em', textTransform:'uppercase' }}>YouTube Analytics</span>
               </div>
-              <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
-                {['Views by country & city', 'Watch time breakdown', 'Venue suggestions near fans'].map(f => (
-                  <div key={f} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'rgba(255,255,255,.45)' }}>
-                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+              <h2 style={{ margin:'0 0 12px', fontSize:isMobile ? 28 : 40, fontWeight:900, color:'#fff', letterSpacing:'-1.5px', lineHeight:1.1 }}>
+                Know exactly<br/>
+                <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                  where your fans are.
+                </span>
+              </h2>
+              <p style={{ margin:'0 0 28px', fontSize:15, color:'rgba(255,255,255,.4)', lineHeight:1.7, maxWidth:420 }}>
+                Connect your YouTube channel to see which cities are watching your music — then find venues nearby where you could perform.
+              </p>
+              <div style={{ display:'flex', gap:20, flexWrap:'wrap', marginBottom:28 }}>
+                {['Views by country & city','Last 90 days of data','Venue recommendations near fans'].map(f => (
+                  <div key={f} style={{ display:'flex', alignItems:'center', gap:7, fontSize:13, color:'rgba(255,255,255,.5)' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
                     {f}
                   </div>
                 ))}
               </div>
-            </div>
-            <button onClick={connectYoutube}
-              style={{ padding:'12px 24px', borderRadius:12, border:'none', cursor:'pointer',
-                background:'#ff0000', color:'#fff', fontSize:14, fontWeight:800,
-                display:'flex', alignItems:'center', gap:8, flexShrink:0,
-                boxShadow:'0 4px 20px rgba(255,0,0,.4)', transition:'opacity .15s' }}
-              onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
-              onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-              Connect YouTube
-            </button>
-          </div>
-        ) : ytLoading ? (
-          <LoadingBlock label="Loading your YouTube analytics…"/>
-        ) : ytData ? (
-          <>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="#ff0000">
-                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
-                  <span style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>
-                    Your listeners are in{' '}
-                    <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                      {ytData.cities?.slice(0,3).map(c => c.city).join(', ') || ytData.countries?.slice(0,3).map(c => countryName(c.country_code)).join(', ')}
-                    </span>
-                  </span>
-                </div>
-                <div style={{ fontSize:12, color:'#aaa' }}>
-                  Last 90 days · {ytData.countries?.reduce((s, c) => s + c.views, 0)?.toLocaleString()} total views
-                </div>
-              </div>
-              <button onClick={() => { setYtConnected(false); youtubeApi.disconnect() }}
-                style={{ fontSize:11, color:'#bbb', background:'none', border:'1px solid rgba(0,0,0,.08)',
-                  borderRadius:8, padding:'4px 10px', cursor:'pointer' }}>
-                Disconnect
+              <button onClick={connectYoutube}
+                style={{ padding:'14px 28px', borderRadius:14, border:'none', cursor:'pointer',
+                  background:'#ff0000', color:'#fff', fontSize:15, fontWeight:800, letterSpacing:'-.2px',
+                  display:'inline-flex', alignItems:'center', gap:10,
+                  boxShadow:'0 6px 28px rgba(255,0,0,.45)', transition:'transform .15s, box-shadow .15s' }}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 10px 36px rgba(255,0,0,.55)'}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 6px 28px rgba(255,0,0,.45)'}}>
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="#fff">
+                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                Connect YouTube
               </button>
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16 }}>
-              {/* Top countries */}
+            {/* decorative stat bubbles */}
+            {!isMobile && (
+              <div style={{ display:'flex', flexDirection:'column', gap:12, flexShrink:0 }}>
+                {[{label:'Countries reached',val:'47'},{label:'Cities tracked',val:'120+'},{label:'Venue matches',val:'∞'}].map(s => (
+                  <div key={s.label} style={{ padding:'16px 22px', borderRadius:16,
+                    background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)',
+                    backdropFilter:'blur(12px)' }}>
+                    <div style={{ fontSize:28, fontWeight:900, color:'#fff', letterSpacing:'-1px' }}>{s.val}</div>
+                    <div style={{ fontSize:12, color:'rgba(255,255,255,.3)', marginTop:4 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : ytLoading ? (
+          <div style={{ padding:'40px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <LoadingBlock label="Loading your YouTube analytics…"/>
+          </div>
+        ) : ytData ? (
+          /* ── Connected: data view ── */
+          <div style={{ padding:'28px 32px' }}>
+            {/* Header row */}
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>
-                  Top Countries
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="#ff0000">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  <span style={{ fontSize:11, fontWeight:700, color:'#ff4444', textTransform:'uppercase', letterSpacing:'.08em' }}>YouTube Analytics · Last 90 days</span>
                 </div>
-                {(ytData.countries || []).slice(0,6).map((c, i) => {
-                  const max = ytData.countries[0]?.views || 1
+                <h2 style={{ margin:'0 0 4px', fontSize:isMobile?22:32, fontWeight:900, color:'#111', letterSpacing:'-1.2px', lineHeight:1.1 }}>
+                  Your fans are in{' '}
+                  <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                    {ytData.cities?.slice(0,3).map(c=>c.city).join(', ') || ytData.countries?.slice(0,3).map(c=>countryName(c.country_code)).join(', ') || 'the world'}
+                  </span>
+                </h2>
+                <div style={{ fontSize:13, color:'#aaa' }}>
+                  {ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString() || '—'} total views across {ytData.countries?.length || 0} countries
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
+                {[
+                  { label:'Top country', val: countryName(ytData.countries?.[0]?.country_code || '') || '—' },
+                  { label:'Total views', val: ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString() || '—' },
+                ].map(s => (
+                  <div key={s.label} style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:22, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>{s.val}</div>
+                    <div style={{ fontSize:11, color:'#bbb', marginTop:2 }}>{s.label}</div>
+                  </div>
+                ))}
+                <button onClick={()=>{setYtConnected(false);youtubeApi.disconnect()}}
+                  style={{ alignSelf:'flex-start', fontSize:11, color:'#bbb', background:'none',
+                    border:'1px solid rgba(0,0,0,.09)', borderRadius:8, padding:'4px 10px', cursor:'pointer' }}>
+                  Disconnect
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:24 }}>
+              {/* Countries */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Views by Country</div>
+                {(ytData.countries||[]).slice(0,8).map((c,i) => {
+                  const max = ytData.countries[0]?.views||1
                   return (
-                    <div key={c.country_code} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                      <span style={{ fontSize:12, fontWeight:600, color:'#555', width:130, flexShrink:0 }}>{countryName(c.country_code)}</span>
-                      <div style={{ flex:1, height:6, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
-                        <div style={{ width:`${(c.views/max)*100}%`, height:'100%', borderRadius:3,
-                          background: i === 0 ? '#ff0000' : C.coral, transition:'width .4s' }}/>
+                    <div key={c.country_code} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                      <span style={{ fontSize:13, fontWeight:600, color:'#333', width:140, flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{countryName(c.country_code)}</span>
+                      <div style={{ flex:1, height:7, borderRadius:4, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
+                        <div style={{ width:`${(c.views/max)*100}%`, height:'100%', borderRadius:4,
+                          background: i===0 ? '#ff0000' : i===1 ? '#ff4444' : C.coral, transition:'width .5s' }}/>
                       </div>
-                      <span style={{ fontSize:11, fontWeight:700, color:'#111', width:50, textAlign:'right', flexShrink:0 }}>
-                        {c.views >= 1000 ? `${(c.views/1000).toFixed(1)}k` : c.views}
+                      <span style={{ fontSize:12, fontWeight:800, color:'#111', width:48, textAlign:'right', flexShrink:0 }}>
+                        {c.views>=1000?`${(c.views/1000).toFixed(1)}k`:c.views}
                       </span>
                     </div>
                   )
                 })}
               </div>
 
-              {/* Top cities + venues */}
+              {/* Cities + Venues */}
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>
-                  Top Cities — Click to see venues
+                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>
+                  Top Cities — tap to find venues
                 </div>
-                {(ytData.cities || []).length === 0 ? (
-                  <div style={{ fontSize:12, color:'#bbb' }}>City data not available yet — check back after more views</div>
+                {(ytData.cities||[]).length === 0 ? (
+                  <div style={{ padding:'20px', borderRadius:14, background:'rgba(0,0,0,.03)', textAlign:'center' }}>
+                    <div style={{ fontSize:13, color:'#aaa', marginBottom:6 }}>City data coming soon</div>
+                    <div style={{ fontSize:12, color:'#bbb' }}>Needs more views to unlock city-level data</div>
+                  </div>
                 ) : (
                   <>
-                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
-                      {(ytData.cities || []).slice(0,6).map(c => (
-                        <button key={c.city} onClick={() => loadYtVenuesForCity(c.city)}
-                          style={{ padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
-                            background: selectedYtCity === c.city ? '#ff0000' : 'rgba(0,0,0,.04)',
-                            color: selectedYtCity === c.city ? '#fff' : '#555',
-                            border: selectedYtCity === c.city ? 'none' : '1px solid rgba(0,0,0,.08)',
+                    <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:16 }}>
+                      {(ytData.cities||[]).slice(0,6).map(c => (
+                        <button key={c.city} onClick={()=>loadYtVenuesForCity(c.city)}
+                          style={{ padding:'6px 14px', borderRadius:100, fontSize:12.5, fontWeight:700, cursor:'pointer',
+                            background: selectedYtCity===c.city ? '#ff0000' : 'rgba(0,0,0,.04)',
+                            color: selectedYtCity===c.city ? '#fff' : '#444',
+                            border: selectedYtCity===c.city ? 'none' : '1px solid rgba(0,0,0,.09)',
+                            boxShadow: selectedYtCity===c.city ? '0 3px 12px rgba(255,0,0,.3)' : 'none',
                             transition:'all .15s' }}>
                           {c.city}
-                          <span style={{ opacity:.6, fontSize:10, marginLeft:4 }}>{c.views >= 1000 ? `${(c.views/1000).toFixed(0)}k` : c.views}</span>
+                          <span style={{ opacity:.55, fontSize:10, marginLeft:5 }}>
+                            {c.views>=1000?`${(c.views/1000).toFixed(0)}k`:c.views}
+                          </span>
                         </button>
                       ))}
                     </div>
                     {selectedYtCity && (
-                      ytVenueLoad ? <LoadingBlock/> : (ytCityVenues[selectedYtCity] || []).length === 0 ? (
-                        <div style={{ fontSize:12, color:'#bbb' }}>No venues found in {selectedYtCity}</div>
+                      ytVenueLoad ? <LoadingBlock/> :
+                      (ytCityVenues[selectedYtCity]||[]).length===0 ? (
+                        <div style={{ fontSize:13, color:'#bbb', padding:'12px' }}>No music venues found in {selectedYtCity}</div>
                       ) : (
                         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                          {(ytCityVenues[selectedYtCity] || []).slice(0,4).map(v => (
-                            <a key={v.id} href={v.url || '#'} target="_blank" rel="noopener noreferrer"
-                              style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
-                                borderRadius:12, background:'rgba(0,0,0,.02)', border:'1px solid rgba(0,0,0,.06)',
+                          {(ytCityVenues[selectedYtCity]||[]).slice(0,4).map(v => (
+                            <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
+                              style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
+                                borderRadius:14, background:'rgba(0,0,0,.025)', border:'1px solid rgba(0,0,0,.07)',
                                 textDecoration:'none', transition:'all .15s' }}
-                              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.04)';e.currentTarget.style.borderColor='rgba(255,0,0,.2)'}}
-                              onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.02)';e.currentTarget.style.borderColor='rgba(0,0,0,.06)'}}>
-                              <div style={{ width:30, height:30, borderRadius:8, background:'rgba(255,0,0,.1)', flexShrink:0,
+                              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.04)';e.currentTarget.style.borderColor='rgba(255,0,0,.18)'}}
+                              onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.025)';e.currentTarget.style.borderColor='rgba(0,0,0,.07)'}}>
+                              <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,0,0,.08)', flexShrink:0,
                                 display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth={2} strokeLinecap="round">
+                                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth={2} strokeLinecap="round">
                                   <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
                                 </svg>
                               </div>
                               <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
-                                <div style={{ fontSize:11, color:'#aaa', marginTop:1 }}>{v.address || `${v.city}, ${v.state}`}</div>
+                                <div style={{ fontSize:13.5, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
+                                <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{v.address||`${v.city}, ${v.state}`}</div>
                               </div>
-                              {v.url && <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>}
+                              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             </a>
                           ))}
                         </div>
@@ -5510,199 +5537,189 @@ function PageAnalytics() {
                 )}
               </div>
             </div>
-          </>
+          </div>
         ) : null}
       </div>
 
-      {loading ? <LoadingBlock /> : isEmpty ? (
-        <div style={{ textAlign:'center', padding:'80px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:12 }}>
-            <path d="M18 20V10M12 20V4M6 20v-6"/>
-          </svg>
-          <div style={{ fontSize:15, fontWeight:700, color:'#111', marginBottom:6 }}>No data yet</div>
-          <div style={{ fontSize:13, color:'#aaa' }}>Upload files to your projects to see analytics here</div>
+      {/* ══ Project Analytics (secondary) ══════════════════════════════════ */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:16 }}>
+          Project Stats
         </div>
-      ) : (
-        <>
-          {/* ── Stat cards ────────────────────────────────────────────────── */}
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-            {statCards.map(s => (
-              <div key={s.label} style={{ background:'#fff', borderRadius:16, padding:'18px 20px',
-                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.06em' }}>{s.label}</div>
-                  <div style={{ width:32, height:32, borderRadius:9, background:`${s.color}12`,
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={s.icon}/>
-                    </svg>
-                  </div>
-                </div>
-                <div style={{ fontSize:32, fontWeight:900, color:'#111', letterSpacing:'-1.5px', lineHeight:1 }}>{s.val}</div>
-                {s.sub && <div style={{ fontSize:11, color:'#bbb', marginTop:5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.sub}</div>}
-              </div>
-            ))}
+
+        {loading ? <LoadingBlock /> : isEmpty ? (
+          <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+            <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}>
+              <path d="M18 20V10M12 20V4M6 20v-6"/>
+            </svg>
+            <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:5 }}>No data yet</div>
+            <div style={{ fontSize:12, color:'#aaa' }}>Upload files to your projects to see stats here</div>
           </div>
-
-          {/* ── Upload activity area chart ─────────────────────────────── */}
-          <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px', marginBottom:16,
-            boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Upload Activity</div>
-              <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Files uploaded per day — last 30 days</div>
-            </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={activityByDay} margin={{ top:4, right:4, bottom:0, left:-20 }}>
-                <defs>
-                  <linearGradient id="uploadGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={C.coral} stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor={C.coral} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
-                <XAxis dataKey="label" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}
-                  interval={Math.floor(activityByDay.length / 6)}/>
-                <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
-                <Tooltip content={<AnalyticsTooltip />} cursor={{ stroke:'rgba(0,0,0,.06)', strokeWidth:1 }}/>
-                <Area type="monotone" dataKey="uploads" name="Uploads" stroke={C.coral} strokeWidth={2}
-                  fill="url(#uploadGrad)" dot={false} activeDot={{ r:4, fill:C.coral, strokeWidth:0 }}/>
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* ── Donut + bar row ───────────────────────────────────────────── */}
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16, marginBottom:16 }}>
-
-            {/* Stem type donut */}
-            <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px',
-              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', marginBottom:4 }}>Stem Types</div>
-              <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Breakdown by instrument</div>
-              <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-                <ResponsiveContainer width={140} height={140}>
-                  <PieChart>
-                    <Pie data={byInstrument} cx="50%" cy="50%" innerRadius={42} outerRadius={64}
-                      paddingAngle={2} dataKey="value" strokeWidth={0}>
-                      {byInstrument.map((entry, i) => (
-                        <Cell key={entry.name} fill={stemColor(entry.name)}/>
-                      ))}
-                    </Pie>
-                    <Tooltip content={<AnalyticsTooltip />}/>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:7 }}>
-                  {byInstrument.slice(0, 6).map(entry => (
-                    <div key={entry.name} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ width:8, height:8, borderRadius:2, background:stemColor(entry.name), flexShrink:0 }}/>
-                      <span style={{ fontSize:11.5, color:'#555', textTransform:'capitalize', flex:1 }}>
-                        {entry.name.replace(/_/g, ' ')}
-                      </span>
-                      <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{entry.value}</span>
+        ) : (
+          <>
+            {/* Stat cards — compact row */}
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12, marginBottom:16 }}>
+              {statCards.map(s => (
+                <div key={s.label} style={{ background:'#fff', borderRadius:16, padding:'16px 18px',
+                  boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                    <span style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</span>
+                    <div style={{ width:28, height:28, borderRadius:8, background:`${s.color}12`,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round"><path d={s.icon}/></svg>
                     </div>
-                  ))}
+                  </div>
+                  <div style={{ fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.2px', lineHeight:1 }}>
+                    {s.val === null ? <Spinner size={20} color={s.color}/> : s.val}
+                  </div>
+                  {s.sub && <div style={{ fontSize:11, color:s.color, fontWeight:600, marginTop:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.sub}</div>}
                 </div>
-              </div>
+              ))}
             </div>
 
-            {/* Files per project bar chart */}
-            <div style={{ background:'#fff', borderRadius:16, padding:'20px 24px',
+            {/* Upload activity */}
+            <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', marginBottom:16,
               boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', marginBottom:4 }}>Files per Project</div>
-              <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Total uploads per project</div>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Upload Activity</div>
+                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Files uploaded per day — last 30 days</div>
+              </div>
               <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={byProject} margin={{ top:4, right:4, bottom:0, left:-20 }} barSize={18}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" horizontal={true} vertical={false}/>
-                  <XAxis dataKey="name" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}/>
+                <AreaChart data={activityByDay} margin={{ top:4, right:4, bottom:0, left:-20 }}>
+                  <defs>
+                    <linearGradient id="uploadGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={C.coral} stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor={C.coral} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
+                  <XAxis dataKey="label" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}
+                    interval={Math.floor(activityByDay.length/6)}/>
                   <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
-                  <Tooltip content={<AnalyticsTooltip />} cursor={{ fill:'rgba(0,0,0,.03)' }}/>
-                  <Bar dataKey="files" name="Files" radius={[5,5,0,0]}>
-                    {byProject.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill}/>
-                    ))}
-                  </Bar>
-                </BarChart>
+                  <Tooltip content={<AnalyticsTooltip/>} cursor={{ stroke:'rgba(0,0,0,.06)', strokeWidth:1 }}/>
+                  <Area type="monotone" dataKey="uploads" name="Uploads" stroke={C.coral} strokeWidth={2}
+                    fill="url(#uploadGrad)" dot={false} activeDot={{ r:4, fill:C.coral, strokeWidth:0 }}/>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
 
-          {/* ── Contributors + activity feed row ──────────────────────────── */}
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.6fr', gap:16 }}>
-
-            {/* Top contributors */}
-            <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
-              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ padding:'18px 22px 14px' }}>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Top Contributors</div>
-                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>By total uploads</div>
-              </div>
-              {byContributor.length === 0 ? (
-                <div style={{ padding:'32px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
-              ) : byContributor.map(([uid, count], i) => {
-                const name    = uploaderNames[uid] || '…'
-                const color   = CHART_PALETTE[i % CHART_PALETTE.length]
-                const maxCount = byContributor[0][1]
-                const pct     = Math.round((count / maxCount) * 100)
-                return (
-                  <div key={uid} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                    display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ width:32, height:32, borderRadius:'50%', flexShrink:0,
-                      background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center',
-                      fontSize:11, fontWeight:800, color }}>
-                      {initials(name)}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:5 }}>
-                        <span style={{ fontSize:12.5, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>{name}</span>
-                        <span style={{ fontSize:12, fontWeight:800, color:'#111', flexShrink:0, marginLeft:6 }}>{count} files</span>
+            {/* Stem types + Files per project */}
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16, marginBottom:16 }}>
+              <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#111', marginBottom:4 }}>Stem Types</div>
+                <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Breakdown by instrument</div>
+                <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+                  <ResponsiveContainer width={130} height={130}>
+                    <PieChart>
+                      <Pie data={byInstrument} cx="50%" cy="50%" innerRadius={38} outerRadius={60}
+                        paddingAngle={2} dataKey="value" strokeWidth={0}>
+                        {byInstrument.map((entry,i) => <Cell key={entry.name} fill={stemColor(entry.name)}/>)}
+                      </Pie>
+                      <Tooltip content={<AnalyticsTooltip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                    {byInstrument.slice(0,6).map(e => (
+                      <div key={e.name} style={{ display:'flex', alignItems:'center', gap:7 }}>
+                        <div style={{ width:8, height:8, borderRadius:2, background:stemColor(e.name), flexShrink:0 }}/>
+                        <span style={{ fontSize:11.5, color:'#555', textTransform:'capitalize', flex:1 }}>{e.name.replace(/_/g,' ')}</span>
+                        <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{e.value}</span>
                       </div>
-                      <div style={{ height:4, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
-                        <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:color, transition:'width .5s' }}/>
-                      </div>
-                    </div>
-                    {i === 0 && (
-                      <div style={{ flexShrink:0, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:100,
-                        background:`${color}15`, color }}>MVP</div>
-                    )}
+                    ))}
                   </div>
-                )
-              })}
+                </div>
+              </div>
+
+              <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#111', marginBottom:4 }}>Files per Project</div>
+                <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Total uploads per project</div>
+                <ResponsiveContainer width="100%" height={130}>
+                  <BarChart data={byProject} margin={{ top:4, right:4, bottom:0, left:-20 }} barSize={16}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
+                    <XAxis dataKey="name" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}/>
+                    <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
+                    <Tooltip content={<AnalyticsTooltip/>} cursor={{ fill:'rgba(0,0,0,.03)' }}/>
+                    <Bar dataKey="files" name="Files" radius={[5,5,0,0]}>
+                      {byProject.map((e,i) => <Cell key={i} fill={e.fill}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
-            {/* Recent activity feed */}
-            <div style={{ background:'#fff', borderRadius:16, overflow:'hidden',
-              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ padding:'18px 22px 14px' }}>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
-                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Latest uploads across all projects</div>
+            {/* Contributors + Activity */}
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.6fr', gap:16 }}>
+              <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ padding:'18px 22px 14px' }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>Top Contributors</div>
+                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>By total uploads</div>
+                </div>
+                {byContributor.length===0 ? (
+                  <div style={{ padding:'24px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
+                ) : byContributor.map(([uid,count],i) => {
+                  const name=uploaderNames[uid]||'…'
+                  const color=CHART_PALETTE[i%CHART_PALETTE.length]
+                  const pct=Math.round((count/byContributor[0][1])*100)
+                  return (
+                    <div key={uid} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                      display:'flex', alignItems:'center', gap:12 }}>
+                      <div style={{ width:30, height:30, borderRadius:'50%', flexShrink:0,
+                        background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:10, fontWeight:800, color }}>
+                        {initials(name)}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                          <span style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{name}</span>
+                          <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{count}</span>
+                        </div>
+                        <div style={{ height:4, borderRadius:3, background:'rgba(0,0,0,.05)' }}>
+                          <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:color }}/>
+                        </div>
+                      </div>
+                      {i===0 && <div style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:100, background:`${color}15`, color, flexShrink:0 }}>MVP</div>}
+                    </div>
+                  )
+                })}
               </div>
-              {recentActivity.map((f, i) => {
-                const color = stemColor(f.instrument)
-                return (
-                  <div key={f.id} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                    display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ width:34, height:34, borderRadius:10, background:`${color}12`, flexShrink:0,
-                      display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                      </svg>
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {f.suggested_name || f.original_name || 'Untitled'}
+
+              <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div style={{ padding:'18px 22px 14px' }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>Recent Activity</div>
+                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Latest uploads across all projects</div>
+                </div>
+                {recentActivity.map((f,i) => {
+                  const color=stemColor(f.instrument)
+                  return (
+                    <div key={f.id} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                      display:'flex', alignItems:'center', gap:12 }}>
+                      <div style={{ width:32, height:32, borderRadius:9, background:`${color}12`, flexShrink:0,
+                        display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                        </svg>
                       </div>
-                      <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                        <span style={{ fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
-                        {' · '}<span style={{ textTransform:'capitalize' }}>{(f.instrument || 'audio').replace(/_/g,' ')}</span>
-                        {' · '}{timeAgo(f.created_at)}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {f.suggested_name||f.original_name||'Untitled'}
+                        </div>
+                        <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
+                          <span style={{ fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
+                          {' · '}{(f.instrument||'audio').replace(/_/g,' ')}{' · '}{timeAgo(f.created_at)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </>
   )
 }
