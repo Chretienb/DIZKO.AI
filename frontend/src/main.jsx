@@ -8,6 +8,8 @@ import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
 import ResetPassword from './ResetPassword.jsx'
+import Privacy       from './Privacy.jsx'
+import Terms         from './Terms.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
 import { supabase } from './lib/supabase'
@@ -154,6 +156,8 @@ function Root() {
       } />
       <Route path="/auth/callback" element={<OAuthCallback onLogin={handleLogin} />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacy"        element={<Privacy />} />
+      <Route path="/terms"          element={<Terms />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />
