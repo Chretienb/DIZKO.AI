@@ -17,7 +17,7 @@ const STUDIO_URL = 'https://rmjkxfmalrlinhnbkzgz.supabase.co/storage/v1/object/p
 const CORAL      = '#F4937A'
 const DARK       = '#0f0f14'
 const BODY_BG    = '#0d0d12'   // dark outer bg to complement studio photo
-const APP_URL    = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+const APP_URL    = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
 const FONT       = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
 /** Full HTML shell with studio hero image header */
