@@ -267,3 +267,11 @@ export const venuesApi = {
   search: (city, state = '') => get(`/venues?city=${encodeURIComponent(city)}${state ? `&state=${encodeURIComponent(state)}` : ''}&size=5`),
   cities: ()                 => get('/venues/cities'),
 }
+
+// ── YouTube Analytics ─────────────────────────────────────────────────────────
+export const youtubeApi = {
+  connect:    () => get('/youtube/connect'),
+  status:     () => get('/youtube/status'),
+  disconnect: () => get('/youtube/disconnect'),
+  analytics:  () => get('/youtube/analytics'),
+}

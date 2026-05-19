@@ -58,7 +58,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -5187,6 +5187,76 @@ function PageAnalytics() {
   const [loading,       setLoading]       = useState(true)
   const isMobile = React.useContext(MobileCtx)
 
+  // YouTube Analytics state
+  const [ytConnected,   setYtConnected]   = useState(false)
+  const [ytData,        setYtData]        = useState(null)   // { countries, cities }
+  const [ytLoading,     setYtLoading]     = useState(false)
+  const [ytVenues,      setYtVenues]      = useState([])
+  const [ytVenueCity,   setYtVenueCity]   = useState(null)
+  const [ytVenueLoad,   setYtVenueLoad]   = useState(false)
+  const [selectedYtCity,setSelectedYtCity]= useState(null)
+  const [ytCityVenues,  setYtCityVenues]  = useState({})
+
+  // Country code → name map (subset)
+  const COUNTRY_NAMES = { US:'United States', GB:'United Kingdom', CA:'Canada', AU:'Australia', FR:'France', DE:'Germany', BR:'Brazil', MX:'Mexico', NG:'Nigeria', JP:'Japan', KR:'South Korea', IN:'India', ZA:'South Africa', ES:'Spain', IT:'Italy', NL:'Netherlands', SE:'Sweden', NO:'Norway', DK:'Denmark', GH:'Ghana' }
+  const countryName = code => COUNTRY_NAMES[code] || code
+
+  useEffect(() => {
+    youtubeApi.status().then(r => {
+      const connected = r.data?.connected ?? false
+      setYtConnected(connected)
+      if (connected) {
+        setYtLoading(true)
+        youtubeApi.analytics()
+          .then(r => {
+            if (r.data) {
+              setYtData(r.data)
+              // Auto-load venues for top city
+              const topCity = r.data.cities?.[0]?.city
+              if (topCity) {
+                setSelectedYtCity(topCity)
+                setYtVenueLoad(true)
+                venuesApi.search(topCity)
+                  .then(v => setYtCityVenues(prev => ({ ...prev, [topCity]: v.data || [] })))
+                  .finally(() => setYtVenueLoad(false))
+              }
+            }
+          })
+          .catch(() => {})
+          .finally(() => setYtLoading(false))
+      }
+    }).catch(() => {})
+  }, [])
+
+  // Handle ?yt=connected redirect from OAuth callback
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('yt') === 'connected') {
+      window.history.replaceState({}, '', '/analytics')
+      setYtConnected(true)
+      setYtLoading(true)
+      youtubeApi.analytics()
+        .then(r => { if (r.data) setYtData(r.data) })
+        .catch(() => {})
+        .finally(() => setYtLoading(false))
+    }
+  }, [])
+
+  const connectYoutube = async () => {
+    const res = await youtubeApi.connect().catch(() => null)
+    if (res?.data?.url) window.location.href = res.data.url
+  }
+
+  const loadYtVenuesForCity = (city) => {
+    setSelectedYtCity(city)
+    if (ytCityVenues[city]) return
+    setYtVenueLoad(true)
+    venuesApi.search(city)
+      .then(v => setYtCityVenues(prev => ({ ...prev, [city]: v.data || [] })))
+      .catch(() => {})
+      .finally(() => setYtVenueLoad(false))
+  }
+
   useEffect(() => {
     projectsApi.list()
       .then(async res => {
@@ -5275,6 +5345,173 @@ function PageAnalytics() {
       <div style={{ marginBottom:24 }}>
         <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Analytics</h1>
         <p style={{ margin:0, fontSize:13, color:'#aaa' }}>Breakdown across all your projects</p>
+      </div>
+
+      {/* ── YouTube Listener Intelligence ─────────────────────────────── */}
+      <div style={{ background: ytConnected ? '#fff' : 'linear-gradient(135deg,#0f0f14,#1a0a20)',
+        borderRadius:20, padding:'24px', marginBottom:20,
+        boxShadow:'0 2px 12px rgba(0,0,0,.1)', border: ytConnected ? '1px solid rgba(0,0,0,.05)' : 'none',
+        position:'relative', overflow:'hidden' }}>
+
+        {!ytConnected && (
+          <>
+            {/* Glow */}
+            <div style={{ position:'absolute', top:'-20%', right:'-5%', width:300, height:300,
+              borderRadius:'50%', background:'radial-gradient(circle,rgba(255,0,0,.15) 0%,transparent 65%)', pointerEvents:'none' }}/>
+            <div style={{ position:'absolute', bottom:'-10%', left:'10%', width:200, height:200,
+              borderRadius:'50%', background:'radial-gradient(circle,rgba(244,147,122,.12) 0%,transparent 65%)', pointerEvents:'none' }}/>
+          </>
+        )}
+
+        {!ytConnected ? (
+          <div style={{ position:'relative', display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:200 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                {/* YouTube icon */}
+                <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,0,0,.15)',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="#ff0000">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:900, color:'#fff', letterSpacing:'-.3px' }}>
+                    Connect YouTube Analytics
+                  </div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,.4)', marginTop:2 }}>
+                    See where your listeners are — find venues near them
+                  </div>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
+                {['Views by country & city', 'Watch time breakdown', 'Venue suggestions near fans'].map(f => (
+                  <div key={f} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'rgba(255,255,255,.45)' }}>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                    {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={connectYoutube}
+              style={{ padding:'12px 24px', borderRadius:12, border:'none', cursor:'pointer',
+                background:'#ff0000', color:'#fff', fontSize:14, fontWeight:800,
+                display:'flex', alignItems:'center', gap:8, flexShrink:0,
+                boxShadow:'0 4px 20px rgba(255,0,0,.4)', transition:'opacity .15s' }}
+              onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
+              onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff">
+                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+              Connect YouTube
+            </button>
+          </div>
+        ) : ytLoading ? (
+          <LoadingBlock label="Loading your YouTube analytics…"/>
+        ) : ytData ? (
+          <>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="#ff0000">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  <span style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>
+                    Your listeners are in{' '}
+                    <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                      {ytData.cities?.slice(0,3).map(c => c.city).join(', ') || ytData.countries?.slice(0,3).map(c => countryName(c.country_code)).join(', ')}
+                    </span>
+                  </span>
+                </div>
+                <div style={{ fontSize:12, color:'#aaa' }}>
+                  Last 90 days · {ytData.countries?.reduce((s, c) => s + c.views, 0)?.toLocaleString()} total views
+                </div>
+              </div>
+              <button onClick={() => { setYtConnected(false); youtubeApi.disconnect() }}
+                style={{ fontSize:11, color:'#bbb', background:'none', border:'1px solid rgba(0,0,0,.08)',
+                  borderRadius:8, padding:'4px 10px', cursor:'pointer' }}>
+                Disconnect
+              </button>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16 }}>
+              {/* Top countries */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>
+                  Top Countries
+                </div>
+                {(ytData.countries || []).slice(0,6).map((c, i) => {
+                  const max = ytData.countries[0]?.views || 1
+                  return (
+                    <div key={c.country_code} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                      <span style={{ fontSize:12, fontWeight:600, color:'#555', width:130, flexShrink:0 }}>{countryName(c.country_code)}</span>
+                      <div style={{ flex:1, height:6, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
+                        <div style={{ width:`${(c.views/max)*100}%`, height:'100%', borderRadius:3,
+                          background: i === 0 ? '#ff0000' : C.coral, transition:'width .4s' }}/>
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:700, color:'#111', width:50, textAlign:'right', flexShrink:0 }}>
+                        {c.views >= 1000 ? `${(c.views/1000).toFixed(1)}k` : c.views}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Top cities + venues */}
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>
+                  Top Cities — Click to see venues
+                </div>
+                {(ytData.cities || []).length === 0 ? (
+                  <div style={{ fontSize:12, color:'#bbb' }}>City data not available yet — check back after more views</div>
+                ) : (
+                  <>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
+                      {(ytData.cities || []).slice(0,6).map(c => (
+                        <button key={c.city} onClick={() => loadYtVenuesForCity(c.city)}
+                          style={{ padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
+                            background: selectedYtCity === c.city ? '#ff0000' : 'rgba(0,0,0,.04)',
+                            color: selectedYtCity === c.city ? '#fff' : '#555',
+                            border: selectedYtCity === c.city ? 'none' : '1px solid rgba(0,0,0,.08)',
+                            transition:'all .15s' }}>
+                          {c.city}
+                          <span style={{ opacity:.6, fontSize:10, marginLeft:4 }}>{c.views >= 1000 ? `${(c.views/1000).toFixed(0)}k` : c.views}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedYtCity && (
+                      ytVenueLoad ? <LoadingBlock/> : (ytCityVenues[selectedYtCity] || []).length === 0 ? (
+                        <div style={{ fontSize:12, color:'#bbb' }}>No venues found in {selectedYtCity}</div>
+                      ) : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                          {(ytCityVenues[selectedYtCity] || []).slice(0,4).map(v => (
+                            <a key={v.id} href={v.url || '#'} target="_blank" rel="noopener noreferrer"
+                              style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+                                borderRadius:12, background:'rgba(0,0,0,.02)', border:'1px solid rgba(0,0,0,.06)',
+                                textDecoration:'none', transition:'all .15s' }}
+                              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.04)';e.currentTarget.style.borderColor='rgba(255,0,0,.2)'}}
+                              onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.02)';e.currentTarget.style.borderColor='rgba(0,0,0,.06)'}}>
+                              <div style={{ width:30, height:30, borderRadius:8, background:'rgba(255,0,0,.1)', flexShrink:0,
+                                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth={2} strokeLinecap="round">
+                                  <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                                </svg>
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
+                                <div style={{ fontSize:11, color:'#aaa', marginTop:1 }}>{v.address || `${v.city}, ${v.state}`}</div>
+                              </div>
+                              {v.url && <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>}
+                            </a>
+                          ))}
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
 
       {loading ? <LoadingBlock /> : isEmpty ? (
