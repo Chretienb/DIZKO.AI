@@ -5651,65 +5651,125 @@ function PageAnalytics() {
 
             {/* Contributors + Activity */}
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.6fr', gap:16 }}>
+
+              {/* ── Top Contributors ── */}
               <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
                 boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ padding:'18px 22px 14px' }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>Top Contributors</div>
-                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>By total uploads</div>
+                <div style={{ padding:'20px 22px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div>
+                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Top Contributors</div>
+                    <div style={{ fontSize:12, color:'#bbb', marginTop:2 }}>Most active this session</div>
+                  </div>
+                  <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                  </div>
                 </div>
+
                 {byContributor.length===0 ? (
-                  <div style={{ padding:'24px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
+                  <div style={{ padding:'32px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
                 ) : byContributor.map(([uid,count],i) => {
-                  const name=uploaderNames[uid]||'…'
-                  const color=CHART_PALETTE[i%CHART_PALETTE.length]
-                  const pct=Math.round((count/byContributor[0][1])*100)
+                  const name  = uploaderNames[uid] || '…'
+                  const color = CHART_PALETTE[i % CHART_PALETTE.length]
+                  const pct   = Math.round((count / byContributor[0][1]) * 100)
+                  const medals = ['🥇','🥈','🥉']
                   return (
-                    <div key={uid} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                      display:'flex', alignItems:'center', gap:12 }}>
-                      <div style={{ width:30, height:30, borderRadius:'50%', flexShrink:0,
-                        background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center',
-                        fontSize:10, fontWeight:800, color }}>
+                    <div key={uid} style={{ padding:'12px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                      display:'flex', alignItems:'center', gap:14,
+                      background: i === 0 ? `${color}04` : 'transparent',
+                      transition:'background .12s' }}>
+                      {/* Rank */}
+                      <div style={{ width:24, flexShrink:0, textAlign:'center',
+                        fontSize: i < 3 ? 16 : 12, fontWeight:800,
+                        color: i < 3 ? 'inherit' : '#ccc' }}>
+                        {i < 3 ? medals[i] : `${i+1}`}
+                      </div>
+                      {/* Avatar */}
+                      <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0,
+                        background:`${color}18`, border:`2px solid ${color}30`,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:13, fontWeight:800, color }}>
                         {initials(name)}
                       </div>
+                      {/* Info + bar */}
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                          <span style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{name}</span>
-                          <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{count}</span>
+                        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:6 }}>
+                          <span style={{ fontSize:13.5, fontWeight:700, color:'#111',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>{name}</span>
+                          <span style={{ fontSize:13, fontWeight:900, color:'#111', flexShrink:0 }}>
+                            {count} <span style={{ fontSize:10, fontWeight:500, color:'#bbb' }}>files</span>
+                          </span>
                         </div>
-                        <div style={{ height:4, borderRadius:3, background:'rgba(0,0,0,.05)' }}>
-                          <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:color }}/>
+                        <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
+                          <div style={{ width:`${pct}%`, height:'100%', borderRadius:3,
+                            background:`linear-gradient(90deg, ${color}, ${color}aa)`,
+                            transition:'width .5s' }}/>
                         </div>
                       </div>
-                      {i===0 && <div style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:100, background:`${color}15`, color, flexShrink:0 }}>MVP</div>}
                     </div>
                   )
                 })}
               </div>
 
+              {/* ── Recent Activity ── */}
               <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
                 boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ padding:'18px 22px 14px' }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>Recent Activity</div>
-                  <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Latest uploads across all projects</div>
+                <div style={{ padding:'20px 22px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div>
+                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
+                    <div style={{ fontSize:12, color:'#bbb', marginTop:2 }}>Latest uploads across all projects</div>
+                  </div>
+                  <div style={{ width:32, height:32, borderRadius:10, background:'rgba(99,102,241,.1)',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                    </svg>
+                  </div>
                 </div>
-                {recentActivity.map((f,i) => {
-                  const color=stemColor(f.instrument)
+
+                {recentActivity.map((f, i) => {
+                  const color   = stemColor(f.instrument)
+                  const isBounce = f.instrument === 'smart_bounce'
                   return (
-                    <div key={f.id} style={{ padding:'10px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                      display:'flex', alignItems:'center', gap:12 }}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:`${color}12`, flexShrink:0,
+                    <div key={f.id} style={{ padding:'11px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
+                      display:'flex', alignItems:'center', gap:12,
+                      transition:'background .1s' }}
+                      onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
+                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+
+                      {/* Icon */}
+                      <div style={{ width:36, height:36, borderRadius:11, flexShrink:0,
+                        background: isBounce ? 'linear-gradient(135deg,#F4937A18,#F28FB818)' : `${color}12`,
+                        border: isBounce ? `1px solid ${C.coral}30` : `1px solid ${color}20`,
                         display:'flex', alignItems:'center', justifyContent:'center' }}>
-                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                        </svg>
+                        {isBounce ? (
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                          </svg>
+                        ) : (
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round">
+                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                          </svg>
+                        )}
                       </div>
+
+                      {/* Content */}
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {f.suggested_name||f.original_name||'Untitled'}
+                        <div style={{ fontSize:13, fontWeight:700, color:'#111',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {f.suggested_name || f.original_name || 'Untitled'}
                         </div>
-                        <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>
-                          <span style={{ fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
-                          {' · '}{(f.instrument||'audio').replace(/_/g,' ')}{' · '}{timeAgo(f.created_at)}
+                        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3, flexWrap:'wrap' }}>
+                          <span style={{ fontSize:11, fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
+                          <span style={{ color:'#ddd', fontSize:10 }}>·</span>
+                          <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`,
+                            padding:'1px 7px', borderRadius:100, textTransform:'capitalize' }}>
+                            {(f.instrument || 'audio').replace(/_/g,' ')}
+                          </span>
+                          <span style={{ color:'#ddd', fontSize:10 }}>·</span>
+                          <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
                         </div>
                       </div>
                     </div>
