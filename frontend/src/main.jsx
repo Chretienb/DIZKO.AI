@@ -116,10 +116,13 @@ function Root() {
     setUserName(name)
   }
 
-  const handleLogout = async () => {
-    try { await auth.logout() } catch { /* ignore */ }
+  const handleLogout = () => {
+    // Clear state immediately so the UI transitions to login with no delay
     setToken(null)
+    setRefreshToken(null)
     setUser(null)
+    // Invalidate backend session in the background — no need to await
+    auth.logout().catch(() => {})
   }
 
   // Sync Supabase's automatic token refresh into our localStorage keys.
