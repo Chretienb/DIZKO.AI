@@ -126,7 +126,7 @@ Rules: be direct, max 3 sentences unless asked for more, no fluff. If something 
       messages:   [{ role: 'user', content: userMessage }],
     })
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const text = message.content[0]?.type === 'text' ? (message.content[0] as any).text ?? '' : ''
     return c.json({ reply: text })
   } catch (err: any) {
     console.error('[assistant] Claude error:', err.message)

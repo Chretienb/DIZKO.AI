@@ -31,7 +31,6 @@ messages.get('/:userId', async (c) => {
     .eq('to_user_id', me)
     .eq('from_user_id', other)
     .eq('read', false)
-    .then(() => {}).catch(() => {})
 
   return c.json({ data, error: null, status: 200 })
 })

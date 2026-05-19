@@ -168,9 +168,8 @@ export function welcomeEmail(opts: {
   appUrl?: string
 }): { subject: string; html: string } {
   const url  = opts.appUrl ?? APP_URL
-  const name = (opts.name || opts.email.split('@')[0])
-    .split(' ')[0]
-    .replace(/^\w/, c => c.toUpperCase())
+  const baseName = opts.name || opts.email.slice(0, opts.email.includes('@') ? opts.email.indexOf('@') : undefined) || opts.email
+  const name = baseName.split(' ').at(0)?.replace(/^\w/, c => c.toUpperCase()) ?? baseName
 
   const body = `
     <!-- Headline -->

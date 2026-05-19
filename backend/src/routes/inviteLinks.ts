@@ -136,7 +136,7 @@ inviteLinks.post('/join/:token', requireAuth, async (c) => {
 
   // Mark invitation as accepted
   await supabase.from('invitations').update({ status: 'accepted', user_id: userId })
-    .eq('id', (inv as any).id).catch(() => {})
+    .eq('id', (inv as any).id)
 
   return c.json({ data: { project_id: projectId, role, joined: true } })
 })

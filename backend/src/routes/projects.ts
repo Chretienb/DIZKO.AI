@@ -170,7 +170,7 @@ projects.get('/:id/export', async (c) => {
       nameByUser.set(uid, resolved)
     } catch {
       const email = emailByUser.get(uid) ?? ''
-      nameByUser.set(uid, email ? email.split('@')[0] : uid.slice(0, 8))
+      nameByUser.set(uid, email ? (email.split('@')[0] ?? uid.slice(0, 8)) : uid.slice(0, 8))
     }
   }))
 
@@ -225,7 +225,7 @@ projects.get('/:id/export', async (c) => {
     bpm:         projectBpm,
     key:         projectKey,
     stems:       exportStems,
-    analysis:    analysis ?? undefined,
+    ...(analysis ? { analysis } : {}),
   }
 
   const zipBuffer = await buildExportZip(opts, format)
@@ -438,9 +438,9 @@ projects.post('/:id/files', sanitize, async (c) => {
   const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
   const finalName = await generateStemName({
     originalName: original_name,
-    instrument:   instrument,
-    projectTitle: (proj as { title?: string } | null)?.title,
-    mimeType:     mime_type,
+    ...(instrument   ? { instrument }                                       : {}),
+    ...(mime_type    ? { mimeType: mime_type }                              : {}),
+    ...((proj as { title?: string } | null)?.title ? { projectTitle: (proj as any).title } : {}),
   })
 
   const { data: file, error } = await supabase
@@ -471,7 +471,7 @@ projects.post('/:id/files', sanitize, async (c) => {
     type: 'file_uploaded',
     message: `New file uploaded: "${suggested_name ?? original_name}"`,
     metadata: { file_id: savedFile.id, track_id: resolvedTrackId },
-  }).then(() => {}).catch(() => {})
+  })
 
   // ── Auto stem separation via Demucs (non-blocking) ────────────────────────
   // Only run on audio files; skipped if REPLICATE_API_TOKEN not set
@@ -484,7 +484,6 @@ projects.post('/:id/files', sanitize, async (c) => {
       supabase.from('stems')
         .update({ notes: JSON.stringify({ separating: true, prediction_id: predictionId }) })
         .eq('id', savedFile.id)
-        .then(() => {}).catch(() => {})
 
       // Poll in background — when done, save child stems
       pollStemSeparation(predictionId, async (stemUrls) => {
@@ -503,14 +502,13 @@ projects.post('/:id/files', sanitize, async (c) => {
             instrument:    type,
             notes:         JSON.stringify({ parent_stem_id: savedFile.id, stem_type: type }),
             uploaded_by:   user.id,
-          }).catch(e => console.error(`[Demucs] Failed to save ${type} stem:`, e.message))
+          })
         }
 
         // Mark parent as done
         await supabase.from('stems')
           .update({ notes: JSON.stringify({ separated: true, prediction_id: predictionId }) })
           .eq('id', savedFile.id)
-          .catch(() => {})
 
         console.log(`[Demucs] Stems saved for file ${savedFile.id}`)
       })
@@ -593,7 +591,7 @@ projects.post('/:id/collaborators', sanitize, async (c) => {
       type: 'invite',
       message: 'You were invited to collaborate on a project',
       metadata: { invited_by: user.id, role: role ?? 'Collaborator' },
-    }).then(() => {}).catch(() => {})
+    })
   }
 
   return c.json({ data: collaborator, error: null, status: 201 }, 201)

@@ -100,8 +100,8 @@ export function runLocalPipeline(opts: PipelineOpts): void {
 
       await onComplete({
         stems,
-        bpm: bpmMatch ? parseFloat(bpmMatch[1]) : null,
-        key: keyMatch ? keyMatch[1] : null,
+        bpm: bpmMatch ? parseFloat(bpmMatch[1] ?? '0') : null,
+        key: keyMatch ? (keyMatch[1] ?? null) : null,
       })
     } catch (err) {
       onError(err as Error)

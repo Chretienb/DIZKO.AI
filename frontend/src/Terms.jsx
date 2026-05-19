@@ -183,7 +183,9 @@ export default function Terms() {
 
         <Section title="13. Termination">
           <P>We may terminate or suspend your account and access to the Service immediately, without prior notice, for conduct that we believe violates these Terms or is harmful to other users, us, third parties, or the law.</P>
-          <P>You may terminate your account at any time by contacting us at <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a>. Upon termination, your right to use the Service will cease immediately. Provisions that by their nature should survive termination shall survive, including ownership provisions, warranty disclaimers, and limitations of liability.</P>
+          <P>You may terminate your account or cancel your subscription at any time through your account settings or by contacting us at <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a>. Upon cancellation or termination, your right to use the Service will cease immediately.</P>
+          <P><strong>Data Retention After Cancellation:</strong> Following subscription cancellation or termination due to non-payment, your audio files, stems, mixes, and project data will be retained for a grace period of <strong>30 days</strong>. During this period your studio will be paused but your files remain intact and your subscription can be reactivated. After 30 days, all stored audio files and project data will be permanently and irrecoverably deleted from our servers. We strongly recommend downloading any files you wish to keep before this period expires.</P>
+          <P>Provisions that by their nature should survive termination shall survive, including ownership provisions, warranty disclaimers, and limitations of liability.</P>
         </Section>
 
         <Section title="14. Governing Law">

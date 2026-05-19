@@ -64,7 +64,7 @@ function detectBPM(samples: Float32Array, sampleRate: number): number {
 
   // Half-wave rectified first-order difference = onset strength
   const onset = new Float32Array(n)
-  for (let i = 1; i < n; i++) onset[i] = Math.max(0, energy[i] - energy[i - 1])
+  for (let i = 1; i < n; i++) onset[i] = Math.max(0, (energy[i] ?? 0) - (energy[i - 1] ?? 0))
 
   // Autocorrelation over tempo-relevant lag range (40–200 BPM)
   const fps    = sampleRate / HOP
@@ -76,17 +76,17 @@ function detectBPM(samples: Float32Array, sampleRate: number): number {
   const acorr = new Float32Array(maxLag + 1)
   for (let lag = minLag; lag <= maxLag; lag++) {
     let sum = 0
-    for (let i = 0; i < n - lag; i++) sum += onset[i] * onset[i + lag]
+    for (let i = 0; i < n - lag; i++) sum += (onset[i] ?? 0) * (onset[i + lag] ?? 0)
     acorr[lag] = sum
   }
 
   // Harmonic weighting — lags whose double/half also score well get a bonus
   let bestLag = minLag, bestScore = -1
   for (let lag = minLag; lag <= maxLag; lag++) {
-    let score = acorr[lag]
+    let score = acorr[lag] ?? 0
     for (const h of [2, 3, 0.5]) {
       const hLag = Math.round(lag * h)
-      if (hLag >= minLag && hLag <= maxLag) score += acorr[hLag] * 0.5
+      if (hLag >= minLag && hLag <= maxLag) score += (acorr[hLag] ?? 0) * 0.5
     }
     if (score > bestScore) { bestScore = score; bestLag = lag }
   }
@@ -128,17 +128,17 @@ function detectKey(samples: Float32Array, sampleRate: number): string {
         let re = 0, im = 0
         const w = 2 * Math.PI * ki / fftSize
         for (let i = 0; i < fftSize; i++) {
-          re += windowed[i] * Math.cos(w * i)
-          im += windowed[i] * Math.sin(w * i)
+          re += (windowed[i] ?? 0) * Math.cos(w * i)
+          im += (windowed[i] ?? 0) * Math.sin(w * i)
         }
-        chroma[semitone] += Math.sqrt(re * re + im * im)
+        chroma[semitone] = (chroma[semitone] ?? 0) + Math.sqrt(re * re + im * im)
       }
     }
   }
 
   // Normalize
   const maxC = Math.max(...chroma)
-  if (maxC > 0) for (let i = 0; i < 12; i++) chroma[i] /= maxC
+  if (maxC > 0) for (let i = 0; i < 12; i++) chroma[i] = (chroma[i] ?? 0) / maxC
 
   // Krumhansl-Schmuckler key profiles
   const major = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88]
@@ -148,17 +148,17 @@ function detectKey(samples: Float32Array, sampleRate: number): string {
 
   for (let root = 0; root < 12; root++) {
     // Rotate chroma to this root
-    const rot = [...Array(12)].map((_, i) => chroma[(i + root) % 12])
+    const rot = [...Array(12)].map((_, i) => chroma[(i + root) % 12] ?? 0)
     for (const [profile, mode] of [[major, 'major'], [minor, 'minor']] as const) {
-      const meanR = rot.reduce((a,b) => a+b,0) / 12
-      const meanP = profile.reduce((a,b) => a+b,0) / 12
+      const meanR = rot.reduce((a,b) => a + (b ?? 0), 0) / 12
+      const meanP = profile.reduce((a,b) => a + (b ?? 0), 0) / 12
       let num = 0, dr = 0, dp = 0
       for (let i = 0; i < 12; i++) {
-        const r = rot[i] - meanR, p = profile[i] - meanP
+        const r = (rot[i] ?? 0) - meanR, p = (profile[i] ?? 0) - meanP
         num += r * p; dr += r * r; dp += p * p
       }
       const corr = dr > 0 && dp > 0 ? num / Math.sqrt(dr * dp) : -1
-      if (corr > bestCorr) { bestCorr = corr; bestKey = CHROMA_NOTES[root]; bestMode = mode }
+      if (corr > bestCorr) { bestCorr = corr; bestKey = CHROMA_NOTES[root] ?? 'C'; bestMode = mode }
     }
   }
 

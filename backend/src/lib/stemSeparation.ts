@@ -69,10 +69,10 @@ export async function pollStemSeparation(
     if (data.status === 'succeeded' && data.output) {
       console.log(`[Demucs] Prediction ${predictionId} complete`)
       await onComplete({
-        vocals: data.output.vocals,
-        drums:  data.output.drums,
-        bass:   data.output.bass,
-        other:  data.output.other,
+        ...(data.output.vocals ? { vocals: data.output.vocals } : {}),
+        ...(data.output.drums  ? { drums:  data.output.drums  } : {}),
+        ...(data.output.bass   ? { bass:   data.output.bass   } : {}),
+        ...(data.output.other  ? { other:  data.output.other  } : {}),
       })
       return
     }

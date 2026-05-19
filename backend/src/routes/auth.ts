@@ -73,7 +73,7 @@ auth.post('/register', registerLimit, sanitize, async (c) => {
   // Send welcome email (non-blocking)
   const apiKey = process.env.RESEND_API_KEY
   if (apiKey) {
-    const tpl = welcomeEmail({ name: fullName || email.split('@')[0], email })
+    const tpl = welcomeEmail({ name: fullName || email.split('@')[0] || 'there', email })
     fetch('https://api.resend.com/emails', {
       method:  'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -124,9 +124,7 @@ auth.post('/login', loginLimit, sanitize, async (c) => {
 auth.post('/logout', requireAuth, async (c) => {
   const userId = c.var.user.id
   // Sign out the specific user (invalidates all their sessions)
-  await supabase.auth.admin.deleteSession
-    ? supabase.auth.admin.signOut(userId).catch(() => null)
-    : supabase.auth.admin.updateUserById(userId, {}).catch(() => null) // noop fallback
+  await supabase.auth.admin.signOut(userId).catch(() => null)
   return c.json({ data: { message: 'Logged out' }, error: null, status: 200 })
 })
 

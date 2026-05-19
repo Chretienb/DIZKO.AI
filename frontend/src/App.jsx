@@ -58,7 +58,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -1150,14 +1150,107 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 
 // ─── MODAL: BILLING ────────────────────────────────────────────────────────
 function ModalBilling({ onClose }) {
-  const FEATURES = [
-    'Unlimited projects',
-    'Up to 50 GB storage',
-    'AI file naming & tagging',
-    'Collaborator invites (unlimited)',
-    'AI stem separation (Demucs)',
-    'Priority support',
+  const [billing, setBilling] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [acting,  setActing]  = useState(false)
+  const [selPlan, setSelPlan] = useState('pro')
+
+  useEffect(() => {
+    billingApi.status().then(r => { setBilling(r?.data); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+
+  const STATUS_COLOR = { trialing:'#f59e0b', active:'#22c55e', past_due:'#ef4444', canceled:'#6b7280' }
+  const hasCard   = billing?.has_payment_method
+  const status    = billing?.subscription_status ?? 'trialing'
+  const plan      = billing?.plan ?? 'free_trial'
+  const daysLeft  = billing?.trial_days_left ?? 0
+  const usedGb    = billing?.storage_used_gb ?? '0.00'
+  const limitGb   = billing?.storage_limit_gb ?? '10.00'
+  const storagePct = billing?.storage_percent ?? 0
+
+  const PLANS = [
+    { id:'pro',    label:'Pro',    price:'$14.99', storage:'50 GB',  priceId: 'price_1TYvWuE1CNYMrSh5ZvWOx7XO', popular:true  },
+    { id:'studio', label:'Studio', price:'$29.99', storage:'200 GB', priceId: 'price_1TYvX5E1CNYMrSh5hIof0XZ4', popular:false },
+    { id:'label',  label:'Label',  price:'$99',    storage:'1 TB',   priceId: 'price_1TYvX5E1CNYMrSh5A67yR8dW', popular:false },
   ]
+
+  async function handleCheckout(priceId) {
+    setActing(true)
+    const r = await billingApi.checkout(priceId).catch(() => null)
+    if (r?.data?.url) window.location.href = r.data.url
+    else setActing(false)
+  }
+
+  async function handlePortal() {
+    setActing(true)
+    const r = await billingApi.portal().catch(() => null)
+    if (r?.data?.url) window.location.href = r.data.url
+    else setActing(false)
+  }
+
+  if (loading) return (
+    <Modal title="Billing & Plan" sub="Loading your plan…" onClose={onClose} accent="#111">
+      <div style={{ textAlign:'center', padding:40, color:'rgba(255,255,255,.4)' }}>Loading…</div>
+    </Modal>
+  )
+
+  // ── Upsell mode — no card added yet ──────────────────────────────────────────
+  if (!hasCard) return (
+    <Modal title="Start Your Free Trial" sub="2 months free · No charge until month 3" onClose={onClose} accent="#111">
+      <div style={{ borderRadius:14, background:'linear-gradient(135deg,#0f0f0f,#1e0812)',
+        padding:'16px 18px', marginBottom:18, textAlign:'center' }}>
+        <div style={{ fontSize:13, color:'#f59e0b', fontWeight:700, marginBottom:6 }}>
+          FREE for 2 months — then billed monthly
+        </div>
+        <div style={{ fontSize:11.5, color:'rgba(255,255,255,.4)' }}>
+          Card required now · $0 charged today · Cancel anytime
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:18 }}>
+        {PLANS.map(p => (
+          <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'13px 16px', borderRadius:12, cursor:'pointer', textAlign:'left',
+            border: selPlan === p.id ? `2px solid ${C.coral}` : '2px solid rgba(0,0,0,.08)',
+            background: selPlan === p.id ? 'rgba(244,147,122,.06)' : 'rgba(0,0,0,.02)',
+            transition:'all .15s',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:16, height:16, borderRadius:'50%', border:`2px solid ${selPlan === p.id ? C.coral : '#ccc'}`,
+                background: selPlan === p.id ? C.coral : 'transparent', flexShrink:0 }} />
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:'#111', display:'flex', alignItems:'center', gap:6 }}>
+                  {p.label}
+                  {p.popular && <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:100,
+                    background:C.grad, color:'#fff', letterSpacing:'.05em' }}>POPULAR</span>}
+                </div>
+                <div style={{ fontSize:11, color:'#888', marginTop:1 }}>{p.storage} storage · Unlimited projects & collaborators</div>
+              </div>
+            </div>
+            <div style={{ textAlign:'right', flexShrink:0 }}>
+              <div style={{ fontSize:15, fontWeight:900, color:'#111' }}>{p.price}</div>
+              <div style={{ fontSize:10, color:'#aaa' }}>/mo after trial</div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <Btn style={{ width:'100%', marginBottom:8 }}
+        onClick={() => handleCheckout(PLANS.find(p => p.id === selPlan)?.priceId)}
+        disabled={acting}>
+        {acting ? 'Redirecting to Stripe…' : `Start Free Trial — ${PLANS.find(p=>p.id===selPlan)?.label}`}
+      </Btn>
+      <div style={{ fontSize:10.5, color:'#aaa', textAlign:'center', marginBottom:12 }}>
+        You won't be charged for 60 days. Cancel anytime before month 3.
+      </div>
+      <Btn variant="ghost" style={{ width:'100%' }} onClick={onClose}>Maybe later</Btn>
+    </Modal>
+  )
+
+  // ── Management mode — card on file ────────────────────────────────────────────
+  const PLAN_LABEL = { free_trial:'Free Trial', pro:'Pro', studio:'Studio', label:'Label' }
+  const PLAN_PRICE = { free_trial:'$0', pro:'$14.99', studio:'$29.99', label:'$99' }
 
   return (
     <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#111">
@@ -1167,43 +1260,52 @@ function ModalBilling({ onClose }) {
           <div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,.35)', fontWeight:700,
               letterSpacing:'.1em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
-            <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>Pro</div>
+            <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+              {PLAN_LABEL[plan] ?? plan}
+            </div>
           </div>
           <span style={{ fontSize:10.5, fontWeight:700, padding:'5px 14px', borderRadius:100,
-            background:C.grad, color:'#fff', letterSpacing:'.02em' }}>Active</span>
+            background: STATUS_COLOR[status] ?? '#6b7280', color:'#fff' }}>
+            {status === 'trialing' ? `${daysLeft}d left` : status}
+          </span>
         </div>
         <div style={{ fontSize:32, fontWeight:900, color:C.coral, letterSpacing:'-1.5px', marginBottom:3 }}>
-          $12<span style={{ fontSize:14, color:'rgba(255,255,255,.35)', fontWeight:500 }}>/mo</span>
+          {status === 'trialing' ? '$0' : (PLAN_PRICE[plan] ?? '—')}
+          <span style={{ fontSize:14, color:'rgba(255,255,255,.35)', fontWeight:500 }}>/mo</span>
         </div>
-        <div style={{ fontSize:11.5, color:'rgba(255,255,255,.3)' }}>Billed monthly · renewal in 14 days</div>
-      </div>
-
-      <div style={{ marginBottom:18 }}>
-        <MLabel>Included</MLabel>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-          {FEATURES.map(f => (
-            <div key={f} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px',
-              borderRadius:9, background:'rgba(0,0,0,.025)', border:'1px solid rgba(0,0,0,.05)' }}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-              <span style={{ fontSize:12, color:'#333' }}>{f}</span>
-            </div>
-          ))}
-        </div>
+        {status === 'trialing' && (
+          <div style={{ fontSize:11.5, color:'#f59e0b', marginTop:4, fontWeight:600 }}>
+            Free until day 60 · then {PLAN_PRICE[plan]}/mo · {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining
+          </div>
+        )}
+        {status === 'past_due' && (
+          <div style={{ fontSize:11.5, color:'#ef4444', marginTop:4, fontWeight:600 }}>
+            Payment failed — update your card to avoid losing access
+          </div>
+        )}
       </div>
 
       <div style={{ padding:'13px 15px', background:'rgba(0,0,0,.02)', borderRadius:10,
         border:'1px solid rgba(0,0,0,.06)', marginBottom:18 }}>
         <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:7 }}>
           <span style={{ fontWeight:600, color:'#555' }}>Storage</span>
-          <span style={{ fontWeight:700, color:'#111' }}>— / 50 GB</span>
+          <span style={{ fontWeight:700, color:'#111' }}>{usedGb} / {limitGb} GB</span>
         </div>
         <div style={{ height:4, background:'rgba(0,0,0,.06)', borderRadius:4 }}>
-          <div style={{ width:'0%', height:'100%', background:C.grad, borderRadius:4 }}/>
+          <div style={{ width:`${Math.min(storagePct,100)}%`, height:'100%',
+            background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4 }}/>
         </div>
+        {storagePct > 90 && (
+          <div style={{ fontSize:11, color:'#ef4444', marginTop:5, fontWeight:600 }}>
+            Storage almost full — upgrade your plan
+          </div>
+        )}
       </div>
 
       <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(0,0,0,.06)', paddingTop:18 }}>
-        <Btn style={{ flex:1 }} onClick={onClose}>Manage Subscription</Btn>
+        <Btn style={{ flex:1 }} onClick={handlePortal} disabled={acting}>
+          {acting ? 'Redirecting…' : 'Manage Subscription'}
+        </Btn>
         <Btn variant="ghost" style={{ flex:1 }} onClick={onClose}>Close</Btn>
       </div>
     </Modal>
@@ -5180,7 +5282,7 @@ function AnalyticsTooltip({ active, payload, label }) {
   )
 }
 
-function PageAnalytics() {
+function PageAnalytics({ onGated, hasAccess }) {
   const [projects,      setProjects]      = useState([])
   const [allFiles,      setAllFiles]      = useState([])
   const [uploaderNames, setUploaderNames] = useState({})
@@ -5243,6 +5345,7 @@ function PageAnalytics() {
   }, [])
 
   const connectYoutube = async () => {
+    if (!hasAccess) { onGated?.(); return }
     const res = await youtubeApi.connect().catch(() => null)
     if (res?.data?.url) window.location.href = res.data.url
   }
@@ -5947,6 +6050,21 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = React.useState(false)
 
+  // Billing status — fetched once on load, used in sidebar + modal
+  const [billingStatus, setBillingStatus] = React.useState(null)
+  React.useEffect(() => {
+    if (!user?.id) return
+    billingApi.status().then(r => setBillingStatus(r?.data)).catch(() => null)
+  }, [user?.id])
+
+  const planLabel = { free_trial: 'Free Trial', pro: 'Pro', studio: 'Studio', label: 'Label' }
+  const currentPlanLabel = planLabel[billingStatus?.plan] ?? 'Free Trial'
+  const trialDaysLeft = billingStatus?.trial_days_left ?? null
+  // User has access if they've added a payment method and are not canceled
+  const hasAccess = billingStatus
+    ? (billingStatus.has_payment_method && billingStatus.subscription_status !== 'canceled')
+    : true // allow while loading to avoid flash-blocking
+
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
 
@@ -5981,7 +6099,14 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   const playTrack = useCallback((file) => setNowPlaying(file), [])
 
-  const openModal        = (type, data) => setModal({ type, data })
+  const GATED_MODALS = ['new-project', 'upload', 'invite']
+  const openModal = (type, data) => {
+    if (GATED_MODALS.includes(type) && !hasAccess) {
+      setModal({ type: 'billing', data: {} })
+      return
+    }
+    setModal({ type, data })
+  }
   const closeModal       = () => setModal(null)
   const onProjectCreated = () => { setRefresh(k => k + 1); closeModal() }
 
@@ -6037,7 +6162,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>— / — GB</span>
         </div>
         <div style={{ height:3, background:'rgba(255,255,255,.08)', borderRadius:3 }}>
-          <div style={{ width:'0%', height:'100%', background:C.grad, borderRadius:3 }} />
+          <div style={{ width:`${Math.min(billingStatus?.storage_percent ?? 0, 100)}%`, height:'100%', background:C.grad, borderRadius:3 }} />
         </div>
       </div>
       <div style={{ padding:'10px 10px 16px', borderTop:'1px solid rgba(255,255,255,.07)', position:'relative' }}>
@@ -6049,7 +6174,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               boxShadow:'0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08)' }}>
               <div style={{ padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
                 <div style={{ fontSize:12.5, fontWeight:700, color:'rgba(255,255,255,.9)' }}>{user?.full_name || 'My Account'}</div>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,.35)', marginTop:2 }}>{user?.email || ''} · Pro plan</div>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,.35)', marginTop:2 }}>{user?.email || ''} · {currentPlanLabel}{billingStatus?.subscription_status === 'trialing' && trialDaysLeft !== null ? ` · ${trialDaysLeft}d left` : ''}</div>
               </div>
               {[
                 { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z',  modal:'account-settings' },
@@ -6096,7 +6221,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)' }}>{user?.full_name || 'My Account'}</div>
-            <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>Pro plan</div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>{currentPlanLabel}</div>
           </div>
           <span style={{ color: userMenu ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)', fontSize:16, transition:'color .15s' }}>···</span>
         </button>
@@ -6208,7 +6333,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/studio"        element={<PageStudio openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaborators openModal={openModal} user={user} onlineIds={onlineIds} />} />
             <Route path="/library"       element={<PageLibrary openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/analytics"     element={<PageAnalytics />} />
+            <Route path="/analytics"     element={<PageAnalytics onGated={() => openModal('billing', {})} hasAccess={hasAccess} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </div>

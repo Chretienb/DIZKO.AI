@@ -117,8 +117,11 @@ export default function Privacy() {
         </Section>
 
         <Section title="5. Data Retention">
-          <P>We retain your personal information for as long as your account is active or as needed to provide the Service. Audio files and project data are retained until you delete them or close your account. You may request deletion of your account and associated data at any time by contacting us at <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a>.</P>
-          <P>We may retain certain information for longer periods where required by law or for legitimate business purposes such as fraud prevention.</P>
+          <P>We retain your personal information for as long as your account is active or as needed to provide the Service.</P>
+          <P><strong>Active accounts:</strong> Audio files and project data are retained until you delete them or close your account.</P>
+          <P><strong>Canceled or lapsed subscriptions:</strong> If your subscription is canceled or lapses due to non-payment, your audio files, stems, mixes, and project data are retained for a grace period of <strong>30 days</strong> from the date of cancellation. After 30 days, all stored audio files and project data are permanently and irrecoverably deleted from our systems, including from our cloud storage provider (Cloudflare R2). Account metadata such as your email address and billing history may be retained for longer periods as required by law or for fraud prevention.</P>
+          <P>You may request deletion of your account and all associated data at any time by contacting us at <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a>. We will process deletion requests within 30 days.</P>
+          <P>We may retain certain non-audio information for longer periods where required by law or for legitimate business purposes such as fraud prevention and financial record-keeping.</P>
         </Section>
 
         <Section title="6. Your Rights and Choices">

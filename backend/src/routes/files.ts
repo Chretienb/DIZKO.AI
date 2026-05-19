@@ -1,5 +1,6 @@
 import { Hono }         from 'hono'
 import { supabase }     from '../lib/supabase'
+import { uploadToR2, deleteFromR2, getR2SignedUrl } from '../lib/r2'
 import { requireAuth }  from '../middleware/auth'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
@@ -12,6 +13,19 @@ import type { HonoVariables } from '../types'
 
 const files = new Hono<{ Variables: HonoVariables }>()
 files.use('*', requireAuth)
+
+const MAX_FILE_BYTES = 500 * 1024 * 1024 // 500 MB hard server limit
+
+const MIME_BY_EXT: Record<string, string> = {
+  wav: 'audio/wav', mp3: 'audio/mpeg', aif: 'audio/aiff', aiff: 'audio/aiff',
+  flac: 'audio/flac', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac',
+  mp4: 'audio/mp4', wma: 'audio/x-ms-wma', opus: 'audio/opus', zip: 'application/zip',
+}
+
+function resolveContentType(filename: string, browserType: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  return MIME_BY_EXT[ext] ?? browserType ?? 'application/octet-stream'
+}
 
 // ── Detect instrument type from filename (no AI needed) ───────────────────────
 function detectInstrument(filename: string): string {
@@ -47,19 +61,44 @@ files.post('/upload', async (c) => {
     return c.json({ data: null, error: 'file and project_id are required', status: 400 }, 400)
   }
 
+  if (file.size > MAX_FILE_BYTES) {
+    return c.json({ data: null, error: 'File exceeds 500 MB limit', status: 413 }, 413)
+  }
+
+  const contentType = resolveContentType(file.name, file.type)
   const buffer = Buffer.from(await file.arrayBuffer())
 
-  // 1. Upload to Supabase Storage
+  // 1. Check storage limit
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('storage_used_bytes, storage_limit_bytes, subscription_status')
+    .eq('id', user.id)
+    .single()
+
+  const p = profile as any
+  if (p && (p.storage_used_bytes + file.size) > p.storage_limit_bytes) {
+    return c.json({
+      data: null,
+      error: 'Storage limit reached — upgrade your plan to upload more',
+      storage_used:  p.storage_used_bytes,
+      storage_limit: p.storage_limit_bytes,
+      status: 403,
+    }, 403)
+  }
+
+  // 2. Upload to Cloudflare R2
   const storagePath = `takes/${user.id}/${projectId}/${Date.now()}_${file.name}`
-  const { error: upErr } = await supabase.storage
-    .from('stems')
-    .upload(storagePath, buffer, { contentType: file.type || 'audio/mpeg', upsert: false })
+  try {
+    await uploadToR2(storagePath, buffer, contentType)
+  } catch (e) {
+    return c.json({ data: null, error: 'Storage upload failed', status: 500 }, 500)
+  }
+  const fileUrl = await getR2SignedUrl(storagePath)
 
-  if (upErr) return c.json({ data: null, error: upErr.message, status: 500 }, 500)
+  // Increment storage used (non-blocking)
+  ;(async () => { try { await supabase.rpc('increment_storage', { user_id: user.id, bytes: file.size }) } catch {} })()
 
-  const { data: { publicUrl: fileUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
-
-  // 2. Resolve or create track
+  // 3. Resolve or create track
   const { data: existingTrack } = await supabase
     .from('tracks').select('id').eq('project_id', projectId)
     .order('position', { ascending: true }).limit(1).maybeSingle()
@@ -113,7 +152,7 @@ files.post('/upload', async (c) => {
       file_url:       fileUrl,
       storage_path:   storagePath,
       file_size:      file.size,
-      mime_type:      file.type || 'audio/mpeg',
+      mime_type:      contentType,
       instrument,
       notes:          JSON.stringify({ status: 'analyzing', type: 'take' }),
       uploaded_by:    user.id,
@@ -224,11 +263,13 @@ files.post('/:id/separate-stems', async (c) => {
         const filename    = `${type}_${takeId}.wav`
         const storagePath = `stems/${user.id}/${projectId}/${filename}`
 
-        const { error: upErr } = await supabase.storage
-          .from('stems').upload(storagePath, buf, { contentType: 'audio/wav', upsert: true })
-        if (upErr) { console.error(`[replicate] upload failed for ${type}:`, upErr.message); continue }
-
-        const { data: { publicUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
+        try {
+          await uploadToR2(storagePath, buf, 'audio/wav')
+        } catch (e) {
+          console.error(`[replicate] upload failed for ${type}:`, (e as Error).message)
+          continue
+        }
+        const publicUrl = await getR2SignedUrl(storagePath)
         const suggestedName = [
           type.charAt(0).toUpperCase() + type.slice(1),
           bpm ? `${Math.round(bpm)} BPM` : null,
@@ -247,6 +288,7 @@ files.post('/:id/separate-stems', async (c) => {
           notes:          JSON.stringify({ parent_stem_id: takeId, stem_type: type, bpm, key }),
           uploaded_by:    user.id,
         })
+        ;(async () => { try { await supabase.rpc('increment_storage', { user_id: user.id, bytes: buf.length }) } catch {} })()
         count++
       } catch (e) {
         console.error(`[replicate] error processing ${type}:`, (e as Error).message)
@@ -274,7 +316,11 @@ files.get('/:id', async (c) => {
     .single()
 
   if (error) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
-  return c.json({ data, error: null, status: 200 })
+
+  const stem = data as any
+  if (stem?.storage_path) stem.file_url = await getR2SignedUrl(stem.storage_path)
+
+  return c.json({ data: stem, error: null, status: 200 })
 })
 
 // ── PATCH /files/:id ───────────────────────────────────────────────────────────
@@ -298,12 +344,17 @@ files.patch('/:id', sanitize, async (c) => {
 // ── DELETE /files/:id ──────────────────────────────────────────────────────────
 files.delete('/:id', async (c) => {
   const { data: stem, error: fetchErr } = await supabase
-    .from('stems').select('storage_path').eq('id', c.req.param('id')).single()
+    .from('stems').select('storage_path, file_size, uploaded_by').eq('id', c.req.param('id')).single()
 
   if (fetchErr) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
 
-  const storagePath = (stem as { storage_path: string } | null)?.storage_path
-  if (storagePath) await supabase.storage.from('stems').remove([storagePath])
+  const s = stem as { storage_path: string; file_size: number; uploaded_by: string } | null
+  if (s?.storage_path) {
+    await deleteFromR2(s.storage_path).catch(e => console.error('[delete] R2 error:', e.message))
+    if (s.file_size && s.uploaded_by) {
+      ;(async () => { try { await supabase.rpc('decrement_storage', { user_id: s.uploaded_by, bytes: s.file_size }) } catch {} })()
+    }
+  }
 
   const { error } = await supabase.from('stems').delete().eq('id', c.req.param('id'))
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
@@ -317,7 +368,15 @@ files.get('/', async (c) => {
   if (trackId) query = query.eq('track_id', trackId)
   const { data, error } = await query
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
-  return c.json({ data, error: null, status: 200 })
+
+  const enriched = await Promise.all(
+    (data as any[]).map(async (stem) => {
+      if (stem?.storage_path) stem.file_url = await getR2SignedUrl(stem.storage_path)
+      return stem
+    })
+  )
+
+  return c.json({ data: enriched, error: null, status: 200 })
 })
 
 export default files

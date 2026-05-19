@@ -268,6 +268,13 @@ export const venuesApi = {
   cities: ()                 => get('/venues/cities'),
 }
 
+// ── Billing ───────────────────────────────────────────────────────────────────
+export const billingApi = {
+  status:   ()           => get('/billing/status'),
+  checkout: (price_id)   => request('POST', '/billing/checkout', { price_id }),
+  portal:   ()           => request('POST', '/billing/portal', {}),
+}
+
 // ── YouTube Analytics ─────────────────────────────────────────────────────────
 export const youtubeApi = {
   connect:    () => get('/youtube/connect'),

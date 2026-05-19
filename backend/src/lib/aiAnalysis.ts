@@ -161,7 +161,7 @@ Conflict: flag if two stems have BPM values more than 3 apart, or keys more than
       system:     systemPrompt,
       messages:   [{ role: 'user', content: userPrompt }],
     })
-    const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '{}'
+    const raw = msg.content[0]?.type === 'text' ? (msg.content[0] as any).text.trim() : '{}'
     // Strip any accidental markdown fences
     const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'')
     const parsed = JSON.parse(clean)
@@ -179,22 +179,23 @@ Conflict: flag if two stems have BPM values more than 3 apart, or keys more than
   }
 
   // 5. Store as a special notification so frontend can fetch it without new table
-  await supabase.from('notifications').upsert({
-    project_id: projectId,
-    user_id:    triggeredBy,
-    type:       'ai_analysis',
-    message:    analysis.brief,
-    metadata:   analysis,
-  }, { onConflict: 'project_id,type' }).catch(() => {
-    // upsert may fail if there's no unique constraint — fall back to insert
-    supabase.from('notifications').insert({
+  try {
+    await supabase.from('notifications').upsert({
       project_id: projectId,
       user_id:    triggeredBy,
       type:       'ai_analysis',
       message:    analysis.brief,
       metadata:   analysis,
-    }).then(() => {}).catch(() => {})
-  })
+    }, { onConflict: 'project_id,type' })
+  } catch {
+    await supabase.from('notifications').insert({
+      project_id: projectId,
+      user_id:    triggeredBy,
+      type:       'ai_analysis',
+      message:    analysis.brief,
+      metadata:   analysis,
+    })
+  }
 
   console.log(`[aiAnalysis] ${(proj as any).title}: ${analysis.brief}`)
   return analysis

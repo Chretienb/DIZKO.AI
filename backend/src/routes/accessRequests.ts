@@ -132,7 +132,7 @@ ar.patch('/:id', sanitize, async (c) => {
   if (body.status === 'approved') {
     await supabase.from('collaborators')
       .update({ notes: JSON.stringify({ extra_instruments: [r.instrument] }) })
-      .eq('project_id', r.project_id).eq('user_id', r.requester_id).catch(() => null)
+      .eq('project_id', r.project_id).eq('user_id', r.requester_id)
   }
 
   // Notify the requester
