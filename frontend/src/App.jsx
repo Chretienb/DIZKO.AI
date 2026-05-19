@@ -5650,131 +5650,132 @@ function PageAnalytics() {
             </div>
 
             {/* Contributors + Activity */}
-            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.6fr', gap:16 }}>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '380px 1fr', gap:16 }}>
 
-              {/* ── Top Contributors ── */}
-              <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
-                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ padding:'20px 22px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              {/* ── Leaderboard ── */}
+              <div style={{ background:'linear-gradient(160deg,#0f0f14,#1a0a20)',
+                borderRadius:20, overflow:'hidden', position:'relative' }}>
+                {/* glow */}
+                <div style={{ position:'absolute', top:'-20%', right:'-10%', width:200, height:200,
+                  borderRadius:'50%', background:`radial-gradient(circle,${C.coral}20 0%,transparent 65%)`, pointerEvents:'none' }}/>
+
+                <div style={{ position:'relative', padding:'22px 22px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                   <div>
-                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Top Contributors</div>
-                    <div style={{ fontSize:12, color:'#bbb', marginTop:2 }}>Most active this session</div>
+                    <div style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>Leaderboard</div>
+                    <div style={{ fontSize:12, color:'rgba(255,255,255,.3)', marginTop:2 }}>Top uploaders</div>
                   </div>
-                  <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`,
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                    </svg>
-                  </div>
+                  <div style={{ fontSize:22 }}>🏆</div>
                 </div>
 
                 {byContributor.length===0 ? (
-                  <div style={{ padding:'32px', textAlign:'center', fontSize:13, color:'#bbb' }}>No uploads yet</div>
+                  <div style={{ padding:'32px', textAlign:'center', fontSize:13, color:'rgba(255,255,255,.3)' }}>No uploads yet</div>
                 ) : byContributor.map(([uid,count],i) => {
                   const name  = uploaderNames[uid] || '…'
                   const color = CHART_PALETTE[i % CHART_PALETTE.length]
                   const pct   = Math.round((count / byContributor[0][1]) * 100)
-                  const medals = ['🥇','🥈','🥉']
+                  const isFirst = i === 0
                   return (
-                    <div key={uid} style={{ padding:'12px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                      display:'flex', alignItems:'center', gap:14,
-                      background: i === 0 ? `${color}04` : 'transparent',
-                      transition:'background .12s' }}>
-                      {/* Rank */}
-                      <div style={{ width:24, flexShrink:0, textAlign:'center',
-                        fontSize: i < 3 ? 16 : 12, fontWeight:800,
-                        color: i < 3 ? 'inherit' : '#ccc' }}>
-                        {i < 3 ? medals[i] : `${i+1}`}
+                    <div key={uid} style={{ position:'relative', margin:'0 14px 10px',
+                      padding:'12px 16px', borderRadius:14,
+                      background: isFirst ? `linear-gradient(135deg,${color}25,${color}10)` : 'rgba(255,255,255,.05)',
+                      border: isFirst ? `1px solid ${color}40` : '1px solid rgba(255,255,255,.08)',
+                      display:'flex', alignItems:'center', gap:12 }}>
+                      {/* Rank number */}
+                      <div style={{ width:22, textAlign:'center', fontSize:13, fontWeight:900,
+                        color: isFirst ? '#fff' : 'rgba(255,255,255,.3)', flexShrink:0 }}>
+                        {i+1}
                       </div>
                       {/* Avatar */}
-                      <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0,
-                        background:`${color}18`, border:`2px solid ${color}30`,
+                      <div style={{ width:40, height:40, borderRadius:'50%', flexShrink:0,
+                        background:`${color}30`, border:`2px solid ${color}60`,
                         display:'flex', alignItems:'center', justifyContent:'center',
-                        fontSize:13, fontWeight:800, color }}>
+                        fontSize:14, fontWeight:900, color:'#fff',
+                        boxShadow: isFirst ? `0 0 16px ${color}50` : 'none' }}>
                         {initials(name)}
                       </div>
-                      {/* Info + bar */}
+                      {/* Name + bar */}
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:6 }}>
-                          <span style={{ fontSize:13.5, fontWeight:700, color:'#111',
-                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>{name}</span>
-                          <span style={{ fontSize:13, fontWeight:900, color:'#111', flexShrink:0 }}>
-                            {count} <span style={{ fontSize:10, fontWeight:500, color:'#bbb' }}>files</span>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                          <span style={{ fontSize:13.5, fontWeight:800, color:'#fff',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>
+                          <span style={{ fontSize:13, fontWeight:900, color:'#fff', flexShrink:0, marginLeft:8 }}>
+                            {count}<span style={{ fontSize:10, fontWeight:400, color:'rgba(255,255,255,.35)', marginLeft:3 }}>files</span>
                           </span>
                         </div>
-                        <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
-                          <div style={{ width:`${pct}%`, height:'100%', borderRadius:3,
-                            background:`linear-gradient(90deg, ${color}, ${color}aa)`,
-                            transition:'width .5s' }}/>
+                        <div style={{ height:4, borderRadius:2, background:'rgba(255,255,255,.1)', overflow:'hidden' }}>
+                          <div style={{ width:`${pct}%`, height:'100%', borderRadius:2,
+                            background:`linear-gradient(90deg,${color},${color}88)`, transition:'width .6s' }}/>
                         </div>
                       </div>
+                      {isFirst && (
+                        <div style={{ position:'absolute', top:-8, right:14, fontSize:18 }}>👑</div>
+                      )}
                     </div>
                   )
                 })}
+                <div style={{ height:14 }}/>
               </div>
 
-              {/* ── Recent Activity ── */}
+              {/* ── Activity Feed ── */}
               <div style={{ background:'#fff', borderRadius:20, overflow:'hidden',
                 boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ padding:'20px 22px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ padding:'20px 22px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                   <div>
-                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
+                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Activity Feed</div>
                     <div style={{ fontSize:12, color:'#bbb', marginTop:2 }}>Latest uploads across all projects</div>
-                  </div>
-                  <div style={{ width:32, height:32, borderRadius:10, background:'rgba(99,102,241,.1)',
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round">
-                      <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
-                    </svg>
                   </div>
                 </div>
 
-                {recentActivity.map((f, i) => {
-                  const color   = stemColor(f.instrument)
-                  const isBounce = f.instrument === 'smart_bounce'
-                  return (
-                    <div key={f.id} style={{ padding:'11px 22px', borderTop:'1px solid rgba(0,0,0,.04)',
-                      display:'flex', alignItems:'center', gap:12,
-                      transition:'background .1s' }}
-                      onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.02)'}
-                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                <div style={{ position:'relative', padding:'0 22px 16px' }}>
+                  {/* Timeline line */}
+                  <div style={{ position:'absolute', left:34, top:0, bottom:16, width:1,
+                    background:'linear-gradient(to bottom,rgba(0,0,0,.06),transparent)' }}/>
 
-                      {/* Icon */}
-                      <div style={{ width:36, height:36, borderRadius:11, flexShrink:0,
-                        background: isBounce ? 'linear-gradient(135deg,#F4937A18,#F28FB818)' : `${color}12`,
-                        border: isBounce ? `1px solid ${C.coral}30` : `1px solid ${color}20`,
-                        display:'flex', alignItems:'center', justifyContent:'center' }}>
-                        {isBounce ? (
-                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                          </svg>
-                        ) : (
-                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round">
-                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                          </svg>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:'#111',
-                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {f.suggested_name || f.original_name || 'Untitled'}
+                  {recentActivity.map((f, i) => {
+                    const color    = stemColor(f.instrument)
+                    const isBounce = f.instrument === 'smart_bounce'
+                    return (
+                      <div key={f.id} style={{ display:'flex', gap:14, marginBottom: i < recentActivity.length-1 ? 14 : 0,
+                        position:'relative' }}>
+                        {/* Timeline dot + icon */}
+                        <div style={{ flexShrink:0, position:'relative', zIndex:1 }}>
+                          <div style={{ width:26, height:26, borderRadius:8,
+                            background: isBounce ? C.grad : `${color}15`,
+                            border: `1.5px solid ${isBounce ? 'transparent' : color+'30'}`,
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            boxShadow: isBounce ? `0 3px 10px ${C.coral}30` : 'none' }}>
+                            {isBounce ? (
+                              <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                              </svg>
+                            ) : (
+                              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round">
+                                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                              </svg>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3, flexWrap:'wrap' }}>
-                          <span style={{ fontSize:11, fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
-                          <span style={{ color:'#ddd', fontSize:10 }}>·</span>
-                          <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`,
-                            padding:'1px 7px', borderRadius:100, textTransform:'capitalize' }}>
-                            {(f.instrument || 'audio').replace(/_/g,' ')}
-                          </span>
-                          <span style={{ color:'#ddd', fontSize:10 }}>·</span>
-                          <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
+                        {/* Content */}
+                        <div style={{ flex:1, minWidth:0, paddingTop:3 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:'#111',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {f.suggested_name || f.original_name || 'Untitled'}
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3, flexWrap:'wrap' }}>
+                            <span style={{ fontSize:11, fontWeight:600, color:'#888' }}>{f.projectTitle}</span>
+                            <span style={{ fontSize:9, color:'#ddd' }}>●</span>
+                            <span style={{ fontSize:10.5, fontWeight:700, color,
+                              background:`${color}12`, padding:'1px 7px', borderRadius:100, textTransform:'capitalize' }}>
+                              {(f.instrument||'audio').replace(/_/g,' ')}
+                            </span>
+                            <span style={{ fontSize:9, color:'#ddd' }}>●</span>
+                            <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </>
