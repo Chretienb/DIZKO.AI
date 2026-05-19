@@ -78,7 +78,7 @@ auth.post('/register', registerLimit, sanitize, async (c) => {
       method:  'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        from:    process.env.RESEND_FROM || 'Dizko.ai <notifications@dizko.ai>',
+        from:    process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>',
         to:      email,
         subject: tpl.subject,
         html:    tpl.html,

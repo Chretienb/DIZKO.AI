@@ -19,7 +19,7 @@ import { supabase }   from './supabase'
 // ── VAPID setup ───────────────────────────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT     || 'mailto:notifications@dizko.ai'
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT     || 'mailto:team@dizko.ai'
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
@@ -157,7 +157,7 @@ async function sendEmail(userId: string, subject: string, html: string): Promise
   const email = u?.user?.email
   if (!email) return
 
-  const from = process.env.RESEND_FROM || 'Dizko.ai <notifications@dizko.ai>'
+  const from = process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>'
 
   await fetch('https://api.resend.com/emails', {
     method:  'POST',
