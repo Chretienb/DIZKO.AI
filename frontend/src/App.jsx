@@ -6202,65 +6202,108 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <div style={{ width:`${Math.min(billingStatus?.storage_percent ?? 0, 100)}%`, height:'100%', background:C.grad, borderRadius:3 }} />
         </div>
       </div>
-      <div style={{ padding:'10px 10px 16px', borderTop:'1px solid rgba(255,255,255,.07)', position:'relative' }}>
+      <div style={{ padding:'8px 10px 12px', borderTop:'1px solid rgba(255,255,255,.06)', position:'relative' }}>
         {userMenu && (
           <>
             <div style={{ position:'fixed', inset:0, zIndex:50 }} onClick={() => setMenu(false)} />
-            <div style={{ position:'absolute', bottom:'calc(100% + 6px)', left:10, right:10, zIndex:51,
-              background:'#1c1c1e', borderRadius:12, overflow:'hidden',
-              boxShadow:'0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08)' }}>
-              <div style={{ padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
-                <div style={{ fontSize:12.5, fontWeight:700, color:'rgba(255,255,255,.9)' }}>{user?.full_name || 'My Account'}</div>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,.35)', marginTop:2 }}>{user?.email || ''} · {currentPlanLabel}{billingStatus?.subscription_status === 'trialing' && trialDaysLeft !== null ? ` · ${trialDaysLeft}d left` : ''}</div>
+            <div style={{ position:'absolute', bottom:'calc(100% + 8px)', left:8, right:8, zIndex:51,
+              background:'#18181b', borderRadius:16,
+              boxShadow:'0 16px 48px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07)',
+              overflow:'hidden' }}>
+
+              {/* User info */}
+              <div style={{ padding:'14px 16px 12px', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <Avatar name={user?.full_name} url={user?.avatar_url} size={34} color={C.coral} border="none"/>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#fff', letterSpacing:'-.2px',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {user?.full_name || 'My Account'}
+                    </div>
+                    <div style={{ fontSize:10.5, color:'rgba(255,255,255,.35)', marginTop:1,
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {user?.email || ''}
+                    </div>
+                  </div>
+                </div>
+                {/* Plan badge */}
+                <div style={{ marginTop:10, display:'inline-flex', alignItems:'center', gap:5,
+                  background:'rgba(255,255,255,.06)', borderRadius:8, padding:'4px 10px' }}>
+                  <div style={{ width:5, height:5, borderRadius:'50%',
+                    background: billingStatus?.has_payment_method ? '#22c55e' : '#f59e0b' }} />
+                  <span style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.5)', letterSpacing:'.04em' }}>
+                    {currentPlanLabel.toUpperCase()}
+                    {billingStatus?.subscription_status === 'trialing' && trialDaysLeft !== null
+                      ? ` · ${trialDaysLeft}D LEFT` : ''}
+                  </span>
+                </div>
               </div>
-              {[
-                { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z',  modal:'account-settings' },
-                { label:'Billing & Plan',     icon:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', modal:'billing' },
-                { label:'Keyboard Shortcuts', icon:'M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z', modal:'shortcuts' },
-              ].map(item => (
-                <button key={item.label} onClick={() => { setMenu(false); openModal(item.modal, {}) }} style={{
-                  display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
-                  background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-                  fontSize:12.5, color:'rgba(255,255,255,.7)', fontWeight:500, transition:'background .12s',
+
+              {/* Menu items */}
+              <div style={{ padding:'6px' }}>
+                {[
+                  { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z', modal:'account-settings' },
+                  { label:'Billing & Plan',     icon:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', modal:'billing' },
+                  { label:'Keyboard Shortcuts', icon:'M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z', modal:'shortcuts' },
+                ].map(item => (
+                  <button key={item.label} onClick={() => { setMenu(false); openModal(item.modal, {}) }} style={{
+                    display:'flex', alignItems:'center', gap:9, width:'100%', padding:'9px 10px',
+                    borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
+                    fontSize:12.5, color:'rgba(255,255,255,.75)', fontWeight:500,
+                    background:'transparent', transition:'background .1s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                      stroke="rgba(255,255,255,.35)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={item.icon}/>
+                    </svg>
+                    {item.label}
+                  </button>
+                ))}
+
+                <div style={{ height:1, background:'rgba(255,255,255,.06)', margin:'4px 0' }} />
+
+                <button onClick={() => { setMenu(false); onLogout(); navigate('/login') }} style={{
+                  display:'flex', alignItems:'center', gap:9, width:'100%', padding:'9px 10px',
+                  borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
+                  fontSize:12.5, color:'#f87171', fontWeight:600,
+                  background:'transparent', transition:'background .1s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.08)'}
                 onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                    stroke="rgba(255,255,255,.4)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <path d={item.icon}/>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                    stroke="#f87171" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
                   </svg>
-                  {item.label}
+                  Log out
                 </button>
-              ))}
-              <div style={{ height:1, background:'rgba(255,255,255,.07)', margin:'2px 0' }} />
-              <button onClick={() => { setMenu(false); onLogout(); navigate('/login') }} style={{
-                display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
-                background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-                fontSize:12.5, color:'#ff6b6b', fontWeight:600, transition:'background .12s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}
-              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                  stroke="#ff6b6b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-                </svg>
-                Log out
-              </button>
+              </div>
             </div>
           </>
         )}
 
-        <button onClick={() => setMenu(m => !m)} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 8px',
-          borderRadius:9, border:'none', background: userMenu ? 'rgba(255,255,255,.1)' : 'transparent',
-          cursor:'pointer', textAlign:'left', transition:'background .15s' }}
-          onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
-          onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background='transparent' }}>
-          <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+        {/* Trigger button */}
+        <button onClick={() => setMenu(m => !m)} style={{
+          display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px',
+          borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
+          background: userMenu ? 'rgba(255,255,255,.09)' : 'transparent', transition:'background .15s',
+        }}
+        onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
+        onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background=userMenu?'rgba(255,255,255,.09)':'transparent' }}>
+          <Avatar name={user?.full_name} url={user?.avatar_url} size={28} color={C.coral} border="none"/>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)' }}>{user?.full_name || 'My Account'}</div>
+            <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)',
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {user?.full_name || 'My Account'}
+            </div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>{currentPlanLabel}</div>
           </div>
-          <span style={{ color: userMenu ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)', fontSize:16, transition:'color .15s' }}>···</span>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+            stroke={userMenu ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.2)'}
+            strokeWidth={2} strokeLinecap="round" style={{ transition:'stroke .15s', flexShrink:0 }}>
+            <polyline points="18,15 12,9 6,15"/>
+          </svg>
         </button>
       </div>
     </>
