@@ -1454,6 +1454,7 @@ function ModalInvite({ project: initialProject, onClose }) {
     try {
       await collabsApi.addToProject(selProj.id, { email: email.trim(), role })
       setSent(true)
+      window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 2 } }))
     } catch (e) {
       setErr(e.message || 'Failed to send invite')
     } finally {
@@ -1915,6 +1916,7 @@ function ModalUpload({ project, onClose, user }) {
         await filesApi.upload(updated[i].file, selProj.id, { instrument: updated[i].instrument || undefined })
         updated[i] = { ...updated[i], status:'done', progress: 100 }
         setQueue([...updated])
+        window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
       } catch (err) {
         // Check if this is a role restriction — show Request Access instead of error
         try {
@@ -6157,7 +6159,32 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     setModal({ type, data })
   }
   const closeModal       = () => setModal(null)
-  const onProjectCreated = () => { setRefresh(k => k + 1); closeModal() }
+  const onProjectCreated = () => { setRefresh(k => k + 1); closeModal(); setChecklistDone(d => ({ ...d, 0: true })) }
+
+  // Getting started checklist
+  const [checklistVisible, setChecklistVisible] = React.useState(() => !localStorage.getItem('dizko_checklist_done'))
+  const [checklistDone,    setChecklistDone]    = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('dizko_checklist') || '{}') } catch { return {} }
+  })
+  React.useEffect(() => {
+    localStorage.setItem('dizko_checklist', JSON.stringify(checklistDone))
+    if (Object.keys(checklistDone).filter(k => checklistDone[k]).length >= 3) {
+      localStorage.setItem('dizko_checklist_done', '1')
+      setTimeout(() => setChecklistVisible(false), 1500)
+    }
+  }, [checklistDone])
+
+  React.useEffect(() => {
+    const handler = (e) => setChecklistDone(d => ({ ...d, [e.detail.item]: true }))
+    window.addEventListener('dizko:checklist', handler)
+    return () => window.removeEventListener('dizko:checklist', handler)
+  }, [])
+
+  const CHECKLIST = [
+    { label: 'Create your first project', action: () => openModal('new-project', {}) },
+    { label: 'Upload your first stem',    action: () => openModal('upload', {}) },
+    { label: 'Invite a collaborator',     action: () => openModal('invite', {}) },
+  ]
 
   // Global keyboard shortcuts — declared here so navigate + openModal are both in scope
   React.useEffect(() => {
@@ -6238,10 +6265,48 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           )
         })}
       </nav>
+      {/* Getting started checklist — dismisses when all done */}
+      {checklistVisible && (
+        <div style={{ margin:'0 10px 8px', borderRadius:12, background:'rgba(244,147,122,.07)',
+          border:'1px solid rgba(244,147,122,.18)', padding:'10px 12px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+            <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.1em',
+              textTransform:'uppercase' }}>Get started</span>
+            <button onClick={() => setChecklistVisible(false)}
+              style={{ background:'none', border:'none', color:'rgba(255,255,255,.2)',
+                cursor:'pointer', fontSize:14, padding:0, lineHeight:1 }}>×</button>
+          </div>
+          {CHECKLIST.map((item, i) => {
+            const done = checklistDone[i]
+            return (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
+                padding:'5px 0', opacity: done ? .5 : 1 }}>
+                <div style={{ width:16, height:16, borderRadius:'50%', flexShrink:0,
+                  border:`1.5px solid ${done ? '#22c55e' : 'rgba(255,255,255,.2)'}`,
+                  background: done ? '#22c55e' : 'transparent',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {done && <svg width={8} height={8} viewBox="0 0 24 24" fill="none"
+                    stroke="#fff" strokeWidth={3} strokeLinecap="round">
+                    <polyline points="20,6 9,17 4,12"/>
+                  </svg>}
+                </div>
+                <button onClick={item.action} style={{ background:'none', border:'none',
+                  cursor: done ? 'default' : 'pointer', padding:0, textAlign:'left',
+                  fontSize:11.5, fontWeight: done ? 400 : 600,
+                  color: done ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.75)',
+                  textDecoration: done ? 'line-through' : 'none' }}>
+                  {item.label}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:8 }}>
           <span style={{ color:'rgba(255,255,255,.3)' }}>Storage</span>
-          <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>— / — GB</span>
+          <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>{billingStatus ? `${billingStatus.storage_used_gb} / ${billingStatus.storage_limit_gb} GB` : '— / — GB'}</span>
         </div>
         <div style={{ height:3, background:'rgba(255,255,255,.08)', borderRadius:3 }}>
           <div style={{ width:`${Math.min(billingStatus?.storage_percent ?? 0, 100)}%`, height:'100%', background:C.grad, borderRadius:3 }} />

@@ -7,6 +7,7 @@ import App           from './App.jsx'
 import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
+import Onboarding    from './Onboarding.jsx'
 import ResetPassword from './ResetPassword.jsx'
 import Privacy       from './Privacy.jsx'
 import Terms         from './Terms.jsx'
@@ -103,10 +104,21 @@ function WelcomePage({ userName, onClear }) {
   )
 }
 
+// ── Billing success — redirect to app and trigger onboarding ────────────────
+function BillingSuccess({ onStart }) {
+  const navigate = useNavigate()
+  useEffect(() => {
+    onStart()
+    navigate('/', { replace: true })
+  }, [])
+  return null
+}
+
 // ── Root ────────────────────────────────────────────────────────────────────
 function Root() {
-  const [user,      setUser]      = useState(() => userFromToken())
-  const [userName,  setUserName]  = useState('')
+  const [user,        setUser]        = useState(() => userFromToken())
+  const [userName,    setUserName]    = useState('')
+  const [showOnboard, setShowOnboard] = useState(false)
   // Show splash only on very first load when NOT already authenticated
   const [showSplash, setShowSplash] = useState(() => !userFromToken())
 
@@ -158,6 +170,11 @@ function Root() {
         </RequireGuest>
       } />
       <Route path="/auth/callback" element={<OAuthCallback onLogin={handleLogin} />} />
+      <Route path="/billing/success" element={
+        <RequireAuth>
+          <BillingSuccess onStart={() => { setShowOnboard(true) }} />
+        </RequireAuth>
+      } />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy"        element={<Privacy />} />
       <Route path="/terms"          element={<Terms />} />
@@ -168,8 +185,13 @@ function Root() {
       {/* Protected — App shell owns /*, child routes defined inside App */}
       <Route path="/*" element={
         <RequireAuth>
-          <App onLogout={handleLogout} user={user}
-            onProfileUpdate={updates => setUser(prev => ({ ...prev, ...updates }))} />
+          <>
+            <App onLogout={handleLogout} user={user}
+              onProfileUpdate={updates => setUser(prev => ({ ...prev, ...updates }))} />
+            {showOnboard && (
+              <Onboarding user={user} onComplete={() => setShowOnboard(false)} />
+            )}
+          </>
         </RequireAuth>
       } />
     </Routes>
