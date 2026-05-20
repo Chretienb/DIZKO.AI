@@ -5985,14 +5985,26 @@ function MiniPlayer({ track, onClose }) {
 
   const toggle = () => {
     if (!audioRef.current) return
-    if (playing) {
-      audioRef.current.pause()
-      setPlaying(false)
-    } else {
-      audioRef.current.play().catch(() => {})
-      setPlaying(true)
-    }
+    if (playing) { audioRef.current.pause(); setPlaying(false) }
+    else { audioRef.current.play().catch(() => {}); setPlaying(true) }
   }
+
+  // Listen for keyboard shortcut events dispatched from App
+  useEffect(() => {
+    const handler = (e) => {
+      const a = audioRef.current
+      if (!a) return
+      const { action } = e.detail
+      if (action === 'toggle')    toggle()
+      if (action === 'seekBack')  { a.currentTime = Math.max(0, a.currentTime - 5) }
+      if (action === 'seekFwd')   { a.currentTime = Math.min(a.duration || 0, a.currentTime + 5) }
+      if (action === 'volUp')     { a.volume = Math.min(1, a.volume + 0.1); setVol(a.volume) }
+      if (action === 'volDown')   { a.volume = Math.max(0, a.volume - 0.1); setVol(a.volume) }
+    }
+    window.addEventListener('dizko:playback', handler)
+    return () => window.removeEventListener('dizko:playback', handler)
+  }, [playing])
+
   const seek = (e) => {
     if (!audioRef.current || !duration) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -6104,6 +6116,60 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
+
+  // Global keyboard shortcuts
+  React.useEffect(() => {
+    let gTimer = null
+    let gHeld  = false
+
+    const dispatch = (action) => window.dispatchEvent(new CustomEvent('dizko:playback', { detail: { action } }))
+    const isTyping = () => {
+      const el = document.activeElement
+      return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+    }
+
+    const onKey = (e) => {
+      if (isTyping()) return
+
+      const cmd   = e.metaKey || e.ctrlKey
+      const shift = e.shiftKey
+      const key   = e.key.toLowerCase()
+
+      // ── G chord navigation ────────────────────────────────────────────────────
+      if (!cmd && key === 'g' && !gHeld) {
+        gHeld = true
+        clearTimeout(gTimer)
+        gTimer = setTimeout(() => { gHeld = false }, 800)
+        return
+      }
+      if (gHeld && !cmd) {
+        gHeld = false
+        clearTimeout(gTimer)
+        if (key === 'd') { e.preventDefault(); navigate('/') }
+        if (key === 'p') { e.preventDefault(); navigate('/projects') }
+        if (key === 'c') { e.preventDefault(); navigate('/collaborators') }
+        if (key === 'l') { e.preventDefault(); navigate('/library') }
+        if (key === 'a') { e.preventDefault(); navigate('/analytics') }
+        return
+      }
+
+      // ── Actions ───────────────────────────────────────────────────────────────
+      if (cmd && !shift && key === 'n') { e.preventDefault(); openModal('new-project', {}) }
+      if (cmd && !shift && key === 'u') { e.preventDefault(); openModal('upload', {}) }
+      if (cmd && !shift && key === 'i') { e.preventDefault(); openModal('invite', {}) }
+      if (cmd && shift  && key === 'l') { e.preventDefault(); onLogout(); navigate('/login') }
+
+      // ── Playback ──────────────────────────────────────────────────────────────
+      if (key === ' ')          { e.preventDefault(); dispatch('toggle') }
+      if (key === 'arrowleft' && !cmd)  { e.preventDefault(); dispatch('seekBack') }
+      if (key === 'arrowright' && !cmd) { e.preventDefault(); dispatch('seekFwd') }
+      if (cmd && key === 'arrowup')     { e.preventDefault(); dispatch('volUp') }
+      if (cmd && key === 'arrowdown')   { e.preventDefault(); dispatch('volDown') }
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); clearTimeout(gTimer) }
+  }, [navigate, openModal, onLogout])
 
   // ── Global presence — single channel owned here, onlineIds passed as prop ──
   const [onlineIds, setOnlineIds] = React.useState(new Set())
