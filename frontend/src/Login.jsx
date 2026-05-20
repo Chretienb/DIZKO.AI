@@ -380,71 +380,75 @@ export default function Login({ onLogin }) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {tab === 'signup' && (
-                  <input type="text" placeholder="Full name" value={name}
-                    onChange={e => setName(e.target.value)} required
-                    style={{ width:'100%', padding:'13px 16px', fontSize:14, borderRadius:12,
-                      border:`1.5px solid ${focus==='name' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
-                      background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
-                      boxSizing:'border-box', transition:'border-color .18s' }}
-                    onFocus={() => setFocus('name')} onBlur={() => setFocus('')}/>
-                )}
-                <input type="email" placeholder="Email address" value={email}
-                  onChange={e => setEmail(e.target.value)} required
-                  style={{ width:'100%', padding:'13px 16px', fontSize:14, borderRadius:12,
-                    border:`1.5px solid ${focus==='email' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
-                    background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
-                    boxSizing:'border-box', transition:'border-color .18s' }}
-                  onFocus={() => setFocus('email')} onBlur={() => setFocus('')}/>
-                {tab !== 'forgot' && (
-                  <div style={{ position:'relative' }}>
-                    <input type={showPass ? 'text' : 'password'} placeholder="Password" value={password}
-                      onChange={e => setPass(e.target.value)} required
-                      style={{ width:'100%', padding:'13px 48px 13px 16px', fontSize:14, borderRadius:12,
-                        border:`1.5px solid ${focus==='pw' ? C.coral+'60' : 'rgba(255,255,255,.1)'}`,
-                        background:'rgba(255,255,255,.05)', color:'#fff', outline:'none',
-                        boxSizing:'border-box', transition:'border-color .18s' }}
-                      onFocus={() => setFocus('pw')} onBlur={() => setFocus('')}/>
-                    <button type="button" onClick={() => setShowPass(v => !v)}
-                      style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)',
-                        background:'none', border:'none', cursor:'pointer', padding:4,
-                        color: showPass ? C.coral : 'rgba(255,255,255,.3)',
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        transition:'color .15s' }}>
-                      {showPass ? (
-                        /* Eye-off */
-                        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      ) : (
-                        /* Eye */
-                        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                )}
+              <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+                {/* ── Lane inputs ─────────────────────────────────────────── */}
+                {[
+                  ...(tab === 'signup' ? [{ id:'name', type:'text', label:'Full Name', val:name, set:setName }] : []),
+                  { id:'email', type:'email', label:'Email Address', val:email, set:setEmail },
+                  ...(tab !== 'forgot' ? [{ id:'pw', type:'password', label:'Password', val:password, set:setPass, isPw:true }] : []),
+                ].map((f, i, arr) => {
+                  const on = focus === f.id
+                  const isFirst = i === 0
+                  const isLast  = i === arr.length - 1
+                  return (
+                    <div key={f.id} style={{ position:'relative',
+                      borderRadius: isFirst && isLast ? 14 : isFirst ? '14px 14px 0 0' : isLast ? '0 0 14px 14px' : 0,
+                      marginBottom: isLast ? 0 : 2,
+                      background: on ? 'rgba(244,147,122,.06)' : 'rgba(255,255,255,.04)',
+                      border:`1px solid ${on ? C.coral+'50' : 'rgba(255,255,255,.07)'}`,
+                      transition:'all .18s', overflow:'hidden' }}>
+                      {/* Left accent lane */}
+                      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
+                        background: on ? C.grad : 'transparent', transition:'background .2s' }}/>
+                      <div style={{ padding:'10px 16px 12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em',
+                            textTransform:'uppercase', marginBottom:5,
+                            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>
+                            {f.label}
+                          </div>
+                          <input
+                            type={f.isPw ? (showPass ? 'text' : 'password') : f.type}
+                            value={f.val}
+                            onChange={e => f.set(e.target.value)}
+                            onFocus={() => setFocus(f.id)}
+                            onBlur={() => setFocus('')}
+                            required
+                            style={{ width:'100%', background:'transparent', border:'none', outline:'none',
+                              color:'#fff', fontSize:15, fontFamily:'inherit', padding:0,
+                              caretColor: C.coral }}/>
+                        </div>
+                        {f.isPw && (
+                          <button type="button" onClick={() => setShowPass(v => !v)}
+                            style={{ background:'none', border:'none', cursor:'pointer', padding:'0 0 0 12px',
+                              color: showPass ? C.coral : 'rgba(255,255,255,.25)', flexShrink:0,
+                              display:'flex', alignItems:'center', transition:'color .15s' }}>
+                            {showPass
+                              ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                              : <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            }
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
 
                 {tab === 'signin' && (
-                  <div style={{ textAlign:'right', marginTop:-2 }}>
+                  <div style={{ textAlign:'right', marginTop:2 }}>
                     <button type="button" onClick={() => { setTab('forgot'); setError('') }}
                       style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
-                        color:'rgba(255,255,255,.3)', cursor:'pointer', padding:0,
-                        transition:'color .15s' }}
+                        color:'rgba(255,255,255,.28)', cursor:'pointer', padding:0, transition:'color .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.color=C.coral}
-                      onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>
+                      onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.28)'}>
                       Forgot password?
                     </button>
                   </div>
                 )}
 
                 {error && (
-                  <div style={{ padding:'10px 14px', borderRadius:10,
+                  <div style={{ padding:'10px 14px', borderRadius:10, marginTop:4,
                     background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
                     fontSize:13, color:'#f87171', lineHeight:1.45 }}>
                     {error}
@@ -452,11 +456,11 @@ export default function Login({ onLogin }) {
                 )}
 
                 <button type="submit" disabled={loading || !!socialLoading}
-                  style={{ marginTop:4, width:'100%', padding:'14px', borderRadius:12, border:'none',
+                  style={{ marginTop:6, width:'100%', padding:'15px', borderRadius:14, border:'none',
                     background: loading ? 'rgba(255,255,255,.06)' : C.grad,
                     color: loading ? 'rgba(255,255,255,.3)' : '#fff',
                     fontSize:14, fontWeight:800, cursor: loading ? 'default' : 'pointer',
-                    boxShadow: loading ? 'none' : `0 6px 24px ${C.coral}40`,
+                    boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
                     transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
                     opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
                   {loading
