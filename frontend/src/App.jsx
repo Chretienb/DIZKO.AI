@@ -1149,34 +1149,29 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 }
 
 // ─── MODAL: BILLING ────────────────────────────────────────────────────────
-function ModalBilling({ onClose }) {
-  const [billing, setBilling] = useState(null)
-  const [loading, setLoading] = useState(true)
+function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   const [acting,  setActing]  = useState(false)
   const [selPlan, setSelPlan] = useState('pro')
 
-  useEffect(() => {
-    billingApi.status().then(r => { setBilling(r?.data); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
-
-  const STATUS_COLOR = { trialing:'#f59e0b', active:'#22c55e', past_due:'#ef4444', canceled:'#6b7280' }
-  const hasCard   = billing?.has_payment_method
-  const status    = billing?.subscription_status ?? 'trialing'
-  const plan      = billing?.plan ?? 'free_trial'
-  const daysLeft  = billing?.trial_days_left ?? 0
-  const usedGb    = billing?.storage_used_gb ?? '0.00'
-  const limitGb   = billing?.storage_limit_gb ?? '10.00'
-  const storagePct = billing?.storage_percent ?? 0
+  // Use pre-fetched billing data from App — no loading flash
+  const hasCard    = billingStatus?.has_payment_method
+  const status     = billingStatus?.subscription_status ?? 'trialing'
+  const plan       = billingStatus?.plan ?? 'free_trial'
+  const daysLeft   = billingStatus?.trial_days_left ?? 0
+  const usedGb     = billingStatus?.storage_used_gb ?? '0.00'
+  const limitGb    = billingStatus?.storage_limit_gb ?? '10.00'
+  const storagePct = billingStatus?.storage_percent ?? 0
 
   const PLANS = [
-    { id:'pro',    label:'Pro',    price:'$14.99', storage:'50 GB',  priceId: 'price_1TYvWuE1CNYMrSh5ZvWOx7XO', popular:true  },
-    { id:'studio', label:'Studio', price:'$29.99', storage:'200 GB', priceId: 'price_1TYvX5E1CNYMrSh5hIof0XZ4', popular:false },
-    { id:'label',  label:'Label',  price:'$99',    storage:'1 TB',   priceId: 'price_1TYvX5E1CNYMrSh5A67yR8dW', popular:false },
+    { id:'pro',    label:'Pro',    price:'14.99', storage:'50 GB',  priceId:'price_1TYvWuE1CNYMrSh5ZvWOx7XO', popular:true  },
+    { id:'studio', label:'Studio', price:'29.99', storage:'200 GB', priceId:'price_1TYvX5E1CNYMrSh5hIof0XZ4', popular:false },
+    { id:'label',  label:'Label',  price:'99',    storage:'1 TB',   priceId:'price_1TYvX5E1CNYMrSh5A67yR8dW', popular:false },
   ]
+  const selected = PLANS.find(p => p.id === selPlan) ?? PLANS[0]
 
-  async function handleCheckout(priceId) {
+  async function handleCheckout() {
     setActing(true)
-    const r = await billingApi.checkout(priceId).catch(() => null)
+    const r = await billingApi.checkout(selected.priceId).catch(() => null)
     if (r?.data?.url) window.location.href = r.data.url
     else setActing(false)
   }
@@ -1188,121 +1183,137 @@ function ModalBilling({ onClose }) {
     else setActing(false)
   }
 
-  if (loading) return (
-    <Modal title="Billing & Plan" sub="Loading your plan…" onClose={onClose} accent="#111">
-      <div style={{ textAlign:'center', padding:40, color:'rgba(255,255,255,.4)' }}>Loading…</div>
-    </Modal>
-  )
+  // ── Upsell — no card yet ─────────────────────────────────────────────────────
+  if (!billingLoaded || !hasCard) return (
+    <Modal title="" sub="" onClose={onClose} accent="#111">
+      <div style={{ padding:'0 2px' }}>
 
-  // ── Upsell mode — no card added yet ──────────────────────────────────────────
-  if (!hasCard) return (
-    <Modal title="Start Your Free Trial" sub="2 months free · No charge until month 3" onClose={onClose} accent="#111">
-      <div style={{ borderRadius:14, background:'linear-gradient(135deg,#0f0f0f,#1e0812)',
-        padding:'16px 18px', marginBottom:18, textAlign:'center' }}>
-        <div style={{ fontSize:13, color:'#f59e0b', fontWeight:700, marginBottom:6 }}>
-          FREE for 2 months — then billed monthly
+        {/* Header */}
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,rgba(244,147,122,.15),rgba(242,143,184,.15))',
+            border:'1px solid rgba(244,147,122,.25)', borderRadius:100, padding:'5px 14px', marginBottom:14 }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background:C.coral }} />
+            <span style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.06em' }}>FREE FOR 2 MONTHS</span>
+          </div>
+          <div style={{ fontSize:24, fontWeight:900, color:'#0a0a0f', letterSpacing:'-1px', lineHeight:1.15, marginBottom:6 }}>
+            Start your free trial
+          </div>
+          <div style={{ fontSize:13, color:'#888' }}>
+            No charge until month 3 · Cancel anytime
+          </div>
         </div>
-        <div style={{ fontSize:11.5, color:'rgba(255,255,255,.4)' }}>
-          Card required now · $0 charged today · Cancel anytime
-        </div>
-      </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:18 }}>
-        {PLANS.map(p => (
-          <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
-            display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'13px 16px', borderRadius:12, cursor:'pointer', textAlign:'left',
-            border: selPlan === p.id ? `2px solid ${C.coral}` : '2px solid rgba(0,0,0,.08)',
-            background: selPlan === p.id ? 'rgba(244,147,122,.06)' : 'rgba(0,0,0,.02)',
-            transition:'all .15s',
-          }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:16, height:16, borderRadius:'50%', border:`2px solid ${selPlan === p.id ? C.coral : '#ccc'}`,
-                background: selPlan === p.id ? C.coral : 'transparent', flexShrink:0 }} />
-              <div>
-                <div style={{ fontSize:13, fontWeight:700, color:'#111', display:'flex', alignItems:'center', gap:6 }}>
-                  {p.label}
-                  {p.popular && <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:100,
-                    background:C.grad, color:'#fff', letterSpacing:'.05em' }}>POPULAR</span>}
+        {/* Plan cards */}
+        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:20 }}>
+          {PLANS.map(p => {
+            const on = selPlan === p.id
+            return (
+              <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
+                display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'14px 16px', borderRadius:14, cursor:'pointer', textAlign:'left',
+                border: on ? `2px solid ${C.coral}` : '1.5px solid #ebebeb',
+                background: on ? 'linear-gradient(135deg,rgba(244,147,122,.07),rgba(242,143,184,.05))' : '#fff',
+                transition:'all .15s', outline:'none',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  {/* Radio dot */}
+                  <div style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                    border: `2px solid ${on ? C.coral : '#ddd'}`, background: on ? C.coral : '#fff', transition:'all .15s' }}>
+                    {on && <div style={{ width:6, height:6, borderRadius:'50%', background:'#fff' }} />}
+                  </div>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                      <span style={{ fontSize:14, fontWeight:700, color:'#0a0a0f' }}>{p.label}</span>
+                      {p.popular && (
+                        <span style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:100,
+                          background:C.grad, color:'#fff', letterSpacing:'.06em' }}>POPULAR</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:11.5, color:'#999' }}>{p.storage} storage · Unlimited everything</div>
+                  </div>
                 </div>
-                <div style={{ fontSize:11, color:'#888', marginTop:1 }}>{p.storage} storage · Unlimited projects & collaborators</div>
-              </div>
-            </div>
-            <div style={{ textAlign:'right', flexShrink:0 }}>
-              <div style={{ fontSize:15, fontWeight:900, color:'#111' }}>{p.price}</div>
-              <div style={{ fontSize:10, color:'#aaa' }}>/mo after trial</div>
-            </div>
-          </button>
-        ))}
-      </div>
+                <div style={{ textAlign:'right', flexShrink:0 }}>
+                  <div style={{ fontSize:16, fontWeight:800, color: on ? C.coral : '#333' }}>${p.price}</div>
+                  <div style={{ fontSize:10, color:'#bbb' }}>/mo after trial</div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
 
-      <Btn style={{ width:'100%', marginBottom:8 }}
-        onClick={() => handleCheckout(PLANS.find(p => p.id === selPlan)?.priceId)}
-        disabled={acting}>
-        {acting ? 'Redirecting to Stripe…' : `Start Free Trial — ${PLANS.find(p=>p.id===selPlan)?.label}`}
-      </Btn>
-      <div style={{ fontSize:10.5, color:'#aaa', textAlign:'center', marginBottom:12 }}>
-        You won't be charged for 60 days. Cancel anytime before month 3.
+        {/* CTA */}
+        <button onClick={handleCheckout} disabled={acting} style={{
+          width:'100%', padding:'14px', borderRadius:12, border:'none', cursor: acting ? 'default' : 'pointer',
+          background: acting ? '#ccc' : C.grad, color:'#fff', fontSize:14, fontWeight:800,
+          letterSpacing:'-.2px', marginBottom:10, transition:'opacity .15s', opacity: acting ? .7 : 1,
+        }}>
+          {acting ? 'Opening Stripe…' : `Start Free Trial — ${selected.label} Plan`}
+        </button>
+        <div style={{ fontSize:11, color:'#bbb', textAlign:'center', marginBottom:14 }}>
+          $0 today · Billed ${selected.price}/mo starting month 3 · Cancel before then, pay nothing
+        </div>
+        <button onClick={onClose} style={{ width:'100%', padding:'11px', borderRadius:12,
+          border:'1.5px solid #ebebeb', background:'transparent', color:'#999',
+          fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          Maybe later
+        </button>
       </div>
-      <Btn variant="ghost" style={{ width:'100%' }} onClick={onClose}>Maybe later</Btn>
     </Modal>
   )
 
-  // ── Management mode — card on file ────────────────────────────────────────────
+  // ── Management — card on file ─────────────────────────────────────────────────
   const PLAN_LABEL = { free_trial:'Free Trial', pro:'Pro', studio:'Studio', label:'Label' }
-  const PLAN_PRICE = { free_trial:'$0', pro:'$14.99', studio:'$29.99', label:'$99' }
+  const PLAN_PRICE = { free_trial:'0', pro:'14.99', studio:'29.99', label:'99' }
+  const STATUS_COLOR = { trialing:'#f59e0b', active:'#22c55e', past_due:'#ef4444', canceled:'#6b7280' }
 
   return (
     <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#111">
-      <div style={{ borderRadius:16, background:'linear-gradient(135deg,#0f0f0f,#1e0812)',
-        padding:'20px 22px', marginBottom:20 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+      <div style={{ borderRadius:14, background:'linear-gradient(135deg,#0f0f0f,#1a0810)',
+        padding:'18px 20px', marginBottom:18 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
           <div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,.35)', fontWeight:700,
-              letterSpacing:'.1em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
-            <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+              letterSpacing:'.1em', textTransform:'uppercase', marginBottom:5 }}>Current Plan</div>
+            <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
               {PLAN_LABEL[plan] ?? plan}
             </div>
           </div>
-          <span style={{ fontSize:10.5, fontWeight:700, padding:'5px 14px', borderRadius:100,
+          <span style={{ fontSize:10, fontWeight:700, padding:'4px 12px', borderRadius:100,
             background: STATUS_COLOR[status] ?? '#6b7280', color:'#fff' }}>
             {status === 'trialing' ? `${daysLeft}d left` : status}
           </span>
         </div>
-        <div style={{ fontSize:32, fontWeight:900, color:C.coral, letterSpacing:'-1.5px', marginBottom:3 }}>
-          {status === 'trialing' ? '$0' : (PLAN_PRICE[plan] ?? '—')}
-          <span style={{ fontSize:14, color:'rgba(255,255,255,.35)', fontWeight:500 }}>/mo</span>
+        <div style={{ fontSize:28, fontWeight:900, color:C.coral, letterSpacing:'-1px' }}>
+          {status === 'trialing' ? '$0' : `$${PLAN_PRICE[plan] ?? '—'}`}
+          <span style={{ fontSize:13, color:'rgba(255,255,255,.3)', fontWeight:400 }}>/mo</span>
         </div>
         {status === 'trialing' && (
-          <div style={{ fontSize:11.5, color:'#f59e0b', marginTop:4, fontWeight:600 }}>
-            Free until day 60 · then {PLAN_PRICE[plan]}/mo · {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining
+          <div style={{ fontSize:11, color:'#f59e0b', marginTop:4, fontWeight:600 }}>
+            Free until day 60 · then ${PLAN_PRICE[plan]}/mo · {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
           </div>
         )}
         {status === 'past_due' && (
-          <div style={{ fontSize:11.5, color:'#ef4444', marginTop:4, fontWeight:600 }}>
+          <div style={{ fontSize:11, color:'#ef4444', marginTop:4, fontWeight:600 }}>
             Payment failed — update your card to avoid losing access
           </div>
         )}
       </div>
 
-      <div style={{ padding:'13px 15px', background:'rgba(0,0,0,.02)', borderRadius:10,
-        border:'1px solid rgba(0,0,0,.06)', marginBottom:18 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:7 }}>
+      <div style={{ padding:'12px 14px', background:'#f9f9f9', borderRadius:10, marginBottom:18 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6 }}>
           <span style={{ fontWeight:600, color:'#555' }}>Storage</span>
           <span style={{ fontWeight:700, color:'#111' }}>{usedGb} / {limitGb} GB</span>
         </div>
-        <div style={{ height:4, background:'rgba(0,0,0,.06)', borderRadius:4 }}>
+        <div style={{ height:4, background:'#e5e5e5', borderRadius:4 }}>
           <div style={{ width:`${Math.min(storagePct,100)}%`, height:'100%',
-            background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4 }}/>
+            background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4, transition:'width .3s' }}/>
         </div>
         {storagePct > 90 && (
-          <div style={{ fontSize:11, color:'#ef4444', marginTop:5, fontWeight:600 }}>
-            Storage almost full — upgrade your plan
-          </div>
+          <div style={{ fontSize:11, color:'#ef4444', marginTop:5, fontWeight:600 }}>Storage almost full — upgrade your plan</div>
         )}
       </div>
 
-      <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(0,0,0,.06)', paddingTop:18 }}>
+      <div style={{ display:'flex', gap:8 }}>
         <Btn style={{ flex:1 }} onClick={handlePortal} disabled={acting}>
           {acting ? 'Redirecting…' : 'Manage Subscription'}
         </Btn>
@@ -6378,7 +6389,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
       {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
       {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
-      {modal?.type==='billing'           && <ModalBilling onClose={closeModal} />}
+      {modal?.type==='billing'           && <ModalBilling onClose={closeModal} billingStatus={billingStatus} billingLoaded={billingLoaded} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
       {modal?.type==='invite'      && <ModalInvite     onClose={closeModal} />}
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
