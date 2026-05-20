@@ -62,15 +62,15 @@ export default function Login({ onLogin }) {
   const [focus, setFocus]          = useState('')
   const [loading, setLoading]      = useState(false)
   const [socialLoading, setSocial] = useState(null)
-  const [error, setError]          = useState('')
+  const [formError, setFormError]  = useState('')
   const submit = async e => {
     e.preventDefault()
-    setError('')
+    setFormError('')
     setLoading(true)
     try {
       if (tab === 'forgot') {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setError('Please enter a valid email address.')
+          setFormError('Please enter a valid email address.')
           setLoading(false)
           return
         }
@@ -88,7 +88,7 @@ export default function Login({ onLogin }) {
       const fullName = res.data.user?.user_metadata?.full_name ?? ''
       onLogin(fullName, isNewUser, { ...res.data.user, avatar_url: res.data.user?.user_metadata?.avatar_url })
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.')
+      setFormError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -107,7 +107,7 @@ export default function Login({ onLogin }) {
       })
       if (error) throw error
     } catch (err) {
-      setError(err.message || 'Spotify login failed')
+      setFormError(err.message || 'Spotify login failed')
       setSocial(null)
     }
   }
@@ -272,7 +272,7 @@ export default function Login({ onLogin }) {
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
             <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.06)', borderRadius:10, padding:3 }}>
               {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
-                <button key={t} onClick={() => { setTab(t); setError('') }} style={{
+                <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
                   padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
                   fontSize:12, fontWeight:600, transition:'all .18s',
                   background: tab===t ? 'rgba(255,255,255,.12)' : 'transparent',
@@ -305,7 +305,7 @@ export default function Login({ onLogin }) {
             ) : (
               <div style={{ marginBottom:32 }}>
                 {tab === 'forgot-sent' ? null : (
-                  <button onClick={() => { setTab('signin'); setError('') }}
+                  <button onClick={() => { setTab('signin'); setFormError('') }}
                     style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
                       color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', marginBottom:20, padding:0 }}>
                     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
@@ -367,13 +367,13 @@ export default function Login({ onLogin }) {
                 <div style={{ fontSize:13, color:'rgba(74,222,128,.7)', lineHeight:1.6 }}>
                   Check your inbox at <strong style={{ color:'#4ade80' }}>{email}</strong>. The link expires in 1 hour.
                 </div>
-                <button onClick={() => { setTab('signin'); setError('') }}
+                <button onClick={() => { setTab('signin'); setFormError('') }}
                   style={{ marginTop:14, background:'none', border:'1px solid rgba(255,255,255,.12)',
                     borderRadius:9, padding:'8px 16px', color:'rgba(255,255,255,.5)',
                     fontSize:12, fontWeight:600, cursor:'pointer', width:'100%' }}>
                   Back to sign in
                 </button>
-                <button onClick={() => { setTab('forgot'); setError('') }}
+                <button onClick={() => { setTab('forgot'); setFormError('') }}
                   style={{ marginTop:8, background:'none', border:'none', color:'rgba(255,255,255,.2)',
                     fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
                   Resend
@@ -383,14 +383,16 @@ export default function Login({ onLogin }) {
               <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
 
                 {/* ── Lane inputs ─────────────────────────────────────────── */}
-                {[
-                  ...(tab === 'signup' ? [{ id:'name', type:'text', label:'Full Name', val:name, set:setName }] : []),
-                  { id:'email', type:'email', label:'Email Address', val:email, set:setEmail },
-                  ...(tab !== 'forgot' ? [{ id:'pw', type:'password', label:'Password', val:password, set:setPass, isPw:true }] : []),
-                ].map((f, i, arr) => {
+                {(() => {
+                  const fields = [
+                    ...(tab === 'signup' ? [{ id:'name', type:'text', label:'Full Name', val:name, set:setName }] : []),
+                    { id:'email', type:'email', label:'Email Address', val:email, set:setEmail },
+                    ...(tab !== 'forgot' ? [{ id:'pw', type:'password', label:'Password', val:password, set:setPass, isPw:true }] : []),
+                  ]
+                  return fields.map((f, i) => {
                   const on = focus === f.id
                   const isFirst = i === 0
-                  const isLast  = i === arr.length - 1
+                  const isLast  = i === fields.length - 1
                   return (
                     <div key={f.id} style={{ position:'relative',
                       borderRadius: isFirst && isLast ? 14 : isFirst ? '14px 14px 0 0' : isLast ? '0 0 14px 14px' : 0,
@@ -433,11 +435,11 @@ export default function Login({ onLogin }) {
                       </div>
                     </div>
                   )
-                })}
+                })})()}
 
                 {tab === 'signin' && (
                   <div style={{ textAlign:'right', marginTop:2 }}>
-                    <button type="button" onClick={() => { setTab('forgot'); setError('') }}
+                    <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
                       style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
                         color:'rgba(255,255,255,.28)', cursor:'pointer', padding:0, transition:'color .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.color=C.coral}
@@ -447,11 +449,11 @@ export default function Login({ onLogin }) {
                   </div>
                 )}
 
-                {error && (
+                {formError && (
                   <div style={{ padding:'10px 14px', borderRadius:10, marginTop:4,
                     background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
                     fontSize:13, color:'#f87171', lineHeight:1.45 }}>
-                    {error}
+                    {formError}
                   </div>
                 )}
 
@@ -481,7 +483,7 @@ export default function Login({ onLogin }) {
               <p style={{ margin:'22px 0 0', textAlign:'center', fontSize:13,
                 color:'rgba(255,255,255,.25)' }}>
                 {tab === 'signin' ? "New to Dizko? " : 'Already have an account? '}
-                <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setError('') }}
+                <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
                   style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
                     color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,
                     transition:'color .15s' }}
