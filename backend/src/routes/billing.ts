@@ -84,7 +84,7 @@ billing.post('/checkout', requireAuth, async (c) => {
   const now          = Math.floor(Date.now() / 1000)
   const hasTrialLeft = trialEndUnix > now + 86_400 // more than 1 day left
 
-  const origin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+  const origin = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
 
   const session = await stripe.checkout.sessions.create({
     customer:                  customerId,
