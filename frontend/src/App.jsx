@@ -6052,18 +6052,22 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   // Billing status — fetched once on load, used in sidebar + modal
   const [billingStatus, setBillingStatus] = React.useState(null)
+  const [billingLoaded, setBillingLoaded] = React.useState(false)
   React.useEffect(() => {
     if (!user?.id) return
-    billingApi.status().then(r => setBillingStatus(r?.data)).catch(() => null)
+    billingApi.status()
+      .then(r => { setBillingStatus(r?.data); setBillingLoaded(true) })
+      .catch(() => setBillingLoaded(true))
   }, [user?.id])
 
   const planLabel = { free_trial: 'Free Trial', pro: 'Pro', studio: 'Studio', label: 'Label' }
   const currentPlanLabel = planLabel[billingStatus?.plan] ?? 'Free Trial'
   const trialDaysLeft = billingStatus?.trial_days_left ?? null
   // User has access if they've added a payment method and are not canceled
-  const hasAccess = billingStatus
-    ? (billingStatus.has_payment_method && billingStatus.subscription_status !== 'canceled')
-    : true // allow while loading to avoid flash-blocking
+  // Only grant access once billing is loaded AND payment method exists
+  const hasAccess = billingLoaded
+    ? (!!billingStatus?.has_payment_method && billingStatus?.subscription_status !== 'canceled')
+    : false // block while loading — prevents race condition bypass
 
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
