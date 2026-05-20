@@ -52,6 +52,40 @@ const SOCIALS = [
   },
 ]
 
+function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass, rounded }) {
+  const on = focus === id
+  const br = rounded === 'all' ? 14 : rounded === 'top' ? '14px 14px 0 0' : rounded === 'bot' ? '0 0 14px 14px' : 0
+  return (
+    <div style={{ position:'relative', borderRadius:br, marginBottom: rounded==='bot'||rounded==='all' ? 0 : 2,
+      background: on ? 'rgba(244,147,122,.06)' : 'rgba(255,255,255,.04)',
+      border:`1px solid ${on ? C.coral+'50' : 'rgba(255,255,255,.07)'}`,
+      transition:'all .18s', overflow:'hidden' }}>
+      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
+        background: on ? C.grad : 'transparent', transition:'background .2s' }}/>
+      <div style={{ padding:'10px 16px 12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:5,
+            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>{label}</div>
+          <input type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
+            onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
+            style={{ width:'100%', background:'transparent', border:'none', outline:'none',
+              color:'#fff', fontSize:15, fontFamily:'inherit', padding:0, caretColor:C.coral }}/>
+        </div>
+        {isPw && (
+          <button type="button" onClick={togglePass}
+            style={{ background:'none', border:'none', cursor:'pointer', padding:'0 0 0 12px',
+              color: showPass ? C.coral : 'rgba(255,255,255,.25)', flexShrink:0, display:'flex', alignItems:'center' }}>
+            {showPass
+              ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            }
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Login({ onLogin }) {
   const isMobile = useIsMobile()
   const [tab, setTab]              = useState('signin')  // 'signin' | 'signup' | 'forgot' | 'forgot-sent'
@@ -382,60 +416,10 @@ export default function Login({ onLogin }) {
             ) : (
               <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
 
-                {/* ── Lane inputs ─────────────────────────────────────────── */}
-                {(() => {
-                  const fields = [
-                    ...(tab === 'signup' ? [{ id:'name', type:'text', label:'Full Name', val:name, set:setName }] : []),
-                    { id:'email', type:'email', label:'Email Address', val:email, set:setEmail },
-                    ...(tab !== 'forgot' ? [{ id:'pw', type:'password', label:'Password', val:password, set:setPass, isPw:true }] : []),
-                  ]
-                  return fields.map((f, i) => {
-                  const on = focus === f.id
-                  const isFirst = i === 0
-                  const isLast  = i === fields.length - 1
-                  return (
-                    <div key={f.id} style={{ position:'relative',
-                      borderRadius: isFirst && isLast ? 14 : isFirst ? '14px 14px 0 0' : isLast ? '0 0 14px 14px' : 0,
-                      marginBottom: isLast ? 0 : 2,
-                      background: on ? 'rgba(244,147,122,.06)' : 'rgba(255,255,255,.04)',
-                      border:`1px solid ${on ? C.coral+'50' : 'rgba(255,255,255,.07)'}`,
-                      transition:'all .18s', overflow:'hidden' }}>
-                      {/* Left accent lane */}
-                      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
-                        background: on ? C.grad : 'transparent', transition:'background .2s' }}/>
-                      <div style={{ padding:'10px 16px 12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em',
-                            textTransform:'uppercase', marginBottom:5,
-                            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>
-                            {f.label}
-                          </div>
-                          <input
-                            type={f.isPw ? (showPass ? 'text' : 'password') : f.type}
-                            value={f.val}
-                            onChange={e => f.set(e.target.value)}
-                            onFocus={() => setFocus(f.id)}
-                            onBlur={() => setFocus('')}
-                            required
-                            style={{ width:'100%', background:'transparent', border:'none', outline:'none',
-                              color:'#fff', fontSize:15, fontFamily:'inherit', padding:0,
-                              caretColor: C.coral }}/>
-                        </div>
-                        {f.isPw && (
-                          <button type="button" onClick={() => setShowPass(v => !v)}
-                            style={{ background:'none', border:'none', cursor:'pointer', padding:'0 0 0 12px',
-                              color: showPass ? C.coral : 'rgba(255,255,255,.25)', flexShrink:0,
-                              display:'flex', alignItems:'center', transition:'color .15s' }}>
-                            {showPass
-                              ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                              : <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            }
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })})()}
+                {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
+                {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} top rounded={tab==='signup'&&tab!=='forgot'?'top':'all'} />}
+                <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} top={tab!=='signup'} bot={tab==='forgot'} rounded={tab==='forgot'?'all':tab==='signup'?'none':'top'} />
+                {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} bot rounded="bot" />}
 
                 {tab === 'signin' && (
                   <div style={{ textAlign:'right', marginTop:2 }}>
