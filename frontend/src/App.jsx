@@ -1152,6 +1152,7 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   const [acting,  setActing]  = useState(false)
   const [selPlan, setSelPlan] = useState('pro')
+  const [err,     setErr]     = useState('')
 
   // Use pre-fetched billing data from App — no loading flash
   const hasCard    = billingStatus?.has_payment_method
@@ -1171,16 +1172,28 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
   async function handleCheckout() {
     setActing(true)
-    const r = await billingApi.checkout(selected.priceId).catch(() => null)
-    if (r?.data?.url) window.location.href = r.data.url
-    else setActing(false)
+    setErr('')
+    try {
+      const r = await billingApi.checkout(selected.priceId)
+      if (r?.data?.url) { window.location.href = r.data.url; return }
+      setErr(r?.error ?? 'Could not start checkout — try again')
+    } catch (e) {
+      setErr('Network error — make sure you are logged in')
+    }
+    setActing(false)
   }
 
   async function handlePortal() {
     setActing(true)
-    const r = await billingApi.portal().catch(() => null)
-    if (r?.data?.url) window.location.href = r.data.url
-    else setActing(false)
+    setErr('')
+    try {
+      const r = await billingApi.portal()
+      if (r?.data?.url) { window.location.href = r.data.url; return }
+      setErr(r?.error ?? 'Could not open portal — try again')
+    } catch (e) {
+      setErr('Network error — please try again')
+    }
+    setActing(false)
   }
 
   // ── Upsell — no card yet ─────────────────────────────────────────────────────
@@ -1240,6 +1253,15 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
             )
           })}
         </div>
+
+        {/* Error */}
+        {err && (
+          <div style={{ background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',
+            borderRadius:10, padding:'10px 14px', marginBottom:10, fontSize:12,
+            color:'#ef4444', fontWeight:600 }}>
+            {err}
+          </div>
+        )}
 
         {/* CTA */}
         <button onClick={handleCheckout} disabled={acting} style={{
