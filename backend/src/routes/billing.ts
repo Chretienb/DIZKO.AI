@@ -12,7 +12,7 @@ billing.get('/status', requireAuth, async (c) => {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('plan, subscription_status, trial_end, storage_used_bytes, storage_limit_bytes, stripe_customer_id')
+    .select('plan, subscription_status, trial_end, storage_used_bytes, storage_limit_bytes, stripe_customer_id, stripe_subscription_id')
     .eq('id', userId)
     .single()
 
@@ -30,7 +30,7 @@ billing.get('/status', requireAuth, async (c) => {
       subscription_status: p.subscription_status,
       trial_end:           p.trial_end,
       trial_days_left:     daysLeft,
-      has_payment_method:  !!p.stripe_customer_id,
+      has_payment_method:  !!p.stripe_subscription_id,
       storage_used_bytes:  p.storage_used_bytes,
       storage_limit_bytes: p.storage_limit_bytes,
       storage_used_gb:     storageUsedGb,
