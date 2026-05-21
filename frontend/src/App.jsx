@@ -5424,10 +5424,20 @@ function PageAnalytics({ onGated, hasAccess }) {
     console.log('[YT] hasAccess:', hasAccess)
     if (!hasAccess) { console.log('[YT] BLOCKED — opening billing modal'); onGated?.(); return }
     console.log('[YT] calling API...')
-    const res = await youtubeApi.connect().catch(e => { console.error('[YT] API error:', e.message); return null })
-    console.log('[YT] response:', JSON.stringify(res))
-    if (res?.data?.url) { console.log('[YT] redirecting to Google...'); window.location.href = res.data.url }
-    else console.log('[YT] no URL — check response above')
+    // Force fresh request — bypass any cache
+    const res = await fetch('/api/youtube/connect', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('disco_token') || ''}`, 'Cache-Control': 'no-cache' }
+    }).then(r => r.json()).catch(e => { console.error('[YT] fetch error:', e.message); return null })
+    console.log('[YT] full response:', JSON.stringify(res))
+    const url = res?.data?.url
+    if (url) {
+      const parsed = new URL(url)
+      console.log('[YT] client_id in URL:', parsed.searchParams.get('client_id') || 'EMPTY!')
+      console.log('[YT] redirecting...')
+      window.location.href = url
+    } else {
+      console.log('[YT] no URL in response — not redirecting')
+    }
   }
 
   const loadYtVenuesForCity = (city) => {
