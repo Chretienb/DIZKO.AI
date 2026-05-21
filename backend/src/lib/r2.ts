@@ -8,6 +8,10 @@ const r2Client = new S3Client({
     accessKeyId:     process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
+  // Disable checksum — prevents x-amz-checksum-mode from appearing in signed URLs
+  // which triggers CORS preflight that R2 doesn't handle correctly
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 })
 
 const BUCKET = process.env.R2_BUCKET_NAME ?? 'dizko-audio'
