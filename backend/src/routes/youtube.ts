@@ -19,6 +19,7 @@ const SCOPES = [
 // Returns the Google OAuth URL for the frontend to redirect to
 yt.get('/connect', requireAuth, async (c) => {
   const userId = c.var.user.id
+  console.log('[youtube/connect] CLIENT_ID:', CLIENT_ID ? CLIENT_ID.slice(0,20)+'...' : 'EMPTY')
   const params = new URLSearchParams({
     client_id:     CLIENT_ID,
     redirect_uri:  REDIRECT_URI,
