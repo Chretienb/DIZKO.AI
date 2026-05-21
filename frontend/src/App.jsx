@@ -4996,11 +4996,23 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                         onMouseLeave={e=>e.currentTarget.style.background=`${color}10`}>
                         <IconPlay size={10} color={color}/>
                       </button>
-                      {commentCount > 0 && (
-                        <div style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(0,0,0,.07)',
-                          background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center',
-                          fontSize:10, fontWeight:800, color:'#888' }}>{commentCount}</div>
-                      )}
+                      {/* Comment badge — always show, lights up when there are comments */}
+                      <button onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : s.id); if (!isExpanded) loadComments(s.id) }}
+                        style={{ width:32, height:32, borderRadius:10, border:'none', cursor:'pointer',
+                          background: commentCount > 0 ? `${color}12` : 'rgba(0,0,0,.03)',
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:3,
+                          transition:'all .15s', position:'relative' }}>
+                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                          stroke={commentCount > 0 ? color : '#ccc'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                        </svg>
+                        {commentCount > 0 && (
+                          <span style={{ position:'absolute', top:-4, right:-4, width:16, height:16,
+                            borderRadius:'50%', background:color, color:'#fff',
+                            fontSize:8, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                            border:'2px solid #fff' }}>{commentCount}</span>
+                        )}
+                      </button>
                       <button onClick={() => deleteStem(s.id)} disabled={isDeleting}
                         style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(0,0,0,.07)',
                           background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
@@ -5038,32 +5050,94 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                           ))}
                         </div>
                       )}
-                      <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Comments</div>
-                      {comments.length === 0 && <div style={{ fontSize:12.5, color:'#ccc', marginBottom:12 }}>No comments yet</div>}
-                      {comments.map(cm => (
-                        <div key={cm.id} style={{ display:'flex', gap:10, marginBottom:10 }}>
-                          <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}15`, flexShrink:0,
-                            display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color }}>
-                            {initials(cm.user?.full_name || '?')}
-                          </div>
-                          <div style={{ flex:1, background:'rgba(0,0,0,.03)', borderRadius:10, padding:'8px 12px' }}>
-                            <div style={{ fontSize:11.5, fontWeight:700, color:'#555', marginBottom:3 }}>
-                              {cm.user?.full_name || 'Someone'}
-                              {cm.timestamp_sec > 0 && <span style={{ color:'#bbb', fontWeight:400 }}> @ {fmt(cm.timestamp_sec)}</span>}
-                            </div>
-                            <div style={{ fontSize:12.5, color:'#333', lineHeight:1.5 }}>{cm.text}</div>
-                          </div>
+                      {/* Comments header */}
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2} strokeLinecap="round">
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                          </svg>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>
+                            {comments.length > 0 ? `${comments.length} comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
+                          </span>
                         </div>
-                      ))}
-                      <div style={{ display:'flex', gap:8, marginTop:10 }}>
-                        <input placeholder="Add a comment…" value={commentDraft[s.id] || ''}
+                      </div>
+
+                      {/* Comment list */}
+                      {comments.length === 0 ? (
+                        <div style={{ fontSize:12.5, color:'#ccc', marginBottom:14, padding:'10px 0', textAlign:'center' }}>
+                          No comments yet — be the first
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
+                          {comments.map(cm => (
+                            <div key={cm.id} style={{ display:'flex', gap:10 }}>
+                              {/* Avatar */}
+                              <div style={{ width:30, height:30, borderRadius:'50%', background:`${color}15`,
+                                flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                                fontSize:10, fontWeight:800, color }}>
+                                {(cm.user_name || '?').charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ flex:1 }}>
+                                {/* Name + timestamp */}
+                                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                                  <span style={{ fontSize:12, fontWeight:700, color:'#222' }}>
+                                    {cm.user_name || 'Someone'}
+                                  </span>
+                                  {cm.timestamp_sec > 0 && (
+                                    <span style={{ fontSize:10.5, color:'#bbb', background:'rgba(0,0,0,.04)',
+                                      padding:'1px 6px', borderRadius:4 }}>
+                                      {fmt(cm.timestamp_sec)}
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Text */}
+                                <div style={{ fontSize:13, color:'#444', lineHeight:1.55, marginBottom:6 }}>
+                                  {cm.text}
+                                </div>
+                                {/* Like button */}
+                                <button onClick={e => {
+                                  e.stopPropagation()
+                                  setStemComments(prev => ({
+                                    ...prev,
+                                    [s.id]: (prev[s.id] || []).map(c =>
+                                      c.id === cm.id ? { ...c, _likes: (c._likes || 0) + 1, _liked: true } : c
+                                    )
+                                  }))
+                                }} style={{ display:'flex', alignItems:'center', gap:4, background:'none',
+                                  border:'none', cursor:'pointer', padding:0, transition:'transform .1s' }}
+                                onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
+                                onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+                                  <svg width={12} height={12} viewBox="0 0 24 24"
+                                    fill={cm._liked ? '#ef4444' : 'none'}
+                                    stroke={cm._liked ? '#ef4444' : '#ccc'} strokeWidth={2} strokeLinecap="round">
+                                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                                  </svg>
+                                  {cm._likes > 0 && (
+                                    <span style={{ fontSize:10, color: cm._liked ? '#ef4444' : '#bbb', fontWeight:600 }}>
+                                      {cm._likes}
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Input */}
+                      <div style={{ display:'flex', gap:8 }}>
+                        <input placeholder="Leave a comment…" value={commentDraft[s.id] || ''}
                           onChange={e => setCommentDraft(prev => ({...prev, [s.id]: e.target.value}))}
-                          onKeyDown={e => { if (e.key === 'Enter') postComment(s.id, currentTime) }}
-                          style={{ flex:1, padding:'9px 14px', borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
-                            fontSize:12.5, outline:'none', background:'#fff' }}/>
-                        <button onClick={() => postComment(s.id, currentTime)} disabled={postingComment === s.id}
-                          style={{ padding:'9px 16px', borderRadius:10, border:'none', background:color,
-                            color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) postComment(s.id, currentTime) }}
+                          style={{ flex:1, padding:'9px 13px', borderRadius:10,
+                            border:'1px solid rgba(0,0,0,.1)', fontSize:13, outline:'none',
+                            background:'#fafafa', fontFamily:'inherit' }}/>
+                        <button onClick={() => postComment(s.id, currentTime)} disabled={postingComment === s.id || !commentDraft[s.id]?.trim()}
+                          style={{ padding:'9px 16px', borderRadius:10, border:'none',
+                            background: commentDraft[s.id]?.trim() ? '#111' : 'rgba(0,0,0,.06)',
+                            color: commentDraft[s.id]?.trim() ? '#fff' : '#ccc',
+                            fontSize:12.5, fontWeight:700, cursor: commentDraft[s.id]?.trim() ? 'pointer' : 'default',
+                            transition:'all .15s' }}>
                           {postingComment === s.id ? <Spinner size={11} color="#fff"/> : 'Post'}
                         </button>
                       </div>
