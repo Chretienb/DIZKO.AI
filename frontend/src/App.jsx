@@ -6180,6 +6180,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     return () => window.removeEventListener('dizko:checklist', handler)
   }, [])
 
+  React.useEffect(() => {
+    const handler = () => { setRefresh(k => k + 1); setChecklistDone(d => ({ ...d, 0: true })) }
+    window.addEventListener('dizko:project_created', handler)
+    return () => window.removeEventListener('dizko:project_created', handler)
+  }, [])
+
   const CHECKLIST = [
     { label: 'Create your first project', action: () => openModal('new-project', {}) },
     { label: 'Upload your first stem',    action: () => openModal('upload', {}) },

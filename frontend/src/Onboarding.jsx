@@ -55,6 +55,7 @@ export default function Onboarding({ onComplete, user }) {
     setErr('')
     try {
       await projectsApi.create({ title: title.trim(), type })
+      window.dispatchEvent(new CustomEvent('dizko:project_created'))
       onComplete()
     } catch (e) {
       setErr(e.message || 'Could not create project — try again')
