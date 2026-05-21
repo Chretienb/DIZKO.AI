@@ -5106,102 +5106,94 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
             {/* AI Mix — flagship panel */}
-            <div style={{ borderRadius:24, overflow:'hidden',
-              background:'linear-gradient(160deg,#0f0f14 0%,#1a0820 100%)',
-              boxShadow:'0 8px 40px rgba(0,0,0,.18)' }}>
+            <div style={{ borderRadius:24, background:'#fff',
+              border:'1px solid rgba(0,0,0,.06)',
+              boxShadow:'0 4px 24px rgba(0,0,0,.07)', overflow:'hidden' }}>
 
-              {/* Top gradient bar */}
-              <div style={{ height:3, background:C.grad }}/>
+              {/* Coral top accent */}
+              <div style={{ height:4, background:C.grad }}/>
 
-              <div style={{ padding:'22px 22px 20px' }}>
+              <div style={{ padding:'28px 24px 24px' }}>
+
                 {/* Header */}
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
-                  <div>
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
-                      <div style={{ width:7, height:7, borderRadius:'50%', background:C.coral,
-                        boxShadow:`0 0 8px ${C.coral}` }}/>
-                      <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.12em',
-                        textTransform:'uppercase' }}>Powered by Claude</span>
-                    </div>
-                    <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1 }}>
-                      AI Mix
-                    </div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.12em', textTransform:'uppercase' }}>
+                      ✦ Powered by Claude
+                    </span>
                   </div>
                   {smartMixUrl && smartMixInfo?.stem_count && (
-                    <span style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,.3)',
-                      background:'rgba(255,255,255,.07)', padding:'4px 10px', borderRadius:100 }}>
-                      {smartMixInfo.stem_count} stems
-                    </span>
+                    <span style={{ fontSize:11, fontWeight:600, color:'#bbb' }}>{smartMixInfo.stem_count} stems</span>
                   )}
                 </div>
+                <div style={{ fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.2px', marginBottom:20, lineHeight:1 }}>
+                  AI Mix
+                </div>
 
-                {/* Claude's analysis */}
+                {/* Claude brief */}
                 {aiAnalysis?.brief && (
-                  <div style={{ marginBottom:18 }}>
-                    <p style={{ margin:'0 0 12px', fontSize:14, color:'rgba(255,255,255,.7)',
-                      lineHeight:1.7, fontStyle:'italic' }}>
-                      "{aiAnalysis.brief}"
+                  <>
+                    <p style={{ margin:'0 0 16px', fontSize:15, color:'#444', lineHeight:1.7 }}>
+                      {aiAnalysis.brief}
                     </p>
 
                     {/* Conflicts */}
                     {aiAnalysis.conflicts?.length > 0 && aiAnalysis.conflicts.map((c, i) => (
-                      <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
-                        padding:'9px 12px', borderRadius:10, marginBottom:6,
-                        background:'rgba(245,158,11,.1)', border:'1px solid rgba(245,158,11,.25)' }}>
-                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:10,
+                        padding:'11px 14px', borderRadius:12, marginBottom:8,
+                        background:'#fffbeb', border:'1px solid #fde68a' }}>
+                        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d97706"
                           strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0 }}>
                           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
                           <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
-                        <span style={{ fontSize:12, color:'#fbbf24', lineHeight:1.4 }}>{c.detail}</span>
+                        <span style={{ fontSize:13, color:'#92400e', lineHeight:1.5 }}>{c.detail}</span>
                       </div>
                     ))}
 
                     {/* Missing stems */}
                     {aiAnalysis.missing?.length > 0 && (
-                      <div>
-                        <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.25)',
-                          letterSpacing:'.1em', textTransform:'uppercase', marginBottom:8 }}>
+                      <div style={{ marginBottom:4 }}>
+                        <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb',
+                          letterSpacing:'.08em', textTransform:'uppercase', marginBottom:10 }}>
                           Missing from session
                         </div>
-                        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                        <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
                           {aiAnalysis.missing.slice(0,5).map(m => (
                             <button key={m} onClick={() => openModal('upload', { project: activeProject })}
-                              style={{ fontSize:11, fontWeight:700, padding:'5px 12px', borderRadius:100,
-                                cursor:'pointer', border:'1px solid rgba(255,255,255,.12)',
-                                background:'rgba(255,255,255,.06)', color:'rgba(255,255,255,.5)',
+                              style={{ fontSize:12, fontWeight:700, padding:'6px 14px', borderRadius:100,
+                                cursor:'pointer', border:`1px solid ${C.coral}30`,
+                                background:`${C.coral}08`, color:C.coral,
                                 textTransform:'capitalize', transition:'all .15s' }}
-                              onMouseEnter={e => { e.currentTarget.style.background='rgba(244,147,122,.15)'; e.currentTarget.style.color=C.coral; e.currentTarget.style.borderColor=C.coral+'40' }}
-                              onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.5)'; e.currentTarget.style.borderColor='rgba(255,255,255,.12)' }}>
+                              onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}18` }}
+                              onMouseLeave={e => { e.currentTarget.style.background=`${C.coral}08` }}>
                               + {m}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Divider */}
-                <div style={{ height:1, background:'rgba(255,255,255,.07)', marginBottom:16 }}/>
+                    <div style={{ height:1, background:'rgba(0,0,0,.06)', margin:'20px 0' }}/>
+                  </>
+                )}
 
                 {/* CTA */}
                 {smartMixUrl ? (
                   <div style={{ display:'flex', gap:8 }}>
                     <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'AI Mix', instrument:'smart_bounce' })}
-                      style={{ flex:1, height:44, borderRadius:12, border:'none',
-                        background:C.grad, color:'#fff', fontSize:14, fontWeight:800,
-                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                        boxShadow:`0 6px 24px ${C.coral}40`, letterSpacing:'-.2px' }}>
-                      <IconPlay size={13} color="#fff"/> Play AI Mix
+                      style={{ flex:1, height:48, borderRadius:14, border:'none',
+                        background:C.grad, color:'#fff', fontSize:15, fontWeight:800,
+                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:9,
+                        boxShadow:`0 8px 28px ${C.coral}35`, letterSpacing:'-.3px' }}>
+                      <IconPlay size={14} color="#fff"/> Play AI Mix
                     </button>
                     <a href={smartMixUrl} download="ai_mix.wav"
-                      style={{ width:44, height:44, borderRadius:12,
-                        border:'1px solid rgba(255,255,255,.12)',
-                        background:'rgba(255,255,255,.06)',
+                      style={{ width:48, height:48, borderRadius:14,
+                        border:'1px solid rgba(0,0,0,.09)', background:'rgba(0,0,0,.03)',
                         display:'flex', alignItems:'center', justifyContent:'center',
-                        color:'rgba(255,255,255,.5)', textDecoration:'none' }}>
-                      <IconDl size={14}/>
+                        color:'#aaa', textDecoration:'none' }}>
+                      <IconDl size={15}/>
                     </a>
                   </div>
                 ) : (
@@ -5215,16 +5207,16 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
                     setSmartMixing(false)
                   }} disabled={smartMixing || mixerStems.length < 2}
-                    style={{ width:'100%', height:44, borderRadius:12, border:'none',
-                      background: mixerStems.length < 2 ? 'rgba(255,255,255,.06)' : C.grad,
-                      color: mixerStems.length < 2 ? 'rgba(255,255,255,.2)' : '#fff',
-                      fontSize:14, fontWeight:800, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                      boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 6px 24px ${C.coral}40` : 'none',
-                      letterSpacing:'-.2px', transition:'all .2s' }}>
+                    style={{ width:'100%', height:48, borderRadius:14, border:'none',
+                      background: mixerStems.length < 2 ? 'rgba(0,0,0,.04)' : C.grad,
+                      color: mixerStems.length < 2 ? '#ccc' : '#fff',
+                      fontSize:15, fontWeight:800, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:9,
+                      boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 8px 28px ${C.coral}35` : 'none',
+                      letterSpacing:'-.3px', transition:'all .2s' }}>
                     {smartMixing
-                      ? <><Spinner size={13} color="rgba(255,255,255,.5)"/> Mixing with Claude…</>
-                      : <><IconMix size={13}/> Generate AI Mix</>}
+                      ? <><Spinner size={14} color="#fff"/> Mixing with Claude…</>
+                      : <><IconMix size={14}/> Generate AI Mix</>}
                   </button>
                 )}
               </div>
