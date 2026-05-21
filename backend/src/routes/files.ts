@@ -7,6 +7,7 @@ import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
 import { analyzeWavBuffer } from '../lib/audioAnalysis'
+import { generateStemName } from '../lib/naming'
 import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
@@ -168,12 +169,18 @@ files.post('/upload', async (c) => {
       // Pure TS BPM + key detection — works on WAV buffers, no Python needed
       const { bpm, key } = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
 
+      // Get project title for better Claude naming
+      const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
+      const projectTitle = (proj as any)?.title ?? undefined
+
+      const suggestedName = await buildSuggestedName(file.name, instrument, bpm, key, projectTitle)
+
       await supabase.from('stems').update({
         notes: JSON.stringify({ status: 'ready', type: 'take', bpm, key }),
-        ...(bpm ? { suggested_name: buildSuggestedName(file.name, instrument, bpm, key) } : {}),
+        suggested_name: suggestedName,
       }).eq('id', takeId)
 
-      console.log(`[upload] ${file.name} → BPM: ${bpm ?? 'n/a'}, Key: ${key ?? 'n/a'}`)
+      console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'})`)
 
       // AI analysis — runs first so mix params are ready for Smart Mix
       await analyzeProject(projectId, user.id).catch(e =>
@@ -201,13 +208,20 @@ files.post('/upload', async (c) => {
   }, 201)
 })
 
-function buildSuggestedName(
+// Producer-standard display name: "Midnight Bass · 92 BPM · Fm"
+async function buildSuggestedName(
   original: string,
   instrument: string,
   bpm: number | null,
-  key: string | null
-): string {
-  const base = original.replace(/\.[^.]+$/, '')  // strip extension
+  key: string | null,
+  projectTitle?: string,
+): Promise<string> {
+  const creativeName = await generateStemName({
+    originalName: original,
+    ...(instrument    ? { instrument }    : {}),
+    ...(projectTitle  ? { projectTitle }  : {}),
+  }).catch(() => null)
+  const base = creativeName ?? original.replace(/\.[^.]+$/, '')
   const parts = [base]
   if (bpm) parts.push(`${Math.round(bpm)} BPM`)
   if (key)  parts.push(key)

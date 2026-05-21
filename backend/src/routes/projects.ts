@@ -193,13 +193,21 @@ projects.get('/:id/export', async (c) => {
       const role     = (roleByUser.get(s.uploaded_by) ?? 'Collaborator').replace(/[^a-zA-Z0-9]/g, '')
       // Use instrument if set, otherwise fall back to the original filename base
       const instrLabel = (s.instrument && s.instrument !== 'recording')
-        ? s.instrument.replace(/[^a-zA-Z0-9]/g, '')
-        : (s.original_name || 'stem').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)
+        ? s.instrument.charAt(0).toUpperCase() + s.instrument.slice(1)
+        : 'Audio'
+      // Use Claude-generated name (strip BPM/key suffix if present, use as base)
+      const claudeBase = (s.suggested_name || s.original_name || 'stem')
+        .replace(/\s*·\s*\d+\s*BPM.*$/i, '')  // strip " · 92 BPM · Fm"
+        .replace(/\.[^.]+$/, '')               // strip extension
+        .replace(/[^a-zA-Z0-9\s]/g, '')        // keep alphanumeric + spaces
+        .replace(/\s+/g, '')                   // remove spaces for filename
+        .slice(0, 24) || 'Track'
       const baseName   = (s.original_name || s.suggested_name || s.id).replace(/\.[^.]+$/, '')
       const takeNum    = takeCountMap.get(`${s.uploaded_by}::${baseName}`) ?? 1
       const bpmTag     = n.bpm ? Math.round(n.bpm) : projectBpm
       const keyTag     = (n.key ?? projectKey).replace(/[^a-zA-Z0-9#b]/g, '')
-      const filename   = `${safeName}_${role}_${instrLabel}_Take${takeNum}_${bpmTag}BPM_${keyTag}.wav`
+      // Producer format: ClaudeName_Instrument_92BPM_Fm.wav
+      const filename   = `${claudeBase}_${instrLabel}_${bpmTag}BPM_${keyTag}.wav`
 
       const res = await fetch(s.file_url)
       if (!res.ok) return
