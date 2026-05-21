@@ -73,14 +73,14 @@ export function heuristicName(
   return projectTitle ? `${projectTitle} — Track` : 'Audio Track'
 }
 
-/** Call OpenAI to generate a creative track name */
+/** Call Claude Haiku to generate a creative track name */
 async function aiName(
   originalName: string,
   instrument?: string,
   projectTitle?: string,
   mimeType?: string,
 ): Promise<string | null> {
-  const key = process.env.OPENAI_API_KEY
+  const key = process.env.ANTHROPIC_API_KEY
   if (!key) return null
 
   const prompt = [
@@ -89,26 +89,26 @@ async function aiName(
     instrument ? `Instrument: ${instrument}` : null,
     projectTitle ? `Project: "${projectTitle}"` : null,
     mimeType   ? `Type: ${mimeType}` : null,
-    'Rules: max 40 characters · title case · no quotes · just the name, nothing else.',
+    'Rules: max 40 characters · title case · no quotes · reply with ONLY the name, nothing else.',
   ].filter(Boolean).join('\n')
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
+        'Content-Type':      'application/json',
+        'x-api-key':         key,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 20,
-        temperature: 0.7,
-        messages: [{ role: 'user', content: prompt }],
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 30,
+        messages:   [{ role: 'user', content: prompt }],
       }),
     })
     if (!res.ok) return null
-    const data = await res.json() as { choices: { message: { content: string } }[] }
-    const name = data?.choices?.[0]?.message?.content?.trim()
+    const data = await res.json() as { content: { type: string; text: string }[] }
+    const name = data?.content?.[0]?.text?.trim()
     return name && name.length > 1 ? name : null
   } catch {
     return null
