@@ -5368,7 +5368,6 @@ function AnalyticsTooltip({ active, payload, label }) {
 function PageAnalytics({ onGated, hasAccess }) {
   const [projects,      setProjects]      = useState([])
   const [allFiles,      setAllFiles]      = useState([])
-  const [uploaderNames, setUploaderNames] = useState({})
   const [loading,       setLoading]       = useState(true)
   const isMobile = React.useContext(MobileCtx)
 
@@ -5489,17 +5488,6 @@ function PageAnalytics({ onGated, hasAccess }) {
           (r.data || []).map(f => ({ ...f, projectTitle: projs[i].title, projectId: projs[i].id }))
         )
         setAllFiles(merged)
-        const token = localStorage.getItem('disco_token')
-        const ids = [...new Set(merged.map(f => f.uploaded_by).filter(Boolean))]
-        ids.forEach(uid => {
-          fetch(`/api/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => r.ok ? r.json() : null)
-            .then(j => {
-              if (!j?.data) return
-              const u = j.data
-              setUploaderNames(prev => ({ ...prev, [uid]: u.full_name || u.email?.split('@')[0] || 'Someone' }))
-            }).catch(() => {})
-        })
       })
       .finally(() => setLoading(false))
   }, [])
@@ -5519,12 +5507,6 @@ function PageAnalytics({ onGated, hasAccess }) {
       fill: CHART_PALETTE[i % CHART_PALETTE.length],
     })), [projects, allFiles])
 
-  const byContributor = useMemo(() => {
-    const acc = {}
-    allFiles.forEach(f => { if (f.uploaded_by) acc[f.uploaded_by] = (acc[f.uploaded_by] || 0) + 1 })
-    return Object.entries(acc).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  }, [allFiles])
-
   const activityByDay = useMemo(() => {
     const days = {}
     const now = new Date()
@@ -5540,10 +5522,6 @@ function PageAnalytics({ onGated, hasAccess }) {
     })
     return Object.values(days)
   }, [allFiles])
-
-  const recentActivity = useMemo(() =>
-    [...allFiles].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8),
-    [allFiles])
 
   const totalFiles    = allFiles.length
   const totalProjects = projects.length
