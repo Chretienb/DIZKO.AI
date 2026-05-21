@@ -5095,26 +5095,36 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                                   {cm.text}
                                 </div>
                                 {/* Like button */}
-                                <button onClick={e => {
+                                <button onClick={async e => {
                                   e.stopPropagation()
+                                  // Optimistic update
                                   setStemComments(prev => ({
                                     ...prev,
                                     [s.id]: (prev[s.id] || []).map(c =>
-                                      c.id === cm.id ? { ...c, _likes: (c._likes || 0) + 1, _liked: true } : c
+                                      c.id === cm.id ? {
+                                        ...c,
+                                        likes: (c.likes || 0) + (c.liked_by_me ? -1 : 1),
+                                        liked_by_me: !c.liked_by_me
+                                      } : c
                                     )
                                   }))
+                                  // Persist to backend
+                                  await fetch(`/api/stem-comments/${cm.id}/like`, {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${getToken()}` }
+                                  }).catch(() => {})
                                 }} style={{ display:'flex', alignItems:'center', gap:4, background:'none',
                                   border:'none', cursor:'pointer', padding:0, transition:'transform .1s' }}
                                 onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
                                 onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
                                   <svg width={12} height={12} viewBox="0 0 24 24"
-                                    fill={cm._liked ? '#ef4444' : 'none'}
-                                    stroke={cm._liked ? '#ef4444' : '#ccc'} strokeWidth={2} strokeLinecap="round">
+                                    fill={cm.liked_by_me ? '#ef4444' : 'none'}
+                                    stroke={cm.liked_by_me ? '#ef4444' : '#ccc'} strokeWidth={2} strokeLinecap="round">
                                     <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
                                   </svg>
-                                  {cm._likes > 0 && (
-                                    <span style={{ fontSize:10, color: cm._liked ? '#ef4444' : '#bbb', fontWeight:600 }}>
-                                      {cm._likes}
+                                  {cm.likes > 0 && (
+                                    <span style={{ fontSize:10, color: cm.liked_by_me ? '#ef4444' : '#bbb', fontWeight:600 }}>
+                                      {cm.likes}
                                     </span>
                                   )}
                                 </button>

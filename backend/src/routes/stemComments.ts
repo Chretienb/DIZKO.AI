@@ -8,12 +8,37 @@ const stemComments = new Hono<{ Variables: HonoVariables }>()
 stemComments.use('*', requireAuth)
 
 stemComments.get('/:stemId', async (c) => {
-  const { data, error } = await supabase
+  const userId = c.var.user.id
+
+  const { data: comments, error } = await supabase
     .from('stem_comments').select('*')
     .eq('stem_id', c.req.param('stemId'))
     .order('timestamp_sec', { ascending: true })
   if (error) return c.json({ error: error.message }, 500)
-  return c.json({ data: data ?? [] })
+
+  if (!comments?.length) return c.json({ data: [] })
+
+  // Attach like count + whether current user liked each comment
+  const commentIds = comments.map(c => c.id)
+  const { data: likes } = await supabase
+    .from('comment_likes')
+    .select('comment_id, user_id')
+    .in('comment_id', commentIds)
+
+  const likesMap = new Map<string, number>()
+  const userLiked = new Set<string>()
+  for (const l of (likes ?? [])) {
+    likesMap.set(l.comment_id, (likesMap.get(l.comment_id) ?? 0) + 1)
+    if (l.user_id === userId) userLiked.add(l.comment_id)
+  }
+
+  const enriched = comments.map(c => ({
+    ...c,
+    likes:    likesMap.get(c.id) ?? 0,
+    liked_by_me: userLiked.has(c.id),
+  }))
+
+  return c.json({ data: enriched })
 })
 
 stemComments.post('/:stemId', sanitize, async (c) => {
@@ -41,6 +66,28 @@ stemComments.post('/:stemId', sanitize, async (c) => {
 
   if (error) return c.json({ error: error.message }, 500)
   return c.json({ data }, 201)
+})
+
+// Toggle like — insert or delete based on current state
+stemComments.post('/:commentId/like', async (c) => {
+  const userId    = c.var.user.id
+  const commentId = c.req.param('commentId')
+
+  const { data: existing } = await supabase
+    .from('comment_likes')
+    .select('comment_id')
+    .eq('comment_id', commentId)
+    .eq('user_id', userId)
+    .single()
+
+  if (existing) {
+    await supabase.from('comment_likes').delete()
+      .eq('comment_id', commentId).eq('user_id', userId)
+    return c.json({ data: { liked: false } })
+  } else {
+    await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: userId })
+    return c.json({ data: { liked: true } })
+  }
 })
 
 stemComments.patch('/:commentId/resolve', async (c) => {
