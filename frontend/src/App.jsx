@@ -5105,103 +5105,129 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           {/* ── Right panel ──────────────────────────────────────────── */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
-            {/* Smart Mix */}
-            <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
-              boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            {/* AI Mix — flagship panel */}
+            <div style={{ borderRadius:24, overflow:'hidden',
+              background:'linear-gradient(160deg,#0f0f14 0%,#1a0820 100%)',
+              boxShadow:'0 8px 40px rgba(0,0,0,.18)' }}>
 
-              {/* Header */}
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}12`,
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <IconMix size={14}/>
-                  </div>
+              {/* Top gradient bar */}
+              <div style={{ height:3, background:C.grad }}/>
+
+              <div style={{ padding:'22px 22px 20px' }}>
+                {/* Header */}
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
                   <div>
-                    <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px', lineHeight:1 }}>AI Mix</div>
-                    <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Powered by Claude</div>
-                  </div>
-                </div>
-                {smartMixUrl && smartMixInfo?.stem_count && (
-                  <span style={{ fontSize:11, color:'#bbb', fontWeight:500 }}>{smartMixInfo.stem_count} tracks</span>
-                )}
-              </div>
-
-              {/* Claude's analysis brief */}
-              {aiAnalysis?.brief && (
-                <div style={{ borderRadius:12, background:'linear-gradient(135deg,rgba(99,102,241,.06),rgba(139,92,246,.04))',
-                  border:'1px solid rgba(99,102,241,.14)', padding:'10px 13px', marginBottom:12 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                    <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinecap="round">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                    </svg>
-                    <span style={{ fontSize:9.5, fontWeight:800, color:'#6366f1', letterSpacing:'.1em', textTransform:'uppercase' }}>Claude's read</span>
-                  </div>
-                  <p style={{ margin:'0 0 8px', fontSize:12, color:'#444', lineHeight:1.6 }}>{aiAnalysis.brief}</p>
-
-                  {/* Conflicts */}
-                  {aiAnalysis.conflicts?.length > 0 && aiAnalysis.conflicts.map((c, i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, padding:'6px 10px',
-                      borderRadius:8, background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.2)', marginBottom:5 }}>
-                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}>
-                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                      </svg>
-                      <span style={{ fontSize:11, color:'#92621a', lineHeight:1.5 }}>{c.detail}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:C.coral,
+                        boxShadow:`0 0 8px ${C.coral}` }}/>
+                      <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.12em',
+                        textTransform:'uppercase' }}>Powered by Claude</span>
                     </div>
-                  ))}
-
-                  {/* Missing instruments */}
-                  {aiAnalysis.missing?.length > 0 && (
-                    <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:6 }}>
-                      {aiAnalysis.missing.slice(0,5).map(m => (
-                        <span key={m} onClick={() => openModal('upload', { project: activeProject })}
-                          style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:100, cursor:'pointer',
-                            background:'rgba(239,68,68,.07)', color:'#ef4444', border:'1px solid rgba(239,68,68,.18)',
-                            textTransform:'capitalize' }}>
-                          + {m}
-                        </span>
-                      ))}
+                    <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1 }}>
+                      AI Mix
                     </div>
+                  </div>
+                  {smartMixUrl && smartMixInfo?.stem_count && (
+                    <span style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,.3)',
+                      background:'rgba(255,255,255,.07)', padding:'4px 10px', borderRadius:100 }}>
+                      {smartMixInfo.stem_count} stems
+                    </span>
                   )}
                 </div>
-              )}
 
-              {/* Listen / Generate buttons */}
-              {smartMixUrl ? (
-                <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'AI Mix', instrument:'smart_bounce' })}
-                    style={{ flex:1, height:36, borderRadius:10, border:`1px solid ${C.coral}28`,
-                      background:`${C.coral}10`, color:C.coral, fontSize:13, fontWeight:700, cursor:'pointer',
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                    <IconPlay size={11} color={C.coral}/> Listen
+                {/* Claude's analysis */}
+                {aiAnalysis?.brief && (
+                  <div style={{ marginBottom:18 }}>
+                    <p style={{ margin:'0 0 12px', fontSize:14, color:'rgba(255,255,255,.7)',
+                      lineHeight:1.7, fontStyle:'italic' }}>
+                      "{aiAnalysis.brief}"
+                    </p>
+
+                    {/* Conflicts */}
+                    {aiAnalysis.conflicts?.length > 0 && aiAnalysis.conflicts.map((c, i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
+                        padding:'9px 12px', borderRadius:10, marginBottom:6,
+                        background:'rgba(245,158,11,.1)', border:'1px solid rgba(245,158,11,.25)' }}>
+                        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                          strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0 }}>
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <span style={{ fontSize:12, color:'#fbbf24', lineHeight:1.4 }}>{c.detail}</span>
+                      </div>
+                    ))}
+
+                    {/* Missing stems */}
+                    {aiAnalysis.missing?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.25)',
+                          letterSpacing:'.1em', textTransform:'uppercase', marginBottom:8 }}>
+                          Missing from session
+                        </div>
+                        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                          {aiAnalysis.missing.slice(0,5).map(m => (
+                            <button key={m} onClick={() => openModal('upload', { project: activeProject })}
+                              style={{ fontSize:11, fontWeight:700, padding:'5px 12px', borderRadius:100,
+                                cursor:'pointer', border:'1px solid rgba(255,255,255,.12)',
+                                background:'rgba(255,255,255,.06)', color:'rgba(255,255,255,.5)',
+                                textTransform:'capitalize', transition:'all .15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.background='rgba(244,147,122,.15)'; e.currentTarget.style.color=C.coral; e.currentTarget.style.borderColor=C.coral+'40' }}
+                              onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.5)'; e.currentTarget.style.borderColor='rgba(255,255,255,.12)' }}>
+                              + {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div style={{ height:1, background:'rgba(255,255,255,.07)', marginBottom:16 }}/>
+
+                {/* CTA */}
+                {smartMixUrl ? (
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'AI Mix', instrument:'smart_bounce' })}
+                      style={{ flex:1, height:44, borderRadius:12, border:'none',
+                        background:C.grad, color:'#fff', fontSize:14, fontWeight:800,
+                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                        boxShadow:`0 6px 24px ${C.coral}40`, letterSpacing:'-.2px' }}>
+                      <IconPlay size={13} color="#fff"/> Play AI Mix
+                    </button>
+                    <a href={smartMixUrl} download="ai_mix.wav"
+                      style={{ width:44, height:44, borderRadius:12,
+                        border:'1px solid rgba(255,255,255,.12)',
+                        background:'rgba(255,255,255,.06)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        color:'rgba(255,255,255,.5)', textDecoration:'none' }}>
+                      <IconDl size={14}/>
+                    </a>
+                  </div>
+                ) : (
+                  <button onClick={async () => {
+                    if (!activeId || smartMixing) return
+                    setSmartMixing(true)
+                    try {
+                      const r = await smartBounceApi(activeId)
+                      setSmartMixUrl(r.data?.bounce_url)
+                      setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
+                    } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
+                    setSmartMixing(false)
+                  }} disabled={smartMixing || mixerStems.length < 2}
+                    style={{ width:'100%', height:44, borderRadius:12, border:'none',
+                      background: mixerStems.length < 2 ? 'rgba(255,255,255,.06)' : C.grad,
+                      color: mixerStems.length < 2 ? 'rgba(255,255,255,.2)' : '#fff',
+                      fontSize:14, fontWeight:800, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                      boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 6px 24px ${C.coral}40` : 'none',
+                      letterSpacing:'-.2px', transition:'all .2s' }}>
+                    {smartMixing
+                      ? <><Spinner size={13} color="rgba(255,255,255,.5)"/> Mixing with Claude…</>
+                      : <><IconMix size={13}/> Generate AI Mix</>}
                   </button>
-                  <a href={smartMixUrl} download="smart_mix.wav"
-                    style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
-                      background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center',
-                      color:'#aaa', textDecoration:'none' }}>
-                    <IconDl size={13}/>
-                  </a>
-                </div>
-              ) : (
-                <button onClick={async () => {
-                  if (!activeId || smartMixing) return
-                  setSmartMixing(true)
-                  try {
-                    const r = await smartBounceApi(activeId)
-                    setSmartMixUrl(r.data?.bounce_url)
-                    setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
-                  } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
-                  setSmartMixing(false)
-                }} disabled={smartMixing || mixerStems.length < 2}
-                  style={{ width:'100%', height:38, borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
-                    background: mixerStems.length < 2 ? 'rgba(0,0,0,.03)' : C.grad,
-                    color: mixerStems.length < 2 ? '#ccc' : '#fff',
-                    fontSize:13, fontWeight:700, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                    boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 4px 14px ${C.coral}30` : 'none' }}>
-                  {smartMixing ? <><Spinner size={12} color="#fff"/> Mixing…</> : <><IconMix size={13}/> Generate AI Mix</>}
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
 
