@@ -5273,11 +5273,11 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                       setSmartMixInfo({ contributors: r.data?.contributors||[], stem_count: r.data?.stem_count })
                     } catch { addToast?.('Not enough stems yet.', { type:'info' }) }
                     setSmartMixing(false)
-                  }} disabled={smartMixing || mixerStems.length < 2}
+                  }} disabled={smartMixing || mixerStems.length < 1}
                     style={{ width:'100%', height:48, borderRadius:14, border:'none',
-                      background: mixerStems.length < 2 ? 'rgba(0,0,0,.04)' : C.grad,
-                      color: mixerStems.length < 2 ? '#ccc' : '#fff',
-                      fontSize:15, fontWeight:800, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
+                      background: mixerStems.length < 1 ? 'rgba(0,0,0,.04)' : C.grad,
+                      color: mixerStems.length < 1 ? '#ccc' : '#fff',
+                      fontSize:15, fontWeight:800, cursor: mixerStems.length < 1 ? 'default' : 'pointer',
                       display:'flex', alignItems:'center', justifyContent:'center', gap:9,
                       boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 8px 28px ${C.coral}35` : 'none',
                       letterSpacing:'-.3px', transition:'all .2s' }}>

@@ -85,9 +85,35 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
   }))
 
   const validFiles = tmpFiles.filter(Boolean)
-  if (validFiles.length < 2) {
+  if (validFiles.length < 1) {
     for (const f of tmpFiles.filter(Boolean)) try { unlinkSync(f) } catch {}
     return null
+  }
+
+  // Single stem — just master it, no mixing needed
+  if (validFiles.length === 1) {
+    const outPath = join(tmpdir(), `smb_out_${projectId}_${Date.now()}.wav`)
+    try {
+      execSync(`ffmpeg -y -i "${validFiles[0]}" -filter_complex "[0:a]loudnorm=I=-14:LRA=7:TP=-1[master]" -map "[master]" "${outPath}"`, { stdio:'pipe' })
+    } catch {
+      execSync(`ffmpeg -y -i "${validFiles[0]}" "${outPath}"`, { stdio:'pipe' })
+    }
+    const mixBuf = readFileSync(outPath)
+    for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
+    const storagePath = `smart-bounces/${projectId}/${Date.now()}_smart_mix.wav`
+    try { await uploadToR2(storagePath, mixBuf, 'audio/wav') } catch { return null }
+    const bounceUrl = await getR2SignedUrl(storagePath, 604800)
+    const trackId = trackIds[0]
+    await supabase.from('stems').insert({
+      track_id: trackId, original_name: 'smart_mix.wav',
+      suggested_name: `AI Mix · 1 contributor`,
+      file_url: bounceUrl, storage_path: storagePath,
+      file_size: mixBuf.length, mime_type: 'audio/wav',
+      instrument: 'smart_bounce',
+      notes: JSON.stringify({ project_id: projectId, contributors: [contributors[0]?.instrument], stem_count: 1, auto: true }),
+      uploaded_by: triggeredBy,
+    })
+    return { bounce_url: bounceUrl, storage_path: storagePath, contributors: contributors.filter(Boolean), stem_count: 1 }
   }
 
   // 3. AI-guided mix — fetch Claude's mix params, fall back to equal mix
