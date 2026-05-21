@@ -5116,11 +5116,19 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
                   {/* Claude logo + label */}
                   <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                    {/* Claude mark — Anthropic's signature shape */}
-                    <div style={{ width:34, height:34, borderRadius:10, background:'#D97757',
+                    {/* Claude starburst logo */}
+                    <div style={{ width:36, height:36, borderRadius:10, background:'#faf9f7',
+                      border:'1px solid rgba(0,0,0,.07)',
                       display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <svg width={20} height={20} viewBox="0 0 48 48" fill="none">
-                        <path d="M27.16 8L38 40H31.8L24 15.6L16.2 40H10L20.84 8H27.16Z" fill="white"/>
+                      <svg width={22} height={22} viewBox="0 0 100 100" fill="none">
+                        {[0,30,60,90,120,150,180,210,240,270,300,330].map((angle, i) => (
+                          <rect key={i}
+                            x="46" y="8" width="8" height="36" rx="4"
+                            fill="#D97757"
+                            transform={`rotate(${angle} 50 50)`}
+                            opacity={1 - (i % 3) * 0.08}
+                          />
+                        ))}
                       </svg>
                     </div>
                     <div>
