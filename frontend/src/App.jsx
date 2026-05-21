@@ -5108,21 +5108,68 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             {/* Smart Mix */}
             <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
               boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+
+              {/* Header */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <div style={{ width:32, height:32, borderRadius:10, background:`${C.coral}12`,
                     display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <IconMix size={14}/>
                   </div>
-                  <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Smart Mix</span>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px', lineHeight:1 }}>AI Mix</div>
+                    <div style={{ fontSize:10, color:'#bbb', marginTop:2 }}>Powered by Claude</div>
+                  </div>
                 </div>
                 {smartMixUrl && smartMixInfo?.stem_count && (
                   <span style={{ fontSize:11, color:'#bbb', fontWeight:500 }}>{smartMixInfo.stem_count} tracks</span>
                 )}
               </div>
+
+              {/* Claude's analysis brief */}
+              {aiAnalysis?.brief && (
+                <div style={{ borderRadius:12, background:'linear-gradient(135deg,rgba(99,102,241,.06),rgba(139,92,246,.04))',
+                  border:'1px solid rgba(99,102,241,.14)', padding:'10px 13px', marginBottom:12 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                    <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinecap="round">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span style={{ fontSize:9.5, fontWeight:800, color:'#6366f1', letterSpacing:'.1em', textTransform:'uppercase' }}>Claude's read</span>
+                  </div>
+                  <p style={{ margin:'0 0 8px', fontSize:12, color:'#444', lineHeight:1.6 }}>{aiAnalysis.brief}</p>
+
+                  {/* Conflicts */}
+                  {aiAnalysis.conflicts?.length > 0 && aiAnalysis.conflicts.map((c, i) => (
+                    <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, padding:'6px 10px',
+                      borderRadius:8, background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.2)', marginBottom:5 }}>
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                      </svg>
+                      <span style={{ fontSize:11, color:'#92621a', lineHeight:1.5 }}>{c.detail}</span>
+                    </div>
+                  ))}
+
+                  {/* Missing instruments */}
+                  {aiAnalysis.missing?.length > 0 && (
+                    <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:6 }}>
+                      {aiAnalysis.missing.slice(0,5).map(m => (
+                        <span key={m} onClick={() => openModal('upload', { project: activeProject })}
+                          style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:100, cursor:'pointer',
+                            background:'rgba(239,68,68,.07)', color:'#ef4444', border:'1px solid rgba(239,68,68,.18)',
+                            textTransform:'capitalize' }}>
+                          + {m}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Listen / Generate buttons */}
               {smartMixUrl ? (
                 <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
+                  <button onClick={() => playTrack({ file_url:smartMixUrl, suggested_name:'AI Mix', instrument:'smart_bounce' })}
                     style={{ flex:1, height:36, borderRadius:10, border:`1px solid ${C.coral}28`,
                       background:`${C.coral}10`, color:C.coral, fontSize:13, fontWeight:700, cursor:'pointer',
                       display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
@@ -5152,7 +5199,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     fontSize:13, fontWeight:700, cursor: mixerStems.length < 2 ? 'default' : 'pointer',
                     display:'flex', alignItems:'center', justifyContent:'center', gap:7,
                     boxShadow: mixerStems.length >= 2 && !smartMixing ? `0 4px 14px ${C.coral}30` : 'none' }}>
-                  {smartMixing ? <><Spinner size={12} color="#fff"/> Mixing…</> : <><IconMix size={13}/> Generate Smart Mix</>}
+                  {smartMixing ? <><Spinner size={12} color="#fff"/> Mixing…</> : <><IconMix size={13}/> Generate AI Mix</>}
                 </button>
               )}
             </div>
@@ -5194,38 +5241,6 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               </div>
             </div>
 
-            {/* AI Brief */}
-            {aiAnalysis && (
-              <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px',
-                boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-                  <div style={{ width:32, height:32, borderRadius:10,
-                    background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                  </div>
-                  <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>AI Brief</span>
-                </div>
-                <p style={{ margin:'0 0 12px', fontSize:13, color:'#555', lineHeight:1.65 }}>{aiAnalysis.brief}</p>
-                {aiAnalysis.conflicts?.map((c, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px',
-                    borderRadius:10, background:'rgba(245,158,11,.07)', border:'1px solid rgba(245,158,11,.2)', marginBottom:7 }}>
-                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span style={{ fontSize:12, color:'#92621a', lineHeight:1.5 }}><strong>{c.type === 'bpm' ? 'BPM' : 'Key'} conflict:</strong> {c.detail}</span>
-                  </div>
-                ))}
-                {aiAnalysis.missing?.length > 0 && (
-                  <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:6 }}>
-                    {aiAnalysis.missing.slice(0,4).map(m => (
-                      <span key={m} style={{ fontSize:10.5, fontWeight:700, padding:'3px 9px', borderRadius:100,
-                        background:'rgba(239,68,68,.07)', color:'#ef4444', border:'1px solid rgba(239,68,68,.18)' }}>
-                        Missing {m}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
