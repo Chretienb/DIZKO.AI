@@ -5108,26 +5108,29 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
             {/* AI Mix — flagship panel */}
             <div style={{ borderRadius:24, background:'#fff',
               border:'1px solid rgba(0,0,0,.06)',
-              boxShadow:'0 4px 24px rgba(0,0,0,.07)', overflow:'hidden' }}>
-
-              {/* Coral top accent */}
-              <div style={{ height:4, background:C.grad }}/>
+              boxShadow:'0 4px 24px rgba(0,0,0,.07)' }}>
 
               <div style={{ padding:'28px 24px 24px' }}>
 
                 {/* Header */}
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.12em', textTransform:'uppercase' }}>
-                      ✦ Powered by Claude
-                    </span>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                  {/* Claude logo + label */}
+                  <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                    {/* Claude mark — Anthropic's signature shape */}
+                    <div style={{ width:34, height:34, borderRadius:10, background:'#D97757',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width={20} height={20} viewBox="0 0 48 48" fill="none">
+                        <path d="M27.16 8L38 40H31.8L24 15.6L16.2 40H10L20.84 8H27.16Z" fill="white"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#888', letterSpacing:'.02em' }}>Claude by Anthropic</div>
+                      <div style={{ fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-.6px', lineHeight:1.1 }}>AI Mix</div>
+                    </div>
                   </div>
                   {smartMixUrl && smartMixInfo?.stem_count && (
                     <span style={{ fontSize:11, fontWeight:600, color:'#bbb' }}>{smartMixInfo.stem_count} stems</span>
                   )}
-                </div>
-                <div style={{ fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.2px', marginBottom:20, lineHeight:1 }}>
-                  AI Mix
                 </div>
 
                 {/* Claude brief */}
