@@ -486,13 +486,18 @@ function NotificationBellLight({ user }) {
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
-  const typeIcon = type => ({
-    upload:     { icon:'↑', color: C.coral   },
-    mix_ready:  { icon:'♪', color: '#16a34a' },
-    message:    { icon:'✉', color: '#6366f1' },
-    invite:     { icon:'★', color: C.amber   },
-    stems_ready:{ icon:'⊞', color: '#8b5cf6'},
-  }[type] || { icon:'•', color: '#aaa' })
+  const typeIcon = type => {
+    const icons = {
+      upload:       { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: C.coral },
+      mix_ready:    { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>, color: '#16a34a' },
+      message:      { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, color: '#6366f1' },
+      invite:       { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>, color: C.amber },
+      stems_ready:  { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>, color: '#8b5cf6' },
+      ai_analysis:  { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>, color: '#6366f1' },
+      file_uploaded:{ svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: C.coral },
+    }
+    return icons[type] || { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, color: '#aaa' }
+  }
 
   return (
     <div style={{ position:'relative' }} ref={panelRef}>
@@ -543,7 +548,9 @@ function NotificationBellLight({ user }) {
               </div>
             )}
             {notifs.map((n, i) => {
-              const { icon, color } = typeIcon(n.type)
+              const { svg, color } = typeIcon(n.type)
+              const displayTitle = n.title || n.message || 'Notification'
+              const displayBody  = n.title ? n.message : null
               return (
                 <div key={n.id}
                   onClick={() => {
@@ -559,15 +566,15 @@ function NotificationBellLight({ user }) {
                   onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : `${C.coral}04`}>
                   <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
                     background:`${color}15`, display:'flex', alignItems:'center',
-                    justifyContent:'center', fontSize:14, color }}>
-                    {icon}
+                    justifyContent:'center', color }}>
+                    {svg}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
-                      lineHeight:1.4, marginBottom:2 }}>{n.title}</div>
-                    {n.body && (
+                      lineHeight:1.4, marginBottom:2 }}>{displayTitle}</div>
+                    {displayBody && (
                       <div style={{ fontSize:12, color:'#888', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.body}</div>
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayBody}</div>
                     )}
                     <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>{timeAgo(n.created_at)}</div>
                   </div>
