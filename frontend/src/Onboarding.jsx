@@ -4,44 +4,14 @@ import logo from './assets/logo.png'
 
 const C = {
   coral: '#F4937A',
+  pink:  '#F28FB8',
   grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
 }
-
-const FEATURES = [
-  {
-    icon: (
-      <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-      </svg>
-    ),
-    title: 'Every stem auto-organized',
-    sub:   'BPM + key detected on every upload — no manual tagging',
-  },
-  {
-    icon: (
-      <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-      </svg>
-    ),
-    title: 'AI mix on every upload',
-    sub:   'Your team hears the latest mix the second you upload',
-  },
-  {
-    icon: (
-      <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-      </svg>
-    ),
-    title: 'One workspace for your whole team',
-    sub:   'Invite producers, engineers, artists — all in real time',
-  },
-]
 
 const PROJECT_TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
 
 export default function Onboarding({ onComplete, user }) {
-  const [step,    setStep]    = useState(0)  // 0 = welcome, 1 = create project
+  const [step,    setStep]    = useState(0)
   const [title,   setTitle]   = useState('')
   const [type,    setType]    = useState('Album')
   const [loading, setLoading] = useState(false)
@@ -51,8 +21,7 @@ export default function Onboarding({ onComplete, user }) {
 
   async function createProject() {
     if (!title.trim()) { setErr('Give your project a name'); return }
-    setLoading(true)
-    setErr('')
+    setLoading(true); setErr('')
     try {
       await projectsApi.create({ title: title.trim(), type })
       window.dispatchEvent(new CustomEvent('dizko:project_created'))
@@ -64,164 +33,221 @@ export default function Onboarding({ onComplete, user }) {
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:9999, background:'#0a0a0f',
-      display:'flex', alignItems:'center', justifyContent:'center',
+    <div style={{
+      position:'fixed', inset:0, zIndex:9999,
+      background:'#080810',
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
-      WebkitFontSmoothing:'antialiased' }}>
-
-      {/* Ambient glow */}
-      <div style={{ position:'absolute', top:'-10%', right:'5%', width:500, height:500,
-        borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}12 0%, transparent 65%)`,
+      WebkitFontSmoothing:'antialiased',
+      overflow:'hidden',
+    }}>
+      {/* Background blobs */}
+      <div style={{ position:'absolute', top:'-15%', right:'-10%', width:700, height:700,
+        borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}18 0%, transparent 60%)`,
+        pointerEvents:'none', animation:'pulse 6s ease-in-out infinite' }}/>
+      <div style={{ position:'absolute', bottom:'-10%', left:'-8%', width:600, height:600,
+        borderRadius:'50%', background:`radial-gradient(circle, ${C.pink}10 0%, transparent 60%)`,
+        pointerEvents:'none', animation:'pulse 8s ease-in-out infinite reverse' }}/>
+      <div style={{ position:'absolute', top:'40%', left:'20%', width:300, height:300,
+        borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,.08) 0%, transparent 60%)',
         pointerEvents:'none' }}/>
-      <div style={{ position:'absolute', bottom:'5%', left:'5%', width:400, height:400,
-        borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,.08) 0%, transparent 65%)',
-        pointerEvents:'none' }}/>
 
-      <div style={{ width:'100%', maxWidth:480, padding:'0 24px', position:'relative', zIndex:1 }}>
+      {/* Step dots */}
+      <div style={{ position:'absolute', top:32, left:'50%', transform:'translateX(-50%)',
+        display:'flex', gap:8, alignItems:'center' }}>
+        {[0,1].map(i => (
+          <div key={i} style={{
+            width: i === step ? 24 : 8, height:8, borderRadius:8,
+            background: i <= step ? C.grad : 'rgba(255,255,255,.12)',
+            transition:'all .4s cubic-bezier(.34,1.56,.64,1)',
+          }}/>
+        ))}
+      </div>
 
-        {/* Logo */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:40 }}>
-          <img src={logo} style={{ width:36, height:36, borderRadius:10, objectFit:'cover' }} alt=""/>
-          <span style={{ fontSize:18, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
-            Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-          </span>
-        </div>
+      {/* Skip */}
+      <button onClick={onComplete} style={{
+        position:'absolute', top:28, right:32,
+        background:'none', border:'none', color:'rgba(255,255,255,.2)',
+        fontSize:13, fontWeight:600, cursor:'pointer', letterSpacing:'.02em',
+      }}>Skip</button>
 
-        {/* Step indicator */}
-        <div style={{ display:'flex', gap:6, marginBottom:32 }}>
-          {[0,1].map(i => (
-            <div key={i} style={{ height:3, borderRadius:3, flex:1,
-              background: i <= step ? C.grad : 'rgba(255,255,255,.1)',
-              transition:'background .3s' }}/>
-          ))}
-        </div>
+      {/* Content */}
+      <div style={{ width:'100%', maxWidth:560, padding:'0 32px', position:'relative', zIndex:1,
+        transition:'opacity .3s', opacity:1 }}>
 
-        {/* ── Step 0: Welcome ──────────────────────────────────────────────── */}
+        {/* ── Step 0: Welcome ───────────────────────────────────────────────── */}
         {step === 0 && (
-          <div>
-            <div style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.12em',
-              textTransform:'uppercase', marginBottom:12 }}>Your studio is ready</div>
-            <h1 style={{ margin:'0 0 8px', fontSize:40, fontWeight:900, color:'#fff',
-              letterSpacing:'-2px', lineHeight:1.1 }}>
-              Welcome,<br/>
-              <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                {firstName}.
+          <div style={{ textAlign:'center' }}>
+            {/* Big logo */}
+            <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center',
+              width:96, height:96, borderRadius:28, overflow:'hidden',
+              boxShadow:`0 0 0 1px rgba(255,255,255,.08), 0 24px 48px rgba(0,0,0,.5), 0 0 80px ${C.coral}30`,
+              marginBottom:28 }}>
+              <img src={logo} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt=""/>
+            </div>
+
+            <div style={{ fontSize:13, fontWeight:700, color:C.coral, letterSpacing:'.14em',
+              textTransform:'uppercase', marginBottom:16 }}>
+              Your studio is ready 🎉
+            </div>
+
+            <h1 style={{ margin:'0 0 12px', fontSize:56, fontWeight:900, color:'#fff',
+              letterSpacing:'-3px', lineHeight:1.02 }}>
+              Hey {firstName},<br/>
+              <span style={{ background:C.grad, WebkitBackgroundClip:'text',
+                WebkitTextFillColor:'transparent' }}>
+                welcome in.
               </span>
             </h1>
-            <p style={{ margin:'0 0 32px', fontSize:15, color:'rgba(255,255,255,.45)', lineHeight:1.65 }}>
-              Here's what Dizko does for you automatically.
+
+            <p style={{ margin:'0 0 44px', fontSize:17, color:'rgba(255,255,255,.4)',
+              lineHeight:1.7, maxWidth:400, marginLeft:'auto', marginRight:'auto' }}>
+              Dizko handles the boring stuff so you can focus on making music.
             </p>
 
-            <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:36 }}>
-              {FEATURES.map((f, i) => (
-                <div key={i} style={{ display:'flex', gap:14, alignItems:'flex-start',
-                  padding:'14px 16px', borderRadius:14,
+            {/* Feature cards */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:44, textAlign:'left' }}>
+              {[
+                { emoji:'🎚', title:'Auto-organized', sub:'BPM + key on every stem' },
+                { emoji:'🎛', title:'AI mix instantly', sub:'Every upload triggers a mix' },
+                { emoji:'🤝', title:'Your whole team', sub:'Real-time collaboration' },
+              ].map((f, i) => (
+                <div key={i} style={{
+                  padding:'18px 16px', borderRadius:18,
                   background:'rgba(255,255,255,.04)',
-                  border:'1px solid rgba(255,255,255,.07)' }}>
-                  <div style={{ flexShrink:0, marginTop:1 }}>{f.icon}</div>
-                  <div>
-                    <div style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:3 }}>{f.title}</div>
-                    <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)', lineHeight:1.5 }}>{f.sub}</div>
-                  </div>
+                  border:'1px solid rgba(255,255,255,.07)',
+                  backdropFilter:'blur(10px)',
+                }}>
+                  <div style={{ fontSize:28, marginBottom:10 }}>{f.emoji}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>{f.title}</div>
+                  <div style={{ fontSize:11.5, color:'rgba(255,255,255,.35)', lineHeight:1.5 }}>{f.sub}</div>
                 </div>
               ))}
             </div>
 
             <button onClick={() => setStep(1)} style={{
-              width:'100%', padding:'15px', borderRadius:14, border:'none',
-              background:C.grad, color:'#fff', fontSize:15, fontWeight:800,
-              cursor:'pointer', letterSpacing:'-.2px',
-              boxShadow:`0 8px 28px ${C.coral}35` }}>
-              Create my first project →
-            </button>
-            <button onClick={onComplete} style={{ width:'100%', marginTop:10, padding:'10px',
-              background:'none', border:'none', color:'rgba(255,255,255,.25)',
-              fontSize:13, cursor:'pointer' }}>
-              Skip for now
+              width:'100%', padding:'18px', borderRadius:16, border:'none',
+              background:C.grad, color:'#fff', fontSize:16, fontWeight:800,
+              cursor:'pointer', letterSpacing:'-.3px',
+              boxShadow:`0 12px 40px ${C.coral}40`,
+              transition:'transform .15s, box-shadow .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 16px 48px ${C.coral}50` }}
+            onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow=`0 12px 40px ${C.coral}40` }}>
+              Let's set up your first project →
             </button>
           </div>
         )}
 
-        {/* ── Step 1: Create project ───────────────────────────────────────── */}
+        {/* ── Step 1: Create project ─────────────────────────────────────────── */}
         {step === 1 && (
-          <div>
-            <div style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.12em',
-              textTransform:'uppercase', marginBottom:12 }}>Step 1 of 1</div>
-            <h1 style={{ margin:'0 0 8px', fontSize:36, fontWeight:900, color:'#fff',
-              letterSpacing:'-1.5px', lineHeight:1.1 }}>
-              Name your<br/>first project.
+          <div style={{ textAlign:'center' }}>
+            {/* Logo small */}
+            <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center',
+              width:64, height:64, borderRadius:18, overflow:'hidden',
+              boxShadow:`0 0 0 1px rgba(255,255,255,.08), 0 12px 32px rgba(0,0,0,.4)`,
+              marginBottom:24 }}>
+              <img src={logo} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt=""/>
+            </div>
+
+            <div style={{ fontSize:13, fontWeight:700, color:C.coral, letterSpacing:'.14em',
+              textTransform:'uppercase', marginBottom:16 }}>
+              Step 1 of 1
+            </div>
+
+            <h1 style={{ margin:'0 0 10px', fontSize:48, fontWeight:900, color:'#fff',
+              letterSpacing:'-2.5px', lineHeight:1.05 }}>
+              What are you<br/>
+              <span style={{ background:C.grad, WebkitBackgroundClip:'text',
+                WebkitTextFillColor:'transparent' }}>
+                working on?
+              </span>
             </h1>
-            <p style={{ margin:'0 0 28px', fontSize:14, color:'rgba(255,255,255,.4)', lineHeight:1.6 }}>
-              This is where your stems, mixes, and collaborators live.
+
+            <p style={{ margin:'0 0 36px', fontSize:16, color:'rgba(255,255,255,.35)', lineHeight:1.6 }}>
+              This is your project — your stems, your team, your mixes.
             </p>
 
-            {/* Title lane */}
-            <div style={{ position:'relative', borderRadius:14,
-              background: 'rgba(255,255,255,.04)',
-              border:`1px solid rgba(255,255,255,.1)`,
-              overflow:'hidden', marginBottom:10 }}>
-              <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:C.grad }}/>
-              <div style={{ padding:'10px 16px 12px 20px' }}>
-                <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em',
-                  textTransform:'uppercase', marginBottom:5, color:C.coral }}>
-                  Project Name
+            {/* Name input */}
+            <div style={{
+              borderRadius:18, overflow:'hidden', marginBottom:16,
+              background:'rgba(255,255,255,.05)',
+              border:`1.5px solid rgba(255,255,255,.1)`,
+              transition:'border-color .2s',
+            }}
+            onFocusCapture={e => e.currentTarget.style.borderColor = C.coral + '80'}
+            onBlurCapture={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'}>
+              <div style={{ position:'relative' }}>
+                <div style={{ position:'absolute', left:0, top:0, bottom:0, width:4,
+                  background:C.grad, borderRadius:'18px 0 0 18px' }}/>
+                <div style={{ padding:'16px 20px 18px 28px', textAlign:'left' }}>
+                  <div style={{ fontSize:10, fontWeight:800, letterSpacing:'.14em',
+                    textTransform:'uppercase', color:C.coral, marginBottom:8 }}>
+                    Project Name
+                  </div>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="e.g. Summer Vibes Vol. 2"
+                    value={title}
+                    onChange={e => { setTitle(e.target.value); setErr('') }}
+                    onKeyDown={e => e.key === 'Enter' && createProject()}
+                    style={{ width:'100%', background:'transparent', border:'none', outline:'none',
+                      color:'#fff', fontSize:20, fontFamily:'inherit', fontWeight:700,
+                      padding:0, caretColor:C.coral, letterSpacing:'-.5px' }}/>
                 </div>
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="e.g. Summer Vibes Vol. 2"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && createProject()}
-                  style={{ width:'100%', background:'transparent', border:'none', outline:'none',
-                    color:'#fff', fontSize:16, fontFamily:'inherit', padding:0, caretColor:C.coral }}/>
               </div>
             </div>
 
-            {/* Type selector */}
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:28 }}>
+            {/* Type pills */}
+            <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', marginBottom:36 }}>
               {PROJECT_TYPES.map(t => (
                 <button key={t} onClick={() => setType(t)} style={{
-                  padding:'7px 16px', borderRadius:100, border:'none', cursor:'pointer',
-                  fontSize:12, fontWeight:600, transition:'all .15s',
+                  padding:'9px 20px', borderRadius:100, border:'none', cursor:'pointer',
+                  fontSize:13, fontWeight:700, transition:'all .2s',
                   background: type === t ? C.grad : 'rgba(255,255,255,.07)',
-                  color: type === t ? '#fff' : 'rgba(255,255,255,.45)',
-                  boxShadow: type === t ? `0 4px 14px ${C.coral}30` : 'none',
+                  color: type === t ? '#fff' : 'rgba(255,255,255,.4)',
+                  boxShadow: type === t ? `0 6px 20px ${C.coral}35` : 'none',
+                  transform: type === t ? 'scale(1.05)' : 'scale(1)',
                 }}>{t}</button>
               ))}
             </div>
 
             {err && (
-              <div style={{ padding:'10px 14px', borderRadius:10, marginBottom:12,
+              <div style={{ padding:'12px 16px', borderRadius:12, marginBottom:16,
                 background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',
-                fontSize:13, color:'#f87171' }}>{err}</div>
+                fontSize:14, color:'#f87171', textAlign:'left' }}>{err}</div>
             )}
 
             <button onClick={createProject} disabled={loading} style={{
-              width:'100%', padding:'15px', borderRadius:14, border:'none',
+              width:'100%', padding:'18px', borderRadius:16, border:'none',
               background: loading ? 'rgba(255,255,255,.06)' : C.grad,
               color: loading ? 'rgba(255,255,255,.3)' : '#fff',
-              fontSize:15, fontWeight:800, cursor: loading ? 'default' : 'pointer',
-              boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
-              transition:'all .2s' }}>
-              {loading ? 'Creating…' : 'Create project & enter studio'}
+              fontSize:16, fontWeight:800, cursor: loading ? 'default' : 'pointer',
+              boxShadow: loading ? 'none' : `0 12px 40px ${C.coral}40`,
+              transition:'all .2s', letterSpacing:'-.2px',
+            }}
+            onMouseEnter={e => { if(!loading){ e.currentTarget.style.transform='translateY(-2px)' }}}
+            onMouseLeave={e => { e.currentTarget.style.transform='none' }}>
+              {loading ? 'Creating your studio…' : 'Create project & enter studio 🚀'}
             </button>
 
-            <div style={{ display:'flex', gap:8, marginTop:10 }}>
-              <button onClick={() => setStep(0)} style={{ flex:1, padding:'10px',
-                background:'none', border:'1px solid rgba(255,255,255,.08)',
-                borderRadius:10, color:'rgba(255,255,255,.3)', fontSize:13, cursor:'pointer' }}>
-                ← Back
-              </button>
-              <button onClick={onComplete} style={{ flex:1, padding:'10px',
-                background:'none', border:'none',
-                color:'rgba(255,255,255,.2)', fontSize:13, cursor:'pointer' }}>
-                Skip
-              </button>
-            </div>
+            <button onClick={() => setStep(0)} style={{
+              marginTop:14, background:'none', border:'none',
+              color:'rgba(255,255,255,.2)', fontSize:13, cursor:'pointer',
+              fontWeight:500,
+            }}>← Back</button>
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        input::placeholder { color: rgba(255,255,255,.2) !important; }
+      `}</style>
     </div>
   )
 }
