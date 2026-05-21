@@ -4224,14 +4224,18 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     gainRefs.current = {}
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctxRef.current = ctx
-    const playableStems = stems.filter(s => s.file_url && !mutedIds.has(s.id) && (soloId === null || soloId === s.id))
+
+    // Load ALL visible stems — muted ones start at gain 0 so mute/unmute works in real time
+    const loadableStems = mixerStems.filter(s => s.file_url)
     let maxDur = 0
 
-    setLoadingPct(Object.fromEntries(playableStems.map(s => [s.id, 0])))
-    await Promise.all(playableStems.map(async s => {
+    setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
+    await Promise.all(loadableStems.map(async s => {
       try {
-        const trim = getTrim(s.id)
-        const vol  = getVolume(s.id)
+        const trim   = getTrim(s.id)
+        const vol    = getVolume(s.id)
+        const isMuted = mutedIds.has(s.id)
+        const isSilenced = soloId !== null && soloId !== s.id
         const buf  = await fetchAudioCached(s.file_url, pct =>
           setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
         )
@@ -4243,7 +4247,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         const src  = ctx.createBufferSource()
         src.buffer = decoded
         const gain = ctx.createGain()
-        gain.gain.value = vol
+        // Muted or soloed-out tracks start silent — gain can be changed live without reloading
+        gain.gain.value = (isMuted || isSilenced) ? 0 : vol
         gainRefs.current[s.id] = gain
         src.connect(gain)
         gain.connect(ctx.destination)
