@@ -178,24 +178,14 @@ Conflict: flag if two stems have BPM values more than 3 apart, or keys more than
     return null
   }
 
-  // 5. Store as a special notification so frontend can fetch it without new table
-  try {
-    await supabase.from('notifications').upsert({
-      project_id: projectId,
-      user_id:    triggeredBy,
-      type:       'ai_analysis',
-      message:    analysis.brief,
-      metadata:   analysis,
-    }, { onConflict: 'project_id,type' })
-  } catch {
-    await supabase.from('notifications').insert({
-      project_id: projectId,
-      user_id:    triggeredBy,
-      type:       'ai_analysis',
-      message:    analysis.brief,
-      metadata:   analysis,
-    })
-  }
+  // 5. Always INSERT — getLatestAnalysis orders by created_at desc so newest wins
+  await supabase.from('notifications').insert({
+    project_id: projectId,
+    user_id:    triggeredBy,
+    type:       'ai_analysis',
+    message:    analysis.brief,
+    metadata:   analysis,
+  })
 
   console.log(`[aiAnalysis] ${(proj as any).title}: ${analysis.brief}`)
   return analysis
