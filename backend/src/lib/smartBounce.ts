@@ -11,6 +11,7 @@ import { writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join }                   from 'path'
 import { tmpdir }                 from 'os'
 import { supabase }               from './supabase'
+import { uploadToR2, getR2SignedUrl } from './r2'
 import { getLatestAnalysis }      from './aiAnalysis'
 import type { MixParam }          from './aiAnalysis'
 
@@ -49,7 +50,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
 
   const { data: stems, error } = await supabase
     .from('stems')
-    .select('id, instrument, uploaded_by, suggested_name, file_url, created_at')
+    .select('id, instrument, uploaded_by, suggested_name, file_url, storage_path, created_at')
     .in('track_id', trackIds)
     .order('created_at', { ascending: false })
 
@@ -69,7 +70,9 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
 
   await Promise.all(takes.map(async (s, i) => {
     try {
-      const res = await fetch(s.file_url)
+      // Use fresh signed URL from storage_path to avoid expired URLs in DB
+      const url = s.storage_path ? await getR2SignedUrl(s.storage_path, 300) : s.file_url
+      const res = await fetch(url)
       if (!res.ok) return
       const buf  = Buffer.from(await res.arrayBuffer())
       const path = join(tmpdir(), `smb_${projectId}_${i}_${Date.now()}.wav`)
@@ -152,18 +155,16 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
 
   console.log(`[smartBounce] ${aiMixUsed ? 'AI mix' : 'equal mix'} + mastered to -14 LUFS`)
 
-  // 4. Upload to Supabase Storage
+  // 4. Upload to Cloudflare R2
   const storagePath = `smart-bounces/${projectId}/${Date.now()}_smart_mix.wav`
-  const { error: upErr } = await supabase.storage
-    .from('stems')
-    .upload(storagePath, mixBuf, { contentType: 'audio/wav', upsert: true })
-
-  if (upErr) {
-    console.error('[smartBounce] storage upload failed:', upErr.message)
+  try {
+    await uploadToR2(storagePath, mixBuf, 'audio/wav')
+  } catch (e) {
+    console.error('[smartBounce] R2 upload failed:', (e as Error).message)
     return null
   }
 
-  const { data: { publicUrl: bounceUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
+  const bounceUrl = await getR2SignedUrl(storagePath, 604800) // 7-day signed URL
 
   // 5. Save a smart_bounce stem record so Realtime notifies the frontend
   const trackId = trackIds[0]
