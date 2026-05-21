@@ -6013,126 +6013,63 @@ function PageAnalytics({ onGated, hasAccess }) {
       </div>
 
       {/* ══ Last.fm Analytics ══════════════════════════════════════════════════ */}
-      <div style={{ background:'#fff', borderRadius:20, padding:'28px 28px',
-        boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)', marginTop:20 }}>
-
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:22 }}>
-          <div style={{ width:38, height:38, borderRadius:12, background:'#d51007',
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="#fff">
-              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.5 17.2c-.2.3-.6.4-1 .2-2.7-1.6-6.1-2-10.1-1.1-.4.1-.7-.2-.8-.5-.1-.4.2-.7.5-.8 4.4-1 8.2-.6 11.2 1.3.4.1.4.6.2.9zm1.4-3.2c-.3.4-.8.5-1.2.3-3.1-1.9-7.8-2.4-11.5-1.3-.5.1-1-.1-1.1-.6-.1-.5.1-1 .6-1.1 4.2-1.3 9.4-.7 13 1.5.5.2.6.8.2 1.2zm.1-3.3C15.4 8.5 8.5 8.3 5.1 9.3c-.6.2-1.2-.2-1.3-.7-.2-.6.2-1.2.7-1.3 4-1.1 10.8-.9 15 1.5.5.3.7 1 .4 1.5-.3.4-1 .6-1.4.4z"/>
-            </svg>
+      <div style={{ background:'#fff', borderRadius:20, padding:'22px', border:'1px solid rgba(0,0,0,.06)', marginTop:20 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="#d51007"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.5 17.2c-.2.3-.6.4-1 .2-2.7-1.6-6.1-2-10.1-1.1-.4.1-.7-.2-.8-.5-.1-.4.2-.7.5-.8 4.4-1 8.2-.6 11.2 1.3.4.1.4.6.2.9zm1.4-3.2c-.3.4-.8.5-1.2.3-3.1-1.9-7.8-2.4-11.5-1.3-.5.1-1-.1-1.1-.6-.1-.5.1-1 .6-1.1 4.2-1.3 9.4-.7 13 1.5.5.2.6.8.2 1.2zm.1-3.3C15.4 8.5 8.5 8.3 5.1 9.3c-.6.2-1.2-.2-1.3-.7-.2-.6.2-1.2.7-1.3 4-1.1 10.8-.9 15 1.5.5.3.7 1 .4 1.5-.3.4-1 .6-1.4.4z"/></svg>
+            <span style={{ fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Last.fm</span>
           </div>
-          <div>
-            <div style={{ fontSize:17, fontWeight:900, color:'#111', letterSpacing:'-.5px' }}>Last.fm Analytics</div>
-            <div style={{ fontSize:12, color:'#aaa', marginTop:1 }}>Search any artist — no login required</div>
-          </div>
+          <span style={{ fontSize:11, color:'#bbb' }}>No account needed</span>
         </div>
-
-        {/* Search */}
-        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-          <input
-            placeholder="Enter your artist name…"
-            value={lfmArtist}
-            onChange={e => setLfmArtist(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && loadLastFm()}
-            style={{ flex:1, padding:'11px 16px', borderRadius:12,
-              border:'1px solid rgba(0,0,0,.1)', fontSize:14, outline:'none',
-              fontFamily:'inherit', background:'#fafafa' }}/>
-          <button onClick={loadLastFm} disabled={lfmLoading || !lfmArtist.trim()}
-            style={{ padding:'11px 22px', borderRadius:12, border:'none',
-              background: lfmArtist.trim() ? '#d51007' : 'rgba(0,0,0,.06)',
-              color: lfmArtist.trim() ? '#fff' : '#ccc',
-              fontSize:13, fontWeight:700, cursor: lfmArtist.trim() ? 'pointer' : 'default',
-              transition:'all .15s', flexShrink:0 }}>
-            {lfmLoading ? <Spinner size={13} color="#fff"/> : 'Search'}
+        <div style={{ display:'flex', gap:8, marginBottom:16, background:'#f7f7f8', borderRadius:12, padding:'4px', alignItems:'center' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:10, flexShrink:0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Artist name…" value={lfmArtist} onChange={e=>setLfmArtist(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loadLastFm()}
+            style={{ flex:1, padding:'9px 8px', background:'transparent', border:'none', outline:'none', fontSize:13, fontFamily:'inherit', color:'#111' }}/>
+          <button onClick={loadLastFm} disabled={lfmLoading||!lfmArtist.trim()}
+            style={{ padding:'8px 16px', borderRadius:9, border:'none', background:lfmArtist.trim()?'#111':'transparent', color:lfmArtist.trim()?'#fff':'#ccc', fontSize:12, fontWeight:700, cursor:lfmArtist.trim()?'pointer':'default', transition:'all .15s' }}>
+            {lfmLoading?<Spinner size={11} color="#fff"/>:'Search'}
           </button>
         </div>
-
-        {lfmError && (
-          <div style={{ padding:'12px 16px', borderRadius:10, background:'rgba(239,68,68,.06)',
-            border:'1px solid rgba(239,68,68,.15)', fontSize:13, color:'#ef4444', marginBottom:16 }}>
-            {lfmError}
-          </div>
-        )}
-
-        {lfmData && (
+        {lfmError&&<div style={{ padding:'10px 14px', borderRadius:10, background:'#fef2f2', border:'1px solid #fecaca', fontSize:13, color:'#ef4444', marginBottom:12 }}>{lfmError}</div>}
+        {lfmData&&(
           <div>
-            {/* Artist card */}
-            <div style={{ display:'flex', alignItems:'center', gap:16, padding:'16px 20px',
-              borderRadius:16, background:'#f9f9f9', border:'1px solid rgba(0,0,0,.06)', marginBottom:20 }}>
-              {lfmData.image && (
-                <img src={lfmData.image} alt="" style={{ width:56, height:56, borderRadius:12, objectFit:'cover', flexShrink:0 }}/>
-              )}
+            <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:18, padding:'16px', borderRadius:14, background:'#f9f9fb' }}>
+              {lfmData.image&&<img src={lfmData.image} alt="" style={{ width:60, height:60, borderRadius:12, objectFit:'cover', flexShrink:0 }}/>}
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-.5px' }}>{lfmData.name}</div>
-                {lfmData.tags?.length > 0 && (
-                  <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:5 }}>
-                    {lfmData.tags.map(t => (
-                      <span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100,
-                        background:'rgba(0,0,0,.06)', color:'#666', textTransform:'capitalize' }}>{t}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
-                <div>
-                  <div style={{ fontSize:20, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>
-                    {lfmData.listeners >= 1000000
-                      ? `${(lfmData.listeners/1000000).toFixed(1)}M`
-                      : lfmData.listeners >= 1000
-                      ? `${(lfmData.listeners/1000).toFixed(0)}K`
-                      : lfmData.listeners.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize:10, fontWeight:600, color:'#bbb', textTransform:'uppercase', letterSpacing:'.06em' }}>Listeners</div>
-                </div>
-                <div>
-                  <div style={{ fontSize:20, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>
-                    {lfmData.playcount >= 1000000
-                      ? `${(lfmData.playcount/1000000).toFixed(1)}M`
-                      : lfmData.playcount >= 1000
-                      ? `${(lfmData.playcount/1000).toFixed(0)}K`
-                      : lfmData.playcount.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize:10, fontWeight:600, color:'#bbb', textTransform:'uppercase', letterSpacing:'.06em' }}>Plays</div>
+                <div style={{ fontSize:19, fontWeight:900, color:'#111', letterSpacing:'-.5px', marginBottom:5 }}>{lfmData.name}</div>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                  {lfmData.tags?.map(t=><span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100, background:'#fff', border:'1px solid rgba(0,0,0,.09)', color:'#777', textTransform:'capitalize' }}>{t}</span>)}
                 </div>
               </div>
             </div>
-
-            {/* Bio */}
-            {lfmData.bio && (
-              <p style={{ fontSize:13, color:'#666', lineHeight:1.65, marginBottom:20,
-                padding:'0 4px' }}>{lfmData.bio.slice(0, 300)}{lfmData.bio.length > 300 ? '…' : ''}</p>
-            )}
-
-            {/* Top tracks */}
-            {lfmData.top_tracks?.length > 0 && (
-              <div>
-                <div style={{ fontSize:10.5, fontWeight:700, color:'#aaa', textTransform:'uppercase',
-                  letterSpacing:'.08em', marginBottom:10 }}>Top Tracks</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {lfmData.top_tracks.map((t, i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
-                      padding:'9px 14px', borderRadius:10, background:'#f9f9f9',
-                      border:'1px solid rgba(0,0,0,.05)' }}>
-                      <span style={{ fontSize:11, fontWeight:700, color:'#ccc', minWidth:16 }}>#{i+1}</span>
-                      <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#333' }}>{t.name}</span>
-                      <span style={{ fontSize:11, color:'#bbb', fontWeight:500 }}>
-                        {t.playcount >= 1000000
-                          ? `${(t.playcount/1000000).toFixed(1)}M plays`
-                          : `${(t.playcount/1000).toFixed(0)}K plays`}
-                      </span>
-                    </div>
-                  ))}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
+              {[{label:'Monthly Listeners',val:lfmData.listeners,sub:'on Last.fm'},{label:'Total Plays',val:lfmData.playcount,sub:'all time'}].map((s,i)=>(
+                <div key={i} style={{ padding:'14px 16px', borderRadius:12, background:'#f9f9fb', border:'1px solid rgba(0,0,0,.05)' }}>
+                  <div style={{ fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px', lineHeight:1 }}>
+                    {s.val>=1000000?`${(s.val/1000000).toFixed(1)}M`:s.val>=1000?`${(s.val/1000).toFixed(s.val>=10000?0:1)}K`:s.val.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#999', marginTop:4 }}>{s.label}</div>
+                  <div style={{ fontSize:10, color:'#bbb' }}>{s.sub}</div>
                 </div>
+              ))}
+            </div>
+            {lfmData.bio&&<p style={{ fontSize:13, color:'#666', lineHeight:1.7, marginBottom:18, borderLeft:'3px solid #eee', paddingLeft:12 }}>{lfmData.bio.slice(0,260)}{lfmData.bio.length>260?'…':''}</p>}
+            {lfmData.top_tracks?.length>0&&(
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:8 }}>Top Tracks</div>
+                {lfmData.top_tracks.map((t,i)=>(
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', borderRadius:9, transition:'background .1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#f7f7f8'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <span style={{ fontSize:11, color:'#ccc', fontWeight:700, minWidth:18, textAlign:'right' }}>{i+1}</span>
+                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#222', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</span>
+                    <span style={{ fontSize:11, color:'#bbb', flexShrink:0 }}>{t.playcount>=1000000?`${(t.playcount/1000000).toFixed(1)}M`:t.playcount>=1000?`${(t.playcount/1000).toFixed(0)}K`:t.playcount>0?t.playcount:'—'}</span>
+                  </div>
+                ))}
               </div>
             )}
-
             <a href={lfmData.url} target="_blank" rel="noopener noreferrer"
-              style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:16,
-                fontSize:12, color:'#d51007', fontWeight:600, textDecoration:'none' }}>
-              View full profile on Last.fm →
+              style={{ fontSize:12, color:'#d51007', fontWeight:700, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4 }}>
+              Open on Last.fm <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
           </div>
         )}
