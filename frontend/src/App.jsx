@@ -5421,13 +5421,13 @@ function PageAnalytics({ onGated, hasAccess }) {
   }, [])
 
   const connectYoutube = async () => {
-    console.log('[YT] hasAccess:', hasAccess, '| billingLoaded:', billingLoaded)
-    if (!hasAccess) { console.log('[YT] BLOCKED by gate'); onGated?.(); return }
+    console.log('[YT] hasAccess:', hasAccess)
+    if (!hasAccess) { console.log('[YT] BLOCKED — opening billing modal'); onGated?.(); return }
     console.log('[YT] calling API...')
-    const res = await youtubeApi.connect().catch(e => { console.error('[YT] API error:', e); return null })
+    const res = await youtubeApi.connect().catch(e => { console.error('[YT] API error:', e.message); return null })
     console.log('[YT] response:', JSON.stringify(res))
-    if (res?.data?.url) { console.log('[YT] redirecting to:', res.data.url.slice(0,80)); window.location.href = res.data.url }
-    else console.log('[YT] no URL in response')
+    if (res?.data?.url) { console.log('[YT] redirecting to Google...'); window.location.href = res.data.url }
+    else console.log('[YT] no URL — check response above')
   }
 
   const loadYtVenuesForCity = (city) => {
