@@ -71,9 +71,11 @@ async function fetchAudioCached(url, onProgress) {
     onProgress?.(100)
     return audioBufferCache.get(url)
   }
-  const res = await fetch(url)
+  const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
+  if (!res.ok) throw new Error(`Audio fetch failed: ${res.status} ${res.statusText} — ${url.slice(0,80)}`)
   const total = Number(res.headers.get('Content-Length') || 0)
-  const reader = res.body.getReader()
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error(`No response body for: ${url.slice(0,80)}`)
   const chunks = []
   let received = 0
   while (true) {
@@ -4254,7 +4256,10 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         gain.connect(ctx.destination)
         src.start(0, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
         audioRefs.current[s.id] = src
-      } catch {}
+      } catch (e) {
+        console.error('[playAll] failed to load stem:', s.suggested_name || s.original_name, e?.message)
+        setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+      }
     }))
 
     setDuration(maxDur)
