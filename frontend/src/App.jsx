@@ -4933,14 +4933,8 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                     cursor:'pointer' }}
                     onClick={() => { setExpandedId(isExpanded ? null : s.id); if (!isExpanded) loadComments(s.id) }}>
 
-                    {/* Color bar + checkbox */}
-                    <div style={{ display:'flex', alignItems:'center', gap:12, marginRight:16, flexShrink:0 }}>
-                      <div style={{ width:4, height:40, borderRadius:2, background:color, flexShrink:0 }}/>
-                      <input type="checkbox" checked={selectedIds.has(s.id)}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n=new Set(prev); e.target.checked?n.add(s.id):n.delete(s.id); return n }) }}
-                        style={{ accentColor:color, width:15, height:15, cursor:'pointer', flexShrink:0 }}/>
-                    </div>
+                    {/* Color bar */}
+                    <div style={{ width:4, height:40, borderRadius:2, background:color, flexShrink:0, marginRight:14 }}/>
 
                     {/* Name + meta */}
                     <div style={{ flex:1, minWidth:0 }}>
@@ -4975,27 +4969,36 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                       </div>
                     )}
 
-                    {/* Mute / Solo */}
-                    <div style={{ display:'flex', gap:isMobile ? 4 : 5, marginRight: isMobile ? 6 : 10, flexShrink:0 }}
+                    {/* Mute / Solo — icon buttons */}
+                    <div style={{ display:'flex', gap:4, marginRight:8, flexShrink:0 }}
                       onClick={e => e.stopPropagation()}>
-                      <button onClick={() => toggleMute(s.id)} style={{
-                        padding: isMobile ? '4px 8px' : '5px 12px', borderRadius:100,
-                        fontSize: isMobile ? 10 : 11.5, fontWeight:700, cursor:'pointer',
-                        minHeight:44,
-                        background: isMuted ? '#f59e0b15' : 'rgba(0,0,0,.04)',
-                        border:`1px solid ${isMuted ? '#f59e0b50' : 'rgba(0,0,0,.08)'}`,
-                        color: isMuted ? '#b45309' : '#bbb', transition:'all .15s',
-                        display:'flex', alignItems:'center', gap:3 }}>
-                        {isMuted ? <IconVolX size={10}/> : <IconVol size={10}/>}
-                        {isMobile ? '' : (isMuted ? 'Muted' : 'Mute')}
+                      {/* Mute */}
+                      <button onClick={() => toggleMute(s.id)} title={isMuted ? 'Unmute' : 'Mute'}
+                        style={{ width:32, height:32, borderRadius:9, border:`1px solid ${isMuted ? '#f59e0b50' : 'rgba(0,0,0,.08)'}`,
+                          background: isMuted ? '#f59e0b15' : 'rgba(0,0,0,.03)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          cursor:'pointer', transition:'all .15s', flexShrink:0 }}>
+                        {isMuted ? (
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+                            <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                          </svg>
+                        ) : (
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+                            <path d="M15.54 8.46a5 5 0 010 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 010 14.14"/>
+                          </svg>
+                        )}
                       </button>
-                      <button onClick={() => toggleSolo(s.id)} style={{
-                        padding: isMobile ? '4px 8px' : '5px 12px', borderRadius:100,
-                        fontSize: isMobile ? 10 : 11.5, fontWeight:700, cursor:'pointer',
-                        minHeight:44,
-                        background: isSolo ? '#6366f112' : 'rgba(0,0,0,.04)',
-                        border:`1px solid ${isSolo ? '#6366f145' : 'rgba(0,0,0,.08)'}`,
-                        color: isSolo ? '#6366f1' : '#bbb', transition:'all .15s' }}>
+                      {/* Solo */}
+                      <button onClick={() => toggleSolo(s.id)} title={isSolo ? 'Unsolo' : 'Solo'}
+                        style={{ width:32, height:32, borderRadius:9, border:`1px solid ${isSolo ? '#6366f145' : 'rgba(0,0,0,.08)'}`,
+                          background: isSolo ? '#6366f112' : 'rgba(0,0,0,.03)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          cursor:'pointer', transition:'all .15s', flexShrink:0,
+                          fontSize:11, fontWeight:800, color: isSolo ? '#6366f1' : '#bbb',
+                          letterSpacing:'.02em' }}>
                         S
                       </button>
                     </div>
