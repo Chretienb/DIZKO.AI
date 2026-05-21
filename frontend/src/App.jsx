@@ -4710,42 +4710,42 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       </div>
 
       {/* ── Transport ────────────────────────────────────────────────── */}
-      <div style={{ background:'#fff', borderRadius:20, padding:'16px 22px', marginBottom:20,
-        boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)',
-        display:'flex', alignItems:'center', gap:14 }}>
+      <div style={{ background:'#fff', borderRadius:16, padding:'12px 18px', marginBottom:20,
+        boxShadow:'0 1px 3px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.06)',
+        display:'flex', alignItems:'center', gap:12 }}>
 
         {/* Stop */}
-        <button onClick={stop}
-          style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.09)',
+        <button onClick={stop} title="Stop"
+          style={{ width:32, height:32, borderRadius:8, border:'1px solid rgba(0,0,0,.08)',
             background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', color:'#bbb', transition:'all .12s', flexShrink:0 }}
-          onMouseEnter={e=>{e.currentTarget.style.background='rgba(0,0,0,.05)';e.currentTarget.style.color='#555'}}
-          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#bbb'}}>
-          <IconStop size={11}/>
+            cursor:'pointer', color:'#ccc', transition:'all .12s', flexShrink:0 }}
+          onMouseEnter={e=>{e.currentTarget.style.background='rgba(0,0,0,.04)';e.currentTarget.style.color='#888'}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#ccc'}}>
+          <IconStop size={10}/>
         </button>
 
         {/* Play / loading */}
         {Object.keys(loadingPct).length > 0 ? (
           <ProgressRing pct={Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}
-            size={40} stroke={2.5} color={C.coral} bg="rgba(0,0,0,.06)">
-            <span style={{ fontSize:9, fontWeight:800, color:C.coral }}>
+            size={36} stroke={2} color="#111" bg="rgba(0,0,0,.05)">
+            <span style={{ fontSize:8, fontWeight:800, color:'#111' }}>
               {Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/Object.keys(loadingPct).length)}%
             </span>
           </ProgressRing>
         ) : (
           <button onClick={playing ? pause : playAll}
-            style={{ width:40, height:40, borderRadius:12, border:'none', cursor:'pointer',
-              background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
-              boxShadow:`0 4px 14px ${C.coral}40`, transition:'transform .12s, box-shadow .2s', flexShrink:0 }}
-            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.07)'}
-            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-            {playing ? <IconPause size={13} color="#fff"/> : <IconPlay size={13} color="#fff"/>}
+            style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
+              background:'#111', display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'opacity .12s', flexShrink:0 }}
+            onMouseEnter={e=>e.currentTarget.style.opacity='.8'}
+            onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+            {playing ? <IconPause size={12} color="#fff"/> : <IconPlay size={12} color="#fff"/>}
           </button>
         )}
 
         {/* Progress scrubber */}
-        <div style={{ flex:1, display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ flex:1, height:4, borderRadius:2, background:'rgba(0,0,0,.07)', cursor:'pointer', position:'relative', overflow:'hidden' }}
+        <div style={{ flex:1, display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ flex:1, height:3, borderRadius:2, background:'rgba(0,0,0,.07)', cursor:'pointer', position:'relative', overflow:'hidden' }}
             onClick={e => {
               if (!duration) return
               const r = e.currentTarget.getBoundingClientRect()
@@ -4753,112 +4753,84 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
               setCurrentTime(offsetRef.current)
             }}>
             <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress*100}%`,
-              background:C.grad, borderRadius:2, transition:'width .08s' }}/>
+              background:'#111', borderRadius:2, transition:'width .08s' }}/>
           </div>
-          <span style={{ fontSize:12.5, fontFamily:'monospace', fontWeight:600, color:'#333', minWidth:40, flexShrink:0 }}>{fmt(currentTime)}</span>
-          <div style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
-            background: beatFlash ? C.coral : 'rgba(0,0,0,.1)',
-            boxShadow: beatFlash ? `0 0 8px ${C.coral}` : 'none',
+          <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:600, color:'#888', minWidth:36, flexShrink:0 }}>{fmt(currentTime)}</span>
+          <div style={{ width:5, height:5, borderRadius:'50%', flexShrink:0,
+            background: beatFlash ? '#111' : 'rgba(0,0,0,.12)',
             transition: beatFlash ? 'none' : 'all .2s' }}/>
         </div>
 
         {/* Divider */}
-        <div style={{ width:1, height:28, background:'rgba(0,0,0,.07)', flexShrink:0 }}/>
+        <div style={{ width:1, height:22, background:'rgba(0,0,0,.07)', flexShrink:0 }}/>
 
         {/* BPM cluster */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
 
-          {/* Metronome on/off */}
+          {/* Metronome */}
           {!isMobile && (
-            <button
-              onClick={() => { setMetronomeOn(v => { metronomeRef.current = !v; return !v }) }}
-              title={metronomeOn ? 'Metronome on — click to mute' : 'Metronome off — click to enable'}
-              style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
-                background: metronomeOn ? `${C.coral}12` : 'rgba(0,0,0,.04)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                transition:'all .15s', position:'relative' }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-                stroke={metronomeOn ? C.coral : '#ccc'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <button onClick={() => { setMetronomeOn(v => { metronomeRef.current = !v; return !v }) }}
+              title={metronomeOn ? 'Metronome on' : 'Metronome off'}
+              style={{ width:32, height:32, borderRadius:8, border:'1px solid rgba(0,0,0,.08)', cursor:'pointer',
+                background: metronomeOn ? 'rgba(0,0,0,.06)' : 'transparent',
+                display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                stroke={metronomeOn ? '#333' : '#ccc'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12,2 2,20 22,20"/>
                 <line x1="12" y1="12" x2="16" y2="8"/>
                 <line x1="12" y1="20" x2="12" y2="14"/>
               </svg>
-              {!metronomeOn && (
-                <div style={{ position:'absolute', top:4, right:4, width:6, height:6,
-                  borderRadius:'50%', background:'#ef4444', border:'1.5px solid #fff' }}/>
-              )}
             </button>
           )}
 
-          {/* BPM stepper — desktop only */}
+          {/* BPM stepper */}
           {!isMobile && (
-            <div style={{ display:'flex', alignItems:'center', background:'rgba(0,0,0,.04)',
-              border:'1px solid rgba(0,0,0,.09)', borderRadius:12, overflow:'hidden', height:38 }}>
-
+            <div style={{ display:'flex', alignItems:'center', background:'rgba(0,0,0,.03)',
+              border:'1px solid rgba(0,0,0,.08)', borderRadius:10, overflow:'hidden', height:34 }}>
               <button onClick={() => handleBpmChange(bpm - 1)} disabled={bpm <= 40}
-                style={{ width:32, height:'100%', border:'none', background:'transparent',
-                  cursor: bpm <= 40 ? 'default' : 'pointer',
-                  color: bpm <= 40 ? '#ddd' : '#888', fontSize:18, fontWeight:300,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  transition:'background .1s' }}
-                onMouseEnter={e => { if (bpm > 40) e.currentTarget.style.background='rgba(0,0,0,.06)' }}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                −
-              </button>
-
+                style={{ width:28, height:'100%', border:'none', background:'transparent',
+                  cursor: bpm <= 40 ? 'default' : 'pointer', color: bpm <= 40 ? '#ddd' : '#888',
+                  fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
-                padding:'0 12px', borderLeft:'1px solid rgba(0,0,0,.07)', borderRight:'1px solid rgba(0,0,0,.07)',
-                minWidth:60 }}>
-                <input
-                  type="number" min={40} max={250} value={bpm} step={1}
+                padding:'0 10px', borderLeft:'1px solid rgba(0,0,0,.06)', borderRight:'1px solid rgba(0,0,0,.06)',
+                minWidth:52 }}>
+                <input type="number" min={40} max={250} value={bpm} step={1}
                   onChange={e => handleBpmChange(e.target.value)}
-                  style={{ width:48, background:'none', border:'none', outline:'none',
-                    fontSize:17, fontWeight:900, color:'#111', fontFamily:'monospace',
-                    textAlign:'center', padding:0, cursor:'text' }}/>
-                <span style={{ fontSize:7.5, fontWeight:800, color:'#bbb', textTransform:'uppercase',
-                  letterSpacing:'.14em', marginTop:-2 }}>BPM</span>
+                  style={{ width:40, background:'none', border:'none', outline:'none',
+                    fontSize:15, fontWeight:800, color:'#111', fontFamily:'monospace',
+                    textAlign:'center', padding:0 }}/>
+                <span style={{ fontSize:7, fontWeight:700, color:'#bbb', textTransform:'uppercase',
+                  letterSpacing:'.12em', marginTop:-1 }}>BPM</span>
               </div>
-
               <button onClick={() => handleBpmChange(bpm + 1)} disabled={bpm >= 250}
-                style={{ width:32, height:'100%', border:'none', background:'transparent',
-                  cursor: bpm >= 250 ? 'default' : 'pointer',
-                  color: bpm >= 250 ? '#ddd' : '#888', fontSize:18, fontWeight:300,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  transition:'background .1s' }}
-                onMouseEnter={e => { if (bpm < 250) e.currentTarget.style.background='rgba(0,0,0,.06)' }}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                +
-              </button>
+                style={{ width:28, height:'100%', border:'none', background:'transparent',
+                  cursor: bpm >= 250 ? 'default' : 'pointer', color: bpm >= 250 ? '#ddd' : '#888',
+                  fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
             </div>
           )}
 
-          {/* Detect BPM */}
+          {/* Detect */}
           <button onClick={detectBPM} disabled={detectingBpm || stems.length === 0}
-            style={{ height:38, padding:'0 13px', borderRadius:12, fontSize:12, fontWeight:700,
-              background: detectingBpm ? 'rgba(0,0,0,.04)' : `${C.coral}10`,
-              border:`1px solid ${detectingBpm ? 'rgba(0,0,0,.08)' : C.coral+'30'}`,
-              color: detectingBpm ? '#bbb' : C.coral, cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
-              display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}>
-            {detectingBpm
-              ? <><Spinner size={10} color="#bbb"/> Detecting…</>
-              : <><IconWave size={12} color={C.coral}/> Detect</>}
+            style={{ height:34, padding:'0 12px', borderRadius:10, fontSize:12, fontWeight:600,
+              background:'rgba(0,0,0,.03)', border:'1px solid rgba(0,0,0,.08)',
+              color: detectingBpm ? '#ccc' : '#666', cursor: detectingBpm || stems.length === 0 ? 'default' : 'pointer',
+              display:'flex', alignItems:'center', gap:5, transition:'all .15s' }}
+            onMouseEnter={e => { if (!detectingBpm) e.currentTarget.style.background='rgba(0,0,0,.06)' }}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.03)'}>
+            {detectingBpm ? <><Spinner size={10} color="#bbb"/> Detecting…</> : 'Detect'}
           </button>
 
-          {/* Reset BPM — desktop only */}
+          {/* Reset BPM */}
           {!isMobile && bpm !== 120 && (
-            <button onClick={() => handleBpmChange(120)}
-              title="Reset to 120 BPM"
-              style={{ height:38, padding:'0 10px', borderRadius:12, fontSize:11, fontWeight:700,
-                background:'rgba(0,0,0,.03)', border:'1px solid rgba(0,0,0,.08)',
-                color:'#bbb', cursor:'pointer', display:'flex', alignItems:'center', gap:4,
-                transition:'all .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color='#555'; e.currentTarget.style.borderColor='rgba(0,0,0,.15)' }}
-              onMouseLeave={e => { e.currentTarget.style.color='#bbb'; e.currentTarget.style.borderColor='rgba(0,0,0,.08)' }}>
+            <button onClick={() => handleBpmChange(120)} title="Reset to 120 BPM"
+              style={{ height:34, width:34, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
+                background:'transparent', color:'#ccc', cursor:'pointer', display:'flex',
+                alignItems:'center', justifyContent:'center', transition:'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color='#555'; e.currentTarget.style.background='rgba(0,0,0,.04)' }}
+              onMouseLeave={e => { e.currentTarget.style.color='#ccc'; e.currentTarget.style.background='transparent' }}>
               <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
               </svg>
-              120
             </button>
           )}
         </div>
@@ -4952,8 +4924,9 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                         overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>{label}</div>
                       <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                         {stemType && (
-                          <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`,
-                            padding:'2px 8px', borderRadius:100, textTransform:'capitalize' }}>{stemType}</span>
+                          <span style={{ fontSize:10, fontWeight:600, color:'#999',
+                            background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:6,
+                            textTransform:'capitalize', letterSpacing:'.02em' }}>{stemType}</span>
                         )}
                         <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
                         <span style={{ fontSize:11.5, color:'#bbb' }}>{uploaderName}</span>
@@ -4966,16 +4939,15 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
 
                     {/* Volume — desktop only */}
                     {!isMobile && (
-                      <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:14, flexShrink:0 }}
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:12, flexShrink:0 }}
                         onClick={e => e.stopPropagation()}>
-                        <div style={{ color:'#ccc' }}>{isMuted ? <IconVolX size={13}/> : <IconVol size={13}/>}</div>
                         <input type="range" min={0} max={1} step={0.01} value={vol}
                           onChange={e => {
                             const v = parseFloat(e.target.value)
                             setVolumes(prev => ({...prev, [s.id]: v}))
                             if (gainRefs.current[s.id] && !isMuted) gainRefs.current[s.id].gain.value = v
                           }}
-                          style={{ width:72, accentColor:color, cursor:'pointer' }}/>
+                          style={{ width:64, accentColor:'#333', cursor:'pointer', opacity: isMuted ? .3 : 1 }}/>
                       </div>
                     )}
 
