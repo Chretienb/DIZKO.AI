@@ -1978,10 +1978,10 @@ function ModalUpload({ project, onClose, user }) {
           justifyContent:'center', margin:'0 auto 18px' }}>
           <Spinner size={26} color={C.coral}/>
         </div>
-        <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:6 }}>AI analyzing…</div>
+        <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:6 }}>Upload complete</div>
         <p style={{ color:'#aaa', fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>
-          <strong style={{ color:'#111' }}>Dizko.Ai</strong> is splitting your audio into vocals, drums, bass and other.
-          Stems will appear in your project in a few minutes.
+          <strong style={{ color:'#111' }}>Dizko.Ai</strong> is detecting BPM, key, and generating your AI mix.
+          Your tracks will be ready in the Studio in a few seconds.
         </p>
         <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
       </div>
