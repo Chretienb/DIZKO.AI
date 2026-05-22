@@ -312,45 +312,85 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
         )}
       </div>
 
-      {/* Listener cities + venues */}
+      {/* Venue recommendations */}
       {listenerCities.length>0 && (
-        <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', marginBottom:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ borderRadius:20, overflow:'hidden', marginBottom:20,
+          background:'linear-gradient(135deg,#0f0f14 0%,#1a0820 100%)',
+          boxShadow:'0 8px 32px rgba(0,0,0,.18)' }}>
+
+          {/* Header */}
+          <div style={{ padding:'24px 28px 20px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
             <div>
-              <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>Your team is based in <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>{listenerCities.slice(0,3).map(c=>c.city).join(', ')}</span></div>
-              <div style={{ fontSize:12, color:'#aaa', marginTop:3 }}>Music venues near your collaborators</div>
+              <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                  <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.1em', textTransform:'uppercase' }}>
+                  You are based in this area
+                </span>
+              </div>
+              <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1.1 }}>
+                Potential venues in{' '}
+                <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                  {listenerCities.slice(0,2).map(c=>c.city).join(' & ')}
+                </span>
+              </div>
+              <div style={{ fontSize:12, color:'rgba(255,255,255,.35)', marginTop:6 }}>
+                Based on where your team is located
+              </div>
             </div>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'flex-end' }}>
-              {listenerCities.slice(0,4).map(c=>(
-                <button key={c.city} onClick={()=>loadVenuesForCity(c.city,c.region)} style={{ padding:'5px 13px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all .15s', background:selectedCity===c.city?C.grad:'rgba(0,0,0,.04)', border:selectedCity===c.city?'none':'1px solid rgba(0,0,0,.08)', color:selectedCity===c.city?'#fff':'#555', boxShadow:selectedCity===c.city?`0 3px 10px ${C.coral}30`:'none' }}>
-                  {c.city} <span style={{ opacity:.6, fontSize:10 }}>·{c.count}</span>
-                </button>
-              ))}
-            </div>
+            {/* City pills */}
+            {listenerCities.length > 1 && (
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {listenerCities.slice(0,4).map(c=>(
+                  <button key={c.city} onClick={()=>loadVenuesForCity(c.city,c.region)}
+                    style={{ padding:'6px 14px', borderRadius:100, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all .15s',
+                      background: selectedCity===c.city ? C.grad : 'rgba(255,255,255,.08)',
+                      border: selectedCity===c.city ? 'none' : '1px solid rgba(255,255,255,.12)',
+                      color: '#fff', boxShadow: selectedCity===c.city ? `0 4px 14px ${C.coral}40` : 'none' }}>
+                    {c.city}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {loadingVenues ? (
-            <div style={{ display:'flex', gap:10 }}>{[0,1,2,3].map(i=><div key={i} style={{ flex:1, height:90, borderRadius:14, background:'linear-gradient(160deg,#f0f0f0,#e8e8e8)' }}/>)}</div>
-          ) : (cityVenues[selectedCity]||[]).length===0 ? (
-            <div style={{ textAlign:'center', padding:'24px', fontSize:13, color:'#bbb' }}>No music venues found in {selectedCity}</div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10 }}>
-              {(cityVenues[selectedCity]||[]).map(v=>(
-                <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
-                  style={{ textDecoration:'none', display:'flex', flexDirection:'column', gap:6, padding:'14px 16px', borderRadius:14, background:'rgba(0,0,0,.02)', border:'1px solid rgba(0,0,0,.06)', transition:'all .15s', cursor:'pointer' }}
-                  onMouseEnter={e=>{e.currentTarget.style.background=`${C.coral}06`;e.currentTarget.style.borderColor=`${C.coral}30`}}
-                  onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.02)';e.currentTarget.style.borderColor='rgba(0,0,0,.06)'}}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ width:32, height:32, borderRadius:9, background:`${C.coral}12`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+
+          {/* Venue cards */}
+          <div style={{ padding:'0 20px 24px' }}>
+            {loadingVenues ? (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:10 }}>
+                {[0,1,2,3].map(i=><div key={i} style={{ height:90, borderRadius:14, background:'rgba(255,255,255,.06)' }}/>)}
+              </div>
+            ) : (cityVenues[selectedCity]||[]).length===0 ? (
+              <div style={{ textAlign:'center', padding:'28px', fontSize:13, color:'rgba(255,255,255,.3)' }}>
+                No venues found in {selectedCity} — try a nearby city
+              </div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.min((cityVenues[selectedCity]||[]).length, isMobile?1:3), 1fr)}, 1fr`, gap:10 }}>
+                {(cityVenues[selectedCity]||[]).map(v=>(
+                  <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
+                    style={{ textDecoration:'none', padding:'14px 16px', borderRadius:14,
+                      background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.08)',
+                      transition:'all .15s', display:'flex', flexDirection:'column', gap:6 }}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(244,147,122,.12)';e.currentTarget.style.borderColor='rgba(244,147,122,.3)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.06)';e.currentTarget.style.borderColor='rgba(255,255,255,.08)'}}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#fff', lineHeight:1.35,
+                      overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box',
+                      WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{v.name}</div>
+                    <div style={{ fontSize:11, color:'rgba(255,255,255,.35)' }}>
+                      {v.address || `${v.city}, ${v.state}`}
                     </div>
-                    <div style={{ fontSize:12.5, fontWeight:700, color:'#111', lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{v.name}</div>
-                  </div>
-                  <div style={{ fontSize:11, color:'#aaa', paddingLeft:40 }}>{v.address||`${v.city}, ${v.state}`}</div>
-                  {v.url&&<div style={{ fontSize:11, color:C.coral, fontWeight:600, paddingLeft:40, display:'flex', alignItems:'center', gap:3 }}>View venue <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>}
-                </a>
-              ))}
-            </div>
-          )}
+                    {v.url && (
+                      <div style={{ fontSize:11, color:C.coral, fontWeight:600, display:'flex', alignItems:'center', gap:3, marginTop:2 }}>
+                        Book venue
+                        <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
