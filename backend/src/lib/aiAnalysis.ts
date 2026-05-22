@@ -97,36 +97,54 @@ export async function analyzeProject(
 
   const stemLines = uploadedStems.map(s => {
     const n = parseNotes(s)
+    const af = n.audio_features || {}
     return JSON.stringify({
-      id:         s.id,
-      name:       s.original_name,
-      instrument: s.instrument || 'unknown',
-      uploader:   nameMap[s.uploaded_by] || 'unknown',
-      bpm:        n.bpm ? Math.round(n.bpm) : null,
-      key:        n.key || null,
-      uploaded:   s.created_at,
+      id:          s.id,
+      name:        s.original_name,
+      instrument:  s.instrument || 'unknown',
+      uploader:    nameMap[s.uploaded_by] || 'unknown',
+      bpm:         n.bpm ? Math.round(n.bpm) : null,
+      key:         n.key || null,
+      // Real audio features from browser analysis
+      loudness_db: af.loudness ?? null,
+      brightness:  af.brightness != null
+        ? (af.brightness > 0.6 ? 'bright' : af.brightness < 0.3 ? 'dark' : 'mid')
+        : null,
+      character:   af.zcr != null
+        ? (af.zcr > 0.15 ? 'percussive/noisy' : 'tonal/melodic')
+        : null,
+      duration_s:  af.duration ?? null,
     })
   }).join('\n')
 
-  // 4. Call Claude — ask for structured JSON
-  const systemPrompt = `You are a professional music producer AI for Dizko.ai. Analyze a project's stems and return ONLY valid JSON — no markdown, no explanation, just the JSON object.`
+  // 4. Call Claude — producer-voice feedback
+  const systemPrompt = `You are a veteran music producer giving honest, encouraging feedback on a collaborative session in Dizko.ai.
+
+Your voice: direct, knowledgeable, like a respected producer in the studio — not a robot. Talk about the music, not the software.
+- When things sound good, say so clearly and specifically. Producers celebrate wins.
+- When something needs work, be constructive — say what to fix and why, not just "conflict detected".
+- Reference the actual audio data (BPM, key, brightness, energy) to back up your points.
+- Keep the brief to 2-3 sentences max. Make every word count.
+- Never start with "This project" or "The project". Start with the music itself.
+
+Return ONLY valid JSON — no markdown, no explanation.`
 
   const userPrompt = `Project: "${(proj as any).title}"
-Stems:
+Stems (with real audio analysis):
 ${stemLines}
 
-Return this exact JSON structure:
+Return this exact JSON:
 {
-  "brief": "one sentence describing the current state of the project",
-  "missing": ["list", "of", "missing", "instrument", "types"],
+  "brief": "2-3 sentences of honest producer feedback. Sound like a real producer — reference BPM, key, energy, tone. Celebrate what works. Be specific. If it sounds good say it. If something is off, say what to fix.",
+  "missing": ["instrument types genuinely missing — only list if their absence actually hurts the track"],
   "conflicts": [
-    { "type": "bpm|key", "detail": "explanation", "stems": ["stem name 1", "stem name 2"] }
+    { "type": "bpm|key", "detail": "plain-english explanation a producer would say", "stems": ["stem name 1", "stem name 2"] }
   ],
   "mix_params": {
     "<stem_id>": {
-      "volume_db": <number -12 to 0>,
-      "pan": <number -1 to 1>,
-      "eq_low_cut_hz": <number, 0 if not needed>,
+      "volume_db": <-12 to 0>,
+      "pan": <-1 to 1>,
+      "eq_low_cut_hz": <hz, 0 if not needed>,
       "compress": <true|false>,
       "compress_ratio": <1 to 8>
     }
@@ -136,22 +154,26 @@ Return this exact JSON structure:
       "instrument": "vocals",
       "best_take_id": "<stem_id>",
       "best_take_name": "<filename>",
-      "reason": "brief reason"
+      "reason": "producer voice — why this take wins"
     }
   ]
 }
 
-Mix param rules:
-- vocals: eq_low_cut_hz=80, compress=true, compress_ratio=3, pan=0, volume_db based on how many other stems
-- drums: compress=true, compress_ratio=5, eq_low_cut_hz=40, volume_db=0
-- bass: eq_low_cut_hz=40, compress=true, compress_ratio=4, pan=0
-- guitar: eq_low_cut_hz=100, compress=true, compress_ratio=2
-- synth/keys: eq_low_cut_hz=120
-- If only 1 stem: volume_db=0
-- If multiple stems: vocals at -1, drums at 0, bass at -2, guitar at -3, others at -4
+Brief examples of the voice you should match:
+- "808 and drums are locked in at 140 BPM — that low-end foundation is solid. The dark tone on the bass is working. Add a melodic top line and this is ready to bounce."
+- "Vocals are sitting right in the pocket at 95 BPM, F minor. The brightness on the guitar is cutting through perfectly — don't touch it. You need a bass to anchor the low end."
+- "Only one stem here so far, but that drum pattern at 128 BPM is clean and punchy. Build on this — it's a strong foundation."
 
-Version insight: only include when the same instrument has 2+ takes from the same person.
-Conflict: flag if two stems have BPM values more than 3 apart, or keys more than 2 semitones apart.`
+Mix param rules:
+- drums: compress=true, ratio=5, eq_low_cut_hz=40, volume_db=0
+- bass: compress=true, ratio=4, eq_low_cut_hz=40, pan=0
+- vocals: compress=true, ratio=3, eq_low_cut_hz=80, pan=0, volume_db=-1
+- guitar: compress=true, ratio=2, eq_low_cut_hz=100
+- keys/synth: eq_low_cut_hz=120
+- solo stem: volume_db=0 regardless of type
+
+Conflicts: only flag if BPM diff > 3 or key diff > 2 semitones. Skip if only 1 stem.
+Version insights: only when same instrument has 2+ takes from same uploader.`
 
   let analysis: ProjectAnalysis
   try {

@@ -43,16 +43,27 @@ export default function AIPanel({
 
           {aiAnalysis?.brief && (
             <>
-              <p style={{ margin:'0 0 16px', fontSize:15, color:'#444', lineHeight:1.7 }}>{aiAnalysis.brief}</p>
+              {/* Producer feedback — the main voice */}
+              <div style={{ background:'#f9f9f9', borderRadius:14, padding:'14px 16px', marginBottom:16, borderLeft:`3px solid ${C.coral}` }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill={C.coral} aria-hidden="true"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm0 8a1 1 0 100 2 1 1 0 000-2z"/></svg>
+                  <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.08em', textTransform:'uppercase' }}>Producer Feedback</span>
+                </div>
+                <p style={{ margin:0, fontSize:14, color:'#222', lineHeight:1.75, fontStyle:'italic' }}>"{aiAnalysis.brief}"</p>
+              </div>
+
+              {/* Conflicts */}
               {aiAnalysis.conflicts?.length>0&&aiAnalysis.conflicts.map((c,i)=>(
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderRadius:12, marginBottom:8, background:'#fffbeb', border:'1px solid #fde68a' }}>
-                  <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  <span style={{ fontSize:13, color:'#92400e', lineHeight:1.5 }}>{c.detail}</span>
+                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px', borderRadius:12, marginBottom:8, background:'#fffbeb', border:'1px solid #fde68a' }}>
+                  <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span style={{ fontSize:13, color:'#92400e', lineHeight:1.55 }}>{c.detail}</span>
                 </div>
               ))}
+
+              {/* Missing instruments */}
               {aiAnalysis.missing?.length>0&&(
                 <div style={{ marginBottom:4 }}>
-                  <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', letterSpacing:'.08em', textTransform:'uppercase', marginBottom:10 }}>Missing from session</div>
+                  <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', letterSpacing:'.08em', textTransform:'uppercase', marginBottom:10 }}>What this track needs</div>
                   <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
                     {aiAnalysis.missing.slice(0,5).map(m=>(
                       <button key={m} onClick={()=>openModal('upload',{project:activeProject})}
