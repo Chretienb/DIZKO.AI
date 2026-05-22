@@ -6,7 +6,7 @@ const C = { coral:'#F4937A', grad:'linear-gradient(135deg,#F4937A,#F28FB8)' }
 
 const LAST_UPDATED = 'May 22, 2026'
 const COMPANY      = 'Dizko.AI'
-const CONTACT      = 'legal@dizko.ai'
+const CONTACT      = 'team@dizko.ai'
 const APP_URL      = 'https://dizko.ai'
 
 // ── Shared layout ─────────────────────────────────────────────────────────────

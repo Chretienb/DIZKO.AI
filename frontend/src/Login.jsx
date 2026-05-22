@@ -239,7 +239,7 @@ export default function Login({ onLogin }) {
 
               {/* Logic Pro — Apple (verified ✓) */}
               <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/apple/ffffff" width={18} height={18} alt="Logic Pro" style={{ opacity:.8 }}/>
+                <img src="https://cdn.simpleicons.org/apple/ffffff" width={18} height={18} alt="" style={{ opacity:.8 }}/>
                 <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Logic Pro</span>
               </div>
 
@@ -264,7 +264,7 @@ export default function Login({ onLogin }) {
 
               {/* Pro Tools — verified ✓ SimpleIcons */}
               <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/protools/ffffff" width={20} height={20} alt="Pro Tools" style={{ opacity:.8 }}/>
+                <img src="https://cdn.simpleicons.org/protools/ffffff" width={20} height={20} alt="" style={{ opacity:.8 }}/>
                 <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Pro Tools</span>
               </div>
 
@@ -272,7 +272,7 @@ export default function Login({ onLogin }) {
 
               {/* GarageBand — Apple (verified ✓) */}
               <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/apple/F7931E" width={18} height={18} alt="GarageBand" style={{ opacity:.8 }}/>
+                <img src="https://cdn.simpleicons.org/apple/F7931E" width={18} height={18} alt="" style={{ opacity:.8 }}/>
                 <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>GarageBand</span>
               </div>
 
@@ -280,7 +280,7 @@ export default function Login({ onLogin }) {
 
               {/* Cubase — Steinberg (verified ✓) */}
               <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={20} height={20} alt="Cubase" style={{ opacity:.85 }}/>
+                <img src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={20} height={20} alt="" style={{ opacity:.85 }}/>
                 <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Cubase</span>
               </div>
 
@@ -480,32 +480,20 @@ export default function Login({ onLogin }) {
 
             {/* Footer */}
             <p style={{ margin:'32px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
-              <a href="/privacy" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
-                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Privacy Policy</a>
-              <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>
-              <a href="/terms" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
-                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Terms</a>
-              <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>
-              <a href="mailto:team@dizko.ai" style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
-                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>Help</a>
+              {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
+                <span key={label}>
+                  <a href={href} style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
+                    onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
+                    onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>{label}</a>
+                  {i < arr.length-1 && <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>}
+                </span>
+              ))}
             </p>
           </div>
         </div>
       </div>
 
       {/* Legal footer */}
-      <div style={{ position:'absolute', bottom:20, left:0, right:0, display:'flex', justifyContent:'center', gap:20, zIndex:10 }}>
-        {[['Terms','/terms'],['Privacy','/privacy'],['Cookies','/cookies']].map(([label,path])=>(
-          <a key={path} href={path} style={{ fontSize:11, color:'rgba(255,255,255,.3)', textDecoration:'none', fontWeight:500, transition:'color .15s' }}
-            onMouseEnter={e=>e.target.style.color='rgba(255,255,255,.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,.3)'}>
-            {label}
-          </a>
-        ))}
-      </div>
-
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         input::placeholder { color: rgba(255,255,255,.25) !important; }
