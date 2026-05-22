@@ -317,7 +317,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
         <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', marginBottom:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
             <div>
-              <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>Your listeners are in <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>{listenerCities.slice(0,3).map(c=>c.city).join(', ')}</span></div>
+              <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>Your team is based in <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>{listenerCities.slice(0,3).map(c=>c.city).join(', ')}</span></div>
               <div style={{ fontSize:12, color:'#aaa', marginTop:3 }}>Music venues near your collaborators</div>
             </div>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'flex-end' }}>
