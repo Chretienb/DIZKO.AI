@@ -167,19 +167,33 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
       {/* Stat cards */}
       <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr 1fr':'repeat(3,1fr)', gap:14, marginBottom:24 }}>
         {statCards.map(s => (
-          <div key={s.label} onClick={isMobile?undefined:()=>navigate(`/${s.page}`)}
-            style={{ borderRadius:20, padding:'22px 24px', cursor:isMobile?'default':'pointer', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)', transition:'transform .18s, box-shadow .18s' }}
-            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.1)'}}
-            onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
-              <div style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`, display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
+          isMobile ? (
+            <div key={s.label}
+              style={{ borderRadius:20, padding:'22px 24px', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
+                <div aria-hidden="true" style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`, display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
+              </div>
+              <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
+                {s.val===null?<Spinner size={28} color={s.accent}/>:s.val}
+              </div>
+              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
             </div>
-            <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
-              {s.val===null?<Spinner size={28} color={s.accent}/>:s.val}
-            </div>
-            <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
-          </div>
+          ) : (
+            <button key={s.label} onClick={()=>navigate(`/${s.page}`)} aria-label={`${s.label}: ${s.val??'loading'} — go to ${s.page}`}
+              style={{ borderRadius:20, padding:'22px 24px', cursor:'pointer', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)', transition:'transform .18s, box-shadow .18s', textAlign:'left', width:'100%' }}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.1)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
+                <div aria-hidden="true" style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`, display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
+              </div>
+              <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
+                {s.val===null?<Spinner size={28} color={s.accent}/>:s.val}
+              </div>
+              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+            </button>
+          )
         ))}
       </div>
 
@@ -203,7 +217,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
-                <div style={{ width:7, height:7, borderRadius:'50%', background:latestMix?'#22c55e':'rgba(255,255,255,.2)', boxShadow:latestMix?'0 0 8px #22c55e':'none' }}/>
+                <div aria-hidden="true" style={{ width:7, height:7, borderRadius:'50%', background:latestMix?'#22c55e':'rgba(255,255,255,.2)', boxShadow:latestMix?'0 0 8px #22c55e':'none' }}/>
                 <span style={{ fontSize:10.5, fontWeight:700, color:'rgba(255,255,255,.4)', textTransform:'uppercase', letterSpacing:'.1em' }}>
                   {latestMix?'AI Session Mix · Ready':'AI Session Mix · Waiting for takes'}
                 </span>
@@ -263,7 +277,9 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
             {projects.slice(0,4).map((p,i)=>{
               const g=CARD_GRADIENTS[i%CARD_GRADIENTS.length], isOwner=p.owner_id===user?.id
               return (
-                <div key={p.id??i} onClick={()=>openModal('project',{...p,g,tracks:0,collab:[]})}
+                <div key={p.id??i} role="button" tabIndex={0} aria-label={`Open project ${p.title}`}
+                  onClick={()=>openModal('project',{...p,g,tracks:0,collab:[]})}
+                  onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();openModal('project',{...p,g,tracks:0,collab:[]})} }}
                   style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', position:'relative', height:isMobile?220:280, display:'flex', flexDirection:'column', boxShadow:'0 6px 24px rgba(0,0,0,.16)', transition:'transform .22s, box-shadow .22s' }}
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow='0 20px 48px rgba(0,0,0,.24)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,.16)'}}>

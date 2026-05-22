@@ -11,7 +11,26 @@ import { requireAuth }   from '../middleware/auth'
 import { sanitize }      from '../middleware/sanitize'
 import { rateLimit }     from '../middleware/rateLimit'
 import { geolocateIp }  from '../lib/geoip'
+import { setCookie, deleteCookie } from 'hono/cookie'
 import type { HonoVariables } from '../types'
+
+const isProd = process.env.NODE_ENV === 'production'
+
+function setAuthCookies(c: any, session: { access_token: string; refresh_token: string }) {
+  setCookie(c, 'auth_token', session.access_token, {
+    httpOnly: true, secure: isProd, sameSite: isProd ? 'None' : 'Lax',
+    path: '/', maxAge: 3600,
+  })
+  setCookie(c, 'refresh_token', session.refresh_token, {
+    httpOnly: true, secure: isProd, sameSite: isProd ? 'None' : 'Lax',
+    path: '/auth/refresh', maxAge: 60 * 60 * 24 * 7,
+  })
+}
+
+function clearAuthCookies(c: any) {
+  deleteCookie(c, 'auth_token',    { path: '/' })
+  deleteCookie(c, 'refresh_token', { path: '/auth/refresh' })
+}
 
 const auth = new Hono<{ Variables: HonoVariables }>()
 
@@ -117,26 +136,29 @@ auth.post('/login', loginLimit, sanitize, async (c) => {
     }
   })
 
+  setAuthCookies(c, data.session)
   return c.json({ data: { user: data.user, session: data.session }, error: null, status: 200 })
 })
 
 // ── POST /auth/logout ─────────────────────────────────────────────────────────
 auth.post('/logout', requireAuth, async (c) => {
   const userId = c.var.user.id
-  // Sign out the specific user (invalidates all their sessions)
   await supabase.auth.admin.signOut(userId).catch(() => null)
+  clearAuthCookies(c)
   return c.json({ data: { message: 'Logged out' }, error: null, status: 200 })
 })
 
 // ── POST /auth/refresh ────────────────────────────────────────────────────────
-// Exchange a refresh token for a new access token
 auth.post('/refresh', sanitize, async (c) => {
-  const { refresh_token } = c.var.body as { refresh_token?: string }
+  const body = c.var.body as { refresh_token?: string }
+  const { getCookie } = await import('hono/cookie')
+  const refresh_token = body.refresh_token || getCookie(c, 'refresh_token')
   if (!refresh_token) return c.json({ data: null, error: 'refresh_token required', status: 400 }, 400)
 
   const { data, error } = await anonClient.auth.refreshSession({ refresh_token })
   if (error || !data.session) return c.json({ data: null, error: 'Session expired — please sign in again', status: 401 }, 401)
 
+  setAuthCookies(c, data.session)
   return c.json({ data: { session: data.session }, error: null, status: 200 })
 })
 

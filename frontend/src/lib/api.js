@@ -66,6 +66,7 @@ async function tryRefresh() {
   refreshPromise = fetch(`${BASE}/auth/refresh`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body:    JSON.stringify({ refresh_token: rt }),
   })
     .then(r => r.ok ? r.json() : null)
@@ -87,26 +88,27 @@ async function request(method, path, body) {
   const token = getToken()
   const headers = {
     'Content-Type': 'application/json',
+    // Send Bearer token as fallback; cookie is primary auth (httpOnly, XSS-safe)
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
   let res = await fetch(`${BASE}${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  // On 401, try a silent refresh then retry once.
-  // Skip this for auth endpoints — their 401 means bad credentials, not expired session.
   if (res.status === 401 && !path.startsWith('/auth/')) {
     const refreshed = await tryRefresh()
     if (refreshed) {
       const newToken = getToken()
       res = await fetch(`${BASE}${path}`, {
         method,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${newToken}`,
+          ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       })

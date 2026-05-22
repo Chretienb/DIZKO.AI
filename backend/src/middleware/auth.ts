@@ -1,31 +1,25 @@
 import { createMiddleware } from 'hono/factory'
+import { getCookie } from 'hono/cookie'
 import { verifyToken } from '../lib/supabase'
 import type { HonoVariables } from '../types'
 
-/**
- * Hono middleware — validates the Bearer JWT issued by Supabase Auth.
- * Attaches the verified user object to context variables as `user`.
- */
 export const requireAuth = createMiddleware<{ Variables: HonoVariables }>(
   async (c, next) => {
-    const header = c.req.header('Authorization')
+    // Cookie takes priority over Bearer header — httpOnly cookie is XSS-safe
+    const cookieToken  = getCookie(c, 'auth_token')
+    const bearerHeader = c.req.header('Authorization')
+    const token = cookieToken || (bearerHeader?.startsWith('Bearer ') ? bearerHeader.slice(7) : null)
 
-    if (!header?.startsWith('Bearer ')) {
-      return c.json(
-        { data: null, error: 'Missing authorization header', status: 401 },
-        401
-      )
+    if (!token) {
+      return c.json({ data: null, error: 'Missing authorization', status: 401 }, 401)
     }
 
     try {
-      const user = await verifyToken(header.slice(7))
+      const user = await verifyToken(token)
       c.set('user', user as unknown as HonoVariables['user'])
       await next()
     } catch {
-      return c.json(
-        { data: null, error: 'Invalid or expired token', status: 401 },
-        401
-      )
+      return c.json({ data: null, error: 'Invalid or expired token', status: 401 }, 401)
     }
   }
 )
