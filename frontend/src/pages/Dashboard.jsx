@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, venues as venuesApi } from '../lib/api.js'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, venuesApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Avatar, Spinner, C } from '../components/ui/index.jsx'
 
