@@ -88,9 +88,15 @@ function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass,
 
 export default function Login({ onLogin }) {
   const isMobile = useIsMobile()
-  const [tab, setTab]              = useState('signin')  // 'signin' | 'signup' | 'forgot' | 'forgot-sent'
+
+  // Pre-fill email + switch to signup if arriving from an invite link (?email=x&invite=1)
+  const params      = new URLSearchParams(window.location.search)
+  const inviteEmail = params.get('email') || ''
+  const isInvite    = params.get('invite') === '1'
+
+  const [tab, setTab]              = useState(isInvite ? 'signup' : 'signin')
   const [name, setName]            = useState('')
-  const [email, setEmail]          = useState('')
+  const [email, setEmail]          = useState(inviteEmail)
   const [password, setPass]        = useState('')
   const [showPass, setShowPass]    = useState(false)
   const [focus, setFocus]          = useState('')
@@ -415,6 +421,15 @@ export default function Login({ onLogin }) {
               </div>
             ) : (
               <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+                {/* Invite banner — shown when arriving from a project invite link */}
+                {isInvite && tab === 'signup' && (
+                  <div style={{ background:'rgba(244,147,122,.12)', border:'1px solid rgba(244,147,122,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
+                    <p style={{ margin:0, fontSize:12.5, color:C.coral, fontWeight:600, lineHeight:1.5 }}>
+                      You've been invited to collaborate — create your free account to join the project.
+                    </p>
+                  </div>
+                )}
 
                 {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
                 {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} top rounded={tab==='signup'&&tab!=='forgot'?'top':'all'} />}

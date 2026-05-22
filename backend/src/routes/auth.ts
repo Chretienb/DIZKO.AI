@@ -2,7 +2,7 @@ import { Hono }          from 'hono'
 import { createClient }  from '@supabase/supabase-js'
 import { execSync }          from 'child_process'
 import { notify }             from '../lib/notificationService'
-import { welcomeEmail, inviteEmail } from '../lib/emailTemplates'
+import { welcomeEmail, inviteEmail, inviteNewUserEmail } from '../lib/emailTemplates'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join }          from 'path'
 import { tmpdir }        from 'os'
@@ -336,6 +336,37 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
         return { emailSubject: tpl.subject, emailHtml: tpl.html }
       })(),
     }).catch(() => null)
+  } else {
+    // No Dizko account yet — send a signup invitation email directly via Resend
+    const apiKey = process.env.RESEND_API_KEY
+    if (apiKey) {
+      const { data: inviter }   = await supabase.auth.admin.getUserById(user.id)
+      const { data: proj }      = await supabase.from('projects').select('title').eq('id', project_id).single()
+      const inviterName  = inviter?.user?.user_metadata?.full_name || inviter?.user?.email?.split('@')[0] || 'Someone'
+      const projectTitle = (proj as any)?.title ?? 'a project'
+      const frontendUrl  = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
+
+      // Pre-fill their email on the signup page so they land in the right place
+      const signupUrl = `${frontendUrl}/login?email=${encodeURIComponent(email)}&invite=1`
+
+      const tpl = inviteNewUserEmail({ inviterName, projectTitle, role, signupUrl })
+
+      fetch('https://api.resend.com/emails', {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from:    process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>',
+          to:      email,
+          subject: tpl.subject,
+          html:    tpl.html,
+        }),
+      })
+        .then(async r => {
+          if (!r.ok) console.error('[invite email] Resend error:', await r.text())
+          else console.log(`[invite email] sent to non-user ${email} for "${projectTitle}"`)
+        })
+        .catch(e => console.error('[invite email]', e.message))
+    }
   }
 
   return c.json({ data: { ...collaborator, invited: true }, error: null, status: 201 }, 201)

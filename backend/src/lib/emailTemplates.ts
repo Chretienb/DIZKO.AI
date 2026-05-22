@@ -287,3 +287,97 @@ export function inviteEmail(opts: {
     html:    shell(body),
   }
 }
+
+// ── Invite for someone who doesn't have a Dizko account yet ──────────────────
+export function inviteNewUserEmail(opts: {
+  inviterName:   string
+  projectTitle:  string
+  role:          string
+  signupUrl:     string   // pre-filled with their email
+}): { subject: string; html: string } {
+  const body = `
+    <p style="margin:0 0 4px;font-family:${FONT};font-size:12px;font-weight:700;color:${CORAL};text-transform:uppercase;letter-spacing:0.08em;">You've been invited</p>
+    <h1 style="margin:0 0 16px;font-family:${FONT};font-size:24px;font-weight:900;color:${DARK};letter-spacing:-0.6px;">
+      ${opts.inviterName} wants to make music with you.
+    </h1>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:#555;line-height:1.7;">
+      You've been invited to join <strong>"${opts.projectTitle}"</strong> on Dizko.ai —
+      a real-time music collaboration platform where producers upload stems,
+      collaborate live, and let AI handle the mixing.
+    </p>
+
+    <!-- Role + project badge -->
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:28px;width:100%;">
+      <tr>
+        <td bgcolor="#f8f8f8" style="background-color:#f8f8f8;border-radius:10px;padding:16px 20px;border-left:3px solid ${CORAL};">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td>
+                <p style="margin:0 0 2px;font-family:${FONT};font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.08em;">Project</p>
+                <p style="margin:0 0 12px;font-family:${FONT};font-size:15px;font-weight:800;color:${DARK};">${opts.projectTitle}</p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <p style="margin:0 0 2px;font-family:${FONT};font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.08em;">Your role</p>
+                <p style="margin:0;font-family:${FONT};font-size:15px;font-weight:700;color:${CORAL};">${opts.role}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- What is Dizko blurb -->
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:28px;width:100%;">
+      <tr>
+        <td style="padding:0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="32" valign="top" style="padding-right:12px;padding-top:2px;">
+                <div style="width:28px;height:28px;background-color:${CORAL}20;border-radius:8px;text-align:center;line-height:28px;font-size:14px;">🎛️</div>
+              </td>
+              <td>
+                <p style="margin:0 0 2px;font-family:${FONT};font-size:13px;font-weight:700;color:${DARK};">Upload your stems</p>
+                <p style="margin:0;font-family:${FONT};font-size:12.5px;color:#888;line-height:1.5;">Drop your audio files — Dizko organizes and names them automatically.</p>
+              </td>
+            </tr>
+            <tr><td colspan="2" style="padding:8px 0;"></td></tr>
+            <tr>
+              <td width="32" valign="top" style="padding-right:12px;padding-top:2px;">
+                <div style="width:28px;height:28px;background-color:${CORAL}20;border-radius:8px;text-align:center;line-height:28px;font-size:14px;">🤝</div>
+              </td>
+              <td>
+                <p style="margin:0 0 2px;font-family:${FONT};font-size:13px;font-weight:700;color:${DARK};">Collaborate in real time</p>
+                <p style="margin:0;font-family:${FONT};font-size:12.5px;color:#888;line-height:1.5;">See your team's uploads instantly. Comment on stems, track takes.</p>
+              </td>
+            </tr>
+            <tr><td colspan="2" style="padding:8px 0;"></td></tr>
+            <tr>
+              <td width="32" valign="top" style="padding-right:12px;padding-top:2px;">
+                <div style="width:28px;height:28px;background-color:${CORAL}20;border-radius:8px;text-align:center;line-height:28px;font-size:14px;">🎵</div>
+              </td>
+              <td>
+                <p style="margin:0 0 2px;font-family:${FONT};font-size:13px;font-weight:700;color:${DARK};">AI Smart Mix</p>
+                <p style="margin:0;font-family:${FONT};font-size:12.5px;color:#888;line-height:1.5;">Claude analyzes your session and generates a balanced mix automatically.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA -->
+    <div style="margin-bottom:20px;">
+      ${ctaBtn('Create Free Account &amp; Join &rarr;', opts.signupUrl)}
+    </div>
+    <p style="margin:0;font-family:${FONT};font-size:12px;color:#aaa;text-align:center;line-height:1.6;">
+      Free for 60 days — no credit card required.<br/>
+      Your invite to <strong>${opts.projectTitle}</strong> will be waiting.
+    </p>`
+
+  return {
+    subject: `${opts.inviterName} invited you to "${opts.projectTitle}" on Dizko.ai`,
+    html:    shell(body),
+  }
+}
