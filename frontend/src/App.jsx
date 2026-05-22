@@ -140,7 +140,7 @@ function collabInitials(c) {
 }
 
 // Circular progress ring — wraps any content with an SVG arc that fills 0→100%
-function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(255,255,255,.08)', children }) {
+const ProgressRing = React.memo(function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(255,255,255,.08)', children }) {
   const r    = (size - stroke) / 2
   const circ = 2 * Math.PI * r
   const off  = circ * (1 - Math.min(pct, 100) / 100)
@@ -157,7 +157,7 @@ function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(
       </div>
     </div>
   )
-}
+})
 
 function collabName(c) {
   const raw = c?.user?.full_name || c?.full_name
@@ -193,7 +193,7 @@ const SPIN_CSS = `
 @keyframes eq4 { 0%,100%{height:6px}  60%{height:18px} }
 @keyframes pulse { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
 `
-function Spinner({ size = 20, color }) {
+const Spinner = React.memo(function Spinner({ size = 20, color }) {
   const col = color || C.coral
   const bars = [
     { anim:'eq1 .7s ease-in-out infinite' },
@@ -218,7 +218,7 @@ function Spinner({ size = 20, color }) {
       </div>
     </>
   )
-}
+})
 
 function LoadingBlock({ label, size = 22 }) {
   return (
@@ -323,7 +323,7 @@ function SectionHeader({ title, sub, action, onAction, ghost }) {
   )
 }
 
-function Btn({ children, onClick, style={}, variant='primary' }) {
+const Btn = React.memo(function Btn({ children, onClick, style={}, variant='primary' }) {
   const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', transition:'opacity .15s', ...style }
   const vars = {
     primary: { background:C.grad, color:'#fff', boxShadow:`0 4px 14px ${C.coral}40` },
@@ -333,10 +333,10 @@ function Btn({ children, onClick, style={}, variant='primary' }) {
   return <button onClick={onClick} style={{ ...base, ...vars[variant] }}
     onMouseEnter={e => e.currentTarget.style.opacity='.88'}
     onMouseLeave={e => e.currentTarget.style.opacity='1'}>{children}</button>
-}
+})
 
 // Avatar — shows profile picture when set, falls back to coloured initials
-function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
+const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
   const s   = typeof size === 'number' ? size : 36
   const fs  = Math.round(s * 0.36)
   const base = {
@@ -355,7 +355,7 @@ function Avatar({ name, url, size = 36, color = C.coral, border, style: extra })
       {initials(name || '')}
     </div>
   )
-}
+})
 
 // Toast notification — stacks at top-right, auto-dismisses
 function useToasts() {
@@ -457,7 +457,7 @@ function NotificationBellLight({ user }) {
   const unread = notifs.filter(n => !n.read).length
 
   const load = React.useCallback(() => {
-    notificationsApi.list().then(r => setNotifs(r.data || [])).catch(() => {})
+    notificationsApi.list().then(r => setNotifs(r.data || [])).catch(e => console.warn("[dizko]", e?.message))
   }, [])
 
   React.useEffect(() => { load() }, [])
@@ -502,6 +502,7 @@ function NotificationBellLight({ user }) {
   return (
     <div style={{ position:'relative' }} ref={panelRef}>
       <button onClick={() => { setOpen(o => !o); if (!open) load() }}
+        aria-label="Notifications" aria-expanded={open}
         style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
           background: open ? 'rgba(0,0,0,.06)' : 'rgba(0,0,0,.04)',
           cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
@@ -606,7 +607,8 @@ function Modal({ title, sub, onClose, children, width=520, accent }) {
       WebkitBackdropFilter:'blur(8px)', zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', padding:20 }}
       onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:24, width:'100%', maxWidth:width,
+      <div role="dialog" aria-modal="true" aria-label={title}
+        style={{ background:'#fff', borderRadius:24, width:'100%', maxWidth:width,
         maxHeight:'92vh', overflowY:'auto', boxShadow:'0 40px 120px rgba(0,0,0,.35)',
         position:'relative' }}>
         {/* Accent bar */}
@@ -619,7 +621,8 @@ function Modal({ title, sub, onClose, children, width=520, accent }) {
             <h2 style={{ margin:0, fontSize:17, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>{title}</h2>
             {sub && <p style={{ margin:'4px 0 0', fontSize:12.5, color:'#aaa', lineHeight:1.4 }}>{sub}</p>}
           </div>
-          <button onClick={onClose} style={{ width:32, height:32, borderRadius:10,
+          <button onClick={onClose} aria-label="Close dialog"
+            style={{ width:32, height:32, borderRadius:10,
             background:'rgba(0,0,0,.06)', border:'none', cursor:'pointer', flexShrink:0, marginLeft:16,
             display:'flex', alignItems:'center', justifyContent:'center', transition:'background .15s' }}
             onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.12)'}
@@ -1453,7 +1456,7 @@ function ModalInvite({ project: initialProject, onClose }) {
         const list = r.data || []
         setProjects(list)
         if (list.length === 1) setSelProj(list[0])
-      }).catch(() => {})
+      }).catch(e => console.warn("[dizko]", e?.message))
     }
   }, [initialProject])
 
@@ -1582,7 +1585,7 @@ function ModalMessage({ collab, onClose, currentUserId }) {
     if (!otherId) { setLoading(false); return }
     messagesApi.conversation(otherId)
       .then(r => setMsgs(r.data || []))
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setLoading(false))
   }, [otherId])
 
@@ -1681,7 +1684,7 @@ function ModalViewWork({ collab, onClose, playTrack }) {
         const all = r.data || []
         setFiles(all.filter(f => f.uploaded_by === collab.user_id))
       })
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setLoading(false))
   }, [collab?.project_id, collab?.user_id])
 
@@ -1875,7 +1878,7 @@ function ModalUpload({ project, onClose, user }) {
         const list = r.data || []
         setProjects(list)
         if (list.length === 1) setSelProj(list[0])
-      }).catch(() => {})
+      }).catch(e => console.warn("[dizko]", e?.message))
     }
   }, [project])
 
@@ -2218,7 +2221,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
           const name = u.full_name || u.email?.split('@')[0] || 'Someone'
           setUploaderNames(prev => ({ ...prev, [uid]: name }))
         })
-        .catch(() => {})
+        .catch(e => console.warn("[dizko]", e?.message))
     })
   }
 
@@ -2264,10 +2267,10 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
         setLoadingVenues(true)
         venuesApi.search(top.city, top.region)
           .then(r => setCityVenues(prev => ({ ...prev, [top.city]: r.data || [] })))
-          .catch(() => {})
+          .catch(e => console.warn("[dizko]", e?.message))
           .finally(() => setLoadingVenues(false))
       }
-    }).catch(() => {})
+    }).catch(e => console.warn("[dizko]", e?.message))
   }, [projects.length])
 
   const loadVenuesForCity = (city, region = '') => {
@@ -2276,7 +2279,7 @@ function PageDashboard({ playing, setPlay, drag, setDrag, openModal, user, playT
     setLoadingVenues(true)
     venuesApi.search(city, region)
       .then(r => setCityVenues(prev => ({ ...prev, [city]: r.data || [] })))
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setLoadingVenues(false))
   }
 
@@ -2929,7 +2932,7 @@ function PageProjects({ openModal, refreshKey, user }) {
                   const me = (r.data || []).find(c => c.user_id === user.id)
                   if (me) setMyRoles(prev => ({ ...prev, [p.id]: me.role || 'Collaborator' }))
                 })
-                .catch(() => {})
+                .catch(e => console.warn("[dizko]", e?.message))
               roles[p.id] = 'Collaborator'  // default until fetch completes
             }
           })
@@ -3162,7 +3165,7 @@ function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
         })
         setCollabs(all)
       })
-    }).catch(() => {}).finally(() => setLoading(false))
+    }).catch(e => console.warn("[dizko]", e?.message)).finally(() => setLoading(false))
   }
 
   useEffect(() => { loadData() }, [])
@@ -3556,7 +3559,7 @@ function PageLibrary({ openModal, playTrack, addToast, user }) {
         setProjects(projs)
         if (projs.length) setActiveId(projs[0].id)
       })
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setLoading(false))
   }, [])
 
@@ -3908,7 +3911,7 @@ function WaveformCanvas({ url, color, height = 56, progress = 0 }) {
         ctx.close()
       })
       .catch(() => { setReady(true) })
-    return () => { cancelled = true; ctx.close().catch(() => {}) }
+    return () => { cancelled = true; ctx.close().catch(e => console.warn("[dizko]", e?.message)) }
   }, [url, color])
 
   return (
@@ -3988,7 +3991,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
       const list = r.data || []
       setProjects(list)
       if (list.length) setActiveId(list[0].id)
-    }).catch(() => {}).finally(() => setLoading(false))
+    }).catch(e => console.warn("[dizko]", e?.message)).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -4018,7 +4021,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           setTimeout(() => setStems(s => { /* trigger detectBPM via effect below */ return s }), 100)
         }
       })
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setLoadingStems(false))
   }, [activeId])
 
@@ -4082,7 +4085,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
     audioRefs.current = {}
     gainRefs.current  = {}
-    if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+    if (ctxRef.current) { ctxRef.current.close().catch(e => console.warn("[dizko]", e?.message)); ctxRef.current = null }
     cancelAnimationFrame(rafRef.current)
     clearInterval(beatTimerRef.current)
     setBeatFlash(false)
@@ -4200,7 +4203,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         method: 'PATCH',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('disco_token')}` },
         body: JSON.stringify({ bpm: b }),
-      }).catch(() => {})
+      }).catch(e => console.warn("[dizko]", e?.message))
     }, 800)
   }
 
@@ -4302,7 +4305,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
   const pause = () => {
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
     audioRefs.current = {}
-    if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+    if (ctxRef.current) { ctxRef.current.close().catch(e => console.warn("[dizko]", e?.message)); ctxRef.current = null }
     cancelAnimationFrame(rafRef.current)
     clearInterval(beatTimerRef.current)
     setPlaying(false)
@@ -4520,7 +4523,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
     const a = bouncePlayerRef.current
     if (!a) return
     if (bouncePlaying) { a.pause(); setBouncePlaying(false) }
-    else { a.play().catch(() => {}); setBouncePlaying(true) }
+    else { a.play().catch(e => console.warn("[dizko]", e?.message)); setBouncePlaying(true) }
   }
 
   const saveBounce = async () => {
@@ -4722,7 +4725,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
         display:'flex', alignItems:'center', gap:12 }}>
 
         {/* Stop */}
-        <button onClick={stop} title="Stop"
+        <button onClick={stop} title="Stop" aria-label="Stop playback"
           style={{ width:32, height:32, borderRadius:8, border:'1px solid rgba(0,0,0,.08)',
             background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
             cursor:'pointer', color:'#ccc', transition:'all .12s', flexShrink:0 }}
@@ -4741,6 +4744,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
           </ProgressRing>
         ) : (
           <button onClick={playing ? pause : playAll}
+            aria-label={playing ? 'Pause' : 'Play all tracks'}
             style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
               background:'#111', display:'flex', alignItems:'center', justifyContent:'center',
               transition:'opacity .12s', flexShrink:0 }}
@@ -5119,7 +5123,7 @@ function PageStudio({ openModal, playTrack, addToast, user }) {
                                   await fetch(`/api/stem-comments/${cm.id}/like`, {
                                     method: 'POST',
                                     headers: { Authorization: `Bearer ${getToken()}` }
-                                  }).catch(() => {})
+                                  }).catch(e => console.warn("[dizko]", e?.message))
                                 }} style={{ display:'flex', alignItems:'center', gap:4, background:'none',
                                   border:'none', cursor:'pointer', padding:0, transition:'transform .1s' }}
                                 onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
@@ -5425,10 +5429,10 @@ function PageAnalytics({ onGated, hasAccess }) {
               }
             }
           })
-          .catch(() => {})
+          .catch(e => console.warn("[dizko]", e?.message))
           .finally(() => setYtLoading(false))
       }
-    }).catch(() => {})
+    }).catch(e => console.warn("[dizko]", e?.message))
   }, [])
 
   // Handle ?yt=connected redirect from OAuth callback
@@ -5440,7 +5444,7 @@ function PageAnalytics({ onGated, hasAccess }) {
       setYtLoading(true)
       youtubeApi.analytics()
         .then(r => { if (r.data) setYtData(r.data) })
-        .catch(() => {})
+        .catch(e => console.warn("[dizko]", e?.message))
         .finally(() => setYtLoading(false))
     }
   }, [])
@@ -5471,7 +5475,7 @@ function PageAnalytics({ onGated, hasAccess }) {
     setYtVenueLoad(true)
     venuesApi.search(city)
       .then(v => setYtCityVenues(prev => ({ ...prev, [city]: v.data || [] })))
-      .catch(() => {})
+      .catch(e => console.warn("[dizko]", e?.message))
       .finally(() => setYtVenueLoad(false))
   }
 
@@ -5963,7 +5967,7 @@ function MiniPlayer({ track, onClose }) {
   const toggle = () => {
     if (!audioRef.current) return
     if (playing) { audioRef.current.pause(); setPlaying(false) }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true) }
+    else { audioRef.current.play().catch(e => console.warn("[dizko]", e?.message)); setPlaying(true) }
   }
 
   // Listen for keyboard shortcut events dispatched from App
@@ -6223,7 +6227,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         {NAV.map(n => {
           const on = currentNav?.id === n.id
           return (
-            <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }} style={{
+            <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
+              aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
+              style={{
               display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px',
               borderRadius:9, border:'none', cursor:'pointer', marginBottom:2, textAlign:'left',
               fontSize:13, fontWeight: on ? 600 : 400,
