@@ -9,8 +9,7 @@ import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
 import Onboarding    from './Onboarding.jsx'
 import ResetPassword from './ResetPassword.jsx'
-import Privacy       from './Privacy.jsx'
-import Terms         from './Terms.jsx'
+import { TermsPage as Terms, PrivacyPage as Privacy, CookiesPage } from './pages/Legal.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
 import { supabase } from './lib/supabase'
@@ -178,6 +177,7 @@ function Root() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy"        element={<Privacy />} />
       <Route path="/terms"          element={<Terms />} />
+      <Route path="/cookies"        element={<CookiesPage />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />

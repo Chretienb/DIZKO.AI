@@ -496,6 +496,16 @@ export default function Login({ onLogin }) {
         </div>
       </div>
 
+      {/* Legal footer */}
+      <div style={{ position:'absolute', bottom:20, left:0, right:0, display:'flex', justifyContent:'center', gap:20, zIndex:10 }}>
+        {[['Terms','/terms'],['Privacy','/privacy'],['Cookies','/cookies']].map(([label,path])=>(
+          <a key={path} href={path} style={{ fontSize:11, color:'rgba(255,255,255,.3)', textDecoration:'none', fontWeight:500, transition:'color .15s' }}
+            onMouseEnter={e=>e.target.style.color='rgba(255,255,255,.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,.3)'}>
+            {label}
+          </a>
+        ))}
+      </div>
+
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         input::placeholder { color: rgba(255,255,255,.25) !important; }

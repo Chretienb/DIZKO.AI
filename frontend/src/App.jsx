@@ -14,6 +14,7 @@ import PageStudioNew       from './pages/Studio.jsx'
 import PageCollaboratorsNew from './pages/Collaborators.jsx'
 import PageLibraryNew      from './pages/Library.jsx'
 import PageAnalyticsNew    from './pages/Analytics.jsx'
+import { TermsPage, PrivacyPage, CookiesPage } from './pages/Legal.jsx'
 
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
 export class ErrorBoundary extends React.Component {
