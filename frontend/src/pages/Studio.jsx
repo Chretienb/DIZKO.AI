@@ -340,6 +340,18 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } catch {}
   }
 
+  const [volumes,       setVolumes]       = useState({})
+  const [trims,         setTrims]         = useState({})
+  const [selectedIds,   setSelectedIds]   = useState(new Set())
+  const [expandedId,    setExpandedId]    = useState(null)
+  const [deletingId,    setDeletingId]    = useState(null)
+  const [uploaders,     setUploaders]     = useState({})
+  const [stemComments,  setStemComments]  = useState({})
+  const [commentDraft,  setCommentDraft]  = useState({})
+  const [postingComment,setPostingComment]= useState(null)
+  const [stemHistory,   setStemHistory]   = useState({})
+  const { arm: stemConfirmArm } = useConfirm()
+
   const loadComments = useCallback(async stemId => {
     try {
       const res = await fetch(`/api/stem-comments/${stemId}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
@@ -366,18 +378,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       if (j.data) setStemHistory(j.data)
     } catch {}
   }
-
-  const [volumes,       setVolumes]       = useState({})
-  const [trims,         setTrims]         = useState({})
-  const [selectedIds,   setSelectedIds]   = useState(new Set())
-  const [expandedId,    setExpandedId]    = useState(null)
-  const [deletingId,    setDeletingId]    = useState(null)
-  const [uploaders,     setUploaders]     = useState({})
-  const [stemComments,  setStemComments]  = useState({})
-  const [commentDraft,  setCommentDraft]  = useState({})
-  const [postingComment,setPostingComment]= useState(null)
-  const [stemHistory,   setStemHistory]   = useState({})
-  const { arm: stemConfirmArm } = useConfirm()
 
   useEffect(() => {
     const ids = [...new Set(stems.map(s => s.uploaded_by).filter(Boolean))]
