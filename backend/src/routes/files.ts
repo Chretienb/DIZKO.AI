@@ -58,6 +58,15 @@ files.post('/upload', async (c) => {
   const file           = formData.get('file') as File | null
   const projectId      = formData.get('project_id') as string | null
   const instrumentHint = (formData.get('instrument') as string | null)?.trim() || null
+  const analysisRaw    = (formData.get('analysis') as string | null) || null
+
+  // Parse Essentia analysis sent from the browser (real audio features)
+  let essentiaAnalysis: {
+    bpm?: number; key?: string; scale?: string;
+    loudness?: number; brightness?: number; danceability?: number;
+    zcr?: number; duration?: number;
+  } | null = null
+  try { if (analysisRaw) essentiaAnalysis = JSON.parse(analysisRaw) } catch {}
 
   if (!file || !projectId) {
     return c.json({ data: null, error: 'file and project_id are required', status: 400 }, 400)
@@ -167,21 +176,38 @@ files.post('/upload', async (c) => {
   // 5. Analyze BPM/key in background, then trigger Smart Mix update
   ;(async () => {
     try {
-      // Pure TS BPM + key detection — works on WAV buffers, no Python needed
-      const { bpm, key } = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
+      // Use Essentia data from browser if available — it's more accurate.
+      // Fall back to backend WAV analysis only if Essentia didn't run.
+      let bpm: number | null = essentiaAnalysis?.bpm ?? null
+      let key: string | null = essentiaAnalysis?.key
+        ? `${essentiaAnalysis.key} ${essentiaAnalysis.scale ?? ''}`.trim()
+        : null
+
+      if (!bpm || !key) {
+        const fallback = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
+        bpm = bpm ?? fallback.bpm
+        key = key ?? fallback.key
+      }
 
       // Get project title for better Claude naming
       const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
       const projectTitle = (proj as any)?.title ?? undefined
 
-      const suggestedName = await buildSuggestedName(file.name, instrument, bpm, key, projectTitle)
+      // Build name — pass full Essentia analysis so Claude writes better names
+      const suggestedName = await buildSuggestedName(
+        file.name, instrument, bpm, key, projectTitle, essentiaAnalysis
+      )
 
       await supabase.from('stems').update({
-        notes: JSON.stringify({ status: 'ready', type: 'take', bpm, key }),
+        notes: JSON.stringify({
+          status: 'ready', type: 'take', bpm, key,
+          // Store full Essentia analysis for future use
+          ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
+        }),
         suggested_name: suggestedName,
       }).eq('id', takeId)
 
-      console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'})`)
+      console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${essentiaAnalysis ? ' · Essentia ✓' : ' · fallback'})`)
 
       // AI analysis — runs first so mix params are ready for Smart Mix
       await analyzeProject(projectId, user.id).catch(e =>
@@ -209,19 +235,34 @@ files.post('/upload', async (c) => {
   }, 201)
 })
 
-// Producer-standard display name: "Midnight Bass · 92 BPM · Fm"
+// Producer-standard display name: "Midnight Bass · 92 BPM · F# minor"
 async function buildSuggestedName(
   original: string,
   instrument: string,
   bpm: number | null,
   key: string | null,
   projectTitle?: string,
+  audioFeatures?: { brightness?: number; danceability?: number; loudness?: number; duration?: number } | null,
 ): Promise<string> {
+  // Build audio context string for Claude using real Essentia features
+  const featureHints: string[] = []
+  if (audioFeatures?.brightness != null) {
+    featureHints.push(audioFeatures.brightness > 0.6 ? 'bright/airy tone' : audioFeatures.brightness < 0.3 ? 'dark/heavy tone' : 'balanced tone')
+  }
+  if (audioFeatures?.danceability != null) {
+    featureHints.push(audioFeatures.danceability > 2 ? 'high energy' : audioFeatures.danceability > 1 ? 'moderate energy' : 'low energy')
+  }
+  if (audioFeatures?.loudness != null) {
+    featureHints.push(`loudness ${audioFeatures.loudness} dB`)
+  }
+
   const creativeName = await generateStemName({
     originalName: original,
-    ...(instrument    ? { instrument }    : {}),
-    ...(projectTitle  ? { projectTitle }  : {}),
+    ...(instrument              ? { instrument }              : {}),
+    ...(projectTitle            ? { projectTitle }            : {}),
+    ...(featureHints.length > 0 ? { audioContext: featureHints.join(', ') } : {}),
   }).catch(() => null)
+
   const base = creativeName ?? original.replace(/\.[^.]+$/, '')
   const parts = [base]
   if (bpm) parts.push(`${Math.round(bpm)} BPM`)

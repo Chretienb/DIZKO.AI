@@ -79,6 +79,7 @@ async function aiName(
   instrument?: string,
   projectTitle?: string,
   mimeType?: string,
+  audioContext?: string,
 ): Promise<string | null> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return null
@@ -86,10 +87,12 @@ async function aiName(
   const prompt = [
     'You are a music producer assistant. Suggest one short, creative track name for this audio file.',
     `Filename: "${originalName}"`,
-    instrument ? `Instrument: ${instrument}` : null,
-    projectTitle ? `Project: "${projectTitle}"` : null,
-    mimeType   ? `Type: ${mimeType}` : null,
-    'Rules: max 40 characters · title case · no quotes · reply with ONLY the name, nothing else.',
+    instrument    ? `Instrument: ${instrument}`            : null,
+    projectTitle  ? `Project: "${projectTitle}"`           : null,
+    mimeType      ? `Type: ${mimeType}`                    : null,
+    // Real audio features from Essentia — Claude now knows what the audio actually sounds like
+    audioContext  ? `Audio analysis: ${audioContext}`      : null,
+    'Rules: max 40 characters · title case · no quotes · use the audio analysis to inform the vibe · reply with ONLY the name, nothing else.',
   ].filter(Boolean).join('\n')
 
   try {
@@ -124,8 +127,9 @@ export async function generateStemName(opts: {
   instrument?: string
   projectTitle?: string
   mimeType?: string
+  audioContext?: string  // real Essentia features e.g. "bright/airy tone, high energy, loudness -8 dB"
 }): Promise<string> {
-  const { originalName, instrument, projectTitle, mimeType } = opts
-  const ai = await aiName(originalName, instrument, projectTitle, mimeType)
+  const { originalName, instrument, projectTitle, mimeType, audioContext } = opts
+  const ai = await aiName(originalName, instrument, projectTitle, mimeType, audioContext)
   return ai ?? heuristicName(originalName, instrument, projectTitle)
 }

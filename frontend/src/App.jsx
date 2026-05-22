@@ -1901,7 +1901,17 @@ function ModalUpload({ project, onClose, user }) {
       setQueue([...updated])
 
       try {
-        await filesApi.upload(updated[i].file, selProj.id, { instrument: updated[i].instrument || undefined })
+        // Analyze audio with Essentia before upload — gives Claude real data
+        let analysis = null
+        try {
+          const { analyzeFile } = await import('./lib/audioAnalysis.js')
+          analysis = await analyzeFile(updated[i].file)
+        } catch {}
+
+        await filesApi.upload(updated[i].file, selProj.id, {
+          instrument: updated[i].instrument || undefined,
+          ...(analysis ? { analysis: JSON.stringify(analysis) } : {}),
+        })
         updated[i] = { ...updated[i], status:'done', progress: 100 }
         setQueue([...updated])
         window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
