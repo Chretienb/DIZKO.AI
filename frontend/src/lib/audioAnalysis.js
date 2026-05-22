@@ -91,32 +91,82 @@ function detectBPM(samples, sampleRate) {
   } catch { return null }
 }
 
+// ── Cooley-Tukey FFT on raw PCM — no OfflineAudioContext needed ───────────────
+function fft(re, im) {
+  const n = re.length
+  if (n <= 1) return
+  // Bit-reversal permutation
+  for (let i=1, j=0; i<n; i++) {
+    let bit = n>>1
+    for (; j&bit; bit>>=1) j^=bit
+    j^=bit
+    if (i<j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]] }
+  }
+  for (let len=2; len<=n; len<<=1) {
+    const ang = -2*Math.PI/len
+    const wRe = Math.cos(ang), wIm = Math.sin(ang)
+    for (let i=0; i<n; i+=len) {
+      let curRe=1, curIm=0
+      for (let j=0; j<len/2; j++) {
+        const uRe=re[i+j], uIm=im[i+j]
+        const vRe=re[i+j+len/2]*curRe-im[i+j+len/2]*curIm
+        const vIm=re[i+j+len/2]*curIm+im[i+j+len/2]*curRe
+        re[i+j]=uRe+vRe; im[i+j]=uIm+vIm
+        re[i+j+len/2]=uRe-vRe; im[i+j+len/2]=uIm-vIm
+        const newRe=curRe*wRe-curIm*wIm
+        curIm=curRe*wIm+curIm*wRe; curRe=newRe
+      }
+    }
+  }
+}
+
+/**
+ * Compute magnitude spectrum from a slice of PCM samples.
+ * Returns Float32Array of length N/2 (magnitudes per frequency bin).
+ */
+function computeSpectrum(samples, fftSize=4096) {
+  // Take middle section — more representative than the start
+  const mid   = Math.floor((samples.length - fftSize) / 2)
+  const start = Math.max(0, mid)
+  const re    = new Float32Array(fftSize)
+  const im    = new Float32Array(fftSize)
+
+  // Hann window to reduce spectral leakage
+  for (let i=0; i<fftSize; i++) {
+    const hann = 0.5*(1-Math.cos(2*Math.PI*i/(fftSize-1)))
+    re[i] = (samples[start+i] || 0) * hann
+  }
+
+  fft(re, im)
+
+  // Magnitude spectrum (first half)
+  const mags = new Float32Array(fftSize/2)
+  for (let i=0; i<fftSize/2; i++) mags[i]=Math.sqrt(re[i]*re[i]+im[i]*im[i])
+  return mags
+}
+
 // ── Spectral centroid — tonal brightness ─────────────────────────────────────
-function spectralCentroid(frequencyData, sampleRate) {
-  const binSize = sampleRate / (2 * frequencyData.length)
+function spectralCentroid(magnitudes, sampleRate, fftSize) {
+  const binHz = sampleRate / fftSize
   let num=0, den=0
-  for (let i=0; i<frequencyData.length; i++) {
-    const mag = Math.pow(10, frequencyData[i]/20)  // dB → linear
-    num += mag * i * binSize
-    den += mag
+  for (let i=0; i<magnitudes.length; i++) {
+    num += magnitudes[i] * i * binHz
+    den += magnitudes[i]
   }
   return den > 0 ? num/den : 0
 }
 
-// ── Chromagram from FFT data ──────────────────────────────────────────────────
-function buildChromagram(frequencyData, sampleRate) {
+// ── Chromagram from magnitude spectrum ───────────────────────────────────────
+function buildChromagram(magnitudes, sampleRate, fftSize) {
   const chroma  = new Float32Array(12).fill(0)
-  const binSize = sampleRate / (2 * frequencyData.length)
-  for (let i=1; i<frequencyData.length; i++) {
-    const freq = i * binSize
-    if (freq < 27.5 || freq > 4200) continue  // piano range
-    const mag  = Math.pow(10, frequencyData[i]/20)
-    // Map frequency to pitch class
+  const binHz   = sampleRate / fftSize
+  for (let i=1; i<magnitudes.length; i++) {
+    const freq = i * binHz
+    if (freq < 27.5 || freq > 4200) continue
     const midi = 12 * Math.log2(freq / 440) + 69
     const pc   = ((Math.round(midi) % 12) + 12) % 12
-    chroma[pc] += mag
+    chroma[pc] += magnitudes[i]
   }
-  // Normalise
   const max = Math.max(...chroma) || 1
   for (let i=0; i<12; i++) chroma[i]/=max
   return chroma
@@ -170,36 +220,19 @@ export async function analyzeAudio(audioBuffer) {
     const slice = mono.slice(0, Math.min(mono.length, sampleRate * 30))
     const zcr   = zeroCrossingRate(slice)
 
-    // FFT via OfflineAudioContext for spectral features
-    const fftSize = 8192
+    // FFT directly on raw PCM — fully reliable across all browsers
+    const FFT_SIZE  = 4096
     let brightness  = null
     let key         = null
     let scale       = null
 
     try {
-      const offline = new OfflineAudioContext(1, fftSize * 4, sampleRate)
-      const src     = offline.createBufferSource()
+      const magnitudes = computeSpectrum(mono, FFT_SIZE)
 
-      // Create a short buffer for FFT
-      const fftBuf  = offline.createBuffer(1, fftSize * 4, sampleRate)
-      const fftData = fftBuf.getChannelData(0)
-      // Use middle section of audio (more representative than start)
-      const midStart = Math.floor((mono.length - fftData.length) / 2)
-      for (let i=0; i<fftData.length && midStart+i<mono.length; i++) fftData[i]=mono[midStart+i]
-
-      src.buffer = fftBuf
-      const analyser = offline.createAnalyser()
-      analyser.fftSize = fftSize
-      src.connect(analyser); analyser.connect(offline.destination); src.start(0)
-      await offline.startRendering()
-
-      const freqData = new Float32Array(analyser.frequencyBinCount)
-      analyser.getFloatFrequencyData(freqData)
-
-      const centroid = spectralCentroid(freqData, sampleRate)
+      const centroid = spectralCentroid(magnitudes, sampleRate, FFT_SIZE)
       brightness = parseFloat(Math.min(1, centroid / 8000).toFixed(2))
 
-      const chroma = buildChromagram(freqData, sampleRate)
+      const chroma    = buildChromagram(magnitudes, sampleRate, FFT_SIZE)
       const keyResult = detectKey(chroma)
       key   = keyResult.key
       scale = keyResult.scale
