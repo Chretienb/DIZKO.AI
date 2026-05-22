@@ -43,39 +43,43 @@ export default function AIPanel({
 
           {aiAnalysis?.brief && (
             <>
-              {/* Producer feedback — the main voice */}
-              <div style={{ background:'#f9f9f9', borderRadius:14, padding:'14px 16px', marginBottom:16, borderLeft:`3px solid ${C.coral}` }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill={C.coral} aria-hidden="true"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm0 8a1 1 0 100 2 1 1 0 000-2z"/></svg>
-                  <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.08em', textTransform:'uppercase' }}>Producer Feedback</span>
-                </div>
-                <p style={{ margin:0, fontSize:14, color:'#222', lineHeight:1.75, fontStyle:'italic' }}>"{aiAnalysis.brief}"</p>
-              </div>
+              {/* Brief — clean, no label */}
+              <p style={{ margin:'0 0 18px', fontSize:14, color:'#555', lineHeight:1.8, letterSpacing:'-.01em' }}>
+                {aiAnalysis.brief}
+              </p>
 
               {/* Conflicts */}
-              {aiAnalysis.conflicts?.length>0&&aiAnalysis.conflicts.map((c,i)=>(
-                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px', borderRadius:12, marginBottom:8, background:'#fffbeb', border:'1px solid #fde68a' }}>
-                  <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  <span style={{ fontSize:13, color:'#92400e', lineHeight:1.55 }}>{c.detail}</span>
+              {aiAnalysis.conflicts?.length>0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+                  {aiAnalysis.conflicts.map((c,i)=>(
+                    <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'10px 13px', borderRadius:10, background:'#fffbeb', border:'1px solid #fde68a' }}>
+                      <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:2 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      <span style={{ fontSize:12.5, color:'#92400e', lineHeight:1.55 }}>{c.detail}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
 
               {/* Missing instruments */}
-              {aiAnalysis.missing?.length>0&&(
-                <div style={{ marginBottom:4 }}>
-                  <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', letterSpacing:'.08em', textTransform:'uppercase', marginBottom:10 }}>What this track needs</div>
-                  <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+              {aiAnalysis.missing?.length>0 && (
+                <div style={{ marginBottom:16 }}>
+                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:600, color:'#ccc', textTransform:'uppercase', letterSpacing:'.08em' }}>Add to the session</p>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                     {aiAnalysis.missing.slice(0,5).map(m=>(
                       <button key={m} onClick={()=>openModal('upload',{project:activeProject})}
-                        style={{ fontSize:12, fontWeight:700, padding:'6px 14px', borderRadius:100, cursor:'pointer', border:`1px solid ${C.coral}30`, background:`${C.coral}08`, color:C.coral, textTransform:'capitalize', transition:'all .15s' }}
-                        onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}18`} onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}08`}>
+                        style={{ fontSize:11.5, fontWeight:600, padding:'5px 13px', borderRadius:100, cursor:'pointer',
+                          border:'1.5px solid rgba(0,0,0,.1)', background:'#fff', color:'#555',
+                          textTransform:'capitalize', transition:'all .15s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral;e.currentTarget.style.color=C.coral}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#555'}}>
                         + {m}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              <div style={{ height:1, background:'rgba(0,0,0,.06)', margin:'20px 0' }}/>
+
+              <div style={{ height:1, background:'rgba(0,0,0,.06)', margin:'16px 0' }}/>
             </>
           )}
 
