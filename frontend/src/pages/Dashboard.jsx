@@ -4,34 +4,7 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, venuesApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Avatar, Spinner, C } from '../components/ui/index.jsx'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getGreeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
-}
-
-function firstName(fullName = '') {
-  return fullName.trim().split(/\s+/)[0] || 'there'
-}
-
-function todayLabel() {
-  return new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
-}
-
-function timeAgo(isoString) {
-  if (!isoString) return ''
-  const diff = Date.now() - new Date(isoString).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m} min ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} hr ago`
-  const d = Math.floor(h / 24)
-  return `${d} day${d > 1 ? 's' : ''} ago`
-}
+import { getGreeting, firstName, todayLabel, timeAgo } from '../lib/utils.js'
 
 function collabName(c) {
   const raw = c?.user?.full_name || c?.full_name

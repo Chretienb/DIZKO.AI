@@ -3,9 +3,7 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Avatar, Btn, Spinner, ProgressRing, C } from '../components/ui/index.jsx'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const getToken = () => localStorage.getItem('disco_token') || ''
+import { getToken, timeAgo } from '../lib/utils.js'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -20,20 +18,15 @@ function useConfirm() {
   return { pending, arm }
 }
 
-function timeAgo(isoString) {
-  if (!isoString) return ''
-  const diff = Date.now() - new Date(isoString).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m} min ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} hr ago`
-  const d = Math.floor(h / 24)
-  return `${d} day${d > 1 ? 's' : ''} ago`
-}
-
-// ── Audio cache ───────────────────────────────────────────────────────────────
+// ── Audio cache (LRU, max 20 entries) ────────────────────────────────────────
+const MAX_CACHE = 20
 const audioBufferCache = new Map()
+function cacheSet(key, val) {
+  if (audioBufferCache.size >= MAX_CACHE) {
+    audioBufferCache.delete(audioBufferCache.keys().next().value)
+  }
+  audioBufferCache.set(key, val)
+}
 
 async function fetchAudioCached(url, onProgress) {
   if (audioBufferCache.has(url)) { onProgress?.(100); return audioBufferCache.get(url) }
@@ -55,7 +48,7 @@ async function fetchAudioCached(url, onProgress) {
   const buf = new Uint8Array(received)
   let pos = 0
   for (const chunk of chunks) { buf.set(chunk, pos); pos += chunk.length }
-  audioBufferCache.set(url, buf.buffer)
+  cacheSet(url, buf.buffer)
   return buf.buffer
 }
 
@@ -362,15 +355,15 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } catch {}
   }
 
-  const loadComments = async stemId => {
+  const loadComments = useCallback(async stemId => {
     try {
       const res = await fetch(`/api/stem-comments/${stemId}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
       const j = await res.json().catch(()=>({}))
       if (j.data) setStemComments(prev => ({ ...prev, [stemId]: j.data }))
     } catch {}
-  }
+  }, [])
 
-  const postComment = async (stemId, timestampSec = 0) => {
+  const postComment = useCallback(async (stemId, timestampSec = 0) => {
     const text = (commentDraft[stemId]||'').trim()
     if (!text || !activeId) return
     setPostingComment(stemId)
@@ -379,7 +372,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const j = await res.json().catch(()=>({}))
       if (j.data) { setStemComments(prev => ({ ...prev, [stemId]: [...(prev[stemId]||[]), j.data] })); setCommentDraft(prev => ({ ...prev, [stemId]:'' })) }
     } catch {} finally { setPostingComment(null) }
-  }
+  }, [commentDraft, activeId])
 
   const loadHistory = async projectId => {
     try {
