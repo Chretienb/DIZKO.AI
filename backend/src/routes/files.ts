@@ -55,8 +55,9 @@ files.post('/upload', async (c) => {
     return c.json({ data: null, error: 'Expected multipart/form-data', status: 400 }, 400)
   }
 
-  const file      = formData.get('file') as File | null
-  const projectId = formData.get('project_id') as string | null
+  const file           = formData.get('file') as File | null
+  const projectId      = formData.get('project_id') as string | null
+  const instrumentHint = (formData.get('instrument') as string | null)?.trim() || null
 
   if (!file || !projectId) {
     return c.json({ data: null, error: 'file and project_id are required', status: 400 }, 400)
@@ -112,8 +113,8 @@ files.post('/upload', async (c) => {
     trackId = (newTrack as { id: string }).id
   }
 
-  // 3. Detect instrument type from filename
-  const instrument = detectInstrument(file.name)
+  // 3. Use instrument from frontend if provided, otherwise detect from filename
+  const instrument = instrumentHint || detectInstrument(file.name)
 
   // 3b. Role-based access check — owner bypasses, collaborators restricted by role
   const { data: project } = await supabase.from('projects').select('owner_id').eq('id', projectId).single()
