@@ -7,13 +7,35 @@ venues.use('*', requireAuth)
 
 const TM_KEY = process.env.TICKETMASTER_API_KEY
 
+// Convert full US state names to 2-letter codes for Ticketmaster API
+const US_STATE_CODES: Record<string, string> = {
+  'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA',
+  'Colorado':'CO','Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA',
+  'Hawaii':'HI','Idaho':'ID','Illinois':'IL','Indiana':'IN','Iowa':'IA',
+  'Kansas':'KS','Kentucky':'KY','Louisiana':'LA','Maine':'ME','Maryland':'MD',
+  'Massachusetts':'MA','Michigan':'MI','Minnesota':'MN','Mississippi':'MS','Missouri':'MO',
+  'Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH','New Jersey':'NJ',
+  'New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND','Ohio':'OH',
+  'Oklahoma':'OK','Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC',
+  'South Dakota':'SD','Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT',
+  'Virginia':'VA','Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY',
+  'District of Columbia':'DC',
+}
+
+function toStateCode(state: string): string {
+  if (!state) return ''
+  if (state.length === 2) return state.toUpperCase()
+  return US_STATE_CODES[state] || ''
+}
+
 /**
  * GET /venues?city=Los+Angeles&state=CA&size=5
  * Returns music venues near a city via Ticketmaster Discovery API.
  */
 venues.get('/', async (c) => {
-  const city  = c.req.query('city')  || ''
-  const state = c.req.query('state') || ''
+  const city      = c.req.query('city')  || ''
+  const stateRaw  = c.req.query('state') || ''
+  const state     = toStateCode(stateRaw)
   const size  = Math.min(Number(c.req.query('size') || 6), 20)
 
   if (!city) return c.json({ data: null, error: 'city is required', status: 400 }, 400)
