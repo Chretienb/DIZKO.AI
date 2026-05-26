@@ -17,7 +17,7 @@ export default function TrackItem({
   uploader, uploaderName, takes,
   comments, commentDraft, postingComment,
   currentTime, duration,
-  onMute, onSolo, onPlay, onToggleExpand, onDelete,
+  onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
   gainRef,
 }) {
@@ -107,15 +107,16 @@ export default function TrackItem({
         </div>
       </div>
 
-      {/* Waveform — always visible when file is ready */}
+      {/* Waveform — click to seek */}
       {s.file_url && (
-        <div style={{ padding:'0 18px 12px', marginTop:-4 }}>
+        <div style={{ padding:'0 18px 10px', marginTop:-4 }}>
           <Waveform
             url={s.file_url}
             color={color}
-            progress={duration > 0 ? currentTime / duration : 0}
+            currentTime={currentTime}
             muted={isMuted}
             height={44}
+            onSeek={onSeek ? (sec) => onSeek(sec) : undefined}
           />
         </div>
       )}
