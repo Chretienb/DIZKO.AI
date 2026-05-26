@@ -30,7 +30,7 @@ function InlineRename({ value, onSave, onCancel }) {
   )
 }
 
-// ── File row — compact list item ──────────────────────────────────────────────
+// ── File tile — Apple Music style ─────────────────────────────────────────────
 function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
   const [hovered,  setHovered]  = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -40,6 +40,7 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
   const label = file.suggested_name || file.original_name || 'Untitled'
   const bpm   = notes.bpm ? `${Math.round(notes.bpm)} BPM` : null
   const key   = notes.key || null
+  const meta  = [file.instrument, bpm, key].filter(Boolean).join(' · ')
 
   return (
     <div
@@ -49,72 +50,85 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background:'#fff',
-        border:`1px solid ${hovered ? 'rgba(0,0,0,.1)' : 'rgba(0,0,0,.05)'}`,
-        borderLeft: `3px solid ${color}`,
-        borderRadius:10, padding:'9px 12px',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:7,
         cursor: dragging ? 'grabbing' : 'grab',
         opacity: dragging ? .4 : 1,
-        transition:'all .1s',
-        display:'flex', alignItems:'center', gap:10,
+        padding:'10px 8px', borderRadius:14,
+        background: hovered ? 'rgba(0,0,0,.04)' : 'transparent',
+        transition:'background .12s',
       }}>
 
-      {/* Instrument dot */}
-      <div style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>
+      {/* Square tile */}
+      <div style={{ position:'relative', width:'100%', aspectRatio:'1' }}>
+        <div style={{
+          position:'absolute', inset:0,
+          background:'linear-gradient(145deg,#1c1c1e 0%,#2a2a2e 100%)',
+          borderRadius:18,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow: hovered
+            ? `0 10px 28px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06)`
+            : `0 4px 14px rgba(0,0,0,.22), 0 0 0 1px rgba(255,255,255,.04)`,
+          transition:'box-shadow .15s',
+          overflow:'hidden',
+        }}>
+          {/* Color wash at top */}
+          <div style={{ position:'absolute', top:0, left:0, right:0, height:'45%',
+            background:`linear-gradient(180deg,${color}30 0%,transparent 100%)`,
+            pointerEvents:'none' }}/>
 
-      {/* Name or rename input */}
-      {renaming ? (
-        <InlineRename value={label}
-          onSave={name => { setRenaming(false); onRename(file.id, name) }}
-          onCancel={() => setRenaming(false)}/>
-      ) : (
-        <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#111',
-          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-          letterSpacing:'-.1px' }}>{label}</span>
-      )}
+          {/* Music note */}
+          <svg viewBox="0 0 100 100" width="46%" height="46%"
+            style={{ position:'relative', zIndex:1, filter:'drop-shadow(0 2px 4px rgba(0,0,0,.3))' }}>
+            <path d="M38 75 L38 30 L78 22 L78 40 L54 46 L54 75" stroke="#fff" strokeWidth="8"
+              strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <circle cx="30" cy="75" r="12" fill="#fff"/>
+            <circle cx="66" cy="69" r="12" fill="#fff"/>
+          </svg>
 
-      {/* Meta — hidden when renaming */}
-      {!renaming && (
-        <>
-          {file.instrument && (
-            <span style={{ fontSize:10, fontWeight:700, color:color,
-              background:`${color}12`, padding:'2px 8px', borderRadius:5,
-              textTransform:'capitalize', flexShrink:0 }}>
-              {file.instrument}
-            </span>
+          {/* Play overlay on hover */}
+          {hovered && (
+            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.5)',
+              display:'flex', alignItems:'center', justifyContent:'center', borderRadius:18 }}>
+              <button onClick={e => { e.stopPropagation(); onPlay(file) }} aria-label="Play"
+                style={{ width:44, height:44, borderRadius:'50%', border:'2px solid rgba(255,255,255,.9)',
+                  background:'rgba(255,255,255,.15)', backdropFilter:'blur(8px)',
+                  cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'transform .1s' }}
+                onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
+                onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}>
+                  <polygon points="5,3 19,12 5,21"/>
+                </svg>
+              </button>
+            </div>
           )}
-          {bpm && <span style={{ fontSize:10, color:'#bbb', fontWeight:500, flexShrink:0 }}>{bpm}</span>}
-          {key && <span style={{ fontSize:10, color:'#bbb', fontWeight:500, flexShrink:0 }}>{key}</span>}
-        </>
-      )}
-
-      {/* Actions — on hover */}
-      {hovered && !renaming && (
-        <div style={{ display:'flex', gap:4, flexShrink:0 }} onClick={e => e.stopPropagation()}>
-          <button onClick={() => setRenaming(true)} aria-label="Rename"
-            style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(0,0,0,.1)',
-              background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
-              justifyContent:'center', color:'#aaa', transition:'all .1s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#aaa' }}>
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-          <button onClick={() => onPlay(file)} aria-label="Play"
-            style={{ width:24, height:24, borderRadius:6, border:`1px solid ${color}40`,
-              background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center',
-              justifyContent:'center', color, transition:'all .1s' }}
-            onMouseEnter={e => { e.currentTarget.style.background=color; e.currentTarget.style.color='#fff' }}
-            onMouseLeave={e => { e.currentTarget.style.background=`${color}10`; e.currentTarget.style.color=color }}>
-            <svg width={8} height={8} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}>
-              <polygon points="5,3 19,12 5,21"/>
-            </svg>
-          </button>
         </div>
-      )}
+      </div>
 
+      {/* Name */}
+      {renaming ? (
+        <div style={{ width:'100%' }}>
+          <InlineRename value={label}
+            onSave={name => { setRenaming(false); onRename(file.id, name) }}
+            onCancel={() => setRenaming(false)}/>
+        </div>
+      ) : (
+        <p onClick={() => setRenaming(true)}
+          style={{ margin:0, fontSize:11.5, fontWeight:700, color:'#111',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+            width:'100%', textAlign:'center', letterSpacing:'-.1px',
+            cursor:'text' }}
+          title="Click to rename">
+          {label}
+        </p>
+      )}
+      {meta && (
+        <p style={{ margin:'-4px 0 0', fontSize:10, color:'#bbb', fontWeight:500,
+          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          width:'100%', textAlign:'center', textTransform:'capitalize' }}>
+          {meta}
+        </p>
+      )}
     </div>
   )
 }
@@ -561,7 +575,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )}
             </div>
           ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ display:'grid',
+              gridTemplateColumns:'repeat(auto-fill, minmax(110px, 1fr))',
+              gap:4 }}>
               {visibleFiles.map(file => (
                 <FileRow key={file.id} file={file}
                   dragging={draggingId === file.id}
