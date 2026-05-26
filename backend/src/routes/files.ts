@@ -435,4 +435,52 @@ files.get('/', async (c) => {
   return c.json({ data: enriched, error: null, status: 200 })
 })
 
+// ── POST /files/:id/like — toggle like on a stem ─────────────────────────────
+files.post('/:id/like', async (c) => {
+  const userId = c.var.user.id
+  const stemId = c.req.param('id')
+
+  const { data: stem } = await supabase
+    .from('stems').select('notes').eq('id', stemId).single()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+
+  let notes: any = {}
+  try { notes = JSON.parse((stem as any).notes || '{}') } catch {}
+
+  const liked: string[] = notes.liked_by || []
+  const alreadyLiked    = liked.includes(userId)
+  const updatedLikes    = alreadyLiked
+    ? liked.filter((id: string) => id !== userId)
+    : [...liked, userId]
+
+  await supabase.from('stems').update({
+    notes: JSON.stringify({ ...notes, liked_by: updatedLikes }),
+  }).eq('id', stemId)
+
+  return c.json({ data: { liked: !alreadyLiked, count: updatedLikes.length }, error: null, status: 200 })
+})
+
+// ── POST /files/:id/approve — toggle approved status on a stem ────────────────
+files.post('/:id/approve', async (c) => {
+  const userId = c.var.user.id
+  const stemId = c.req.param('id')
+
+  const { data: stem } = await supabase
+    .from('stems').select('notes').eq('id', stemId).single()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+
+  let notes: any = {}
+  try { notes = JSON.parse((stem as any).notes || '{}') } catch {}
+
+  const approved     = !notes.approved
+  const approvedBy   = approved ? userId : null
+  const approvedAt   = approved ? new Date().toISOString() : null
+
+  await supabase.from('stems').update({
+    notes: JSON.stringify({ ...notes, approved, approved_by: approvedBy, approved_at: approvedAt }),
+  }).eq('id', stemId)
+
+  return c.json({ data: { approved, approved_by: approvedBy }, error: null, status: 200 })
+})
+
 export default files

@@ -771,7 +771,7 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user
               const isActive  = nowPlaying?.id === f.id
               const stemColor = stemColors[f.instrument] || '#bbb'
               return (
-                <div key={f.id} onClick={() => playTrack(f)}
+                <div key={f.id} onClick={() => playTrack(f, files)}
                   style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
                     borderRadius:10, cursor:'pointer', transition:'background .12s',
                     background: isActive ? `${C.coral}08` : 'transparent',
@@ -2170,151 +2170,241 @@ const CARD_GRADIENTS = [
 
 // ─── ROOT APP ──────────────────────────────────────────────────────────────
 // ─── MINI PLAYER ───────────────────────────────────────────────────────────
-function MiniPlayer({ track, onClose }) {
+function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const audioRef               = useRef(null)
   const [playing,  setPlaying] = useState(false)
   const [progress, setProgress]= useState(0)
   const [duration, setDuration]= useState(0)
   const [current,  setCurrent] = useState(0)
   const [vol,      setVol]     = useState(1)
-  const [loadPct,  setLoadPct] = useState(0)   // 0-100 download progress
+  const [loading,  setLoading] = useState(true)
+  const [liked,    setLiked]   = useState(false)
+  const [likeCount,setLikeCount]= useState(0)
+  const [approved, setApproved]= useState(false)
+
+  const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
+
+  // Parse initial liked/approved state from stem notes
+  useEffect(() => {
+    if (!track) return
+    try {
+      const n = JSON.parse(track.notes || '{}')
+      const likedBy = n.liked_by || []
+      setLiked(user?.id ? likedBy.includes(user.id) : false)
+      setLikeCount(likedBy.length)
+      setApproved(!!n.approved)
+    } catch {}
+  }, [track?.id])
 
   useEffect(() => {
     if (!track?.file_url) return
-    const cached = audioBufferCache.has(track.file_url)
-    setLoadPct(cached ? 100 : 0)
+    setLoading(true)
+    setProgress(0); setCurrent(0); setDuration(0)
 
     const a = new Audio(track.file_url)
     audioRef.current = a
     a.volume = vol
-    a.ontimeupdate = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
+    a.ontimeupdate  = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
-    a.onended = () => setPlaying(false)
+    a.oncanplay     = () => setLoading(false)
+    a.onended       = () => { setPlaying(false); goNext() }
 
-    // Update ring while buffering (works during and after playback starts)
-    a.onprogress = () => {
-      if (!a.duration || !a.buffered.length) return
-      const pct = Math.round((a.buffered.end(a.buffered.length - 1) / a.duration) * 100)
-      setLoadPct(pct)
-    }
-    a.oncanplaythrough = () => setLoadPct(100)
-
-    // Start playing as soon as the browser has enough — no 26-second wait
     const playPromise = a.play()
     setPlaying(true)
 
     return () => {
-      if (playPromise !== undefined) {
-        playPromise.then(() => { a.pause(); a.src = '' }).catch(() => { a.src = '' })
-      } else {
-        a.pause(); a.src = ''
-      }
+      playPromise?.then(() => { a.pause(); a.src = '' }).catch(() => { a.src = '' })
     }
   }, [track?.file_url])
 
   const toggle = () => {
     if (!audioRef.current) return
     if (playing) { audioRef.current.pause(); setPlaying(false) }
-    else { audioRef.current.play().catch(e => console.warn("[dizko]", e?.message)); setPlaying(true) }
+    else { audioRef.current.play().catch(() => {}); setPlaying(true) }
   }
 
-  // Listen for keyboard shortcut events dispatched from App
+  const seek = (e) => {
+    if (!audioRef.current || !duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration
+  }
+
+  const idx    = playlist.findIndex(f => f.id === track?.id)
+  const hasPrev = idx > 0
+  const hasNext = idx >= 0 && idx < playlist.length - 1
+
+  const goPrev = () => { if (hasPrev) onPlay(playlist[idx - 1], playlist) }
+  const goNext = () => { if (hasNext) onPlay(playlist[idx + 1], playlist) }
+
+  const toggleLike = async () => {
+    const newLiked = !liked
+    setLiked(newLiked)
+    setLikeCount(c => newLiked ? c + 1 : Math.max(0, c - 1))
+    try {
+      const { getToken } = await import('./lib/utils.js')
+      await fetch(`/api/files/${track.id}/like`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}`, credentials:'include' } })
+    } catch {}
+  }
+
+  const toggleApprove = async () => {
+    const newApproved = !approved
+    setApproved(newApproved)
+    try {
+      const { getToken } = await import('./lib/utils.js')
+      await fetch(`/api/files/${track.id}/approve`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}`, credentials:'include' } })
+    } catch {}
+  }
+
   useEffect(() => {
     const handler = (e) => {
-      const a = audioRef.current
-      if (!a) return
+      const a = audioRef.current; if (!a) return
       const { action } = e.detail
-      if (action === 'toggle')    toggle()
-      if (action === 'seekBack')  { a.currentTime = Math.max(0, a.currentTime - 5) }
-      if (action === 'seekFwd')   { a.currentTime = Math.min(a.duration || 0, a.currentTime + 5) }
-      if (action === 'volUp')     { a.volume = Math.min(1, a.volume + 0.1); setVol(a.volume) }
-      if (action === 'volDown')   { a.volume = Math.max(0, a.volume - 0.1); setVol(a.volume) }
+      if (action === 'toggle')   toggle()
+      if (action === 'seekBack') a.currentTime = Math.max(0, a.currentTime - 5)
+      if (action === 'seekFwd')  a.currentTime = Math.min(a.duration || 0, a.currentTime + 5)
+      if (action === 'volUp')    { a.volume = Math.min(1, a.volume + 0.1); setVol(a.volume) }
+      if (action === 'volDown')  { a.volume = Math.max(0, a.volume - 0.1); setVol(a.volume) }
     }
     window.addEventListener('dizko:playback', handler)
     return () => window.removeEventListener('dizko:playback', handler)
   }, [playing])
 
-  const seek = (e) => {
-    if (!audioRef.current || !duration) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const pct  = (e.clientX - rect.left) / rect.width
-    audioRef.current.currentTime = pct * duration
-  }
-  const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
-
-  const name = track?.suggested_name || track?.original_name || track?.label || 'Untitled'
+  const name       = track?.suggested_name || track?.original_name || 'Untitled'
+  const notes      = (() => { try { return JSON.parse(track?.notes || '{}') } catch { return {} } })()
+  const bpm        = notes.bpm ? `${Math.round(notes.bpm)} BPM` : null
+  const key        = notes.key || null
+  const instrument = track?.instrument || null
+  const meta       = [instrument, bpm, key].filter(Boolean).join(' · ')
 
   return (
     <div style={{
       position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)',
-      width:480, maxWidth:'calc(100vw - 40px)',
-      background:'#1a1a1a', borderRadius:18, padding:'14px 20px',
-      boxShadow:'0 8px 40px rgba(0,0,0,.45)', zIndex:2000,
-      display:'flex', alignItems:'center', gap:16,
-      border:'1px solid rgba(255,255,255,.08)',
+      width:540, maxWidth:'calc(100vw - 32px)',
+      background:'#111', borderRadius:20, zIndex:2000,
+      boxShadow:'0 12px 48px rgba(0,0,0,.6)',
+      border:'1px solid rgba(255,255,255,.07)',
+      overflow:'hidden',
     }}>
-      {/* Album art placeholder */}
-      <div style={{ width:42, height:42, borderRadius:10, background:C.grad, flexShrink:0,
-        display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round">
-          <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-        </svg>
-      </div>
-
-      {/* Track info + progress */}
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden',
-          textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:6 }}>{name}</div>
-        {/* Seek bar (hidden while loading — ring handles that) */}
-        <div onClick={loadPct >= 100 ? seek : undefined}
-          style={{ height:4, borderRadius:2, cursor: loadPct >= 100 ? 'pointer' : 'default',
-            background:'rgba(255,255,255,.1)', position:'relative', overflow:'hidden' }}>
-          <div style={{ height:'100%', borderRadius:2, transition:'width .15s linear',
-            width: loadPct < 100 ? `${loadPct}%` : `${progress}%`,
-            background: loadPct < 100
-              ? `linear-gradient(90deg,${C.coral}55,${C.coral}99)`
-              : C.grad }}/>
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-          <span style={{ fontSize:10, color: loadPct < 100 ? C.coral : 'rgba(255,255,255,.35)',
-            fontWeight: loadPct < 100 ? 600 : 400 }}>
-            {loadPct < 100 && !playing ? 'Buffering…'
-              : loadPct < 100 && playing ? `Buffering ${loadPct}%`
-              : fmt(current)}
-          </span>
-          <span style={{ fontSize:10, color:'rgba(255,255,255,.35)' }}>
-            {duration ? fmt(duration) : '--:--'}
-          </span>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        {loadPct < 100 ? (
-          <ProgressRing pct={loadPct} size={44} stroke={3} color={C.coral} bg="rgba(255,255,255,.1)">
-            <span style={{ fontSize:10, fontWeight:800, color:'#fff', letterSpacing:'-.3px' }}>
-              {loadPct}%
-            </span>
-          </ProgressRing>
-        ) : (
-          <button onClick={toggle} style={{
-            width:44, height:44, borderRadius:'50%', border:'none', cursor:'pointer',
-            background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 2px 10px ${C.coral}50`,
-          }}>
-            {playing
-              ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
-          </button>
+      {/* Top loading bar — replaces the % spinner */}
+      <div style={{ height:2, background:'rgba(255,255,255,.06)' }}>
+        {loading && (
+          <div style={{ height:'100%', background:C.grad, width:'40%',
+            animation:'dizko-load 1s ease-in-out infinite alternate',
+            borderRadius:2 }}/>
         )}
-        {/* Volume */}
-        <input type="range" min={0} max={1} step={.05} value={vol}
-          onChange={e => { const v=+e.target.value; setVol(v); if (audioRef.current) audioRef.current.volume=v }}
-          style={{ width:60, accentColor:C.coral, cursor:'pointer' }} />
-        {/* Close */}
-        <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer',
-          color:'rgba(255,255,255,.4)', fontSize:18, lineHeight:1, padding:0 }}>×</button>
       </div>
+
+      <div style={{ padding:'12px 18px', display:'flex', alignItems:'center', gap:14 }}>
+
+        {/* Instrument icon */}
+        <div style={{ width:40, height:40, borderRadius:11, background:C.grad, flexShrink:0,
+          display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round">
+            <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+          </svg>
+        </div>
+
+        {/* Track info */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden',
+            textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px' }}>{name}</div>
+          {meta && <div style={{ fontSize:10.5, color:'rgba(255,255,255,.35)', marginTop:2, letterSpacing:'.02em' }}>{meta}</div>}
+        </div>
+
+        {/* Like */}
+        <button onClick={toggleLike} aria-label={liked ? 'Unlike' : 'Like'} aria-pressed={liked}
+          style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center',
+            gap:4, padding:0, transition:'transform .1s', flexShrink:0 }}
+          onMouseEnter={e=>e.currentTarget.style.transform='scale(1.15)'}
+          onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+          <svg width={16} height={16} viewBox="0 0 24 24"
+            fill={liked ? '#ef4444' : 'none'}
+            stroke={liked ? '#ef4444' : 'rgba(255,255,255,.35)'}
+            strokeWidth={2} strokeLinecap="round">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
+          {likeCount > 0 && <span style={{ fontSize:10, color:liked?'#ef4444':'rgba(255,255,255,.3)', fontWeight:600 }}>{likeCount}</span>}
+        </button>
+
+        {/* Approve */}
+        <button onClick={toggleApprove} aria-label={approved ? 'Remove approval' : 'Approve stem'} aria-pressed={approved}
+          style={{ background: approved ? 'rgba(34,197,94,.15)' : 'rgba(255,255,255,.05)',
+            border: `1px solid ${approved ? 'rgba(34,197,94,.4)' : 'rgba(255,255,255,.1)'}`,
+            borderRadius:8, width:30, height:30, cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', transition:'all .15s', flexShrink:0 }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+            stroke={approved ? '#22c55e' : 'rgba(255,255,255,.3)'}
+            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20,6 9,17 4,12"/>
+          </svg>
+        </button>
+
+        {/* Close */}
+        <button onClick={onClose} aria-label="Close player"
+          style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.3)',
+            fontSize:20, lineHeight:1, padding:0, flexShrink:0, transition:'color .12s' }}
+          onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.8)'}
+          onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>×</button>
+      </div>
+
+      {/* Seek bar */}
+      <div onClick={seek} style={{ margin:'0 18px', height:3, borderRadius:2,
+        background:'rgba(255,255,255,.08)', cursor:'pointer', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress}%`,
+          background:C.grad, borderRadius:2, transition:'width .1s linear' }}/>
+      </div>
+
+      {/* Transport + time */}
+      <div style={{ padding:'10px 18px 14px', display:'flex', alignItems:'center', gap:10 }}>
+        {/* Prev */}
+        <button onClick={goPrev} disabled={!hasPrev} aria-label="Previous track"
+          style={{ background:'none', border:'none', cursor:hasPrev?'pointer':'default',
+            color:hasPrev?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)', padding:0, display:'flex', alignItems:'center', transition:'color .12s' }}
+          onMouseEnter={e=>{ if(hasPrev) e.currentTarget.style.color='#fff' }}
+          onMouseLeave={e=>e.currentTarget.style.color=hasPrev?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)'}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg>
+        </button>
+
+        {/* Play / Pause */}
+        <button onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}
+          style={{ width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer',
+            background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:`0 2px 12px ${C.coral}50`, flexShrink:0 }}>
+          {playing
+            ? <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+            : <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
+        </button>
+
+        {/* Next */}
+        <button onClick={goNext} disabled={!hasNext} aria-label="Next track"
+          style={{ background:'none', border:'none', cursor:hasNext?'pointer':'default',
+            color:hasNext?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)', padding:0, display:'flex', alignItems:'center', transition:'color .12s' }}
+          onMouseEnter={e=>{ if(hasNext) e.currentTarget.style.color='#fff' }}
+          onMouseLeave={e=>e.currentTarget.style.color=hasNext?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)'}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z"/></svg>
+        </button>
+
+        {/* Time */}
+        <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.4)', marginLeft:4 }}>
+          {fmt(current)}
+        </span>
+        <div style={{ flex:1 }}/>
+        <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.25)' }}>
+          {duration ? fmt(duration) : '--:--'}
+        </span>
+
+        {/* Volume */}
+        <input type="range" min={0} max={1} step={.05} value={vol} aria-label="Volume"
+          onChange={e => { const v=+e.target.value; setVol(v); if(audioRef.current) audioRef.current.volume=v }}
+          style={{ width:56, accentColor:C.coral, cursor:'pointer' }}/>
+      </div>
+
+      <style>{`
+        @keyframes dizko-load {
+          from { transform: translateX(-100%) }
+          to   { transform: translateX(350%) }
+        }
+      `}</style>
     </div>
   )
 }
@@ -2373,9 +2463,13 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const [modal,   setModal]    = useState(null)
   const [userMenu, setMenu]    = useState(false)
   const [refreshKey, setRefresh] = useState(0)
-  const [nowPlaying, setNowPlaying] = useState(null)  // file object for MiniPlayer
+  const [nowPlaying, setNowPlaying] = useState(null)
+  const [playlist,   setPlaylist]   = useState([])
 
-  const playTrack = useCallback((file) => setNowPlaying(file), [])
+  const playTrack = useCallback((file, list = []) => {
+    setNowPlaying(file)
+    if (list.length > 1) setPlaylist(list)
+  }, [])
 
   const GATED_MODALS = ['new-project', 'upload', 'invite']
   const openModal = (type, data) => {
@@ -2794,7 +2888,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       </div>
 
       {/* ══ MODALS ═══════════════════════════════════════════════════════════ */}
-      {nowPlaying && <MiniPlayer track={nowPlaying} onClose={() => setNowPlaying(null)} />}
+      {nowPlaying && (
+        <MiniPlayer
+          track={nowPlaying}
+          playlist={playlist}
+          user={user}
+          onClose={() => { setNowPlaying(null); setPlaylist([]) }}
+          onPlay={playTrack}
+        />
+      )}
 
       {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
       {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
