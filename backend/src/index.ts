@@ -22,6 +22,7 @@ import assistantRoutes       from './routes/assistant'
 import inviteLinkRoutes      from './routes/inviteLinks'
 import stemCommentRoutes     from './routes/stemComments'
 import venueRoutes            from './routes/venues'
+import folderRoutes           from './routes/folders'
 import youtubeRoutes          from './routes/youtube'
 import billingRoutes          from './routes/billing'
 import { startCleanupJob }   from './lib/cleanupJob'
@@ -88,6 +89,7 @@ app.route('/assistant',       assistantRoutes)
 app.route('/invite-links',    inviteLinkRoutes)
 app.route('/stem-comments',   stemCommentRoutes)
 app.route('/venues',          venueRoutes)
+app.route('/folders',         folderRoutes)
 app.route('/youtube',         youtubeRoutes)
 app.route('/billing',         billingRoutes)
 app.route('/auth/youtube',   youtubeRoutes)  // alias — matches Google OAuth redirect URI

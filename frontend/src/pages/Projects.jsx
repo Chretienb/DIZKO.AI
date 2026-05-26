@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
 import { Btn, Spinner, C } from '../components/ui/index.jsx'
@@ -34,6 +35,7 @@ function timeAgo(isoString) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PageProjects({ openModal, refreshKey, user }) {
+  const navigate = useNavigate()
   const [filter,      setFilter]   = useState('All')
   const [apiProjects, setApi]      = useState([])
   const [loading,     setLoading]  = useState(true)
@@ -121,7 +123,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
             const role    = myRoles[p.id]
             const isOwner = role === 'Owner'
             return (
-              <div key={p.id} onClick={() => openModal('project', { ...p, g })}
+              <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                 style={{ borderRadius:24, overflow:'hidden', cursor:'pointer', position:'relative', height:isMobile?300:360, display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,.18)', transition:'transform .25s, box-shadow .25s' }}
                 onMouseEnter={e => { e.currentTarget.style.transform='translateY(-8px)'; e.currentTarget.style.boxShadow='0 24px 60px rgba(0,0,0,.28)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.18)' }}>
@@ -150,7 +152,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
                   <div style={{ fontSize:20, fontWeight:900, color:'#111', letterSpacing:'-.6px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.2 }}>{p.title}</div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
                     <div style={{ fontSize:12, color:'#bbb' }}>{isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}</div>
-                    <button onClick={e => { e.stopPropagation(); openModal('project', { ...p, g }) }}
+                    <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
                       style={{ padding:'7px 18px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 12px rgba(0,0,0,.2)', transition:'opacity .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                       Open →

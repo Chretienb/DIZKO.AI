@@ -14,6 +14,7 @@ import PageStudioNew       from './pages/Studio.jsx'
 import PageCollaboratorsNew from './pages/Collaborators.jsx'
 import PageLibraryNew      from './pages/Library.jsx'
 import PageAnalyticsNew    from './pages/Analytics.jsx'
+import ProjectView         from './pages/ProjectView.jsx'
 import { TermsPage, PrivacyPage, CookiesPage } from './pages/Legal.jsx'
 
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
@@ -2855,6 +2856,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
+            <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/studio"        element={<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />} />
             <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
