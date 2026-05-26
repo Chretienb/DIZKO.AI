@@ -526,14 +526,26 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
           )}
 
-          {/* Activity */}
-          {activity.length > 0 && (
-            <div style={{ marginTop:20 }}>
-              <p style={{ margin:'0 0 8px 2px', fontSize:10, fontWeight:800, color:'#c0c4cc',
-                textTransform:'uppercase', letterSpacing:'.1em' }}>Activity</p>
-              {activity.slice(0,8).map((n,i) => <ActivityItem key={n.id||i} item={n}/>)}
-            </div>
-          )}
+          {/* Activity — always shown */}
+          <div style={{ marginTop:20 }}>
+            <p style={{ margin:'0 0 8px 2px', fontSize:10, fontWeight:800, color:'#c0c4cc',
+              textTransform:'uppercase', letterSpacing:'.1em' }}>Recent Activity</p>
+            {activity.length > 0 ? (
+              activity.slice(0,8).map((n,i) => <ActivityItem key={n.id||i} item={n}/>)
+            ) : (
+              <div style={{ padding:'14px 0', textAlign:'center' }}>
+                <svg width={24} height={24} viewBox="0 0 24 24" fill="none"
+                  stroke="#e0e0e0" strokeWidth={1.5} strokeLinecap="round"
+                  style={{ marginBottom:8, display:'block', margin:'0 auto 8px' }}>
+                  <path d="M12 2a10 10 0 110 20A10 10 0 0112 2z"/>
+                  <path d="M12 6v6l4 2"/>
+                </svg>
+                <p style={{ margin:0, fontSize:11.5, color:'#d0d0d8', fontWeight:500, lineHeight:1.5 }}>
+                  No activity yet.<br/>Uploads and invites will show here.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Files list ────────────────────────────────────────────── */}
