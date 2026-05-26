@@ -108,24 +108,39 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
         </div>
       ) : (
         <p
-          onClick={e => { e.stopPropagation(); setRenaming(true) }}
+          onDoubleClick={e => { e.stopPropagation(); setRenaming(true) }}
           style={{ margin:0, fontSize:11.5, fontWeight:600, color:'#111',
             width:'100%', textAlign:'center', letterSpacing:'-.1px', lineHeight:1.35,
             display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
-            overflow:'hidden', cursor:'text',
-            wordBreak:'break-word' }}
-          title={label}>
+            overflow:'hidden', cursor:'default', wordBreak:'break-word' }}
+          title={`${label} — double-click to rename`}>
           {label}
         </p>
       )}
 
-      {/* Meta */}
-      {meta && !renaming && (
-        <p style={{ margin:'-2px 0 0', fontSize:9.5, color:'#bbb', fontWeight:500,
-          width:'100%', textAlign:'center', whiteSpace:'nowrap',
-          overflow:'hidden', textOverflow:'ellipsis' }}>
-          {meta}
-        </p>
+      {/* Meta + play row */}
+      {!renaming && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%' }}>
+          {meta && (
+            <p style={{ margin:0, fontSize:9.5, color:'#bbb', fontWeight:500,
+              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {meta}
+            </p>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onPlay(file) }}
+            aria-label="Play"
+            style={{ width:18, height:18, borderRadius:'50%', border:'none', flexShrink:0,
+              background:color, cursor:'pointer', display:'flex', alignItems:'center',
+              justifyContent:'center', transition:'transform .1s, opacity .1s',
+              opacity:.75 }}
+            onMouseEnter={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='scale(1.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity='.75'; e.currentTarget.style.transform='scale(1)' }}>
+            <svg width={7} height={7} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}>
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   )
