@@ -4,6 +4,7 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, foldersApi } from '../lib/api.js'
 import { Avatar, Spinner, Btn, C } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
+import musicIcon from '../assets/music.png'
 
 const INST_COLORS = {
   vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', guitar:'#f59e0b',
@@ -63,28 +64,15 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
         flexShrink:0, flexGrow:0 }}>
         <div style={{
           width:72, height:72,
-          background:'#000',
           borderRadius:16,
           display:'flex', alignItems:'center', justifyContent:'center',
           boxShadow: hovered
-            ? `0 8px 24px rgba(0,0,0,.3)`
-            : `0 3px 10px rgba(0,0,0,.18)`,
+            ? `0 8px 24px rgba(0,0,0,.28)`
+            : `0 3px 10px rgba(0,0,0,.15)`,
           transition:'box-shadow .15s',
           overflow:'hidden', position:'relative',
         }}>
-          {/* Exact Apple Music beamed notes icon */}
-          <svg width={40} height={40} viewBox="0 0 100 100" fill="white">
-            {/* Beam (top bar) */}
-            <rect x="30" y="18" width="44" height="10" rx="4"/>
-            {/* Left stem */}
-            <rect x="30" y="18" width="10" height="50" rx="4"/>
-            {/* Right stem */}
-            <rect x="64" y="18" width="10" height="44" rx="4"/>
-            {/* Left note head */}
-            <ellipse cx="34" cy="72" rx="13" ry="10" transform="rotate(-15 34 72)"/>
-            {/* Right note head */}
-            <ellipse cx="68" cy="66" rx="13" ry="10" transform="rotate(-15 68 66)"/>
-          </svg>
+          <img src={musicIcon} alt="" style={{ width:44, height:44, objectFit:'contain', position:'relative', zIndex:1 }}/>
 
           {/* Subtle color tint */}
           <div style={{ position:'absolute', inset:0,
