@@ -13,38 +13,34 @@ const INST_COLORS = {
 }
 const ic = i => INST_COLORS[i] || '#94a3b8'
 
-const INST_ICONS = {
-  vocals: 'M12 2a3 3 0 013 3v7a3 3 0 01-6 0V5a3 3 0 013-3zM19 10v2a7 7 0 01-14 0v-2M12 19v3M8 22h8',
-  drums:  'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18M5 21h14M9 9H3M9 15H3M21 9h-6M21 15h-6',
-  bass:   'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z',
-  guitar: 'M11 2a2 2 0 012 2v6h3a2 2 0 010 4h-3v6a2 2 0 01-4 0v-6H6a2 2 0 010-4h3V4a2 2 0 012-2z',
-  default:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z',
-}
-
 // ── Inline rename ─────────────────────────────────────────────────────────────
-function RenameInput({ value, onSave, onCancel }) {
+function InlineRename({ value, onSave, onCancel }) {
   const [val, setVal] = useState(value)
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => { ref.current?.focus(); ref.current?.select() }, 30) }, [])
+  const submit = () => { if (val.trim()) onSave(val.trim()); else onCancel() }
   return (
-    <input ref={ref} value={val} onChange={e => setVal(e.target.value)}
-      onKeyDown={e => { if (e.key === 'Enter') onSave(val); if (e.key === 'Escape') onCancel() }}
-      onBlur={() => onSave(val)}
-      style={{ fontSize:13, fontWeight:600, color:'#111', background:'transparent',
-        border:'none', borderBottom:`2px solid ${C.coral}`, outline:'none',
-        padding:'1px 2px', width:'100%', fontFamily:'inherit' }}/>
+    <input ref={ref} value={val}
+      onChange={e => setVal(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel() }}
+      onBlur={submit}
+      onClick={e => e.stopPropagation()}
+      style={{ flex:1, fontSize:13, fontWeight:600, color:'#111', background:'#fff',
+        border:`1.5px solid ${C.coral}`, borderRadius:6, outline:'none',
+        padding:'2px 8px', fontFamily:'inherit', minWidth:0 }}/>
   )
 }
 
-// ── File card ─────────────────────────────────────────────────────────────────
-function FileCard({ file, onPlay, dragging, onDragStart, onDragEnd }) {
-  const [hovered, setHovered] = useState(false)
+// ── File row — compact list item ──────────────────────────────────────────────
+function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
+  const [hovered,  setHovered]  = useState(false)
+  const [renaming, setRenaming] = useState(false)
+
   const notes = (() => { try { return JSON.parse(file.notes || '{}') } catch { return {} } })()
   const color = ic(file.instrument)
   const label = file.suggested_name || file.original_name || 'Untitled'
-  const bpm   = notes.bpm ? `${Math.round(notes.bpm)}` : null
+  const bpm   = notes.bpm ? `${Math.round(notes.bpm)} BPM` : null
   const key   = notes.key || null
-  const icon  = INST_ICONS[file.instrument] || INST_ICONS.default
 
   return (
     <div
@@ -54,124 +50,130 @@ function FileCard({ file, onPlay, dragging, onDragStart, onDragEnd }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: '#fff',
-        border: `1.5px solid ${hovered ? color+'60' : 'rgba(0,0,0,.06)'}`,
-        borderRadius: 16, overflow: 'hidden', cursor: 'grab',
-        transition: 'all .18s',
-        opacity: dragging ? .35 : 1,
-        boxShadow: hovered
-          ? `0 8px 28px ${color}18, 0 2px 8px rgba(0,0,0,.06)`
-          : '0 1px 4px rgba(0,0,0,.05)',
-        transform: hovered ? 'translateY(-2px)' : 'none',
+        background:'#fff',
+        border:`1px solid ${hovered ? 'rgba(0,0,0,.12)' : 'rgba(0,0,0,.06)'}`,
+        borderLeft: `3px solid ${color}`,
+        borderRadius:10, padding:'10px 14px',
+        cursor: dragging ? 'grabbing' : 'grab',
+        opacity: dragging ? .4 : 1,
+        transition:'all .12s',
+        display:'flex', flexDirection:'column', gap:8,
       }}>
 
-      {/* Color header strip */}
-      <div style={{ height: 4, background: color, opacity: .85 }}/>
+      {/* Top row: name + actions */}
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        {/* Instrument dot */}
+        <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }}/>
 
-      <div style={{ padding: '12px 14px 10px' }}>
-        {/* Instrument badge + play */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <div style={{ width:26, height:26, borderRadius:8, background:`${color}15`,
-              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-                stroke={color} strokeWidth={2} strokeLinecap="round">
-                <path d={icon}/>
-              </svg>
-            </div>
+        {/* Name or rename input */}
+        {renaming ? (
+          <InlineRename value={label}
+            onSave={name => { setRenaming(false); onRename(file.id, name) }}
+            onCancel={() => setRenaming(false)}/>
+        ) : (
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#111',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+            letterSpacing:'-.1px' }}>{label}</span>
+        )}
+
+        {/* Meta pills */}
+        {!renaming && (
+          <div style={{ display:'flex', gap:4, flexShrink:0 }}>
             {file.instrument && (
-              <span style={{ fontSize:10, fontWeight:700, color, textTransform:'capitalize',
-                letterSpacing:'.02em' }}>
+              <span style={{ fontSize:9.5, fontWeight:700, color:color,
+                background:`${color}12`, padding:'2px 7px', borderRadius:5,
+                textTransform:'capitalize', letterSpacing:'.02em' }}>
                 {file.instrument}
               </span>
             )}
-          </div>
-          <button onClick={e => { e.stopPropagation(); onPlay(file) }}
-            aria-label="Preview"
-            style={{ width:28, height:28, borderRadius:9, border:'none',
-              background: hovered ? color : 'rgba(0,0,0,.05)',
-              cursor:'pointer', display:'flex', alignItems:'center',
-              justifyContent:'center', transition:'all .15s', flexShrink:0 }}>
-            <svg width={9} height={9} viewBox="0 0 24 24"
-              fill={hovered ? '#fff' : '#999'}
-              style={{ marginLeft:1 }}>
-              <polygon points="5,3 19,12 5,21"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Title */}
-        <div style={{ fontSize:13, fontWeight:700, color:'#111', lineHeight:1.35,
-          overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box',
-          WebkitLineClamp:2, WebkitBoxOrient:'vertical', marginBottom:8,
-          letterSpacing:'-.2px' }}>{label}</div>
-
-        {/* BPM + Key pills */}
-        {(bpm || key) && (
-          <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
-            {bpm && (
-              <span style={{ fontSize:9.5, fontWeight:700, color:'#888',
-                background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:5 }}>
-                {bpm} BPM
-              </span>
-            )}
-            {key && (
-              <span style={{ fontSize:9.5, fontWeight:700, color:'#888',
-                background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:5 }}>
-                {key}
-              </span>
-            )}
+            {bpm && <span style={{ fontSize:9.5, color:'#aaa', fontWeight:600 }}>{bpm}</span>}
+            {key  && <span style={{ fontSize:9.5, color:'#aaa', fontWeight:600 }}>{key}</span>}
           </div>
         )}
 
-        {/* Waveform */}
-        {file.file_url && (
-          <Waveform url={file.file_url} color={color} height={36} currentTime={0}/>
+        {/* Actions — show on hover */}
+        {hovered && !renaming && (
+          <div style={{ display:'flex', gap:4, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+            {/* Rename */}
+            <button onClick={() => setRenaming(true)} aria-label="Rename"
+              style={{ width:26, height:26, borderRadius:7, border:'1px solid rgba(0,0,0,.1)',
+                background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                justifyContent:'center', color:'#888', transition:'all .1s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#888' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            {/* Play */}
+            <button onClick={() => onPlay(file)} aria-label="Play"
+              style={{ width:26, height:26, borderRadius:7, border:`1px solid ${color}40`,
+                background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center',
+                justifyContent:'center', color, transition:'all .1s' }}
+              onMouseEnter={e => { e.currentTarget.style.background=color; e.currentTarget.style.color='#fff' }}
+              onMouseLeave={e => { e.currentTarget.style.background=`${color}10`; e.currentTarget.style.color=color }}>
+              <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}>
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+            </button>
+            {/* Drag handle */}
+            <div style={{ width:26, height:26, borderRadius:7, border:'1px solid rgba(0,0,0,.08)',
+              background:'rgba(0,0,0,.02)', display:'flex', alignItems:'center', justifyContent:'center',
+              cursor:'grab', color:'#ccc' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+              </svg>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* Waveform */}
+      {file.file_url && (
+        <Waveform url={file.file_url} color={color} height={32} currentTime={0}/>
+      )}
     </div>
   )
 }
 
-// ── Folder row in sidebar ─────────────────────────────────────────────────────
-function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop }) {
+// ── Folder sidebar item ───────────────────────────────────────────────────────
+function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop, draggingId }) {
   const [editing,  setEditing]  = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [menu,     setMenu]     = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
-    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenu(false) }
-    if (menu) document.addEventListener('mousedown', close)
+    if (!menu) return
+    const close = e => { if (!menuRef.current?.contains(e.target)) setMenu(false) }
+    document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [menu])
 
   return (
     <div
-      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+      onDragOver={e => { if (draggingId) { e.preventDefault(); setDragOver(true) } }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={e => { e.preventDefault(); setDragOver(false); onDrop(folder.id) }}
-      style={{ borderRadius:10, transition:'all .12s',
-        background: dragOver ? `${C.coral}10`
-          : active ? `${C.coral}10`
-          : 'transparent',
-        border: `1.5px solid ${dragOver ? C.coral
-          : active ? `${C.coral}30`
-          : 'transparent'}`,
+      onDrop={e => { e.preventDefault(); setDragOver(false); if (draggingId) onDrop(folder.id) }}
+      style={{ borderRadius:9, transition:'all .12s',
+        background: dragOver ? `${C.coral}10` : active ? `${C.coral}08` : 'transparent',
+        border: `1.5px solid ${dragOver ? C.coral : active ? `${C.coral}25` : 'transparent'}`,
       }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 9px',
-        cursor:'pointer', userSelect:'none' }}
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', cursor:'pointer' }}
         onClick={() => { if (!editing) onSelect(folder.id) }}>
 
-        {/* Folder icon */}
-        <svg width={15} height={15} viewBox="0 0 24 24"
-          fill={active || dragOver ? C.coral : '#c8ccd4'} style={{ flexShrink:0 }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+          stroke={active || dragOver ? C.coral : '#c0c4cc'}
+          strokeWidth={2} strokeLinecap="round" style={{ flexShrink:0 }}>
           <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
         </svg>
 
         {editing ? (
           <div style={{ flex:1 }} onClick={e => e.stopPropagation()}>
-            <RenameInput value={folder.name}
+            <InlineRename value={folder.name}
               onSave={n => { setEditing(false); if (n.trim()) onRename(folder.id, n.trim()) }}
               onCancel={() => setEditing(false)}/>
           </div>
@@ -185,36 +187,31 @@ function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop
 
         <span style={{ fontSize:10.5, color:'#c8ccd4', fontWeight:600, flexShrink:0 }}>{count}</span>
 
-        {/* 3-dot menu */}
-        <div ref={menuRef} style={{ position:'relative', flexShrink:0 }}
-          onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setMenu(v => !v)}
-            style={{ width:22, height:22, borderRadius:6, background:'none', border:'none',
+        {/* Menu */}
+        <div ref={menuRef} style={{ position:'relative', flexShrink:0 }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => setMenu(v => !v)}
+            style={{ width:20, height:20, borderRadius:5, background:'none', border:'none',
               cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-              color:'#c8ccd4', fontSize:14, letterSpacing:2, transition:'all .12s',
-              opacity: menu ? 1 : 0 }}
-            className="folder-menu-trigger">
-            •••
+              color:'#c0c4cc', opacity: menu ? 1 : 0, transition:'opacity .1s',
+              fontSize:12, letterSpacing:2 }}>
+            ···
           </button>
           {menu && (
-            <div style={{ position:'absolute', right:0, top:'110%', zIndex:200,
-              background:'#fff', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,.14)',
-              border:'1px solid rgba(0,0,0,.07)', overflow:'hidden', minWidth:140 }}>
+            <div style={{ position:'absolute', right:0, top:'110%', zIndex:300,
+              background:'#fff', borderRadius:11, boxShadow:'0 8px 32px rgba(0,0,0,.12)',
+              border:'1px solid rgba(0,0,0,.07)', overflow:'hidden', minWidth:130 }}>
               {[
-                { label:'Rename', color:'#444', icon:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', action:() => { setMenu(false); setEditing(true) } },
-                { label:'Delete', color:'#ef4444', icon:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6', action:() => { setMenu(false); onDelete(folder.id) } },
+                { label:'Rename', col:'#444', d:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', fn:() => { setMenu(false); setEditing(true) } },
+                { label:'Delete',  col:'#ef4444', d:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6', fn:() => { setMenu(false); onDelete(folder.id) } },
               ].map(item => (
-                <button key={item.label} onClick={item.action}
+                <button key={item.label} onClick={item.fn}
                   style={{ width:'100%', padding:'10px 14px', background:'none', border:'none',
-                    cursor:'pointer', textAlign:'left', fontSize:13, color:item.color,
-                    display:'flex', alignItems:'center', gap:9, transition:'background .1s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = item.color==='#ef4444'?'#fef2f2':'#f8f8f8'}
+                    cursor:'pointer', textAlign:'left', fontSize:13, color:item.col,
+                    display:'flex', alignItems:'center', gap:8 }}
+                  onMouseEnter={e => e.currentTarget.style.background = item.col==='#ef4444'?'#fef2f2':'#f8f8f8'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                    stroke={item.color} strokeWidth={2} strokeLinecap="round">
-                    <path d={item.icon}/>
-                  </svg>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
+                    stroke={item.col} strokeWidth={2} strokeLinecap="round"><path d={item.d}/></svg>
                   {item.label}
                 </button>
               ))}
@@ -229,46 +226,22 @@ function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop
 // ── Activity item ─────────────────────────────────────────────────────────────
 function ActivityItem({ item }) {
   const name   = item.actor_name || item.title?.split(' ')?.[0] || '?'
-  const initials = name.slice(0,1).toUpperCase()
-  const colors = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1']
-  const color  = colors[initials.charCodeAt(0) % colors.length]
-
+  const colors = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b']
+  const color  = colors[name.charCodeAt(0) % colors.length]
   return (
-    <div style={{ display:'flex', gap:9, alignItems:'flex-start', padding:'8px 0',
-      borderBottom:'1px solid rgba(0,0,0,.04)' }}>
-      <div style={{ width:30, height:30, borderRadius:'50%', background:`${color}18`,
+    <div style={{ display:'flex', gap:9, alignItems:'flex-start',
+      padding:'8px 0', borderBottom:'1px solid rgba(0,0,0,.04)' }}>
+      <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}15`,
         flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
         fontSize:11, fontWeight:800, color }}>
-        {initials}
+        {name.charAt(0).toUpperCase()}
       </div>
       <div style={{ flex:1, minWidth:0, paddingTop:2 }}>
-        <p style={{ margin:'0 0 2px', fontSize:12.5, color:'#444', lineHeight:1.45 }}>
+        <p style={{ margin:'0 0 2px', fontSize:12, color:'#555', lineHeight:1.5 }}>
           {item.body || item.message || item.title}
         </p>
-        <span style={{ fontSize:10.5, color:'#c0c4cc', fontWeight:500 }}>{timeAgo(item.created_at)}</span>
+        <span style={{ fontSize:10.5, color:'#c0c4cc' }}>{timeAgo(item.created_at)}</span>
       </div>
-    </div>
-  )
-}
-
-// ── Nav item (All Files, folder, Unfiled) ─────────────────────────────────────
-function NavItem({ icon, label, count, active, onSelect, dragTarget, onDrop }) {
-  const [over, setOver] = useState(false)
-  return (
-    <div
-      onDragOver={e => { if(dragTarget){e.preventDefault(); setOver(true)} }}
-      onDragLeave={() => setOver(false)}
-      onDrop={e => { if(dragTarget){e.preventDefault(); setOver(false); onDrop()} }}
-      onClick={onSelect}
-      style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 10px',
-        borderRadius:10, cursor:'pointer', transition:'all .12s', userSelect:'none',
-        background: over ? `${C.coral}12` : active ? `${C.coral}10` : 'transparent',
-        border: `1.5px solid ${over ? C.coral : active ? `${C.coral}30` : 'transparent'}`,
-      }}>
-      <span style={{ fontSize:15, lineHeight:1 }}>{icon}</span>
-      <span style={{ flex:1, fontSize:13, fontWeight: active ? 700 : 500,
-        color: active ? C.coral : '#555' }}>{label}</span>
-      <span style={{ fontSize:11, color:'#c8ccd4', fontWeight:600 }}>{count}</span>
     </div>
   )
 }
@@ -318,8 +291,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }, [projectId])
 
   useEffect(() => { loadAll() }, [loadAll])
+
   useEffect(() => {
-    if (creatingFolder) setTimeout(() => { newFolderRef.current?.focus(); newFolderRef.current?.select() }, 40)
+    if (creatingFolder)
+      setTimeout(() => { newFolderRef.current?.focus(); newFolderRef.current?.select() }, 40)
   }, [creatingFolder])
 
   const createFolder = async () => {
@@ -332,10 +307,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }
 
   const renameFolder = async (id, name) => {
-    try {
-      const res = await foldersApi.rename(id, name)
-      if (res.data) setFolders(prev => prev.map(f => f.id === id ? res.data : f))
-    } catch {}
+    setFolders(prev => prev.map(f => f.id === id ? {...f, name} : f))
+    try { await foldersApi.rename(id, name) } catch {}
   }
 
   const deleteFolder = async (id) => {
@@ -346,43 +319,63 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }
 
   const moveFile = async (stemId, folderId) => {
-    setFiles(prev => prev.map(f => f.id === stemId ? {...f, folder_id:folderId} : f))
-    try { await foldersApi.moveFile(stemId, folderId) } catch {}
+    if (!stemId) return
+    // Optimistic update
+    setFiles(prev => prev.map(f => f.id === stemId ? {...f, folder_id: folderId || null} : f))
+    try {
+      await foldersApi.moveFile(stemId, folderId)
+    } catch (e) {
+      console.warn('[moveFile]', e?.message)
+      // Revert on failure
+      loadAll()
+    }
   }
 
-  // Filtered + searched files
+  const renameFile = async (stemId, name) => {
+    setFiles(prev => prev.map(f => f.id === stemId ? {...f, suggested_name: name} : f))
+    try {
+      await fetch(`/api/files/${stemId}`, {
+        method:'PATCH', credentials:'include',
+        headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${getToken()}` },
+        body: JSON.stringify({ suggested_name: name }),
+      })
+    } catch {}
+  }
+
   const baseFiles = selectedFolder === 'all' ? files
     : selectedFolder === 'unfiled' ? files.filter(f => !f.folder_id)
     : files.filter(f => f.folder_id === selectedFolder)
 
   const visibleFiles = search
     ? baseFiles.filter(f =>
-        (f.suggested_name || f.original_name || '').toLowerCase().includes(search.toLowerCase()) ||
-        (f.instrument || '').toLowerCase().includes(search.toLowerCase())
+        (f.suggested_name||f.original_name||'').toLowerCase().includes(search.toLowerCase()) ||
+        (f.instrument||'').toLowerCase().includes(search.toLowerCase())
       )
     : baseFiles
 
   const folderCount = id =>
-    id === 'all' ? files.length :
+    id === 'all'     ? files.length :
     id === 'unfiled' ? files.filter(f => !f.folder_id).length :
     files.filter(f => f.folder_id === id).length
 
-  const instruments = [...new Set(files.map(f => f.instrument).filter(Boolean))]
+  const instruments = Object.entries(
+    files.reduce((a, f) => { const k = f.instrument||'other'; a[k]=(a[k]||0)+1; return a }, {})
+  ).sort((a,b) => b[1]-a[1])
 
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', flexDirection:'column', gap:12 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh',
+      flexDirection:'column', gap:12 }}>
       <Spinner size={28}/>
       <p style={{ margin:0, fontSize:13, color:'#bbb' }}>Loading project…</p>
     </div>
   )
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', minHeight:0 }}>
+    <div style={{ display:'flex', flexDirection:'column' }}>
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom:24 }}>
-        {/* Breadcrumb */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom:22 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
           <button onClick={() => navigate('/projects')}
             style={{ background:'none', border:'none', cursor:'pointer', color:'#bbb',
               fontSize:12.5, fontWeight:600, padding:0, display:'flex', alignItems:'center',
@@ -394,36 +387,21 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             Projects
           </button>
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-          <span style={{ fontSize:12.5, color:'#aaa', fontWeight:500 }}>{project?.title || '…'}</span>
+          <span style={{ fontSize:12.5, color:'#aaa' }}>{project?.title||'…'}</span>
         </div>
 
-        {/* Title row */}
-        <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-          <h1 style={{ margin:0, fontSize:26, fontWeight:900, color:'#111',
-            letterSpacing:'-1px', flex:1, minWidth:0 }}>
-            {project?.title || 'Project'}
-          </h1>
-
-          {/* Instrument chips */}
-          {instruments.slice(0,4).map(i => (
-            <span key={i} style={{ fontSize:10.5, fontWeight:700, color:ic(i),
-              background:`${ic(i)}12`, padding:'3px 10px', borderRadius:100,
-              textTransform:'capitalize', letterSpacing:'.02em' }}>
-              {i}
-            </span>
-          ))}
-
-          {/* Actions */}
-          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+          <h1 style={{ margin:0, fontSize:24, fontWeight:900, color:'#111',
+            letterSpacing:'-1px', flex:1 }}>{project?.title || 'Project'}</h1>
+          <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => openModal?.('invite', { project })}
-              style={{ height:36, padding:'0 14px', borderRadius:10,
+              style={{ height:34, padding:'0 14px', borderRadius:9,
                 border:'1.5px solid rgba(0,0,0,.1)', background:'#fff',
-                fontSize:12.5, fontWeight:600, color:'#555', cursor:'pointer',
-                display:'flex', alignItems:'center', gap:6, transition:'all .15s',
-                boxShadow:'0 1px 3px rgba(0,0,0,.05)' }}
+                fontSize:12.5, fontWeight:600, color:'#666', cursor:'pointer',
+                display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#555' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#666' }}>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth={2} strokeLinecap="round">
                 <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
@@ -437,151 +415,178 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         </div>
       </div>
 
-      {/* ── Body ────────────────────────────────────────────────────────────── */}
+      {/* ── Body ────────────────────────────────────────────────────────── */}
       <div style={{ display:'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '200px 1fr 220px',
+        gridTemplateColumns: isMobile ? '1fr' : '200px 1fr 210px',
         gap:20, alignItems:'start' }}>
 
-        {/* ── Left sidebar ──────────────────────────────────────────────── */}
+        {/* ── Sidebar ───────────────────────────────────────────────── */}
         <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
 
-          <NavItem icon="📂" label="All Files" count={folderCount('all')}
-            active={selectedFolder === 'all'}
-            onSelect={() => setSelectedFolder('all')}/>
+          {/* All files */}
+          {['all'].map(() => (
+            <div key="all"
+              onDragOver={e => { if (draggingId) e.preventDefault() }}
+              onDrop={e => { e.preventDefault(); moveFile(draggingId, null); setDraggingId(null) }}
+              onClick={() => setSelectedFolder('all')}
+              style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 10px',
+                borderRadius:9, cursor:'pointer', transition:'all .12s',
+                background: selectedFolder==='all' ? `${C.coral}10` : 'transparent',
+                border:`1.5px solid ${selectedFolder==='all'?`${C.coral}25`:'transparent'}` }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                stroke={selectedFolder==='all'?C.coral:'#c0c4cc'} strokeWidth={2} strokeLinecap="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              <span style={{ flex:1, fontSize:13, fontWeight:selectedFolder==='all'?700:500,
+                color:selectedFolder==='all'?C.coral:'#555' }}>All Files</span>
+              <span style={{ fontSize:11, color:'#c8ccd4', fontWeight:600 }}>{folderCount('all')}</span>
+            </div>
+          ))}
 
-          {/* Folders section */}
+          {/* Folders */}
           {(folders.length > 0 || creatingFolder) && (
-            <div style={{ marginTop:10, marginBottom:4 }}>
-              <p style={{ margin:'0 0 6px 10px', fontSize:10, fontWeight:800, color:'#c8ccd4',
+            <div style={{ marginTop:12 }}>
+              <p style={{ margin:'0 0 6px 10px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Folders</p>
-              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
                 {folders.map(f => (
                   <FolderRow key={f.id} folder={f}
-                    active={selectedFolder === f.id}
+                    active={selectedFolder===f.id}
                     count={folderCount(f.id)}
+                    draggingId={draggingId}
                     onSelect={setSelectedFolder}
                     onRename={renameFolder}
                     onDelete={deleteFolder}
-                    onDrop={id => moveFile(draggingId, id)}/>
+                    onDrop={id => { moveFile(draggingId, id); setDraggingId(null) }}/>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Creating folder inline */}
-          {creatingFolder ? (
-            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 9px',
-              borderRadius:10, background:`${C.coral}06`,
-              border:`1.5px solid ${C.coral}30` }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill={C.coral}><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-              <input ref={newFolderRef} value={newFolderName}
-                onChange={e => setNewFolderName(e.target.value)}
-                onKeyDown={e => { if (e.key==='Enter') createFolder(); if(e.key==='Escape'){setCreatingFolder(false);setNewFolderName('New Folder')} }}
-                onBlur={createFolder}
-                style={{ flex:1, fontSize:13, fontWeight:600, background:'transparent', border:'none',
-                  borderBottom:`1.5px solid ${C.coral}`, outline:'none', color:'#111', fontFamily:'inherit' }}/>
-            </div>
-          ) : (
-            <button onClick={() => setCreatingFolder(true)}
-              style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 10px',
-                borderRadius:10, background:'none', border:'1.5px dashed rgba(0,0,0,.1)',
-                cursor:'pointer', fontSize:12.5, fontWeight:600, color:'#c8ccd4',
-                transition:'all .15s', width:'100%', marginTop:4 }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral; e.currentTarget.style.background=`${C.coral}06` }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#c8ccd4'; e.currentTarget.style.background='none' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth={2.5} strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              New Folder
-            </button>
-          )}
+          {/* New folder */}
+          <div style={{ marginTop:6 }}>
+            {creatingFolder ? (
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px',
+                borderRadius:9, background:`${C.coral}06`, border:`1.5px solid ${C.coral}30` }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                  stroke={C.coral} strokeWidth={2} strokeLinecap="round">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                </svg>
+                <input ref={newFolderRef} value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => { if(e.key==='Enter') createFolder(); if(e.key==='Escape'){setCreatingFolder(false);setNewFolderName('New Folder')} }}
+                  onBlur={createFolder}
+                  style={{ flex:1, fontSize:13, fontWeight:600, background:'transparent', border:'none',
+                    borderBottom:`1.5px solid ${C.coral}`, outline:'none', color:'#111', fontFamily:'inherit' }}/>
+              </div>
+            ) : (
+              <button onClick={() => setCreatingFolder(true)}
+                style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 10px',
+                  borderRadius:9, background:'none', border:'1.5px dashed rgba(0,0,0,.1)',
+                  cursor:'pointer', fontSize:12.5, fontWeight:600, color:'#c0c4cc',
+                  transition:'all .15s', width:'100%' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral; e.currentTarget.style.background=`${C.coral}06` }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#c0c4cc'; e.currentTarget.style.background='none' }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth={2.5} strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                New Folder
+              </button>
+            )}
+          </div>
 
           {/* Unfiled */}
           {files.some(f => !f.folder_id) && folders.length > 0 && (
-            <NavItem icon="📄" label="Unfiled" count={folderCount('unfiled')}
-              active={selectedFolder==='unfiled'}
-              dragTarget onSelect={() => setSelectedFolder('unfiled')}
-              onDrop={() => moveFile(draggingId, null)}/>
+            <div key="unfiled"
+              onDragOver={e => { if (draggingId) e.preventDefault() }}
+              onDrop={e => { e.preventDefault(); moveFile(draggingId, null); setDraggingId(null) }}
+              onClick={() => setSelectedFolder('unfiled')}
+              style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 10px',
+                borderRadius:9, cursor:'pointer', transition:'all .12s', marginTop:4,
+                background: selectedFolder==='unfiled' ? 'rgba(0,0,0,.04)' : 'transparent',
+                border:`1.5px solid ${selectedFolder==='unfiled'?'rgba(0,0,0,.1)':'transparent'}` }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                stroke="#c0c4cc" strokeWidth={2} strokeLinecap="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              <span style={{ flex:1, fontSize:13, fontWeight:500, color:'#aaa' }}>Unfiled</span>
+              <span style={{ fontSize:11, color:'#c8ccd4', fontWeight:600 }}>{folderCount('unfiled')}</span>
+            </div>
           )}
 
-          {/* ── Activity ──────────────────────────────────────────────── */}
+          {/* Activity */}
           {activity.length > 0 && (
             <div style={{ marginTop:20 }}>
-              <p style={{ margin:'0 0 8px 2px', fontSize:10, fontWeight:800, color:'#c8ccd4',
+              <p style={{ margin:'0 0 8px 2px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Activity</p>
               {activity.slice(0,8).map((n,i) => <ActivityItem key={n.id||i} item={n}/>)}
             </div>
           )}
         </div>
 
-        {/* ── Center: files ─────────────────────────────────────────────── */}
+        {/* ── Files list ────────────────────────────────────────────── */}
         <div>
-          {/* Search + drop hint */}
-          <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'center' }}>
+          {/* Search bar */}
+          <div style={{ display:'flex', gap:10, marginBottom:14, alignItems:'center' }}>
             <div style={{ flex:1, position:'relative' }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#c8ccd4"
-                strokeWidth={2} strokeLinecap="round" style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#c0c4cc"
+                strokeWidth={2} strokeLinecap="round"
+                style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search files…"
-                style={{ width:'100%', height:36, paddingLeft:36, paddingRight:12,
-                  borderRadius:10, border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
+                style={{ width:'100%', height:34, paddingLeft:34, paddingRight:12,
+                  borderRadius:9, border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
                   fontSize:13, color:'#111', outline:'none', boxSizing:'border-box',
                   fontFamily:'inherit', transition:'border-color .12s' }}
                 onFocus={e => e.target.style.borderColor=C.coral}
                 onBlur={e => e.target.style.borderColor='rgba(0,0,0,.08)'}/>
             </div>
-            <span style={{ fontSize:12, color:'#c8ccd4', flexShrink:0, fontWeight:500 }}>
+            <span style={{ fontSize:12, color:'#c0c4cc', flexShrink:0, fontWeight:500 }}>
               {visibleFiles.length} file{visibleFiles.length!==1?'s':''}
             </span>
           </div>
 
-          {/* Drop zone indicator */}
-          {draggingId && selectedFolder !== 'all' && (
-            <div
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); moveFile(draggingId, selectedFolder==='unfiled'?null:selectedFolder); setDraggingId(null) }}
-              style={{ padding:'14px', borderRadius:12, border:`2px dashed ${C.coral}`,
-                background:`${C.coral}05`, textAlign:'center', fontSize:13, fontWeight:600,
-                color:C.coral, marginBottom:14, animation:'pulse .8s ease-in-out infinite alternate' }}>
-              ↓ Drop here to add to "{folders.find(f=>f.id===selectedFolder)?.name || 'folder'}"
+          {/* Drop hint when dragging */}
+          {draggingId && (
+            <div style={{ padding:'10px 14px', borderRadius:10, border:`1.5px dashed ${C.coral}`,
+              background:`${C.coral}06`, textAlign:'center', fontSize:12.5, fontWeight:600,
+              color:C.coral, marginBottom:12 }}>
+              Drag onto a folder in the sidebar to move
             </div>
           )}
 
           {visibleFiles.length === 0 ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', padding:'72px 24px', borderRadius:20,
+              padding:'60px 24px', borderRadius:16,
               border:'2px dashed rgba(0,0,0,.07)', background:'#fafafa' }}>
-              <div style={{ width:56, height:56, borderRadius:18, background:`${C.coral}10`,
+              <div style={{ width:48, height:48, borderRadius:14, background:`${C.coral}10`,
                 border:`1.5px dashed ${C.coral}40`, display:'flex', alignItems:'center',
-                justifyContent:'center', marginBottom:16 }}>
-                <svg width={24} height={24} viewBox="0 0 24 24" fill="none"
+                justifyContent:'center', marginBottom:14 }}>
+                <svg width={22} height={22} viewBox="0 0 24 24" fill="none"
                   stroke={C.coral} strokeWidth={1.5} strokeLinecap="round" style={{ opacity:.7 }}>
                   <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
                 </svg>
               </div>
-              <div style={{ fontSize:15, fontWeight:800, color:'#bbb', marginBottom:6 }}>
-                {search ? 'No files match your search' : 'No files here yet'}
-              </div>
-              <div style={{ fontSize:13, color:'#d0d0d8', marginBottom:20 }}>
-                {search ? 'Try a different search term'
-                  : selectedFolder === 'all' ? 'Upload your first stem to get started'
-                  : 'Drag files from All Files, or upload directly'}
+              <div style={{ fontSize:14, fontWeight:700, color:'#bbb', marginBottom:6 }}>
+                {search ? 'No files match' : 'No files here yet'}
               </div>
               {selectedFolder === 'all' && !search && (
                 <Btn onClick={() => openModal?.('upload', { project })}>+ Upload First Stem</Btn>
               )}
             </div>
           ) : (
-            <div style={{ display:'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap:12 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {visibleFiles.map(file => (
-                <FileCard key={file.id} file={file}
+                <FileRow key={file.id} file={file}
                   dragging={draggingId === file.id}
                   onPlay={playTrack}
+                  onRename={renameFile}
                   onDragStart={() => setDraggingId(file.id)}
                   onDragEnd={() => setDraggingId(null)}/>
               ))}
@@ -589,76 +594,72 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           )}
         </div>
 
-        {/* ── Right panel ───────────────────────────────────────────────── */}
+        {/* ── Right stats ───────────────────────────────────────────── */}
         {!isMobile && (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
 
-            {/* Session stats */}
-            <div style={{ background:'#fff', borderRadius:16, padding:'18px',
-              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 2px 8px rgba(0,0,0,.04)' }}>
-              <p style={{ margin:'0 0 14px', fontSize:11, fontWeight:800, color:'#c8ccd4',
+            <div style={{ background:'#fff', borderRadius:14, padding:'16px',
+              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+              <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Session</p>
               {[
-                { label:'Files',       val:files.length,   icon:'🎵' },
-                { label:'Folders',     val:folders.length, icon:'📁' },
-                { label:'Instruments', val:instruments.length, icon:'🎸' },
+                { label:'Files',   val:files.length },
+                { label:'Folders', val:folders.length },
               ].map(s => (
-                <div key={s.label} style={{ display:'flex', alignItems:'center', gap:10,
-                  padding:'8px 0', borderBottom:'1px solid rgba(0,0,0,.04)' }}>
-                  <span style={{ fontSize:15 }}>{s.icon}</span>
+                <div key={s.label} style={{ display:'flex', alignItems:'center',
+                  padding:'7px 0', borderBottom:'1px solid rgba(0,0,0,.04)' }}>
                   <span style={{ flex:1, fontSize:13, color:'#888' }}>{s.label}</span>
-                  <span style={{ fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>{s.val}</span>
+                  <span style={{ fontSize:18, fontWeight:900, color:'#111',
+                    letterSpacing:'-1px' }}>{s.val}</span>
                 </div>
               ))}
             </div>
 
-            {/* Instrument breakdown */}
-            {files.length > 0 && (
-              <div style={{ background:'#fff', borderRadius:16, padding:'18px',
-                border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 2px 8px rgba(0,0,0,.04)' }}>
-                <p style={{ margin:'0 0 14px', fontSize:11, fontWeight:800, color:'#c8ccd4',
+            {instruments.length > 0 && (
+              <div style={{ background:'#fff', borderRadius:14, padding:'16px',
+                border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+                <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                   textTransform:'uppercase', letterSpacing:'.1em' }}>Breakdown</p>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {Object.entries(
-                    files.reduce((a, f) => { const k=f.instrument||'other'; a[k]=(a[k]||0)+1; return a }, {})
-                  ).sort((a,b) => b[1]-a[1]).map(([inst, count]) => {
-                    const pct = Math.round((count/files.length)*100)
-                    return (
-                      <div key={inst}>
-                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                          <span style={{ fontSize:12, color:'#555', textTransform:'capitalize', fontWeight:600 }}>{inst}</span>
-                          <span style={{ fontSize:12, color:'#aaa' }}>{count}</span>
-                        </div>
-                        <div style={{ height:4, borderRadius:2, background:'rgba(0,0,0,.05)' }}>
-                          <div style={{ height:'100%', borderRadius:2, background:ic(inst),
-                            width:`${pct}%`, transition:'width .4s ease' }}/>
-                        </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+                  {instruments.map(([inst, count]) => (
+                    <div key={inst}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                        <span style={{ fontSize:12, color:'#555', textTransform:'capitalize',
+                          fontWeight:600 }}>{inst}</span>
+                        <span style={{ fontSize:12, color:'#aaa' }}>{count}</span>
                       </div>
-                    )
-                  })}
+                      <div style={{ height:3, borderRadius:2, background:'rgba(0,0,0,.05)' }}>
+                        <div style={{ height:'100%', borderRadius:2, background:ic(inst),
+                          width:`${Math.round((count/files.length)*100)}%`,
+                          transition:'width .4s ease' }}/>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Quick actions */}
-            <div style={{ background:'#fff', borderRadius:16, padding:'18px',
-              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 2px 8px rgba(0,0,0,.04)' }}>
-              <p style={{ margin:'0 0 12px', fontSize:11, fontWeight:800, color:'#c8ccd4',
+            <div style={{ background:'#fff', borderRadius:14, padding:'16px',
+              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+              <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Quick Actions</p>
-              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                 {[
-                  { label:'Open Studio', icon:'🎛️', action:() => navigate('/studio') },
-                  { label:'Invite Collaborator', icon:'👥', action:() => openModal?.('invite', { project }) },
-                  { label:'Upload Files', icon:'⬆️', action:() => openModal?.('upload', { project }) },
+                  { label:'Open Studio', icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z', fn:() => navigate('/studio') },
+                  { label:'Invite Collaborator', icon:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 3v18M3 12h18', fn:() => openModal?.('invite', {project}) },
+                  { label:'Upload Files', icon:'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12', fn:() => openModal?.('upload', {project}) },
                 ].map(a => (
-                  <button key={a.label} onClick={a.action}
-                    style={{ display:'flex', alignItems:'center', gap:9, padding:'9px 12px',
-                      borderRadius:10, border:'1px solid rgba(0,0,0,.07)', background:'rgba(0,0,0,.02)',
+                  <button key={a.label} onClick={a.fn}
+                    style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 10px',
+                      borderRadius:9, border:'1px solid rgba(0,0,0,.07)', background:'rgba(0,0,0,.02)',
                       cursor:'pointer', textAlign:'left', fontSize:12.5, fontWeight:600,
-                      color:'#555', transition:'all .12s' }}
+                      color:'#555', transition:'all .12s', width:'100%' }}
                     onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}08`; e.currentTarget.style.borderColor=`${C.coral}30`; e.currentTarget.style.color=C.coral }}
                     onMouseLeave={e => { e.currentTarget.style.background='rgba(0,0,0,.02)'; e.currentTarget.style.borderColor='rgba(0,0,0,.07)'; e.currentTarget.style.color='#555' }}>
-                    <span style={{ fontSize:16 }}>{a.icon}</span>
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                      <path d={a.icon}/>
+                    </svg>
                     {a.label}
                   </button>
                 ))}
@@ -669,10 +670,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       </div>
 
       <style>{`
-        .folder-menu-trigger { opacity: 0 !important; }
-        div:hover > div > .folder-menu-trigger,
-        div:hover > .folder-menu-trigger { opacity: 1 !important; }
-        @keyframes pulse { from { opacity:.7 } to { opacity:1 } }
+        div:hover > div > button[aria-label] { opacity: 1 !important; }
       `}</style>
     </div>
   )

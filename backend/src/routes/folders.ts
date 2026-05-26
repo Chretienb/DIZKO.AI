@@ -59,6 +59,33 @@ folders.post('/', sanitize, async (c) => {
   return c.json({ data, error: null, status: 201 }, 201)
 })
 
+// ── PATCH /folders/move-file — assign stem to folder ─────────────────────────
+// MUST be before /:id so Hono doesn't match "move-file" as an id param
+folders.patch('/move-file', sanitize, async (c) => {
+  const userId = c.var.user.id
+  const body   = c.var.body as { stem_id?: string; folder_id?: string | null }
+
+  const { stem_id, folder_id } = body
+  if (!stem_id) return c.json({ data: null, error: 'stem_id required', status: 400 }, 400)
+
+  const { data: stem } = await supabase
+    .from('stems').select('track_id').eq('id', stem_id).single()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+
+  const { data: track } = await supabase
+    .from('tracks').select('project_id').eq('id', (stem as any).track_id).single()
+  if (!track) return c.json({ data: null, error: 'Track not found', status: 404 }, 404)
+
+  const ok = await assertProjectAccess((track as any).project_id, userId)
+  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  const { data, error } = await supabase
+    .from('stems').update({ folder_id: folder_id || null }).eq('id', stem_id).select().single()
+
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data, error: null, status: 200 })
+})
+
 // ── PATCH /folders/:id — rename ───────────────────────────────────────────────
 folders.patch('/:id', sanitize, async (c) => {
   const userId   = c.var.user.id
@@ -99,33 +126,6 @@ folders.delete('/:id', async (c) => {
   const { error } = await supabase.from('folders').delete().eq('id', folderId)
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { deleted: true }, error: null, status: 200 })
-})
-
-// ── PATCH /folders/move-file — assign stem to folder ─────────────────────────
-folders.patch('/move-file', sanitize, async (c) => {
-  const userId = c.var.user.id
-  const body   = c.var.body as { stem_id?: string; folder_id?: string | null }
-
-  const { stem_id, folder_id } = body
-  if (!stem_id) return c.json({ data: null, error: 'stem_id required', status: 400 }, 400)
-
-  // Verify access via the stem's track → project
-  const { data: stem } = await supabase
-    .from('stems').select('track_id').eq('id', stem_id).single()
-  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
-
-  const { data: track } = await supabase
-    .from('tracks').select('project_id').eq('id', (stem as any).track_id).single()
-  if (!track) return c.json({ data: null, error: 'Track not found', status: 404 }, 404)
-
-  const ok = await assertProjectAccess((track as any).project_id, userId)
-  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
-
-  const { data, error } = await supabase
-    .from('stems').update({ folder_id: folder_id || null }).eq('id', stem_id).select().single()
-
-  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
-  return c.json({ data, error: null, status: 200 })
 })
 
 export default folders
