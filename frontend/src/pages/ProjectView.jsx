@@ -290,7 +290,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           credentials:'include', headers:{ Authorization:`Bearer ${getToken()}` },
         })
         const j = await r.json().catch(() => ({}))
-        setActivity(j.data || [])
+        // Only show human activity — exclude internal AI analysis entries
+        setActivity((j.data || []).filter(n => n.type !== 'ai_analysis'))
       } catch {}
     } catch {
       addToast?.('Failed to load project', { type:'error' })

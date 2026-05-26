@@ -7,15 +7,22 @@ import type { HonoVariables } from '../types'
 const notifications = new Hono<{ Variables: HonoVariables }>()
 notifications.use('*', requireAuth)
 
-// GET /notifications — fetch user's unread + recent notifications
+// GET /notifications?project_id= — fetch notifications, optionally filtered by project
 notifications.get('/', async (c) => {
-  const me = c.var.user.id
-  const { data, error } = await supabase
+  const me        = c.var.user.id
+  const projectId = c.req.query('project_id')
+  const limit     = Math.min(Number(c.req.query('limit') || 30), 50)
+
+  let query = supabase
     .from('notifications')
     .select('*')
     .eq('user_id', me)
     .order('created_at', { ascending: false })
-    .limit(30)
+    .limit(limit)
+
+  if (projectId) query = query.eq('project_id', projectId)
+
+  const { data, error } = await query
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data, error: null, status: 200 })
 })
