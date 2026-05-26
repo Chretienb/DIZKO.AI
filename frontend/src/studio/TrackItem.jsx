@@ -2,6 +2,7 @@ import React from 'react'
 import { MobileCtx } from '../lib/mobile.js'
 import { Avatar, Spinner, C } from '../components/ui/index.jsx'
 import { getToken, timeAgo } from '../lib/utils.js'
+import Waveform from './Waveform.jsx'
 
 const IconPlay  = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
 const IconTrash = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -15,7 +16,7 @@ export default function TrackItem({
   isMuted, isSolo, isExpanded, isDeleting, loadPct, volume,
   uploader, uploaderName, takes,
   comments, commentDraft, postingComment,
-  currentTime,
+  currentTime, duration,
   onMute, onSolo, onPlay, onToggleExpand, onDelete,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
   gainRef,
@@ -105,6 +106,19 @@ export default function TrackItem({
           <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center' }}><IconDown size={14} rotate={isExpanded}/></div>
         </div>
       </div>
+
+      {/* Waveform — always visible when file is ready */}
+      {s.file_url && (
+        <div style={{ padding:'0 18px 12px', marginTop:-4 }}>
+          <Waveform
+            url={s.file_url}
+            color={color}
+            progress={duration > 0 ? currentTime / duration : 0}
+            muted={isMuted}
+            height={44}
+          />
+        </div>
+      )}
 
       {/* Expanded panel */}
       {isExpanded && (

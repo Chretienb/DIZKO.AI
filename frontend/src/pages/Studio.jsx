@@ -522,7 +522,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   takes={stemHistory[hKey]}
                   comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
                   postingComment={postingComment}
-                  currentTime={currentTime}
+                  currentTime={currentTime} duration={duration}
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
                   onDelete={deleteStem}
