@@ -4,7 +4,6 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, foldersApi } from '../lib/api.js'
 import { Avatar, Spinner, Btn, C } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
-import Waveform from '../studio/Waveform.jsx'
 
 const INST_COLORS = {
   vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', guitar:'#f59e0b',
@@ -51,90 +50,71 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         background:'#fff',
-        border:`1px solid ${hovered ? 'rgba(0,0,0,.12)' : 'rgba(0,0,0,.06)'}`,
+        border:`1px solid ${hovered ? 'rgba(0,0,0,.1)' : 'rgba(0,0,0,.05)'}`,
         borderLeft: `3px solid ${color}`,
-        borderRadius:10, padding:'10px 14px',
+        borderRadius:10, padding:'9px 12px',
         cursor: dragging ? 'grabbing' : 'grab',
         opacity: dragging ? .4 : 1,
-        transition:'all .12s',
-        display:'flex', flexDirection:'column', gap:8,
+        transition:'all .1s',
+        display:'flex', alignItems:'center', gap:10,
       }}>
 
-      {/* Top row: name + actions */}
-      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        {/* Instrument dot */}
-        <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }}/>
+      {/* Instrument dot */}
+      <div style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>
 
-        {/* Name or rename input */}
-        {renaming ? (
-          <InlineRename value={label}
-            onSave={name => { setRenaming(false); onRename(file.id, name) }}
-            onCancel={() => setRenaming(false)}/>
-        ) : (
-          <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#111',
-            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-            letterSpacing:'-.1px' }}>{label}</span>
-        )}
-
-        {/* Meta pills */}
-        {!renaming && (
-          <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-            {file.instrument && (
-              <span style={{ fontSize:9.5, fontWeight:700, color:color,
-                background:`${color}12`, padding:'2px 7px', borderRadius:5,
-                textTransform:'capitalize', letterSpacing:'.02em' }}>
-                {file.instrument}
-              </span>
-            )}
-            {bpm && <span style={{ fontSize:9.5, color:'#aaa', fontWeight:600 }}>{bpm}</span>}
-            {key  && <span style={{ fontSize:9.5, color:'#aaa', fontWeight:600 }}>{key}</span>}
-          </div>
-        )}
-
-        {/* Actions — show on hover */}
-        {hovered && !renaming && (
-          <div style={{ display:'flex', gap:4, flexShrink:0 }} onClick={e => e.stopPropagation()}>
-            {/* Rename */}
-            <button onClick={() => setRenaming(true)} aria-label="Rename"
-              style={{ width:26, height:26, borderRadius:7, border:'1px solid rgba(0,0,0,.1)',
-                background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
-                justifyContent:'center', color:'#888', transition:'all .1s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#888' }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-            {/* Play */}
-            <button onClick={() => onPlay(file)} aria-label="Play"
-              style={{ width:26, height:26, borderRadius:7, border:`1px solid ${color}40`,
-                background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center',
-                justifyContent:'center', color, transition:'all .1s' }}
-              onMouseEnter={e => { e.currentTarget.style.background=color; e.currentTarget.style.color='#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.background=`${color}10`; e.currentTarget.style.color=color }}>
-              <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}>
-                <polygon points="5,3 19,12 5,21"/>
-              </svg>
-            </button>
-            {/* Drag handle */}
-            <div style={{ width:26, height:26, borderRadius:7, border:'1px solid rgba(0,0,0,.08)',
-              background:'rgba(0,0,0,.02)', display:'flex', alignItems:'center', justifyContent:'center',
-              cursor:'grab', color:'#ccc' }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
-                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
-                <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
-              </svg>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Waveform */}
-      {file.file_url && (
-        <Waveform url={file.file_url} color={color} height={32} currentTime={0}/>
+      {/* Name or rename input */}
+      {renaming ? (
+        <InlineRename value={label}
+          onSave={name => { setRenaming(false); onRename(file.id, name) }}
+          onCancel={() => setRenaming(false)}/>
+      ) : (
+        <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#111',
+          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          letterSpacing:'-.1px' }}>{label}</span>
       )}
+
+      {/* Meta — hidden when renaming */}
+      {!renaming && (
+        <>
+          {file.instrument && (
+            <span style={{ fontSize:10, fontWeight:700, color:color,
+              background:`${color}12`, padding:'2px 8px', borderRadius:5,
+              textTransform:'capitalize', flexShrink:0 }}>
+              {file.instrument}
+            </span>
+          )}
+          {bpm && <span style={{ fontSize:10, color:'#bbb', fontWeight:500, flexShrink:0 }}>{bpm}</span>}
+          {key && <span style={{ fontSize:10, color:'#bbb', fontWeight:500, flexShrink:0 }}>{key}</span>}
+        </>
+      )}
+
+      {/* Actions — on hover */}
+      {hovered && !renaming && (
+        <div style={{ display:'flex', gap:4, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => setRenaming(true)} aria-label="Rename"
+            style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(0,0,0,.1)',
+              background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+              justifyContent:'center', color:'#aaa', transition:'all .1s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#aaa' }}>
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button onClick={() => onPlay(file)} aria-label="Play"
+            style={{ width:24, height:24, borderRadius:6, border:`1px solid ${color}40`,
+              background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center',
+              justifyContent:'center', color, transition:'all .1s' }}
+            onMouseEnter={e => { e.currentTarget.style.background=color; e.currentTarget.style.color='#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background=`${color}10`; e.currentTarget.style.color=color }}>
+            <svg width={8} height={8} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}>
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
     </div>
   )
 }
