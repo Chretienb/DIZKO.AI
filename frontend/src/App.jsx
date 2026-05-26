@@ -2241,8 +2241,11 @@ function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     setLiked(newLiked)
     setLikeCount(c => newLiked ? c + 1 : Math.max(0, c - 1))
     try {
-      const { getToken } = await import('./lib/utils.js')
-      await fetch(`/api/files/${track.id}/like`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}`, credentials:'include' } })
+      await fetch(`/api/files/${track.id}/like`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${getToken()}` },
+      })
     } catch {}
   }
 
@@ -2250,8 +2253,11 @@ function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     const newApproved = !approved
     setApproved(newApproved)
     try {
-      const { getToken } = await import('./lib/utils.js')
-      await fetch(`/api/files/${track.id}/approve`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}`, credentials:'include' } })
+      await fetch(`/api/files/${track.id}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${getToken()}` },
+      })
     } catch {}
   }
 

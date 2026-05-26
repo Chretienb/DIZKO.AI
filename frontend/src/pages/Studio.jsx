@@ -524,7 +524,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   postingComment={postingComment}
                   currentTime={currentTime}
                   onMute={toggleMute} onSolo={toggleSolo}
-                  onPlay={playTrack} onToggleExpand={handleToggleExpand}
+                  onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
                   onDelete={deleteStem}
                   onVolumeChange={(id, v) => { setVolumes(prev=>({...prev,[id]:v})); if(gainRefs.current[id]&&!mutedIds.has(id)) gainRefs.current[id].gain.value=v }}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
