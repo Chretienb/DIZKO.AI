@@ -230,177 +230,255 @@ function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop
   )
 }
 
+// ── Message modal ─────────────────────────────────────────────────────────────
+function MessageModal({ collab, onClose, onSend }) {
+  const [text,    setText]    = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent,    setSent]    = useState(false)
+  const ref = useRef(null)
+  const name = collab.user?.full_name || collab.full_name || collab.email?.split('@')[0] || 'Collaborator'
+
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 60) }, [])
+
+  const send = async () => {
+    if (!text.trim() || sending) return
+    setSending(true)
+    await onSend(collab, text.trim())
+    setSending(false)
+    setSent(true)
+    setTimeout(onClose, 1200)
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
+      justifyContent:'center', background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background:'#fff', borderRadius:20, padding:'28px', width:400,
+        maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+          <div style={{ width:44, height:44, borderRadius:'50%', background:`${C.coral}15`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:16, fontWeight:800, color:C.coral, flexShrink:0 }}>
+            {name.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex:1 }}>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>{name}</p>
+            <p style={{ margin:0, fontSize:12, color:'#aaa' }}>{collab.role || 'Collaborator'}</p>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer',
+            color:'#ccc', fontSize:20, lineHeight:1, padding:0, transition:'color .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.color='#555'}
+            onMouseLeave={e=>e.currentTarget.style.color='#ccc'}>×</button>
+        </div>
+
+        {sent ? (
+          <div style={{ textAlign:'center', padding:'12px 0' }}>
+            <div style={{ fontSize:28, marginBottom:8 }}>✓</div>
+            <p style={{ margin:0, fontSize:14, fontWeight:600, color:'#22c55e' }}>Message sent!</p>
+          </div>
+        ) : (
+          <>
+            <textarea ref={ref} value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) send(); if (e.key === 'Escape') onClose() }}
+              placeholder={`Send ${name.split(' ')[0]} a message…`}
+              rows={4}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:12, resize:'none',
+                border:'1.5px solid rgba(0,0,0,.1)', fontSize:14, fontFamily:'inherit',
+                outline:'none', boxSizing:'border-box', lineHeight:1.6, color:'#111',
+                transition:'border-color .12s' }}
+              onFocus={e => e.target.style.borderColor=C.coral}
+              onBlur={e => e.target.style.borderColor='rgba(0,0,0,.1)'}/>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
+              <span style={{ fontSize:11, color:'#ccc' }}>⌘ + Enter to send</span>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={onClose}
+                  style={{ height:36, padding:'0 16px', borderRadius:10,
+                    border:'1.5px solid rgba(0,0,0,.1)', background:'none',
+                    fontSize:13, fontWeight:600, color:'#666', cursor:'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={send} disabled={!text.trim() || sending}
+                  style={{ height:36, padding:'0 18px', borderRadius:10, border:'none',
+                    background: text.trim() ? C.grad : 'rgba(0,0,0,.07)',
+                    color: text.trim() ? '#fff' : '#ccc',
+                    fontSize:13, fontWeight:700, cursor: text.trim() ? 'pointer' : 'default',
+                    transition:'all .15s', boxShadow: text.trim() ? `0 4px 12px ${C.coral}40` : 'none' }}>
+                  {sending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Remove confirm modal ──────────────────────────────────────────────────────
+function RemoveModal({ collab, onClose, onConfirm }) {
+  const name = collab.user?.full_name || collab.full_name || collab.email?.split('@')[0] || 'Collaborator'
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
+      justifyContent:'center', background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background:'#fff', borderRadius:20, padding:'28px', width:360,
+        maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.2)', textAlign:'center' }}>
+        <div style={{ width:52, height:52, borderRadius:'50%', background:'#fef2f2',
+          margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="23" y1="11" x2="17" y2="11"/>
+          </svg>
+        </div>
+        <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:800, color:'#111', letterSpacing:'-.4px' }}>
+          Remove {name}?
+        </p>
+        <p style={{ margin:'0 0 24px', fontSize:13, color:'#888', lineHeight:1.6 }}>
+          They will lose access to this project and all its files. This cannot be undone.
+        </p>
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose}
+            style={{ flex:1, height:40, borderRadius:11, border:'1.5px solid rgba(0,0,0,.1)',
+              background:'none', fontSize:14, fontWeight:600, color:'#666', cursor:'pointer' }}>
+            Cancel
+          </button>
+          <button onClick={() => { onConfirm(); onClose() }}
+            style={{ flex:1, height:40, borderRadius:11, border:'none',
+              background:'#ef4444', color:'#fff', fontSize:14, fontWeight:700,
+              cursor:'pointer', boxShadow:'0 4px 12px rgba(239,68,68,.35)' }}>
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Collaborators panel ───────────────────────────────────────────────────────
 function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
-  const [confirmId,   setConfirmId]   = useState(null)   // id being confirmed for removal
-  const [msgId,       setMsgId]       = useState(null)   // id with message box open
-  const [msgText,     setMsgText]     = useState('')
-  const [sending,     setSending]     = useState(false)
-  const msgRef = useRef(null)
-
-  useEffect(() => {
-    if (msgId) setTimeout(() => msgRef.current?.focus(), 40)
-  }, [msgId])
-
+  const [msgCollab,    setMsgCollab]    = useState(null)
+  const [removeCollab, setRemoveCollab] = useState(null)
   const COLORS = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1']
 
   return (
-    <div style={{ background:'#fff', borderRadius:14, padding:'16px',
-      border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+    <>
+      <div style={{ background:'#fff', borderRadius:14, padding:'16px',
+        border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
 
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-        <p style={{ margin:0, fontSize:10, fontWeight:800, color:'#c0c4cc',
-          textTransform:'uppercase', letterSpacing:'.1em' }}>
-          Collaborators {collabs.length > 0 && `(${collabs.length})`}
-        </p>
-        <button onClick={onInvite}
-          style={{ fontSize:11, fontWeight:700, color:C.coral, background:'none', border:'none',
-            cursor:'pointer', padding:0 }}
-          onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
-          onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-          + Invite
-        </button>
-      </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+          <p style={{ margin:0, fontSize:10, fontWeight:800, color:'#c0c4cc',
+            textTransform:'uppercase', letterSpacing:'.1em' }}>
+            Team {collabs.length > 0 && <span style={{ color:'#aaa', fontWeight:600 }}>({collabs.length})</span>}
+          </p>
+          <button onClick={onInvite}
+            style={{ height:26, padding:'0 10px', borderRadius:100, fontSize:11, fontWeight:700,
+              color:C.coral, background:`${C.coral}10`, border:`1px solid ${C.coral}30`,
+              cursor:'pointer', transition:'all .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}20`}
+            onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}10`}>
+            + Invite
+          </button>
+        </div>
 
-      {collabs.length === 0 ? (
-        <p style={{ margin:0, fontSize:12, color:'#c8ccd4', fontWeight:500 }}>
-          No collaborators yet.
-        </p>
-      ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-          {collabs.map((c, i) => {
-            const name  = c.user?.full_name || c.full_name || c.email?.split('@')[0] || 'Collaborator'
-            const color = COLORS[i % COLORS.length]
-            const isConfirming = confirmId === c.id
-            const isMessaging  = msgId === c.id
+        {collabs.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'12px 0' }}>
+            <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:600, color:'#ccc' }}>No one yet</p>
+            <p style={{ margin:0, fontSize:11.5, color:'#d8dce4' }}>Invite collaborators to get started</p>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+            {collabs.map((c, i) => {
+              const name  = c.user?.full_name || c.full_name || c.email || 'Collaborator'
+              const email = c.user?.email || c.email || ''
+              const color = COLORS[i % COLORS.length]
+              const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
 
-            return (
-              <div key={c.id}>
-                {/* Row */}
-                <div style={{ display:'flex', alignItems:'center', gap:8,
-                  padding:'6px 8px', borderRadius:10, transition:'background .1s',
-                  background: isConfirming ? '#fef2f2' : 'transparent' }}>
+              return (
+                <div key={c.id}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'8px',
+                    borderRadius:10, transition:'background .1s', cursor:'default' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.03)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
 
                   {/* Avatar */}
-                  <div style={{ width:30, height:30, borderRadius:'50%', background:`${color}18`,
+                  <div style={{ width:36, height:36, borderRadius:'50%', background:`${color}18`,
                     flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:11, fontWeight:800, color }}>
-                    {name.charAt(0).toUpperCase()}
+                    fontSize:12, fontWeight:800, color, border:`1.5px solid ${color}25` }}>
+                    {initials || '?'}
                   </div>
 
-                  {/* Name + role */}
+                  {/* Name + email */}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#111',
+                    <p style={{ margin:'0 0 1px', fontSize:13, fontWeight:700, color:'#111',
                       overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</p>
-                    <p style={{ margin:0, fontSize:10, color:'#bbb', fontWeight:500,
-                      textTransform:'capitalize' }}>{c.role || 'Collaborator'}</p>
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      <span style={{ fontSize:10, fontWeight:600, color:'#bbb',
+                        textTransform:'capitalize' }}>{c.role || 'Collaborator'}</span>
+                      <span style={{ fontSize:9, color:'#e0e0e0' }}>·</span>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:100,
+                        background: c.status==='active' ? '#22c55e12' : 'rgba(0,0,0,.04)',
+                        color: c.status==='active' ? '#22c55e' : '#ccc' }}>
+                        {c.status==='active' ? 'Active' : 'Pending'}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Status */}
-                  <span style={{ fontSize:9.5, fontWeight:700, padding:'2px 7px', borderRadius:100, flexShrink:0,
-                    background: c.status==='active' ? '#22c55e18' : 'rgba(0,0,0,.05)',
-                    color: c.status==='active' ? '#22c55e' : '#bbb' }}>
-                    {c.status==='active' ? 'Active' : 'Pending'}
-                  </span>
-
-                  {/* Actions */}
-                  {!isConfirming && (
-                    <div style={{ display:'flex', gap:3, flexShrink:0 }}>
-                      {/* Message */}
-                      {c.user_id && (
-                        <button onClick={() => { setMsgId(isMessaging ? null : c.id); setMsgText('') }}
-                          aria-label="Send message"
-                          style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(0,0,0,.1)',
-                            background: isMessaging ? `${C.coral}12` : 'none', cursor:'pointer',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            color: isMessaging ? C.coral : '#bbb', transition:'all .12s' }}
-                          onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
-                          onMouseLeave={e=>{ if(!isMessaging){ e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#bbb' }}}>
-                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                          </svg>
-                        </button>
-                      )}
-                      {/* Remove */}
-                      <button onClick={() => setConfirmId(c.id)}
-                        aria-label="Remove collaborator"
-                        style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(0,0,0,.1)',
-                          background:'none', cursor:'pointer', display:'flex', alignItems:'center',
-                          justifyContent:'center', color:'#bbb', transition:'all .12s' }}
-                        onMouseEnter={e=>{ e.currentTarget.style.borderColor='#ef4444'; e.currentTarget.style.color='#ef4444'; e.currentTarget.style.background='#fef2f2' }}
-                        onMouseLeave={e=>{ e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#bbb'; e.currentTarget.style.background='none' }}>
-                        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                          <circle cx="9" cy="7" r="4"/>
-                          <line x1="23" y1="11" x2="17" y2="11"/>
+                  {/* Action buttons */}
+                  <div style={{ display:'flex', gap:4, flexShrink:0, opacity:0, transition:'opacity .15s' }}
+                    className="collab-actions">
+                    {c.user_id && (
+                      <button onClick={() => setMsgCollab(c)}
+                        aria-label="Message"
+                        style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
+                          background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                          justifyContent:'center', color:'#aaa', transition:'all .12s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral;e.currentTarget.style.color=C.coral;e.currentTarget.style.background=`${C.coral}08`}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
                         </svg>
                       </button>
-                    </div>
-                  )}
-
-                  {/* Confirm remove inline */}
-                  {isConfirming && (
-                    <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
-                      <span style={{ fontSize:10.5, color:'#ef4444', fontWeight:600 }}>Remove?</span>
-                      <button onClick={() => { setConfirmId(null); onRemove(c) }}
-                        style={{ height:22, padding:'0 8px', borderRadius:6, border:'none',
-                          background:'#ef4444', color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                        Yes
-                      </button>
-                      <button onClick={() => setConfirmId(null)}
-                        style={{ height:22, padding:'0 8px', borderRadius:6,
-                          border:'1px solid rgba(0,0,0,.12)', background:'none',
-                          fontSize:11, fontWeight:600, color:'#555', cursor:'pointer' }}>
-                        No
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Message box */}
-                {isMessaging && (
-                  <div style={{ margin:'4px 0 4px 38px', display:'flex', gap:6 }}>
-                    <input ref={msgRef} value={msgText}
-                      onChange={e => setMsgText(e.target.value)}
-                      onKeyDown={async e => {
-                        if (e.key === 'Escape') { setMsgId(null); setMsgText('') }
-                        if (e.key === 'Enter' && msgText.trim() && !sending) {
-                          setSending(true)
-                          await onMessage(c, msgText.trim())
-                          setSending(false)
-                          setMsgId(null); setMsgText('')
-                        }
-                      }}
-                      placeholder={`Message ${name.split(' ')[0]}…`}
-                      style={{ flex:1, fontSize:12, padding:'6px 10px', borderRadius:8,
-                        border:`1.5px solid ${C.coral}40`, outline:'none', fontFamily:'inherit',
-                        background:'#fff' }}
-                      onFocus={e => e.target.style.borderColor=C.coral}
-                      onBlur={e => e.target.style.borderColor=`${C.coral}40`}/>
-                    <button
-                      disabled={!msgText.trim() || sending}
-                      onClick={async () => {
-                        if (!msgText.trim() || sending) return
-                        setSending(true)
-                        await onMessage(c, msgText.trim())
-                        setSending(false)
-                        setMsgId(null); setMsgText('')
-                      }}
-                      style={{ height:32, padding:'0 10px', borderRadius:8, border:'none',
-                        background: msgText.trim() ? C.coral : 'rgba(0,0,0,.07)',
-                        color: msgText.trim() ? '#fff' : '#ccc',
-                        fontSize:11, fontWeight:700, cursor: msgText.trim() ? 'pointer' : 'default',
-                        transition:'all .12s' }}>
-                      {sending ? '…' : 'Send'}
+                    )}
+                    <button onClick={() => setRemoveCollab(c)}
+                      aria-label="Remove"
+                      style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
+                        background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                        justifyContent:'center', color:'#aaa', transition:'all .12s' }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor='#ef4444';e.currentTarget.style.color='#ef4444';e.currentTarget.style.background='#fef2f2'}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
+                      <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                      </svg>
                     </button>
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {msgCollab && (
+        <MessageModal collab={msgCollab}
+          onClose={() => setMsgCollab(null)}
+          onSend={onMessage}/>
       )}
-    </div>
+      {removeCollab && (
+        <RemoveModal collab={removeCollab}
+          onClose={() => setRemoveCollab(null)}
+          onConfirm={() => onRemove(removeCollab)}/>
+      )}
+
+      <style>{`
+        div:hover > div > .collab-actions { opacity: 1 !important; }
+      `}</style>
+    </>
   )
 }
 
