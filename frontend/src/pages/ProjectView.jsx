@@ -25,7 +25,7 @@ function InlineRename({ value, onSave, onCancel }) {
       onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel() }}
       onBlur={submit}
       onClick={e => e.stopPropagation()}
-      style={{ flex:1, fontSize:13, fontWeight:600, color:C.t1, background:'#fff',
+      style={{ flex:1, fontSize:13, fontWeight:600, color:C.t1, background:C.surface,
         border:`1.5px solid ${C.coral}`, borderRadius:6, outline:'none',
         padding:'2px 8px', fontFamily:'inherit', minWidth:0 }}/>
   )
@@ -85,7 +85,7 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
               display:'flex', alignItems:'center', justifyContent:'center', borderRadius:16 }}>
               <button onClick={e => { e.stopPropagation(); onPlay(file) }} aria-label="Play"
                 style={{ width:36, height:36, borderRadius:'50%', border:'none',
-                  background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                  background:C.surface, cursor:'pointer', display:'flex', alignItems:'center',
                   justifyContent:'center', boxShadow:'0 2px 8px rgba(0,0,0,.4)',
                   transition:'transform .1s' }}
                 onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
@@ -122,7 +122,7 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
       {!renaming && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%' }}>
           {meta && (
-            <p style={{ margin:0, fontSize:9.5, color:'#bbb', fontWeight:500,
+            <p style={{ margin:0, fontSize:9.5, color:C.t3, fontWeight:500,
               whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {meta}
             </p>
@@ -205,8 +205,8 @@ function FolderRow({ folder, active, count, onSelect, onRename, onDelete, onDrop
           </button>
           {menu && (
             <div style={{ position:'absolute', right:0, top:'110%', zIndex:300,
-              background:'#fff', borderRadius:11, boxShadow:'0 8px 32px rgba(0,0,0,.12)',
-              border:'1px solid rgba(0,0,0,.07)', overflow:'hidden', minWidth:130 }}>
+              background:C.surface, borderRadius:11, boxShadow:'0 8px 32px rgba(0,0,0,.12)',
+              border:`1px solid ${C.border}`, overflow:'hidden', minWidth:130 }}>
               {[
                 { label:'Rename', col:'#444', d:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', fn:() => { setMenu(false); setEditing(true) } },
                 { label:'Delete',  col:'#ef4444', d:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6', fn:() => { setMenu(false); onDelete(folder.id) } },
@@ -254,7 +254,7 @@ function MessageModal({ collab, onClose, onSend }) {
     <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background:'#fff', borderRadius:20, padding:'28px', width:400,
+      <div style={{ background:C.surface, borderRadius:20, padding:'28px', width:400,
         maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
 
         {/* Header */}
@@ -297,7 +297,7 @@ function MessageModal({ collab, onClose, onSend }) {
                 <button onClick={onClose}
                   style={{ height:36, padding:'0 16px', borderRadius:10,
                     border:'1.5px solid rgba(0,0,0,.1)', background:'none',
-                    fontSize:13, fontWeight:600, color:'#666', cursor:'pointer' }}>
+                    fontSize:13, fontWeight:600, color:C.t2, cursor:'pointer' }}>
                   Cancel
                 </button>
                 <button onClick={send} disabled={!text.trim() || sending}
@@ -325,7 +325,7 @@ function RemoveModal({ collab, onClose, onConfirm }) {
     <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background:'#fff', borderRadius:20, padding:'28px', width:360,
+      <div style={{ background:C.surface, borderRadius:20, padding:'28px', width:360,
         maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.2)', textAlign:'center' }}>
         <div style={{ width:52, height:52, borderRadius:'50%', background:'#fef2f2',
           margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -338,13 +338,13 @@ function RemoveModal({ collab, onClose, onConfirm }) {
         <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:800, color:C.t1, letterSpacing:'-.4px' }}>
           Remove {name}?
         </p>
-        <p style={{ margin:'0 0 24px', fontSize:13, color:'#888', lineHeight:1.6 }}>
+        <p style={{ margin:'0 0 24px', fontSize:13, color:C.t3, lineHeight:1.6 }}>
           They will lose access to this project and all its files. This cannot be undone.
         </p>
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose}
             style={{ flex:1, height:40, borderRadius:11, border:'1.5px solid rgba(0,0,0,.1)',
-              background:'none', fontSize:14, fontWeight:600, color:'#666', cursor:'pointer' }}>
+              background:'none', fontSize:14, fontWeight:600, color:C.t2, cursor:'pointer' }}>
             Cancel
           </button>
           <button onClick={() => { onConfirm(); onClose() }}
@@ -367,8 +367,8 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
 
   return (
     <>
-      <div style={{ background:'#fff', borderRadius:14, padding:'16px',
-        border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+      <div style={{ background:C.surface, borderRadius:14, padding:'16px',
+        border:`1px solid ${C.border}`, boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
 
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
           <p style={{ margin:0, fontSize:10, fontWeight:800, color:'#c0c4cc',
@@ -418,7 +418,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
                     <p style={{ margin:'0 0 1px', fontSize:13, fontWeight:700, color:C.t1,
                       overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</p>
                     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                      <span style={{ fontSize:10, fontWeight:600, color:'#bbb',
+                      <span style={{ fontSize:10, fontWeight:600, color:C.t3,
                         textTransform:'capitalize' }}>{c.role || 'Collaborator'}</span>
                       <span style={{ fontSize:9, color:'#e0e0e0' }}>·</span>
                       <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:100,
@@ -436,7 +436,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
                       <button onClick={() => setMsgCollab(c)}
                         aria-label="Message"
                         style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
-                          background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                          background:C.surface, cursor:'pointer', display:'flex', alignItems:'center',
                           justifyContent:'center', color:C.t3, transition:'all .12s' }}
                         onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral;e.currentTarget.style.color=C.coral;e.currentTarget.style.background=`${C.coral}08`}}
                         onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
@@ -448,7 +448,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
                     <button onClick={() => setRemoveCollab(c)}
                       aria-label="Remove"
                       style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
-                        background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
+                        background:C.surface, cursor:'pointer', display:'flex', alignItems:'center',
                         justifyContent:'center', color:C.t3, transition:'all .12s' }}
                       onMouseEnter={e=>{e.currentTarget.style.borderColor='#ef4444';e.currentTarget.style.color='#ef4444';e.currentTarget.style.background='#fef2f2'}}
                       onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
@@ -499,7 +499,7 @@ function ActivityItem({ item }) {
         {name.charAt(0).toUpperCase()}
       </div>
       <div style={{ flex:1, minWidth:0, paddingTop:2 }}>
-        <p style={{ margin:'0 0 2px', fontSize:12, color:'#555', lineHeight:1.5 }}>
+        <p style={{ margin:'0 0 2px', fontSize:12, color:C.t2, lineHeight:1.5 }}>
           {item.body || item.message || item.title}
         </p>
         <span style={{ fontSize:10.5, color:'#c0c4cc' }}>{timeAgo(item.created_at)}</span>
@@ -632,7 +632,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh',
       flexDirection:'column', gap:12 }}>
       <Spinner size={28}/>
-      <p style={{ margin:0, fontSize:13, color:'#bbb' }}>Loading project…</p>
+      <p style={{ margin:0, fontSize:13, color:C.t3 }}>Loading project…</p>
     </div>
   )
 
@@ -643,7 +643,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       <div style={{ marginBottom:22 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10 }}>
           <button onClick={() => navigate('/projects')}
-            style={{ background:'none', border:'none', cursor:'pointer', color:'#bbb',
+            style={{ background:'none', border:'none', cursor:'pointer', color:C.t3,
               fontSize:12.5, fontWeight:600, padding:0, display:'flex', alignItems:'center',
               gap:4, transition:'color .12s' }}
             onMouseEnter={e => e.currentTarget.style.color='#555'}
@@ -662,8 +662,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => openModal?.('invite', { project })}
               style={{ height:34, padding:'0 14px', borderRadius:9,
-                border:'1.5px solid rgba(0,0,0,.1)', background:'#fff',
-                fontSize:12.5, fontWeight:600, color:'#666', cursor:'pointer',
+                border:'1.5px solid rgba(0,0,0,.1)', background:C.surface,
+                fontSize:12.5, fontWeight:600, color:C.t2, cursor:'pointer',
                 display:'flex', alignItems:'center', gap:6, transition:'all .15s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral }}
               onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.1)'; e.currentTarget.style.color='#666' }}>
@@ -819,7 +819,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search files…"
                 style={{ width:'100%', height:34, paddingLeft:34, paddingRight:12,
-                  borderRadius:9, border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
+                  borderRadius:9, border:'1.5px solid rgba(0,0,0,.08)', background:C.surface,
                   fontSize:13, color:C.t1, outline:'none', boxSizing:'border-box',
                   fontFamily:'inherit', transition:'border-color .12s' }}
                 onFocus={e => e.target.style.borderColor=C.coral}
@@ -842,7 +842,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           {visibleFiles.length === 0 ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
               padding:'60px 24px', borderRadius:16,
-              border:'2px dashed rgba(0,0,0,.07)', background:'#fafafa' }}>
+              border:'2px dashed rgba(0,0,0,.07)', background:C.surface2 }}>
               <div style={{ width:48, height:48, borderRadius:14, background:`${C.coral}10`,
                 border:`1.5px dashed ${C.coral}40`, display:'flex', alignItems:'center',
                 justifyContent:'center', marginBottom:14 }}>
@@ -851,7 +851,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
                 </svg>
               </div>
-              <div style={{ fontSize:14, fontWeight:700, color:'#bbb', marginBottom:6 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:C.t3, marginBottom:6 }}>
                 {search ? 'No files match' : 'No files here yet'}
               </div>
               {selectedFolder === 'all' && !search && (
@@ -878,8 +878,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         {!isMobile && (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
 
-            <div style={{ background:'#fff', borderRadius:14, padding:'16px',
-              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+            <div style={{ background:C.surface, borderRadius:14, padding:'16px',
+              border:`1px solid ${C.border}`, boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
               <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Session</p>
               {[
@@ -888,7 +888,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               ].map(s => (
                 <div key={s.label} style={{ display:'flex', alignItems:'center',
                   padding:'7px 0', borderBottom:'1px solid rgba(0,0,0,.04)' }}>
-                  <span style={{ flex:1, fontSize:13, color:'#888' }}>{s.label}</span>
+                  <span style={{ flex:1, fontSize:13, color:C.t3 }}>{s.label}</span>
                   <span style={{ fontSize:18, fontWeight:900, color:C.t1,
                     letterSpacing:'-1px' }}>{s.val}</span>
                 </div>
@@ -896,8 +896,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
 
             {instruments.length > 0 && (
-              <div style={{ background:'#fff', borderRadius:14, padding:'16px',
-                border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+              <div style={{ background:C.surface, borderRadius:14, padding:'16px',
+                border:`1px solid ${C.border}`, boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
                 <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                   textTransform:'uppercase', letterSpacing:'.1em' }}>Breakdown</p>
 
@@ -931,8 +931,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               }}
             />
 
-            <div style={{ background:'#fff', borderRadius:14, padding:'16px',
-              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+            <div style={{ background:C.surface, borderRadius:14, padding:'16px',
+              border:`1px solid ${C.border}`, boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
               <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                 textTransform:'uppercase', letterSpacing:'.1em' }}>Quick Actions</p>
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -943,9 +943,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 ].map(a => (
                   <button key={a.label} onClick={a.fn}
                     style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 10px',
-                      borderRadius:9, border:'1px solid rgba(0,0,0,.07)', background:'rgba(0,0,0,.02)',
+                      borderRadius:9, border:`1px solid ${C.border}`, background:'rgba(0,0,0,.02)',
                       cursor:'pointer', textAlign:'left', fontSize:12.5, fontWeight:600,
-                      color:'#555', transition:'all .12s', width:'100%' }}
+                      color:C.t2, transition:'all .12s', width:'100%' }}
                     onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}08`; e.currentTarget.style.borderColor=`${C.coral}30`; e.currentTarget.style.color=C.coral }}
                     onMouseLeave={e => { e.currentTarget.style.background='rgba(0,0,0,.02)'; e.currentTarget.style.borderColor='rgba(0,0,0,.07)'; e.currentTarget.style.color='#555' }}>
                     <svg width={13} height={13} viewBox="0 0 24 24" fill="none"

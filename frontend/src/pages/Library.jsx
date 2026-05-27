@@ -122,7 +122,7 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
       </div>
 
       {loading ? (
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'36px 20px', color:'#bbb' }}><Spinner size={22}/></div>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'36px 20px', color:C.t3 }}><Spinner size={22}/></div>
       ) : projects.length === 0 ? (
         <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
           <div style={{ fontSize:14, fontWeight:700, color:C.t1, marginBottom:8 }}>No projects yet</div>
@@ -141,7 +141,7 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
             </div>
           ) : (
             <Card style={{ padding:'12px 0', height:'fit-content' }}>
-              <div style={{ padding:'4px 16px 10px', fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em' }}>Projects</div>
+              <div style={{ padding:'4px 16px 10px', fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em' }}>Projects</div>
               {projects.map(p => {
                 const on = activeId === p.id
                 return <button key={p.id} onClick={() => setActiveId(p.id)} style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 16px', border:'none', cursor:'pointer', textAlign:'left', fontSize:13, fontWeight:on?700:400, color:on?'#111':'#666', background:on?`${C.coral}10`:'transparent', borderLeft:on?`3px solid ${C.coral}`:'3px solid transparent', transition:'all .12s' }}>
@@ -162,20 +162,20 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
               </div>
               <div>
                 <div style={{ fontSize:13.5, fontWeight:700, color:'#222' }}>Drop files into <span style={{ color:C.coral }}>{activeProject?.title||'project'}</span></div>
-                <div style={{ fontSize:12, color:'#bbb', marginTop:2 }}>WAV · MP3 · AIFF · FLAC · ZIP — max 2 GB each</div>
+                <div style={{ fontSize:12, color:C.t3, marginTop:2 }}>WAV · MP3 · AIFF · FLAC · ZIP — max 2 GB each</div>
               </div>
             </div>
 
             {/* File list */}
             <Card style={{ overflow:'hidden' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px auto', padding:'10px 20px', borderBottom:'1px solid rgba(0,0,0,.05)', fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.06em' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px auto', padding:'10px 20px', borderBottom:'1px solid rgba(0,0,0,.05)', fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.06em' }}>
                 <span>Name</span><span>Type</span><span>Role</span><span>Actions</span>
               </div>
               {loadingFiles ? (
-                <div style={{ padding:'40px', textAlign:'center', color:'#bbb', fontSize:13 }}>Loading files…</div>
+                <div style={{ padding:'40px', textAlign:'center', color:C.t3, fontSize:13 }}>Loading files…</div>
               ) : files.length === 0 ? (
-                <div style={{ padding:'40px', textAlign:'center', color:'#bbb', fontSize:13 }}>
-                  No files in <strong style={{ color:'#333' }}>{activeProject?.title}</strong> yet.{' '}
+                <div style={{ padding:'40px', textAlign:'center', color:C.t3, fontSize:13 }}>
+                  No files in <strong style={{ color:C.t2 }}>{activeProject?.title}</strong> yet.{' '}
                   <button onClick={() => openModal('upload', { project: activeProject })} style={{ background:'none', border:'none', color:C.coral, fontWeight:700, fontSize:13, cursor:'pointer' }}>Upload one →</button>
                 </div>
               ) : parentFiles.map((f, i) => {
@@ -193,7 +193,7 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
                         <div style={{ width:32, height:32, borderRadius:8, flexShrink:0, background:`${color}15`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:8.5, fontWeight:800, color }}>{ext}</div>
                         <div style={{ minWidth:0 }}>
                           <span style={{ fontSize:13, fontWeight:600, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>{fileLabel(f)}</span>
-                          <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
+                          <span style={{ fontSize:11, color:C.t3 }}>{timeAgo(f.created_at)}</span>
                           {hasChildren && <span style={{ fontSize:10, color:'#22c55e', fontWeight:600, marginTop:1, display:'block' }}>✓ {children.length} stems ready</span>}
                         </div>
                       </div>
@@ -237,8 +237,8 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
                               onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.03)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(0,0,0,.015)'}>
                               <div style={{ width:6, height:6, borderRadius:'50%', background:stemColor, flexShrink:0 }}/>
                               <div style={{ flex:1, minWidth:0 }}>
-                                <span style={{ fontSize:12.5, fontWeight:600, color:'#333', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>{fileLabel(child)}</span>
-                                <span style={{ fontSize:10.5, color:'#bbb' }}>WAV · {(child.file_size/1048576).toFixed(1)} MB</span>
+                                <span style={{ fontSize:12.5, fontWeight:600, color:C.t2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>{fileLabel(child)}</span>
+                                <span style={{ fontSize:10.5, color:C.t3 }}>WAV · {(child.file_size/1048576).toFixed(1)} MB</span>
                               </div>
                               <span style={{ fontSize:10, fontWeight:700, color:stemColor, background:`${stemColor}15`, padding:'2px 8px', borderRadius:5, textTransform:'capitalize', flexShrink:0 }}>{stemType}</span>
                               <button onClick={() => playTrack(child)} style={{ width:28, height:28, borderRadius:'50%', border:'none', cursor:'pointer', background:stemColor, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>

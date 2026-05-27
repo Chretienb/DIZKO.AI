@@ -66,8 +66,8 @@ export default function TrackItem({
               {stemLabel}
             </span>
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
-            <span style={{ fontSize:11.5, color:'#bbb' }}>{uploaderName}</span>
-            {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:'#bbb', background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
+            <span style={{ fontSize:11.5, color:C.t3 }}>{uploaderName}</span>
+            {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
           </div>
         </div>
 
@@ -128,7 +128,7 @@ export default function TrackItem({
             {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%', background:color, color:'#fff', fontSize:7, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>{commentCount}</span>}
           </button>
           <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
-            style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.07)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
+            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
             onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
             onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(0,0,0,.07)';e.currentTarget.style.background='transparent'}}>
             {isDeleting?<Spinner size={10} color="#ef4444"/>:<IconTrash size={12}/>}
@@ -162,12 +162,12 @@ export default function TrackItem({
           {/* Take history */}
           {takes&&takes.length>1&&(
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Take History</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Take History</div>
               {takes.map((t,ti)=>(
                 <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:ti<takes.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
                   <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`, padding:'2px 8px', borderRadius:100 }}>v{takes.length-ti}</span>
-                  <span style={{ fontSize:12.5, color:'#333', flex:1 }}>{t.suggested_name||t.original_name}</span>
-                  <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(t.created_at)}</span>
+                  <span style={{ fontSize:12.5, color:C.t2, flex:1 }}>{t.suggested_name||t.original_name}</span>
+                  <span style={{ fontSize:11, color:C.t3 }}>{timeAgo(t.created_at)}</span>
                   <button onClick={()=>onPlay(t)} aria-label={`Play take ${takes.length-ti}`}
                     style={{ width:26, height:26, borderRadius:8, border:`1px solid ${color}28`, background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color }}>
                     <IconPlay size={8} color={color}/>
@@ -197,7 +197,7 @@ export default function TrackItem({
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
                       <span style={{ fontSize:12, fontWeight:700, color:'#222' }}>{cm.user_name||'Someone'}</span>
-                      {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:'#bbb', background:'rgba(0,0,0,.04)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
+                      {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(0,0,0,.04)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
                     </div>
                     <div style={{ fontSize:13, color:C.t2, lineHeight:1.55, marginBottom:6 }}>{cm.text}</div>
                     <button

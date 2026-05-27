@@ -20,7 +20,7 @@ function RemoveModal({ name, color, initials, onConfirm, onClose }) {
     <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', background:'rgba(0,0,0,.45)', backdropFilter:'blur(6px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', width:360,
+      <div style={{ background:C.surface, borderRadius:24, padding:'32px 28px', width:360,
         maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.22)',
         textAlign:'center' }}>
 
@@ -43,17 +43,17 @@ function RemoveModal({ name, color, initials, onConfirm, onClose }) {
           </svg>
         </div>
 
-        <p style={{ margin:'0 0 8px', fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-.5px' }}>
+        <p style={{ margin:'0 0 8px', fontSize:18, fontWeight:900, color:C.t1, letterSpacing:'-.5px' }}>
           Remove {name}?
         </p>
-        <p style={{ margin:'0 0 24px', fontSize:13, color:'#888', lineHeight:1.65 }}>
+        <p style={{ margin:'0 0 24px', fontSize:13, color:C.t3, lineHeight:1.65 }}>
           They will lose access to this project and all its files.<br/>This cannot be undone.
         </p>
 
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose}
             style={{ flex:1, height:42, borderRadius:12, border:'1.5px solid rgba(0,0,0,.1)',
-              background:'none', fontSize:14, fontWeight:600, color:'#666', cursor:'pointer',
+              background:'none', fontSize:14, fontWeight:600, color:C.t2, cursor:'pointer',
               transition:'background .12s' }}
             onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.04)'}
             onMouseLeave={e=>e.currentTarget.style.background='none'}>
@@ -81,7 +81,7 @@ function ProfileCard({ c, index, isOnline, onMessage, onWork, onRemove }) {
   const initials = n.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?'
 
   return (
-    <div style={{ background:'#fff', borderRadius:24, border:'1px solid rgba(0,0,0,.06)',
+    <div style={{ background:C.surface, borderRadius:24, border:`1px solid ${C.border}`,
       boxShadow:'0 2px 8px rgba(0,0,0,.05)',
       display:'flex', flexDirection:'column', alignItems:'center',
       padding:'32px 24px 22px', textAlign:'center', transition:'box-shadow .15s' }}
@@ -105,7 +105,7 @@ function ProfileCard({ c, index, isOnline, onMessage, onWork, onRemove }) {
       </div>
 
       {/* Name */}
-      <p style={{ margin:'0 0 5px', fontSize:16, fontWeight:800, color:'#111', letterSpacing:'-.4px' }}>{n}</p>
+      <p style={{ margin:'0 0 5px', fontSize:16, fontWeight:800, color:C.t1, letterSpacing:'-.4px' }}>{n}</p>
 
       {/* Role */}
       <span style={{ fontSize:11.5, fontWeight:700, padding:'3px 11px', borderRadius:100,
@@ -115,7 +115,7 @@ function ProfileCard({ c, index, isOnline, onMessage, onWork, onRemove }) {
 
       {/* Project + status */}
       {c.projectTitle && (
-        <p style={{ margin:'0 0 2px', fontSize:12, color:'#bbb', fontWeight:500 }}>{c.projectTitle}</p>
+        <p style={{ margin:'0 0 2px', fontSize:12, color:C.t3, fontWeight:500 }}>{c.projectTitle}</p>
       )}
       <p style={{ margin:'0 0 18px', fontSize:11.5, fontWeight:600,
         color: isOnline ? '#22c55e' : '#c8ccd4' }}>
@@ -235,11 +235,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>
             Collaborators
           </h1>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontSize:13, color:'#bbb' }}>
+            <span style={{ fontSize:13, color:C.t3 }}>
               {loading ? <Spinner size={11}/> : `${collabs.length} member${collabs.length!==1?'s':''}`}
             </span>
             {onlineNow > 0 && (
@@ -269,7 +269,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
                 {(req.requester_name||'?')[0]?.toUpperCase()}
               </div>
               <div style={{ flex:1 }}>
-                <p style={{ margin:0, fontSize:13, color:'#111' }}>
+                <p style={{ margin:0, fontSize:13, color:C.t1 }}>
                   <strong>{req.requester_name}</strong> wants to upload{' '}
                   <strong style={{ color:C.amber }}>{req.instrument}</strong>
                 </p>
@@ -283,7 +283,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
                 </button>
                 <button onClick={() => reviewReq(req.id,'denied')} disabled={reviewingId===req.id}
                   style={{ padding:'6px 12px', borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
-                    background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    background:'transparent', color:C.t3, fontSize:12, fontWeight:600, cursor:'pointer' }}>
                   Deny
                 </button>
               </div>
@@ -305,7 +305,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
             </svg>
           </div>
           <div style={{ flex:1 }}>
-            <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#111' }}>
+            <p style={{ margin:0, fontSize:13, fontWeight:700, color:C.t1 }}>
               Invited to <strong>{inv.projects?.title || 'a project'}</strong>
             </p>
             <p style={{ margin:'2px 0 0', fontSize:12, color:'#aaa' }}>as {inv.role || 'Collaborator'}</p>
@@ -318,7 +318,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
             </button>
             <button onClick={() => declineInvite(inv)} disabled={actingId===inv.id}
               style={{ padding:'7px 12px', borderRadius:9, border:'1px solid rgba(0,0,0,.1)',
-                background:'transparent', color:'#888', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                background:'transparent', color:C.t3, fontSize:12, fontWeight:600, cursor:'pointer' }}>
               Decline
             </button>
           </div>
@@ -334,7 +334,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search…"
           style={{ width:'100%', height:38, paddingLeft:34, paddingRight:12, borderRadius:10,
-            border:'1.5px solid rgba(0,0,0,.08)', background:'#fff', fontSize:13, color:'#111',
+            border:'1.5px solid rgba(0,0,0,.08)', background:C.surface, fontSize:13, color:C.t1,
             outline:'none', boxSizing:'border-box', fontFamily:'inherit', transition:'border-color .12s' }}
           onFocus={e => e.target.style.borderColor=C.coral}
           onBlur={e  => e.target.style.borderColor='rgba(0,0,0,.08)'}/>
@@ -344,19 +344,19 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
       {loading ? (
         <div style={{ display:'grid', gridTemplateColumns:`repeat(auto-fill, minmax(${isMobile?'160px':'210px'}, 1fr))`, gap:12 }}>
           {[0,1,2,3].map(i => (
-            <div key={i} style={{ background:'#fff', borderRadius:20, padding:'28px 20px 20px',
-              border:'1px solid rgba(0,0,0,.06)', display:'flex', flexDirection:'column',
+            <div key={i} style={{ background:C.surface, borderRadius:20, padding:'28px 20px 20px',
+              border:`1px solid ${C.border}`, display:'flex', flexDirection:'column',
               alignItems:'center', gap:10 }}>
-              <div style={{ width:72, height:72, borderRadius:'50%', background:'#f0f0f0' }}/>
-              <div style={{ height:14, width:'60%', borderRadius:4, background:'#f0f0f0' }}/>
-              <div style={{ height:10, width:'40%', borderRadius:4, background:'#f5f5f5' }}/>
+              <div style={{ width:72, height:72, borderRadius:'50%', background:C.surface2 }}/>
+              <div style={{ height:14, width:'60%', borderRadius:4, background:C.surface2 }}/>
+              <div style={{ height:10, width:'40%', borderRadius:4, background:C.surface2 }}/>
             </div>
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff',
-          borderRadius:20, border:'1px solid rgba(0,0,0,.06)' }}>
-          <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:'#bbb' }}>
+        <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface,
+          borderRadius:20, border:`1px solid ${C.border}` }}>
+          <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:C.t3 }}>
             {search ? 'No matches' : 'No collaborators yet'}
           </p>
           <p style={{ margin:'0 0 20px', fontSize:13, color:'#d0d0d8' }}>

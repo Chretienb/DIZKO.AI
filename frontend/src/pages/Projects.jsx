@@ -18,8 +18,8 @@ const statusStyle = s => ({
   'In Progress': { bg:'rgba(59,130,246,.1)',    color:'#2563eb', border:'rgba(59,130,246,.2)'   },
   'Review':      { bg:'rgba(245,201,122,.15)',  color:'#b45309', border:'rgba(245,201,122,.4)'  },
   'New Takes':   { bg:'rgba(232,112,154,.12)',  color:'#E8709A', border:'rgba(232,112,154,.3)'  },
-  'Draft':       { bg:'rgba(0,0,0,.06)',         color:'#888',    border:'rgba(0,0,0,.12)'       },
-}[s] || { bg:'rgba(0,0,0,.06)', color:'#888', border:'rgba(0,0,0,.12)' })
+  'Draft':       { bg:'rgba(0,0,0,.06)',         color:C.t3,    border:'rgba(0,0,0,.12)'       },
+}[s] || { bg:'rgba(0,0,0,.06)', color:C.t3, border:'rgba(0,0,0,.12)' })
 
 function timeAgo(isoString) {
   if (!isoString) return ''
@@ -114,7 +114,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)', gap:20 }}>
           {visible.length===0 && filter!=='All' && (
-            <div style={{ gridColumn:'1/-1', padding:'40px 0', textAlign:'center', color:'#bbb', fontSize:13 }}>No projects with status "{filter}".</div>
+            <div style={{ gridColumn:'1/-1', padding:'40px 0', textAlign:'center', color:C.t3, fontSize:13 }}>No projects with status "{filter}".</div>
           )}
 
           {visible.map((p, i) => {
@@ -148,10 +148,10 @@ export default function PageProjects({ openModal, refreshKey, user }) {
 
                 {/* Info panel */}
                 <div style={{ background:C.surface, padding:'18px 20px 20px', flexShrink:0 }}>
-                  {p.type && <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:6 }}>{p.type}</div>}
+                  {p.type && <div style={{ fontSize:10.5, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:6 }}>{p.type}</div>}
                   <div style={{ fontSize:20, fontWeight:900, color:C.t1, letterSpacing:'-.6px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.2 }}>{p.title}</div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
-                    <div style={{ fontSize:12, color:'#bbb' }}>{isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}</div>
+                    <div style={{ fontSize:12, color:C.t3 }}>{isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}</div>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
                       style={{ padding:'7px 18px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 12px rgba(0,0,0,.2)', transition:'opacity .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
@@ -171,7 +171,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
             <div style={{ width:56, height:56, borderRadius:16, background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 6px 20px ${C.coral}40`, fontSize:28, color:'#fff', fontWeight:200 }}>+</div>
             <div style={{ textAlign:'center' }}>
               <div style={{ fontSize:14, fontWeight:800, color:'#222' }}>New Project</div>
-              <div style={{ fontSize:12, color:'#bbb', marginTop:4 }}>Start from scratch</div>
+              <div style={{ fontSize:12, color:C.t3, marginTop:4 }}>Start from scratch</div>
             </div>
           </div>
         </div>

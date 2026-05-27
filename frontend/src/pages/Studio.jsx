@@ -559,7 +559,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             {/* Skeleton while stems are loading — never show empty state during load */}
             {loadingStems && [0,1,2].map(i => (
               <div key={i} style={{ background:C.surface, borderRadius:20, padding:'14px 18px',
-                boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)',
+                boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:`1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <div style={{ width:4, height:40, borderRadius:2, background:'rgba(0,0,0,.07)' }}/>
@@ -577,7 +577,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
             {/* True empty state — only when not loading and genuinely no stems */}
             {!loadingStems && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
-              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:`1px solid ${C.border}` }}>
                 <div style={{ width:60, height:60, borderRadius:18, background:`${C.coral}10`, border:`1.5px dashed ${C.coral}40`, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round"><path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/></svg>
                 </div>

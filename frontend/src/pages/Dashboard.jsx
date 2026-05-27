@@ -284,7 +284,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                     <div style={{ position:'absolute', top:12, left:12, zIndex:2, padding:'4px 10px', borderRadius:100, fontSize:10, fontWeight:700, backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', background:isOwner?'rgba(244,147,122,.7)':'rgba(255,255,255,.16)', color:'#fff', border:`1px solid ${isOwner?'rgba(244,147,122,.4)':'rgba(255,255,255,.2)'}` }}>{isOwner?'★ Creator':'Invited'}</div>
                   </div>
                   <div style={{ background:C.surface, padding:'14px 16px 16px', flexShrink:0 }}>
-                    {p.type&&<div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{p.type}</div>}
+                    {p.type&&<div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{p.type}</div>}
                     <div style={{ fontSize:15, fontWeight:900, color:C.t1, letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>{p.title}</div>
                     <button onClick={e=>{e.stopPropagation();navigate(`/projects/${p.id}`)}} style={{ width:'100%', padding:'8px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 10px rgba(0,0,0,.18)', transition:'opacity .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>Open →</button>
@@ -298,7 +298,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
 
       {/* Venue recommendations */}
       {listenerCities.length>0 && (
-        <div style={{ background:C.surface, borderRadius:20, marginBottom:20, padding:'24px 24px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)' }}>
+        <div style={{ background:C.surface, borderRadius:20, marginBottom:20, padding:'24px 24px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
 
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:18 }}>
@@ -341,7 +341,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:10 }}>
               {(cityVenues[selectedCity]||[]).map(v=>(
                 <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
-                  style={{ textDecoration:'none', padding:'13px 15px', borderRadius:12, background:'#fafafa', border:'1.5px solid #f0f0f0', transition:'all .15s', display:'flex', flexDirection:'column', gap:5 }}
+                  style={{ textDecoration:'none', padding:'13px 15px', borderRadius:12, background:C.surface2, border:'1.5px solid #f0f0f0', transition:'all .15s', display:'flex', flexDirection:'column', gap:5 }}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor='#0f0f0f';e.currentTarget.style.background='#fff'}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor='#f0f0f0';e.currentTarget.style.background='#fafafa'}}>
                   <div style={{ fontSize:13, fontWeight:700, color:'#0f0f0f', lineHeight:1.35,
@@ -365,11 +365,11 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
       {projects.length>0 && (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1.4fr 1fr', gap:16 }}>
           {/* Files card */}
-          <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+          <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 22px 14px' }}>
               <div>
                 <div style={{ fontSize:16, fontWeight:900, color:C.t1, letterSpacing:'-.4px' }}>{projects[0]?.title||'Project Files'}</div>
-                <div style={{ fontSize:12, color:'#bbb', marginTop:3 }}>
+                <div style={{ fontSize:12, color:C.t3, marginTop:3 }}>
                   {(() => {
                     const takeCount = projectFiles.filter(f => f.instrument && f.instrument!=='original' && f.instrument!=='smart_bounce' && !pn(f).parent_stem_id).length
                     const analyzing = projectFiles.filter(f => pn(f).status==='analyzing').length
@@ -384,7 +384,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
               </button>
             </div>
             {loadingDetail ? <LoadingBlock/> : projectFiles.length===0 ? (
-              <div style={{ padding:'32px', textAlign:'center', color:'#bbb', fontSize:12.5 }}>No files yet — upload your first take.</div>
+              <div style={{ padding:'32px', textAlign:'center', color:C.t3, fontSize:12.5 }}>No files yet — upload your first take.</div>
             ) : (
               <div>
                 {projectFiles.filter(f=>f.instrument==='original').map(f=>{
@@ -425,7 +425,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                             <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
                               <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:`${stemColor}15`, color:stemColor, textTransform:'capitalize', border:`1px solid ${stemColor}25` }}>{f.instrument}</span>
                               {notes.bpm&&<span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6, background:`${stemColor}12`, color:stemColor }}>{Math.round(notes.bpm)} BPM</span>}
-                              {notes.key&&<span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6, background:'rgba(0,0,0,.05)', color:'#888' }}>{notes.key}</span>}
+                              {notes.key&&<span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6, background:'rgba(0,0,0,.05)', color:C.t3 }}>{notes.key}</span>}
                             </div>
                           </div>
                         )
@@ -442,7 +442,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                 onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.09)';e.currentTarget.style.background='transparent'}}
                 onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false)}}>
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
-                <span style={{ fontSize:12, color:'#bbb', fontWeight:500 }}>Drop to upload · WAV · MP3 · AIFF</span>
+                <span style={{ fontSize:12, color:C.t3, fontWeight:500 }}>Drop to upload · WAV · MP3 · AIFF</span>
               </div>
             </div>
           </div>
@@ -450,13 +450,13 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
           {/* Right column */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
             {/* Recent Activity */}
-            <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', flex:1, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', flex:1, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
                 <div style={{ fontSize:14, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>Recent Activity</div>
-                <button onClick={()=>navigate('/analytics')} style={{ fontSize:12, color:'#bbb', fontWeight:600, background:'none', border:'none', cursor:'pointer' }}>See all →</button>
+                <button onClick={()=>navigate('/analytics')} style={{ fontSize:12, color:C.t3, fontWeight:600, background:'none', border:'none', cursor:'pointer' }}>See all →</button>
               </div>
               {loadingDetail ? <div style={{ padding:'12px 18px' }}><Spinner size={16}/></div>
-              : projectFiles.length===0 ? <div style={{ padding:'12px 18px 16px', fontSize:12, color:'#bbb' }}>No activity yet.</div>
+              : projectFiles.length===0 ? <div style={{ padding:'12px 18px 16px', fontSize:12, color:C.t3 }}>No activity yet.</div>
               : (() => {
                 const events=[], seenParent=new Set()
                 const sorted=[...projectFiles].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
@@ -482,7 +482,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                   <div key={ev.id} style={{ display:'flex', alignItems:'flex-start', gap:11, padding:'8px 18px', borderBottom:i<Math.min(4,events.length-1)?'1px solid rgba(0,0,0,.04)':'none' }}>
                     <div style={{ width:7, height:7, borderRadius:'50%', background:dotColor(ev), marginTop:5, flexShrink:0, boxShadow:ev.type==='bounce'?`0 0 6px ${dotColor(ev)}`:'none' }}/>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, color:'#333', lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      <div style={{ fontSize:12, color:C.t2, lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         <strong style={{ fontWeight:700, color:C.t1 }}>{ev.who}</strong>
                         {ev.type==='upload'&&<> uploaded <span style={{ color:dotColor(ev), fontWeight:600 }}>{ev.f.instrument==='original'?ev.f.original_name:ev.f.instrument||'a file'}</span></>}
                         {ev.type==='separation'&&<> separated <span style={{ color:C.amber, fontWeight:600 }}>{ev.count} stems</span></>}

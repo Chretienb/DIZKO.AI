@@ -2776,14 +2776,14 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
-      WebkitFontSmoothing:'antialiased', color:'#111' }}>
+      WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* ══ MOBILE DRAWER ════════════════════════════════════════════════════ */}
       {isMobile && drawerOpen && (
         <>
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:200 }}
             onClick={() => setDrawerOpen(false)} />
-          <div style={{ position:'fixed', top:0, left:0, bottom:0, width:260, background:'#111',
+          <div style={{ position:'fixed', top:0, left:0, bottom:0, width:260, background:C.sidebar,
             zIndex:201, display:'flex', flexDirection:'column', overflowY:'auto',
             boxShadow:'4px 0 24px rgba(0,0,0,.4)',
             transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',

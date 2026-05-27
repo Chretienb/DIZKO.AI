@@ -15,7 +15,7 @@ const countryName = code => COUNTRY_NAMES[code] || code
 // ── Sub-components ────────────────────────────────────────────────────────────
 function LoadingBlock({ label, size = 22 }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'36px 20px', color:'#bbb' }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'36px 20px', color:C.t3 }}>
       <Spinner size={size}/>
       {label && <span style={{ fontSize:12.5, fontWeight:500 }}>{label}</span>}
     </div>
@@ -25,13 +25,13 @@ function LoadingBlock({ label, size = 22 }) {
 function AnalyticsTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,.08)', borderRadius:10, padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,.1)', fontSize:12 }}>
-      {label && <div style={{ fontWeight:700, color:'#111', marginBottom:6 }}>{label}</div>}
+    <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,.1)', fontSize:12 }}>
+      {label && <div style={{ fontWeight:700, color:C.t1, marginBottom:6 }}>{label}</div>}
       {payload.map((p, i) => (
-        <div key={i} style={{ display:'flex', alignItems:'center', gap:6, color:'#555', marginTop: i ? 3 : 0 }}>
+        <div key={i} style={{ display:'flex', alignItems:'center', gap:6, color:C.t2, marginTop: i ? 3 : 0 }}>
           <div style={{ width:8, height:8, borderRadius:2, background:p.color || p.fill, flexShrink:0 }}/>
           <span style={{ textTransform:'capitalize' }}>{p.name}</span>
-          <span style={{ fontWeight:800, color:'#111', marginLeft:'auto', paddingLeft:16 }}>{p.value}</span>
+          <span style={{ fontWeight:800, color:C.t1, marginLeft:'auto', paddingLeft:16 }}>{p.value}</span>
         </div>
       ))}
     </div>
@@ -248,7 +248,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                   <svg width={18} height={18} viewBox="0 0 24 24" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                   <span style={{ fontSize:11, fontWeight:700, color:'#ff4444', textTransform:'uppercase', letterSpacing:'.08em' }}>YouTube Analytics · Last 90 days</span>
                 </div>
-                <h2 style={{ margin:'0 0 4px', fontSize: isMobile?22:32, fontWeight:900, color:'#111', letterSpacing:'-1.2px', lineHeight:1.1 }}>
+                <h2 style={{ margin:'0 0 4px', fontSize: isMobile?22:32, fontWeight:900, color:C.t1, letterSpacing:'-1.2px', lineHeight:1.1 }}>
                   Your fans are in{' '}
                   <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                     {ytData.cities?.slice(0,3).map(c=>c.city).join(', ') || ytData.countries?.slice(0,3).map(c=>countryName(c.country_code)).join(', ') || 'the world'}
@@ -259,35 +259,35 @@ export default function PageAnalytics({ onGated, hasAccess }) {
               <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
                 {[{label:'Top country',val:countryName(ytData.countries?.[0]?.country_code||'')||'—'},{label:'Total views',val:ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString()||'—'}].map(s => (
                   <div key={s.label} style={{ textAlign:'right' }}>
-                    <div style={{ fontSize:22, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>{s.val}</div>
-                    <div style={{ fontSize:11, color:'#bbb', marginTop:2 }}>{s.label}</div>
+                    <div style={{ fontSize:22, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>{s.val}</div>
+                    <div style={{ fontSize:11, color:C.t3, marginTop:2 }}>{s.label}</div>
                   </div>
                 ))}
-                <button onClick={()=>{setYtConnected(false);youtubeApi.disconnect()}} style={{ alignSelf:'flex-start', fontSize:11, color:'#bbb', background:'none', border:'1px solid rgba(0,0,0,.09)', borderRadius:8, padding:'4px 10px', cursor:'pointer' }}>Disconnect</button>
+                <button onClick={()=>{setYtConnected(false);youtubeApi.disconnect()}} style={{ alignSelf:'flex-start', fontSize:11, color:C.t3, background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'4px 10px', cursor:'pointer' }}>Disconnect</button>
               </div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:24 }}>
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Views by Country</div>
+                <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Views by Country</div>
                 {(ytData.countries||[]).slice(0,8).map((c,i) => {
                   const max = ytData.countries[0]?.views||1
                   return (
                     <div key={c.country_code} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:'#333', width:140, flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{countryName(c.country_code)}</span>
+                      <span style={{ fontSize:13, fontWeight:600, color:C.t2, width:140, flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{countryName(c.country_code)}</span>
                       <div style={{ flex:1, height:7, borderRadius:4, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
                         <div style={{ width:`${(c.views/max)*100}%`, height:'100%', borderRadius:4, background: i===0?'#ff0000':i===1?'#ff4444':C.coral, transition:'width .5s' }}/>
                       </div>
-                      <span style={{ fontSize:12, fontWeight:800, color:'#111', width:48, textAlign:'right', flexShrink:0 }}>{c.views>=1000?`${(c.views/1000).toFixed(1)}k`:c.views}</span>
+                      <span style={{ fontSize:12, fontWeight:800, color:C.t1, width:48, textAlign:'right', flexShrink:0 }}>{c.views>=1000?`${(c.views/1000).toFixed(1)}k`:c.views}</span>
                     </div>
                   )
                 })}
               </div>
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Top Cities — tap to find venues</div>
+                <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Top Cities — tap to find venues</div>
                 {(ytData.cities||[]).length === 0 ? (
                   <div style={{ padding:'20px', borderRadius:14, background:'rgba(0,0,0,.03)', textAlign:'center' }}>
                     <div style={{ fontSize:13, color:'#aaa', marginBottom:6 }}>City data coming soon</div>
-                    <div style={{ fontSize:12, color:'#bbb' }}>Needs more views to unlock city-level data</div>
+                    <div style={{ fontSize:12, color:C.t3 }}>Needs more views to unlock city-level data</div>
                   </div>
                 ) : (
                   <>
@@ -300,19 +300,19 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                       ))}
                     </div>
                     {selectedYtCity && (ytVenueLoad ? <LoadingBlock/> : (ytCityVenues[selectedYtCity]||[]).length===0 ? (
-                      <div style={{ fontSize:13, color:'#bbb', padding:'12px' }}>No music venues found in {selectedYtCity}</div>
+                      <div style={{ fontSize:13, color:C.t3, padding:'12px' }}>No music venues found in {selectedYtCity}</div>
                     ) : (
                       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                         {(ytCityVenues[selectedYtCity]||[]).slice(0,4).map(v => (
                           <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
-                            style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:14, background:'rgba(0,0,0,.025)', border:'1px solid rgba(0,0,0,.07)', textDecoration:'none', transition:'all .15s' }}
+                            style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:14, background:'rgba(0,0,0,.025)', border:`1px solid ${C.border}`, textDecoration:'none', transition:'all .15s' }}
                             onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.04)';e.currentTarget.style.borderColor='rgba(255,0,0,.18)'}}
                             onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.025)';e.currentTarget.style.borderColor='rgba(0,0,0,.07)'}}>
                             <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,0,0,.08)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
                               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             </div>
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:13.5, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
+                              <div style={{ fontSize:13.5, fontWeight:700, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
                               <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{v.address||`${v.city}, ${v.state}`}</div>
                             </div>
                             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -330,33 +330,33 @@ export default function PageAnalytics({ onGated, hasAccess }) {
 
       {/* Project Stats */}
       <div style={{ marginBottom:20 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:16 }}>Project Stats</div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:16 }}>Project Stats</div>
         {loading ? <LoadingBlock/> : isEmpty ? (
-          <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
             <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-            <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:5 }}>No data yet</div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.t1, marginBottom:5 }}>No data yet</div>
             <div style={{ fontSize:12, color:'#aaa' }}>Upload files to your projects to see stats here</div>
           </div>
         ) : (
           <>
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12, marginBottom:16 }}>
               {statCards.map(s => (
-                <div key={s.label} style={{ background:'#fff', borderRadius:16, padding:'16px 18px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+                <div key={s.label} style={{ background:C.surface, borderRadius:16, padding:'16px 18px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-                    <span style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</span>
+                    <span style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</span>
                     <div style={{ width:28, height:28, borderRadius:8, background:`${s.color}12`, display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round"><path d={s.icon}/></svg>
                     </div>
                   </div>
-                  <div style={{ fontSize:28, fontWeight:900, color:'#111', letterSpacing:'-1.2px', lineHeight:1 }}>{s.val}</div>
+                  <div style={{ fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1.2px', lineHeight:1 }}>{s.val}</div>
                   {s.sub && <div style={{ fontSize:11, color:s.color, fontWeight:600, marginTop:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.sub}</div>}
                 </div>
               ))}
             </div>
 
-            <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', marginBottom:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', marginBottom:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
               <div style={{ marginBottom:14 }}>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Upload Activity</div>
+                <div style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>Upload Activity</div>
                 <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Files uploaded per day — last 30 days</div>
               </div>
               <ResponsiveContainer width="100%" height={140}>
@@ -377,8 +377,8 @@ export default function PageAnalytics({ onGated, hasAccess }) {
             </div>
 
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16, marginBottom:16 }}>
-              <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', marginBottom:4 }}>Stem Types</div>
+              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:14, fontWeight:800, color:C.t1, marginBottom:4 }}>Stem Types</div>
                 <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Breakdown by instrument</div>
                 <div style={{ display:'flex', alignItems:'center', gap:20 }}>
                   <ResponsiveContainer width={130} height={130}>
@@ -393,15 +393,15 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                     {byInstrument.slice(0,6).map(e => (
                       <div key={e.name} style={{ display:'flex', alignItems:'center', gap:7 }}>
                         <div style={{ width:8, height:8, borderRadius:2, background:stemColor(e.name), flexShrink:0 }}/>
-                        <span style={{ fontSize:11.5, color:'#555', textTransform:'capitalize', flex:1 }}>{e.name.replace(/_/g,' ')}</span>
-                        <span style={{ fontSize:11.5, fontWeight:800, color:'#111' }}>{e.value}</span>
+                        <span style={{ fontSize:11.5, color:C.t2, textTransform:'capitalize', flex:1 }}>{e.name.replace(/_/g,' ')}</span>
+                        <span style={{ fontSize:11.5, fontWeight:800, color:C.t1 }}>{e.value}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              <div style={{ background:'#fff', borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-                <div style={{ fontSize:14, fontWeight:800, color:'#111', marginBottom:4 }}>Files per Project</div>
+              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:14, fontWeight:800, color:C.t1, marginBottom:4 }}>Files per Project</div>
                 <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Total uploads per project</div>
                 <ResponsiveContainer width="100%" height={130}>
                   <BarChart data={byProject} margin={{ top:4, right:4, bottom:0, left:-20 }} barSize={16}>
@@ -421,18 +421,18 @@ export default function PageAnalytics({ onGated, hasAccess }) {
       </div>
 
       {/* Last.fm */}
-      <div style={{ background:'#fff', borderRadius:20, padding:'22px', border:'1px solid rgba(0,0,0,.06)', marginTop:20 }}>
+      <div style={{ background:C.surface, borderRadius:20, padding:'22px', border:`1px solid ${C.border}`, marginTop:20 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <svg width={18} height={18} viewBox="0 0 24 24" fill="#d51007"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.5 17.2c-.2.3-.6.4-1 .2-2.7-1.6-6.1-2-10.1-1.1-.4.1-.7-.2-.8-.5-.1-.4.2-.7.5-.8 4.4-1 8.2-.6 11.2 1.3.4.1.4.6.2.9zm1.4-3.2c-.3.4-.8.5-1.2.3-3.1-1.9-7.8-2.4-11.5-1.3-.5.1-1-.1-1.1-.6-.1-.5.1-1 .6-1.1 4.2-1.3 9.4-.7 13 1.5.5.2.6.8.2 1.2zm.1-3.3C15.4 8.5 8.5 8.3 5.1 9.3c-.6.2-1.2-.2-1.3-.7-.2-.6.2-1.2.7-1.3 4-1.1 10.8-.9 15 1.5.5.3.7 1 .4 1.5-.3.4-1 .6-1.4.4z"/></svg>
-            <span style={{ fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>Last.fm</span>
+            <span style={{ fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>Last.fm</span>
           </div>
-          <span style={{ fontSize:11, color:'#bbb' }}>No account needed</span>
+          <span style={{ fontSize:11, color:C.t3 }}>No account needed</span>
         </div>
         <div style={{ display:'flex', gap:8, marginBottom:16, background:'#f7f7f8', borderRadius:12, padding:'4px', alignItems:'center' }}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:10, flexShrink:0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input placeholder="Artist name…" value={lfmArtist} onChange={e=>setLfmArtist(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loadLastFm()}
-            style={{ flex:1, padding:'9px 8px', background:'transparent', border:'none', outline:'none', fontSize:13, fontFamily:'inherit', color:'#111' }}/>
+            style={{ flex:1, padding:'9px 8px', background:'transparent', border:'none', outline:'none', fontSize:13, fontFamily:'inherit', color:C.t1 }}/>
           <button onClick={loadLastFm} disabled={lfmLoading||!lfmArtist.trim()}
             style={{ padding:'8px 16px', borderRadius:9, border:'none', background:lfmArtist.trim()?'#111':'transparent', color:lfmArtist.trim()?'#fff':'#ccc', fontSize:12, fontWeight:700, cursor:lfmArtist.trim()?'pointer':'default', transition:'all .15s' }}>
             {lfmLoading?<Spinner size={11} color="#fff"/>:'Search'}
@@ -444,24 +444,24 @@ export default function PageAnalytics({ onGated, hasAccess }) {
             <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:18, padding:'16px', borderRadius:14, background:'#f9f9fb' }}>
               {lfmData.image&&<img src={lfmData.image} alt="" style={{ width:60, height:60, borderRadius:12, objectFit:'cover', flexShrink:0 }}/>}
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:19, fontWeight:900, color:'#111', letterSpacing:'-.5px', marginBottom:5 }}>{lfmData.name}</div>
+                <div style={{ fontSize:19, fontWeight:900, color:C.t1, letterSpacing:'-.5px', marginBottom:5 }}>{lfmData.name}</div>
                 <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                  {lfmData.tags?.map(t=><span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100, background:'#fff', border:'1px solid rgba(0,0,0,.09)', color:'#777', textTransform:'capitalize' }}>{t}</span>)}
+                  {lfmData.tags?.map(t=><span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100, background:C.surface, border:`1px solid ${C.border}`, color:'#777', textTransform:'capitalize' }}>{t}</span>)}
                 </div>
               </div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
               {[{label:'Monthly Listeners',val:lfmData.listeners,sub:'on Last.fm'},{label:'Total Plays',val:lfmData.playcount,sub:'all time'}].map((s,i)=>(
-                <div key={i} style={{ padding:'14px 16px', borderRadius:12, background:'#f9f9fb', border:'1px solid rgba(0,0,0,.05)' }}>
-                  <div style={{ fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px', lineHeight:1 }}>
+                <div key={i} style={{ padding:'14px 16px', borderRadius:12, background:'#f9f9fb', border:`1px solid ${C.border}` }}>
+                  <div style={{ fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px', lineHeight:1 }}>
                     {s.val>=1000000?`${(s.val/1000000).toFixed(1)}M`:s.val>=1000?`${(s.val/1000).toFixed(s.val>=10000?0:1)}K`:s.val.toLocaleString()}
                   </div>
                   <div style={{ fontSize:11, fontWeight:600, color:'#999', marginTop:4 }}>{s.label}</div>
-                  <div style={{ fontSize:10, color:'#bbb' }}>{s.sub}</div>
+                  <div style={{ fontSize:10, color:C.t3 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
-            {lfmData.bio&&<p style={{ fontSize:13, color:'#666', lineHeight:1.7, marginBottom:18, borderLeft:'3px solid #eee', paddingLeft:12 }}>{lfmData.bio.slice(0,260)}{lfmData.bio.length>260?'…':''}</p>}
+            {lfmData.bio&&<p style={{ fontSize:13, color:C.t2, lineHeight:1.7, marginBottom:18, borderLeft:'3px solid #eee', paddingLeft:12 }}>{lfmData.bio.slice(0,260)}{lfmData.bio.length>260?'…':''}</p>}
             {lfmData.top_tracks?.length>0&&(
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:10, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:8 }}>Top Tracks</div>
@@ -470,7 +470,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                     onMouseEnter={e=>e.currentTarget.style.background='#f7f7f8'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                     <span style={{ fontSize:11, color:'#ccc', fontWeight:700, minWidth:18, textAlign:'right' }}>{i+1}</span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#222', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</span>
-                    <span style={{ fontSize:11, color:'#bbb', flexShrink:0 }}>{t.playcount>=1000000?`${(t.playcount/1000000).toFixed(1)}M`:t.playcount>=1000?`${(t.playcount/1000).toFixed(0)}K`:t.playcount>0?t.playcount:'—'}</span>
+                    <span style={{ fontSize:11, color:C.t3, flexShrink:0 }}>{t.playcount>=1000000?`${(t.playcount/1000000).toFixed(1)}M`:t.playcount>=1000?`${(t.playcount/1000).toFixed(0)}K`:t.playcount>0?t.playcount:'—'}</span>
                   </div>
                 ))}
               </div>
