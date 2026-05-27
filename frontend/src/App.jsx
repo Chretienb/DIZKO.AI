@@ -208,12 +208,18 @@ function LoadingBlock({ label, size = 22 }) {
 }
 
 const NAV = [
-  { id:'dashboard',     path:'/',               label:'Dashboard',    icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
-  { id:'projects',      path:'/projects',       label:'Projects',     icon:'M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6zM18 16a3 3 0 100-6 3 3 0 000 6z' },
-  { id:'studio',        path:'/studio',         label:'Studio',       icon:'M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4zM3 6h1M3 10h1M3 14h1M3 18h1' },
-  { id:'collaborators', path:'/collaborators',  label:'Collaborators',icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
-  { id:'library',       path:'/library',        label:'File Library', icon:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9zM13 2v7h7' },
-  { id:'analytics',     path:'/analytics',      label:'Analytics',    icon:'M18 20V10M12 20V4M6 20v-6' },
+  // Home — clean house
+  { id:'dashboard',     path:'/',               label:'Dashboard',    icon:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10' },
+  // Sessions — folder with music note inside
+  { id:'projects',      path:'/projects',       label:'Sessions',     icon:'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4' },
+  // Studio — mixer fader sliders (unique, unmistakably audio)
+  { id:'studio',        path:'/studio',         label:'Studio',       icon:'M4 21V14M4 10V3M12 21V12M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' },
+  // Crew — headphones (music-specific, not generic people icon)
+  { id:'collaborators', path:'/collaborators',  label:'Crew',         icon:'M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z' },
+  // Vault — stacked layers (library of stems)
+  { id:'library',       path:'/library',        label:'Vault',        icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+  // Stats — heartbeat/pulse waveform
+  { id:'analytics',     path:'/analytics',      label:'Stats',        icon:'M22 12h-4l-3 9L9 3l-3 9H2' },
 ]
 
 // Paths to pre-warm when hovering each nav item
