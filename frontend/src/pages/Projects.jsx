@@ -125,74 +125,75 @@ export default function PageProjects({ openModal, refreshKey, user }) {
             return (
               <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                 style={{
-                  borderRadius:20, overflow:'hidden', cursor:'pointer',
-                  display:'flex', flexDirection:'column',
-                  boxShadow:'0 8px 32px rgba(0,0,0,.5)',
+                  borderRadius:24, overflow:'hidden', cursor:'pointer',
+                  position:'relative',
+                  height: isMobile ? 260 : 320,
+                  background: g,
+                  boxShadow:'0 12px 40px rgba(0,0,0,.55)',
                   transition:'transform .22s, box-shadow .22s',
-                }}>
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-8px)'; e.currentTarget.style.boxShadow='0 28px 64px rgba(0,0,0,.65)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 12px 40px rgba(0,0,0,.55)' }}>
 
-                {/* Art */}
-                <div style={{ height: isMobile ? 180 : 240, background:g,
-                  position:'relative', overflow:'hidden', flexShrink:0 }}>
+                {/* Ring decoration */}
+                <div style={{ position:'absolute', top:-60, right:-60, width:260, height:260,
+                  borderRadius:'50%', border:'1px solid rgba(255,255,255,.09)', pointerEvents:'none' }}/>
+                <div style={{ position:'absolute', top:20, right:20, opacity:.08 }}>
+                  <svg width={72} height={72} viewBox="0 0 24 24" fill="white">
+                    <path d="M9 18V5l12-3v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                </div>
 
-                  {/* Decorative circles */}
-                  <div style={{ position:'absolute', top:-60, right:-60, width:240, height:240,
-                    borderRadius:'50%', border:'1px solid rgba(255,255,255,.07)', pointerEvents:'none' }}/>
-                  <div style={{ position:'absolute', top:-20, right:-20, width:140, height:140,
-                    borderRadius:'50%', border:'1px solid rgba(255,255,255,.05)', pointerEvents:'none' }}/>
-
-                  {/* Watermark note */}
-                  <div style={{ position:'absolute', bottom:20, right:20, opacity:.1 }}>
-                    <svg width={64} height={64} viewBox="0 0 24 24" fill="white">
-                      <path d="M9 18V5l12-3v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-                    </svg>
-                  </div>
-
-                  {/* Role badge */}
-                  {role && (
-                    <div style={{ position:'absolute', top:14, left:14,
-                      fontSize:10.5, fontWeight:700, padding:'4px 11px', borderRadius:100,
-                      backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)',
-                      background:'rgba(0,0,0,.32)', color:'rgba(255,255,255,.85)',
-                      border:'1px solid rgba(255,255,255,.14)' }}>
+                {/* Badge row */}
+                <div style={{ position:'absolute', top:16, left:16, right:16,
+                  display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  {role ? (
+                    <span style={{ fontSize:11, fontWeight:700, padding:'4px 12px', borderRadius:100,
+                      backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
+                      background:'rgba(0,0,0,.4)', color:'rgba(255,255,255,.9)',
+                      border:'1px solid rgba(255,255,255,.15)' }}>
                       {isOwner ? '★ Creator' : role}
-                    </div>
-                  )}
-
-                  {/* Status */}
+                    </span>
+                  ) : <span/>}
                   {p.status && (
-                    <div style={{ position:'absolute', top:14, right:14,
-                      fontSize:10.5, fontWeight:700, padding:'4px 11px', borderRadius:100,
-                      backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)',
+                    <span style={{ fontSize:11, fontWeight:700, padding:'4px 12px', borderRadius:100,
+                      backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
                       background:st.bg, color:st.color, border:`1px solid ${st.border}` }}>
                       {p.status}
-                    </div>
+                    </span>
                   )}
                 </div>
 
-                {/* Footer */}
-                <div style={{ background:'#0c0c0f', padding:'18px 20px 20px' }}>
+                {/* Bottom overlay — gradient to black, text lives here */}
+                <div style={{
+                  position:'absolute', bottom:0, left:0, right:0,
+                  background:'linear-gradient(to top, rgba(0,0,0,.9) 0%, rgba(0,0,0,.5) 55%, transparent 100%)',
+                  padding:'52px 20px 22px',
+                }}>
                   {p.type && (
-                    <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.25)',
-                      textTransform:'uppercase', letterSpacing:'.12em', marginBottom:6 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.4)',
+                      textTransform:'uppercase', letterSpacing:'.14em', marginBottom:7 }}>
                       {p.type}
                     </div>
                   )}
-                  <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.6px',
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:14 }}>
+                  <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.7px',
+                    lineHeight:1.2, marginBottom:14,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {p.title}
                   </div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:11.5, color:'rgba(255,255,255,.25)', fontWeight:500 }}>
-                      {isOwner ? timeAgo(p.created_at) : `Joined`}
+                    <span style={{ fontSize:12, color:'rgba(255,255,255,.38)', fontWeight:500 }}>
+                      {isOwner ? timeAgo(p.created_at) : 'Invited'}
                     </span>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
-                      style={{ height:32, padding:'0 18px', borderRadius:100, border:'none',
-                        background:g, color:'#fff', fontSize:12, fontWeight:700,
-                        cursor:'pointer', boxShadow:`0 4px 16px rgba(0,0,0,.3)`,
-                        transition:'opacity .15s, transform .12s' }}
-                      onMouseEnter={e=>{e.currentTarget.style.opacity='.85';e.currentTarget.style.transform='scale(1.04)'}}
-                      onMouseLeave={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.transform='scale(1)'}}>
+                      style={{ height:34, padding:'0 20px', borderRadius:100,
+                        background:'rgba(255,255,255,.14)',
+                        backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
+                        border:'1px solid rgba(255,255,255,.22)',
+                        color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer',
+                        transition:'background .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.26)'}
+                      onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.14)'}>
                       Open →
                     </button>
                   </div>
