@@ -2849,48 +2849,64 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
           </header>
         ) : (
-          <header style={{ height:52, background:C.bg, borderBottom:`1px solid ${C.border}`,
-            display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0,
-            position:'relative', zIndex:100 }}>
-            <div style={{ display:'flex', gap:4 }}>
-              <button onClick={() => navigate(-1)} style={{ width:26, height:26, borderRadius:7,
-                background:'rgba(255,255,255,.06)', border:`1px solid ${C.border}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', color:C.t3, transition:'all .12s' }}
-                onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.1)'; e.currentTarget.style.color=C.t1 }}
-                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=C.t3 }}>
-                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
-              </button>
-              <button onClick={() => navigate(1)} style={{ width:26, height:26, borderRadius:7,
-                background:'rgba(255,255,255,.06)', border:`1px solid ${C.border}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', color:C.t3, transition:'all .12s' }}
-                onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.1)'; e.currentTarget.style.color=C.t1 }}
-                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=C.t3 }}>
-                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-              </button>
+          <header style={{
+            height:56, background:'rgba(18,18,22,.8)',
+            backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
+            borderBottom:`1px solid rgba(255,255,255,.06)`,
+            display:'flex', alignItems:'center', padding:'0 20px', gap:10, flexShrink:0,
+            position:'sticky', top:0, zIndex:100,
+          }}>
+
+            {/* Page title — bold, current location */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, flex:1, minWidth:0 }}>
+              {/* Current page icon */}
+              {currentNav && (
+                <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
+                  background:'rgba(255,255,255,.07)',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                    stroke={C.coral} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={currentNav.icon}/>
+                  </svg>
+                </div>
+              )}
+              <span style={{ fontSize:15, fontWeight:800, color:'#fff',
+                letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {currentNav?.label || 'Dizko'}
+              </span>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13 }}>
-              <span style={{ cursor:'pointer', color:C.t3, fontWeight:500 }} onClick={() => navigate('/')}>Workspace</span>
-              <span style={{ color:C.t3, opacity:.4 }}>/</span>
-              <span style={{ color:C.t1, fontWeight:600 }}>{currentNav?.label}</span>
-            </div>
-            <div style={{ flex:1 }} />
-            <div style={{ display:'flex', alignItems:'center', gap:7,
-              background:'rgba(255,255,255,.05)', border:`1px solid ${C.border}`,
-              borderRadius:9, padding:'6px 12px', width:200 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round">
+
+            {/* Search */}
+            <div style={{ display:'flex', alignItems:'center', gap:8,
+              background:'rgba(255,255,255,.05)', border:`1px solid rgba(255,255,255,.08)`,
+              borderRadius:10, padding:'0 12px', height:34, width:220, transition:'all .15s' }}
+              onFocusCapture={e => e.currentTarget.style.borderColor='rgba(255,255,255,.18)'}
+              onBlurCapture={e => e.currentTarget.style.borderColor='rgba(255,255,255,.08)'}>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
+                stroke='rgba(255,255,255,.3)' strokeWidth={2.5} strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input placeholder="Search files…"
-                style={{ background:'none', border:'none', outline:'none', fontSize:12.5, color:C.t1, width:'100%' }} />
+              <input placeholder="Search…"
+                style={{ background:'none', border:'none', outline:'none',
+                  fontSize:13, color:'#fff', width:'100%',
+                  '::placeholder': { color:'rgba(255,255,255,.3)' } }} />
             </div>
-            <button onClick={() => openModal('upload', {})} style={{ background:C.grad, border:'none', borderRadius:9, padding:'7px 18px',
-              color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer', letterSpacing:'-.2px',
-              boxShadow:`0 2px 12px ${C.coral}40`, transition:'opacity .15s' }}
-              onMouseEnter={e => e.currentTarget.style.opacity='.9'}
-              onMouseLeave={e => e.currentTarget.style.opacity='1'}>+ Upload</button>
+
+            {/* Upload */}
+            <button onClick={() => openModal('upload', {})}
+              style={{ height:34, padding:'0 16px', borderRadius:10, border:'none',
+                background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700,
+                cursor:'pointer', letterSpacing:'-.2px', flexShrink:0,
+                boxShadow:`0 2px 10px ${C.coral}35`, transition:'opacity .15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity='.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+              + Upload
+            </button>
+
+            {/* Notifications */}
             <NotificationBellLight user={user} />
+
+            {/* Avatar */}
             <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
           </header>
         )}
