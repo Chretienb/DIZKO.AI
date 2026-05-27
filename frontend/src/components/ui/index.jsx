@@ -4,6 +4,18 @@ export const C = {
   coral:'#F4937A', peach:'#F4A97C', amber:'#F5C97A',
   pink:'#F28FB8',  rose:'#E8709A',
   grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
+
+  // Dark theme surfaces
+  bg:       '#0d0d12',   // main page background
+  surface:  '#111118',   // cards, panels
+  surface2: '#1a1a22',   // elevated / hover
+  border:   'rgba(255,255,255,.07)',
+  border2:  'rgba(255,255,255,.04)',
+
+  // Dark theme text
+  t1: '#ffffff',
+  t2: 'rgba(255,255,255,.55)',
+  t3: 'rgba(255,255,255,.25)',
 }
 
 function initials(fullName = '') {

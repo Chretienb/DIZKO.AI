@@ -25,7 +25,7 @@ function InlineRename({ value, onSave, onCancel }) {
       onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel() }}
       onBlur={submit}
       onClick={e => e.stopPropagation()}
-      style={{ flex:1, fontSize:13, fontWeight:600, color:'#111', background:'#fff',
+      style={{ flex:1, fontSize:13, fontWeight:600, color:C.t1, background:'#fff',
         border:`1.5px solid ${C.coral}`, borderRadius:6, outline:'none',
         padding:'2px 8px', fontFamily:'inherit', minWidth:0 }}/>
   )
@@ -109,7 +109,7 @@ function FileRow({ file, onPlay, onRename, dragging, onDragStart, onDragEnd }) {
       ) : (
         <p
           onDoubleClick={e => { e.stopPropagation(); setRenaming(true) }}
-          style={{ margin:0, fontSize:11.5, fontWeight:600, color:'#111',
+          style={{ margin:0, fontSize:11.5, fontWeight:600, color:C.t1,
             width:'100%', textAlign:'center', letterSpacing:'-.1px', lineHeight:1.35,
             display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
             overflow:'hidden', cursor:'default', wordBreak:'break-word' }}
@@ -265,8 +265,8 @@ function MessageModal({ collab, onClose, onSend }) {
             {name.charAt(0).toUpperCase()}
           </div>
           <div style={{ flex:1 }}>
-            <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.3px' }}>{name}</p>
-            <p style={{ margin:0, fontSize:12, color:'#aaa' }}>{collab.role || 'Collaborator'}</p>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>{name}</p>
+            <p style={{ margin:0, fontSize:12, color:C.t3 }}>{collab.role || 'Collaborator'}</p>
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer',
             color:'#ccc', fontSize:20, lineHeight:1, padding:0, transition:'color .12s' }}
@@ -287,7 +287,7 @@ function MessageModal({ collab, onClose, onSend }) {
               rows={4}
               style={{ width:'100%', padding:'12px 14px', borderRadius:12, resize:'none',
                 border:'1.5px solid rgba(0,0,0,.1)', fontSize:14, fontFamily:'inherit',
-                outline:'none', boxSizing:'border-box', lineHeight:1.6, color:'#111',
+                outline:'none', boxSizing:'border-box', lineHeight:1.6, color:C.t1,
                 transition:'border-color .12s' }}
               onFocus={e => e.target.style.borderColor=C.coral}
               onBlur={e => e.target.style.borderColor='rgba(0,0,0,.1)'}/>
@@ -335,7 +335,7 @@ function RemoveModal({ collab, onClose, onConfirm }) {
             <line x1="23" y1="11" x2="17" y2="11"/>
           </svg>
         </div>
-        <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:800, color:'#111', letterSpacing:'-.4px' }}>
+        <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:800, color:C.t1, letterSpacing:'-.4px' }}>
           Remove {name}?
         </p>
         <p style={{ margin:'0 0 24px', fontSize:13, color:'#888', lineHeight:1.6 }}>
@@ -373,7 +373,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
           <p style={{ margin:0, fontSize:10, fontWeight:800, color:'#c0c4cc',
             textTransform:'uppercase', letterSpacing:'.1em' }}>
-            Team {collabs.length > 0 && <span style={{ color:'#aaa', fontWeight:600 }}>({collabs.length})</span>}
+            Team {collabs.length > 0 && <span style={{ color:C.t3, fontWeight:600 }}>({collabs.length})</span>}
           </p>
           <button onClick={onInvite}
             style={{ height:26, padding:'0 10px', borderRadius:100, fontSize:11, fontWeight:700,
@@ -415,7 +415,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
 
                   {/* Name + email */}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:'0 0 1px', fontSize:13, fontWeight:700, color:'#111',
+                    <p style={{ margin:'0 0 1px', fontSize:13, fontWeight:700, color:C.t1,
                       overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</p>
                     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                       <span style={{ fontSize:10, fontWeight:600, color:'#bbb',
@@ -437,7 +437,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
                         aria-label="Message"
                         style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
                           background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
-                          justifyContent:'center', color:'#aaa', transition:'all .12s' }}
+                          justifyContent:'center', color:C.t3, transition:'all .12s' }}
                         onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral;e.currentTarget.style.color=C.coral;e.currentTarget.style.background=`${C.coral}08`}}
                         onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
                         <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
@@ -449,7 +449,7 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
                       aria-label="Remove"
                       style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.1)',
                         background:'#fff', cursor:'pointer', display:'flex', alignItems:'center',
-                        justifyContent:'center', color:'#aaa', transition:'all .12s' }}
+                        justifyContent:'center', color:C.t3, transition:'all .12s' }}
                       onMouseEnter={e=>{e.currentTarget.style.borderColor='#ef4444';e.currentTarget.style.color='#ef4444';e.currentTarget.style.background='#fef2f2'}}
                       onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#aaa';e.currentTarget.style.background='#fff'}}>
                       <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
@@ -653,11 +653,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             Projects
           </button>
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-          <span style={{ fontSize:12.5, color:'#aaa' }}>{project?.title||'…'}</span>
+          <span style={{ fontSize:12.5, color:C.t3 }}>{project?.title||'…'}</span>
         </div>
 
         <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-          <h1 style={{ margin:0, fontSize:24, fontWeight:900, color:'#111',
+          <h1 style={{ margin:0, fontSize:24, fontWeight:900, color:C.t1,
             letterSpacing:'-1px', flex:1 }}>{project?.title || 'Project'}</h1>
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => openModal?.('invite', { project })}
@@ -746,7 +746,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   onKeyDown={e => { if(e.key==='Enter') createFolder(); if(e.key==='Escape'){setCreatingFolder(false);setNewFolderName('New Folder')} }}
                   onBlur={createFolder}
                   style={{ flex:1, fontSize:13, fontWeight:600, background:'transparent', border:'none',
-                    borderBottom:`1.5px solid ${C.coral}`, outline:'none', color:'#111', fontFamily:'inherit' }}/>
+                    borderBottom:`1.5px solid ${C.coral}`, outline:'none', color:C.t1, fontFamily:'inherit' }}/>
               </div>
             ) : (
               <button onClick={() => setCreatingFolder(true)}
@@ -779,7 +779,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 stroke="#c0c4cc" strokeWidth={2} strokeLinecap="round">
                 <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
               </svg>
-              <span style={{ flex:1, fontSize:13, fontWeight:500, color:'#aaa' }}>Unfiled</span>
+              <span style={{ flex:1, fontSize:13, fontWeight:500, color:C.t3 }}>Unfiled</span>
               <span style={{ fontSize:11, color:'#c8ccd4', fontWeight:600 }}>{folderCount('unfiled')}</span>
             </div>
           )}
@@ -820,7 +820,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 placeholder="Search files…"
                 style={{ width:'100%', height:34, paddingLeft:34, paddingRight:12,
                   borderRadius:9, border:'1.5px solid rgba(0,0,0,.08)', background:'#fff',
-                  fontSize:13, color:'#111', outline:'none', boxSizing:'border-box',
+                  fontSize:13, color:C.t1, outline:'none', boxSizing:'border-box',
                   fontFamily:'inherit', transition:'border-color .12s' }}
                 onFocus={e => e.target.style.borderColor=C.coral}
                 onBlur={e => e.target.style.borderColor='rgba(0,0,0,.08)'}/>
@@ -889,7 +889,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <div key={s.label} style={{ display:'flex', alignItems:'center',
                   padding:'7px 0', borderBottom:'1px solid rgba(0,0,0,.04)' }}>
                   <span style={{ flex:1, fontSize:13, color:'#888' }}>{s.label}</span>
-                  <span style={{ fontSize:18, fontWeight:900, color:'#111',
+                  <span style={{ fontSize:18, fontWeight:900, color:C.t1,
                     letterSpacing:'-1px' }}>{s.val}</span>
                 </div>
               ))}

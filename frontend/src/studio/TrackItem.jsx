@@ -57,7 +57,7 @@ export default function TrackItem({
           transition:'all .2s' }}/>
 
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>
+          <div style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>
             {s.suggested_name || s.original_name || `Track ${i+1}`}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
@@ -181,7 +181,7 @@ export default function TrackItem({
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-              <span style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>
+              <span style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em' }}>
                 {(comments||[]).length>0 ? `${comments.length} comment${comments.length!==1?'s':''}` : 'Comments'}
               </span>
             </div>
@@ -199,7 +199,7 @@ export default function TrackItem({
                       <span style={{ fontSize:12, fontWeight:700, color:'#222' }}>{cm.user_name||'Someone'}</span>
                       {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:'#bbb', background:'rgba(0,0,0,.04)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
                     </div>
-                    <div style={{ fontSize:13, color:'#444', lineHeight:1.55, marginBottom:6 }}>{cm.text}</div>
+                    <div style={{ fontSize:13, color:C.t2, lineHeight:1.55, marginBottom:6 }}>{cm.text}</div>
                     <button
                       onClick={e=>{ e.stopPropagation(); onLikeComment(s.id, cm.id, cm.liked_by_me) }}
                       aria-label={cm.liked_by_me ? 'Unlike comment' : 'Like comment'}
@@ -222,7 +222,7 @@ export default function TrackItem({
             <input id={`comment-${s.id}`} placeholder="Leave a comment…" value={commentDraft||''}
               onChange={e=>onCommentChange(s.id, e.target.value)}
               onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey) onPostComment(s.id, currentTime) }}
-              style={{ flex:1, padding:'9px 13px', borderRadius:10, border:'1px solid rgba(0,0,0,.1)', fontSize:13, outline:'none', background:'#fafafa', fontFamily:'inherit' }}/>
+              style={{ flex:1, padding:'9px 13px', borderRadius:10, border:'1px solid rgba(0,0,0,.1)', fontSize:13, outline:'none', background:C.surface2, fontFamily:'inherit' }}/>
             <button onClick={()=>onPostComment(s.id, currentTime)}
               disabled={postingComment===s.id||!commentDraft?.trim()}
               aria-label="Post comment"

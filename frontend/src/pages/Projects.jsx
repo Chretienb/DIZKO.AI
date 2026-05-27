@@ -80,8 +80,8 @@ export default function PageProjects({ openModal, refreshKey, user }) {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Projects</h1>
-          <span style={{ display:'block', margin:0, fontSize:13, color:'#aaa' }}>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>Projects</h1>
+          <span style={{ display:'block', margin:0, fontSize:13, color:C.t3 }}>
             {loading ? <Spinner size={14}/> : `${apiProjects.length} project${apiProjects.length!==1?'s':''} · ${apiProjects.filter(p=>p.status==='In Progress').length} active`}
           </span>
         </div>
@@ -147,9 +147,9 @@ export default function PageProjects({ openModal, refreshKey, user }) {
                 </div>
 
                 {/* Info panel */}
-                <div style={{ background:'#fff', padding:'18px 20px 20px', flexShrink:0 }}>
+                <div style={{ background:C.surface, padding:'18px 20px 20px', flexShrink:0 }}>
                   {p.type && <div style={{ fontSize:10.5, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:6 }}>{p.type}</div>}
-                  <div style={{ fontSize:20, fontWeight:900, color:'#111', letterSpacing:'-.6px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.2 }}>{p.title}</div>
+                  <div style={{ fontSize:20, fontWeight:900, color:C.t1, letterSpacing:'-.6px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.2 }}>{p.title}</div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
                     <div style={{ fontSize:12, color:'#bbb' }}>{isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}</div>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}

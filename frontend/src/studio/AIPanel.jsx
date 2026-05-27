@@ -22,7 +22,7 @@ export default function AIPanel({
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
       {/* AI Mix */}
-      <div style={{ borderRadius:24, background:'#fff', border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 4px 24px rgba(0,0,0,.07)' }}>
+      <div style={{ borderRadius:24, background:C.surface, border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 4px 24px rgba(0,0,0,.07)' }}>
         <div style={{ padding:'28px 24px 24px' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
             <div style={{ display:'flex', alignItems:'center', gap:9 }}>
@@ -35,7 +35,7 @@ export default function AIPanel({
               </div>
               <div>
                 <div style={{ fontSize:11, fontWeight:700, color:'#888', letterSpacing:'.02em' }}>Claude by Anthropic</div>
-                <div style={{ fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-.6px', lineHeight:1.1 }}>AI Mix</div>
+                <div style={{ fontSize:18, fontWeight:900, color:C.t1, letterSpacing:'-.6px', lineHeight:1.1 }}>AI Mix</div>
               </div>
             </div>
             {smartMixUrl&&smartMixInfo?.stem_count&&<span style={{ fontSize:11, fontWeight:600, color:'#bbb' }}>{smartMixInfo.stem_count} stems</span>}
@@ -44,7 +44,7 @@ export default function AIPanel({
           {aiAnalysis?.brief && (
             <>
               {/* Brief — clean, no label */}
-              <p style={{ margin:'0 0 18px', fontSize:14, color:'#555', lineHeight:1.8, letterSpacing:'-.01em' }}>
+              <p style={{ margin:'0 0 18px', fontSize:14, color:C.t2, lineHeight:1.8, letterSpacing:'-.01em' }}>
                 {aiAnalysis.brief}
               </p>
 
@@ -68,7 +68,7 @@ export default function AIPanel({
                     {aiAnalysis.missing.slice(0,5).map(m=>(
                       <button key={m} onClick={()=>openModal('upload',{project:activeProject})}
                         style={{ fontSize:11.5, fontWeight:600, padding:'5px 13px', borderRadius:100, cursor:'pointer',
-                          border:'1.5px solid rgba(0,0,0,.1)', background:'#fff', color:'#555',
+                          border:'1.5px solid rgba(0,0,0,.1)', background:C.surface, color:C.t2,
                           textTransform:'capitalize', transition:'all .15s' }}
                         onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral;e.currentTarget.style.color=C.coral}}
                         onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(0,0,0,.1)';e.currentTarget.style.color='#555'}}>
@@ -90,7 +90,7 @@ export default function AIPanel({
                 <IconPlay size={14} color="#fff"/> Play AI Mix
               </button>
               <a href={smartMixUrl} download="ai_mix.wav" aria-label="Download AI Mix"
-                style={{ width:48, height:48, borderRadius:14, border:'1px solid rgba(0,0,0,.09)', background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', textDecoration:'none' }}>
+                style={{ width:48, height:48, borderRadius:14, border:'1px solid rgba(0,0,0,.09)', background:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', color:C.t3, textDecoration:'none' }}>
                 <IconDl size={15}/>
               </a>
             </div>
@@ -104,10 +104,10 @@ export default function AIPanel({
       </div>
 
       {/* Export */}
-      <div style={{ background:'#fff', borderRadius:20, padding:'20px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+      <div style={{ background:C.surface, borderRadius:20, padding:'20px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
           <div aria-hidden="true" style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center' }}><IconDl size={14}/></div>
-          <span style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Export</span>
+          <span style={{ fontSize:14, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>Export</span>
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
           {DAW_OPTIONS.map(opt=>(
@@ -119,7 +119,7 @@ export default function AIPanel({
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={opt.icon}/></svg>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{opt.label}</div>
+                <div style={{ fontSize:12.5, fontWeight:700, color:C.t1 }}>{opt.label}</div>
                 <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>{opt.sub}</div>
               </div>
               {dawExporting&&<Spinner size={11} color={C.coral}/>}

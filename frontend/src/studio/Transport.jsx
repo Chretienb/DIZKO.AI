@@ -22,7 +22,7 @@ export default function Transport({
   const avgPct = loadKeys.length ? Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/loadKeys.length) : 0
 
   return (
-    <div style={{ background:'#fff', borderRadius:16, padding:'12px 18px', marginBottom:20, boxShadow:'0 1px 3px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.06)', display:'flex', alignItems:'center', gap:12 }}>
+    <div style={{ background:C.surface, borderRadius:16, padding:'12px 18px', marginBottom:20, boxShadow:'0 1px 3px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.06)', display:'flex', alignItems:'center', gap:12 }}>
 
       <button onClick={onStop} aria-label="Stop playback"
         style={{ width:32, height:32, borderRadius:8, border:'1px solid rgba(0,0,0,.08)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', flexShrink:0 }}
@@ -33,7 +33,7 @@ export default function Transport({
 
       {loadKeys.length > 0 ? (
         <ProgressRing pct={avgPct} size={36} stroke={2} color="#111" bg="rgba(0,0,0,.05)">
-          <span style={{ fontSize:8, fontWeight:800, color:'#111' }}>{avgPct}%</span>
+          <span style={{ fontSize:8, fontWeight:800, color:C.t1 }}>{avgPct}%</span>
         </ProgressRing>
       ) : (
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? 'Pause' : 'Play all tracks'}
@@ -69,7 +69,7 @@ export default function Transport({
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'0 10px', borderLeft:'1px solid rgba(0,0,0,.06)', borderRight:'1px solid rgba(0,0,0,.06)', minWidth:52 }}>
               <input type="number" min={40} max={250} value={bpm} step={1} aria-label="BPM value"
                 onChange={e=>onBpmChange(e.target.value)}
-                style={{ width:40, background:'none', border:'none', outline:'none', fontSize:15, fontWeight:800, color:'#111', fontFamily:'monospace', textAlign:'center', padding:0 }}/>
+                style={{ width:40, background:'none', border:'none', outline:'none', fontSize:15, fontWeight:800, color:C.t1, fontFamily:'monospace', textAlign:'center', padding:0 }}/>
               <span style={{ fontSize:7, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.12em', marginTop:-1 }}>BPM</span>
             </div>
             <button onClick={() => onBpmChange(bpm+1)} disabled={bpm>=250} aria-label="Increase BPM"

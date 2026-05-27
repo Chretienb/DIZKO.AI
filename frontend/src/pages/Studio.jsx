@@ -507,8 +507,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>Studio</h1>
-          <p style={{ margin:0, fontSize:13, color:'#aaa' }}>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>Studio</h1>
+          <p style={{ margin:0, fontSize:13, color:C.t3 }}>
             {loading ? 'Loading…' : `${mixerStems.length} track${mixerStems.length!==1?'s':''} · ${activeProject?.title||'—'}`}
           </p>
         </div>
@@ -543,10 +543,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               const n = parsedNotes(s)
               if (n.status !== 'processing' && n.pipeline !== 'local') return null
               return (
-                <div key={s.id} style={{ background:'#fff', borderRadius:20, padding:'16px 20px', border:'1px solid rgba(245,158,11,.2)', boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
+                <div key={s.id} style={{ background:C.surface, borderRadius:20, padding:'16px 20px', border:'1px solid rgba(245,158,11,.2)', boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <Spinner size={13} color={C.amber}/>
-                    <span style={{ fontSize:13.5, fontWeight:700, color:'#111', flex:1 }}>{s.original_name}</span>
+                    <span style={{ fontSize:13.5, fontWeight:700, color:C.t1, flex:1 }}>{s.original_name}</span>
                     <span style={{ fontSize:11, color:C.amber, fontWeight:700 }}>AI analyzing…</span>
                   </div>
                   <div style={{ height:2, background:'rgba(0,0,0,.05)', borderRadius:1, overflow:'hidden', marginTop:12 }}>
@@ -558,7 +558,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
             {/* Skeleton while stems are loading — never show empty state during load */}
             {loadingStems && [0,1,2].map(i => (
-              <div key={i} style={{ background:'#fff', borderRadius:20, padding:'14px 18px',
+              <div key={i} style={{ background:C.surface, borderRadius:20, padding:'14px 18px',
                 boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)',
                 display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -577,12 +577,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
             {/* True empty state — only when not loading and genuinely no stems */}
             {!loadingStems && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
-              <div style={{ background:'#fff', borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)' }}>
+              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(0,0,0,.05)', border:'1px solid rgba(0,0,0,.04)' }}>
                 <div style={{ width:60, height:60, borderRadius:18, background:`${C.coral}10`, border:`1.5px dashed ${C.coral}40`, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round"><path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/></svg>
                 </div>
-                <div style={{ fontSize:16, fontWeight:900, color:'#111', marginBottom:6 }}>No tracks yet</div>
-                <div style={{ fontSize:13, color:'#aaa', marginBottom:22 }}>Upload audio to start your session</div>
+                <div style={{ fontSize:16, fontWeight:900, color:C.t1, marginBottom:6 }}>No tracks yet</div>
+                <div style={{ fontSize:13, color:C.t3, marginBottom:22 }}>Upload audio to start your session</div>
                 <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
               </div>
             )}

@@ -37,7 +37,7 @@ const fileLabel = f => f?.suggested_name || f?.original_name || 'Untitled'
 const typeColor = t => ({ WAV:'#3b82f6', MP3:'#22c55e', AIF:'#f59e0b', ZIP:'#8b5cf6', FLAC:'#ec4899' }[t] || '#aaa')
 
 function Card({ children, style = {} }) {
-  return <div style={{ background:'#fff', borderRadius:16, boxShadow:'0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04)', ...style }}>{children}</div>
+  return <div style={{ background:C.surface, borderRadius:16, boxShadow:'0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04)', ...style }}>{children}</div>
 }
 
 const STEM_COLORS = { vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#F5C97A' }
@@ -113,8 +113,8 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>File Library</h1>
-          <span style={{ display:'block', margin:0, fontSize:13, color:'#aaa' }}>
+          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>File Library</h1>
+          <span style={{ display:'block', margin:0, fontSize:13, color:C.t3 }}>
             {loading ? <Spinner size={14}/> : `${projects.length} project${projects.length!==1?'s':''} · ${files.length} file${files.length!==1?'s':''} in view`}
           </span>
         </div>
@@ -124,9 +124,9 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
       {loading ? (
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'36px 20px', color:'#bbb' }}><Spinner size={22}/></div>
       ) : projects.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:'#fff', borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:8 }}>No projects yet</div>
-          <div style={{ fontSize:13, color:'#aaa' }}>Create a project first, then upload files to it.</div>
+        <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <div style={{ fontSize:14, fontWeight:700, color:C.t1, marginBottom:8 }}>No projects yet</div>
+          <div style={{ fontSize:13, color:C.t3 }}>Create a project first, then upload files to it.</div>
         </div>
       ) : (
         <div style={{ display: isMobile?'flex':'grid', flexDirection:isMobile?'column':undefined, gridTemplateColumns:isMobile?undefined:'220px 1fr', gap:16 }}>
@@ -192,7 +192,7 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
                       <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
                         <div style={{ width:32, height:32, borderRadius:8, flexShrink:0, background:`${color}15`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:8.5, fontWeight:800, color }}>{ext}</div>
                         <div style={{ minWidth:0 }}>
-                          <span style={{ fontSize:13, fontWeight:600, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>{fileLabel(f)}</span>
+                          <span style={{ fontSize:13, fontWeight:600, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>{fileLabel(f)}</span>
                           <span style={{ fontSize:11, color:'#bbb' }}>{timeAgo(f.created_at)}</span>
                           {hasChildren && <span style={{ fontSize:10, color:'#22c55e', fontWeight:600, marginTop:1, display:'block' }}>✓ {children.length} stems ready</span>}
                         </div>

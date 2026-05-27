@@ -2784,11 +2784,11 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:'#f6f6f7' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg }}>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         {isMobile ? (
-          <header style={{ height:52, background:'#fff', borderBottom:'1px solid rgba(0,0,0,.07)',
+          <header style={{ height:52, background:C.surface, borderBottom:`1px solid ${C.border}`,
             display:'flex', alignItems:'center', padding:'0 16px', gap:10, flexShrink:0,
             position:'relative', zIndex:100 }}>
             <button onClick={() => setDrawerOpen(true)}
@@ -2809,37 +2809,41 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
           </header>
         ) : (
-          <header style={{ height:52, background:'#fff', borderBottom:'1px solid rgba(0,0,0,.07)',
+          <header style={{ height:52, background:C.surface, borderBottom:`1px solid ${C.border}`,
             display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0,
             position:'relative', zIndex:100 }}>
             <div style={{ display:'flex', gap:4 }}>
-              <button onClick={() => navigate(-1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
-                border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', color:'#999', transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
+              <button onClick={() => navigate(-1)} style={{ width:26, height:26, borderRadius:7,
+                background:'rgba(255,255,255,.06)', border:`1px solid ${C.border}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', color:C.t3, transition:'all .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.1)'; e.currentTarget.style.color=C.t1 }}
+                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=C.t3 }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
               </button>
-              <button onClick={() => navigate(1)} style={{ width:26, height:26, borderRadius:7, background:'rgba(0,0,0,.05)',
-                border:'1px solid rgba(0,0,0,.08)', display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', color:'#999', transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.1)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.05)'}>
+              <button onClick={() => navigate(1)} style={{ width:26, height:26, borderRadius:7,
+                background:'rgba(255,255,255,.06)', border:`1px solid ${C.border}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', color:C.t3, transition:'all .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.1)'; e.currentTarget.style.color=C.t1 }}
+                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=C.t3 }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
               </button>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'#999' }}>
-              <span style={{ cursor:'pointer' }} onClick={() => navigate('/')}>Workspace</span>
-              <span style={{ opacity:.4 }}>/</span>
-              <span style={{ color:'#111', fontWeight:600 }}>{currentNav?.label}</span>
+            <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13 }}>
+              <span style={{ cursor:'pointer', color:C.t3, fontWeight:500 }} onClick={() => navigate('/')}>Workspace</span>
+              <span style={{ color:C.t3, opacity:.4 }}>/</span>
+              <span style={{ color:C.t1, fontWeight:600 }}>{currentNav?.label}</span>
             </div>
             <div style={{ flex:1 }} />
-            <div style={{ display:'flex', alignItems:'center', gap:7, background:'rgba(0,0,0,.05)',
-              border:'1px solid rgba(0,0,0,.08)', borderRadius:9, padding:'6px 12px', width:200 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2.5} strokeLinecap="round">
+            <div style={{ display:'flex', alignItems:'center', gap:7,
+              background:'rgba(255,255,255,.05)', border:`1px solid ${C.border}`,
+              borderRadius:9, padding:'6px 12px', width:200 }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input placeholder="Search files…" style={{ background:'none', border:'none', outline:'none', fontSize:12.5, color:'#111', width:'100%' }} />
+              <input placeholder="Search files…"
+                style={{ background:'none', border:'none', outline:'none', fontSize:12.5, color:C.t1, width:'100%' }} />
             </div>
             <button onClick={() => openModal('upload', {})} style={{ background:C.grad, border:'none', borderRadius:9, padding:'7px 18px',
               color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer', letterSpacing:'-.2px',
@@ -2868,9 +2872,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         {/* ── Mobile bottom tab bar ──────────────────────────────────────── */}
         {isMobile && (
           <nav style={{ position:'fixed', bottom:0, left:0, right:0, height:60,
-            background:'#fff', borderTop:'1px solid rgba(0,0,0,.08)',
+            background:C.surface, borderTop:`1px solid ${C.border}`,
             display:'flex', alignItems:'stretch', zIndex:150,
-            boxShadow:'0 -4px 16px rgba(0,0,0,.06)' }}>
+            boxShadow:'0 -8px 24px rgba(0,0,0,.3)' }}>
             {NAV.filter(n => ['dashboard','projects','studio','collaborators','library'].includes(n.id)).map(n => {
               const on = currentNav?.id === n.id
               return (

@@ -157,41 +157,36 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
   return (
     <>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
         <div>
-          <p style={{ margin:'0 0 4px', fontSize:11.5, fontWeight:600, color:'#aaa', letterSpacing:'.06em', textTransform:'uppercase' }}>{todayLabel()}</p>
-          <h1 style={{ margin:0, fontSize:26, fontWeight:900, color:'#111', letterSpacing:'-1px' }}>{getGreeting()}, {firstName(user?.full_name)}.</h1>
+          <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, color:C.t3, letterSpacing:'.1em', textTransform:'uppercase' }}>{todayLabel()}</p>
+          <h1 style={{ margin:0, fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>{getGreeting()}, {firstName(user?.full_name)}.</h1>
         </div>
       </div>
 
       {/* Stat cards */}
-      <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr 1fr':'repeat(3,1fr)', gap:14, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr 1fr':'repeat(3,1fr)', gap:12, marginBottom:24 }}>
         {statCards.map(s => (
           isMobile ? (
             <div key={s.label}
-              style={{ borderRadius:20, padding:'22px 24px', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
-                <div aria-hidden="true" style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`, display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
+              style={{ borderRadius:16, padding:'20px 18px', background:C.surface, border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:12 }}>{s.label}</div>
+              <div style={{ fontSize:36, fontWeight:900, color:C.t1, letterSpacing:'-2px', lineHeight:1, marginBottom:6 }}>
+                {s.val===null?<Spinner size={22} color={s.accent}/>:s.val}
               </div>
-              <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
-                {s.val===null?<Spinner size={28} color={s.accent}/>:s.val}
-              </div>
-              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+              <div style={{ fontSize:11.5, color:s.accent, fontWeight:600 }}>{s.sub}</div>
             </div>
           ) : (
-            <button key={s.label} onClick={()=>navigate(`/${s.page}`)} aria-label={`${s.label}: ${s.val??'loading'} — go to ${s.page}`}
-              style={{ borderRadius:20, padding:'22px 24px', cursor:'pointer', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)', transition:'transform .18s, box-shadow .18s', textAlign:'left', width:'100%' }}
-              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.1)'}}
-              onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</div>
-                <div aria-hidden="true" style={{ width:36, height:36, borderRadius:10, background:`${s.accent}12`, display:'flex', alignItems:'center', justifyContent:'center', color:s.accent }}>{s.icon}</div>
+            <button key={s.label} onClick={()=>navigate(`/${s.page}`)} aria-label={`${s.label}: ${s.val??'loading'}`}
+              style={{ borderRadius:16, padding:'20px 18px', cursor:'pointer', background:C.surface,
+                border:`1px solid ${C.border}`, transition:'all .18s', textAlign:'left', width:'100%' }}
+              onMouseEnter={e=>{e.currentTarget.style.background=C.surface2;e.currentTarget.style.borderColor='rgba(255,255,255,.12)'}}
+              onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderColor=C.border}}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:12 }}>{s.label}</div>
+              <div style={{ fontSize:36, fontWeight:900, color:C.t1, letterSpacing:'-2px', lineHeight:1, marginBottom:6 }}>
+                {s.val===null?<Spinner size={22} color={s.accent}/>:s.val}
               </div>
-              <div style={{ fontSize:40, fontWeight:900, color:'#111', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
-                {s.val===null?<Spinner size={28} color={s.accent}/>:s.val}
-              </div>
-              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+              <div style={{ fontSize:11.5, color:s.accent, fontWeight:600 }}>{s.sub}</div>
             </button>
           )
         ))}
@@ -258,7 +253,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
       {/* Projects grid */}
       <div style={{ marginBottom:24 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-          <h2 style={{ margin:0, fontSize:15, fontWeight:800, color:'#111', letterSpacing:'-.4px' }}>Your Projects</h2>
+          <h2 style={{ margin:0, fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.4px' }}>Your Projects</h2>
           <button onClick={()=>navigate('/projects')} style={{ background:'none', border:'none', fontSize:12.5, fontWeight:600, color:C.coral, cursor:'pointer' }}>See all →</button>
         </div>
         {loadingData ? (
@@ -266,10 +261,10 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
             {[0,1,2,3].map(i=><div key={i} style={{ borderRadius:20, height:isMobile?220:280, background:'linear-gradient(160deg,#e8e8e8,#d0d0d0)' }}/>)}
           </div>
         ) : projects.length===0 ? (
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', borderRadius:20, background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', borderRadius:20, background:C.surface, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
             <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:12 }}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            <div style={{ fontSize:14, fontWeight:700, color:'#111', marginBottom:6 }}>No projects yet</div>
-            <div style={{ fontSize:12.5, color:'#aaa', marginBottom:16 }}>Create your first project to get started</div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.t1, marginBottom:6 }}>No projects yet</div>
+            <div style={{ fontSize:12.5, color:C.t3, marginBottom:16 }}>Create your first project to get started</div>
             <button onClick={()=>openModal('new-project',{})} style={{ background:C.grad, border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>+ New Project</button>
           </div>
         ) : (
@@ -288,9 +283,9 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                     <div style={{ position:'absolute', bottom:16, right:16, opacity:.15 }}><svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6zM18 18a3 3 0 100-6 3 3 0 000 6z"/></svg></div>
                     <div style={{ position:'absolute', top:12, left:12, zIndex:2, padding:'4px 10px', borderRadius:100, fontSize:10, fontWeight:700, backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', background:isOwner?'rgba(244,147,122,.7)':'rgba(255,255,255,.16)', color:'#fff', border:`1px solid ${isOwner?'rgba(244,147,122,.4)':'rgba(255,255,255,.2)'}` }}>{isOwner?'★ Creator':'Invited'}</div>
                   </div>
-                  <div style={{ background:'#fff', padding:'14px 16px 16px', flexShrink:0 }}>
+                  <div style={{ background:C.surface, padding:'14px 16px 16px', flexShrink:0 }}>
                     {p.type&&<div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{p.type}</div>}
-                    <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>{p.title}</div>
+                    <div style={{ fontSize:15, fontWeight:900, color:C.t1, letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>{p.title}</div>
                     <button onClick={e=>{e.stopPropagation();navigate(`/projects/${p.id}`)}} style={{ width:'100%', padding:'8px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 10px rgba(0,0,0,.18)', transition:'opacity .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>Open →</button>
                   </div>
@@ -303,7 +298,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
 
       {/* Venue recommendations */}
       {listenerCities.length>0 && (
-        <div style={{ background:'#fff', borderRadius:20, marginBottom:20, padding:'24px 24px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)' }}>
+        <div style={{ background:C.surface, borderRadius:20, marginBottom:20, padding:'24px 24px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)' }}>
 
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:18 }}>
@@ -318,7 +313,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                 Potential venues in{' '}
                 <span style={{ color:'#0f0f0f' }}>{listenerCities.slice(0,2).map(c=>c.city).join(' & ')}</span>
               </div>
-              <div style={{ fontSize:12, color:'#aaa', marginTop:4, fontWeight:500 }}>Based on where you are located</div>
+              <div style={{ fontSize:12, color:C.t3, marginTop:4, fontWeight:500 }}>Based on where you are located</div>
             </div>
             {listenerCities.length > 1 && (
               <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
@@ -352,7 +347,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                   <div style={{ fontSize:13, fontWeight:700, color:'#0f0f0f', lineHeight:1.35,
                     overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box',
                     WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{v.name}</div>
-                  <div style={{ fontSize:11, color:'#aaa', fontWeight:500 }}>{v.address || `${v.city}, ${v.state}`}</div>
+                  <div style={{ fontSize:11, color:C.t3, fontWeight:500 }}>{v.address || `${v.city}, ${v.state}`}</div>
                   {v.url && (
                     <div style={{ fontSize:11, color:C.coral, fontWeight:700, display:'flex', alignItems:'center', gap:3, marginTop:1 }}>
                       Book venue
@@ -370,10 +365,10 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
       {projects.length>0 && (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1.4fr 1fr', gap:16 }}>
           {/* Files card */}
-          <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+          <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 22px 14px' }}>
               <div>
-                <div style={{ fontSize:16, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>{projects[0]?.title||'Project Files'}</div>
+                <div style={{ fontSize:16, fontWeight:900, color:C.t1, letterSpacing:'-.4px' }}>{projects[0]?.title||'Project Files'}</div>
                 <div style={{ fontSize:12, color:'#bbb', marginTop:3 }}>
                   {(() => {
                     const takeCount = projectFiles.filter(f => f.instrument && f.instrument!=='original' && f.instrument!=='smart_bounce' && !pn(f).parent_stem_id).length
@@ -399,7 +394,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                     <div key={f.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 20px', borderBottom:'1px solid rgba(0,0,0,.04)', background:'rgba(245,158,11,.03)' }}>
                       <Spinner size={14} color={C.amber}/>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12.5, fontWeight:600, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.original_name}</div>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.original_name}</div>
                         <div style={{ fontSize:10.5, color:C.amber, marginTop:2, fontWeight:600 }}>Dizko.ai analyzing audio…</div>
                       </div>
                     </div>
@@ -425,7 +420,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                               <svg width={8} height={8} viewBox="0 0 24 24" fill={stemColor} style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                             </button>
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:12.5, fontWeight:600, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.suggested_name||f.original_name}</div>
+                              <div style={{ fontSize:12.5, fontWeight:600, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.suggested_name||f.original_name}</div>
                             </div>
                             <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
                               <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:`${stemColor}15`, color:stemColor, textTransform:'capitalize', border:`1px solid ${stemColor}25` }}>{f.instrument}</span>
@@ -455,9 +450,9 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
           {/* Right column */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
             {/* Recent Activity */}
-            <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', flex:1, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
+            <div style={{ background:C.surface, borderRadius:20, overflow:'hidden', flex:1, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
-                <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Recent Activity</div>
+                <div style={{ fontSize:14, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>Recent Activity</div>
                 <button onClick={()=>navigate('/analytics')} style={{ fontSize:12, color:'#bbb', fontWeight:600, background:'none', border:'none', cursor:'pointer' }}>See all →</button>
               </div>
               {loadingDetail ? <div style={{ padding:'12px 18px' }}><Spinner size={16}/></div>
@@ -488,7 +483,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                     <div style={{ width:7, height:7, borderRadius:'50%', background:dotColor(ev), marginTop:5, flexShrink:0, boxShadow:ev.type==='bounce'?`0 0 6px ${dotColor(ev)}`:'none' }}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12, color:'#333', lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        <strong style={{ fontWeight:700, color:'#111' }}>{ev.who}</strong>
+                        <strong style={{ fontWeight:700, color:C.t1 }}>{ev.who}</strong>
                         {ev.type==='upload'&&<> uploaded <span style={{ color:dotColor(ev), fontWeight:600 }}>{ev.f.instrument==='original'?ev.f.original_name:ev.f.instrument||'a file'}</span></>}
                         {ev.type==='separation'&&<> separated <span style={{ color:C.amber, fontWeight:600 }}>{ev.count} stems</span></>}
                         {ev.type==='bounce'&&<> updated the <span style={{ color:'#22c55e', fontWeight:600 }}>session mix</span></>}
