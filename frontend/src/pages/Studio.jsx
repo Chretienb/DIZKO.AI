@@ -241,41 +241,65 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const playAll = async () => {
-    stopAll(); gainRefs.current = {}
+    stopAll(); gainRefs.current = {}; analyserRefs.current = {}
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctxRef.current = ctx
     const loadableStems = mixerStems.filter(s => s.file_url)
-    let maxDur = 0
     setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
-    await Promise.all(loadableStems.map(async s => {
+
+    // ── Pass 1: decode all stems in parallel ──────────────────────────────
+    // Nothing starts playing yet — we collect decoded buffers first.
+    const decoded = await Promise.all(loadableStems.map(async s => {
       try {
-        const trim = getTrim(s.id), vol = getVolume(s.id)
-        const isMuted = mutedIds.has(s.id), isSilenced = soloId !== null && soloId !== s.id
-        const buf = await fetchAudioCached(s.file_url, pct => setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
-        const decoded = await ctx.decodeAudioData(buf.slice(0))
+        const buf = await fetchAudioCached(s.file_url, pct =>
+          setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
+        )
+        const audio = await ctx.decodeAudioData(buf.slice(0))
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        const trimStart = decoded.duration * trim.start, effectiveDur = decoded.duration * (trim.end - trim.start)
-        if (effectiveDur > maxDur) maxDur = effectiveDur
-        const src = ctx.createBufferSource(); src.buffer = decoded
-        const gain = ctx.createGain(); gain.gain.value = (isMuted || isSilenced) ? 0 : vol
-        // Insert AnalyserNode between gain and destination for live waveform
-        const analyser = ctx.createAnalyser()
-        analyser.fftSize = 2048
-        analyser.smoothingTimeConstant = 0.8
-        analyserRefs.current[s.id] = analyser
-        gainRefs.current[s.id] = gain
-        src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
-        src.start(0, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
-        audioRefs.current[s.id] = src
+        return { s, audio }
       } catch (e) {
-        console.error('[playAll] failed:', s.suggested_name || s.original_name, e?.message)
+        console.error('[playAll] decode failed:', s.suggested_name || s.original_name, e?.message)
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+        return null
       }
     }))
-    setDuration(maxDur); startAtRef.current = ctx.currentTime - offsetRef.current; setPlaying(true)
+
+    // ── Pass 2: schedule ALL sources at the same audio-clock instant ──────
+    // A 50ms lookahead gives the browser time to compile the graph
+    // before the clock reaches startTime — guaranteed sync on every device.
+    const startTime = ctx.currentTime + 0.05
+    let maxDur = 0
+
+    decoded.filter(Boolean).forEach(({ s, audio }) => {
+      const trim        = getTrim(s.id)
+      const vol         = getVolume(s.id)
+      const isMuted     = mutedIds.has(s.id)
+      const isSilenced  = soloId !== null && soloId !== s.id
+      const trimStart   = audio.duration * trim.start
+      const effectiveDur = audio.duration * (trim.end - trim.start)
+      if (effectiveDur > maxDur) maxDur = effectiveDur
+
+      const src     = ctx.createBufferSource(); src.buffer = audio
+      const gain    = ctx.createGain(); gain.gain.value = (isMuted || isSilenced) ? 0 : vol
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.8
+
+      analyserRefs.current[s.id] = analyser
+      gainRefs.current[s.id]     = gain
+      src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
+
+      // All sources share the same startTime — perfectly in sync
+      src.start(startTime, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
+      audioRefs.current[s.id] = src
+    })
+
+    setDuration(maxDur)
+    startAtRef.current = startTime - offsetRef.current
+    setPlaying(true)
+
     if (metronomeRef.current) {
-      const secPerBeat = 60/bpmRef.current; let beatTime = ctx.currentTime, beatNum = 0
-      while (beatTime < ctx.currentTime + maxDur) { scheduleClick(ctx, beatTime, beatNum%4===0); beatTime += secPerBeat; beatNum++ }
+      const secPerBeat = 60/bpmRef.current; let beatTime = startTime, beatNum = 0
+      while (beatTime < startTime + maxDur) { scheduleClick(ctx, beatTime, beatNum%4===0); beatTime += secPerBeat; beatNum++ }
     }
     startBeatFlash()
     const tick = () => {
