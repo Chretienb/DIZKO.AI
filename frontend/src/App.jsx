@@ -2560,48 +2560,43 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   ) ?? NAV[0]
 
   // ── Sidebar content — shared between desktop aside and mobile drawer ─────────
-  const SidebarContent = () => {
-    // Group nav items with section labels like the reference
-    const MAIN_NAV  = NAV.filter(n => ['dashboard','projects','studio'].includes(n.id))
-    const TOOLS_NAV = NAV.filter(n => ['collaborators','library','analytics'].includes(n.id))
+  const MAIN_NAV  = NAV.filter(n => ['dashboard','projects','studio'].includes(n.id))
+  const TOOLS_NAV = NAV.filter(n => ['collaborators','library','analytics'].includes(n.id))
 
-    const NavBtn = ({ n }) => {
-      const on = currentNav?.id === n.id
-      return (
-        <button onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
-          aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
-          style={{
-            display:'flex', alignItems:'center', gap:11, width:'100%',
-            padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer',
-            marginBottom:1, textAlign:'left',
-            fontSize:13.5, fontWeight: on ? 600 : 400,
-            color: on ? '#fff' : 'rgba(255,255,255,.42)',
-            background: on ? 'rgba(255,255,255,.08)' : 'transparent',
-            transition:'all .12s',
-          }}
-          onMouseEnter={e => {
-            if (!on) { e.currentTarget.style.background='rgba(255,255,255,.05)'; e.currentTarget.style.color='rgba(255,255,255,.75)' }
-            ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
-          }}
-          onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.42)' }}}>
-
-          {/* Icon in a small rounded box */}
-          <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
-            background: on ? `${C.coral}20` : 'rgba(255,255,255,.06)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            transition:'background .12s' }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-              stroke={on ? C.coral : 'rgba(255,255,255,.45)'}
-              strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-              <path d={n.icon}/>
-            </svg>
-          </div>
-          {n.label}
-        </button>
-      )
-    }
-
+  const sideNavBtn = (n) => {
+    const on = currentNav?.id === n.id
     return (
+      <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
+        aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
+        style={{
+          display:'flex', alignItems:'center', gap:11, width:'100%',
+          padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer',
+          marginBottom:1, textAlign:'left',
+          fontSize:13.5, fontWeight: on ? 600 : 400,
+          color: on ? '#fff' : 'rgba(255,255,255,.42)',
+          background: on ? 'rgba(255,255,255,.08)' : 'transparent',
+          transition:'all .12s',
+        }}
+        onMouseEnter={e => {
+          if (!on) { e.currentTarget.style.background='rgba(255,255,255,.05)'; e.currentTarget.style.color='rgba(255,255,255,.75)' }
+          ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
+        }}
+        onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.42)' }}}>
+        <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
+          background: on ? `${C.coral}20` : 'rgba(255,255,255,.06)',
+          display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+            stroke={on ? C.coral : 'rgba(255,255,255,.45)'}
+            strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <path d={n.icon}/>
+          </svg>
+        </div>
+        {n.label}
+      </button>
+    )
+  }
+
+  const SidebarContent = () => (
     <>
       {/* Logo */}
       <div style={{ padding:'22px 16px 18px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
@@ -2616,15 +2611,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       </div>
 
       <nav style={{ flex:1, padding:'4px 10px', overflowY:'auto' }}>
-        {/* Main nav */}
-        {MAIN_NAV.map(n => <NavBtn key={n.id} n={n}/>)}
-
-        {/* Tools section */}
+        {MAIN_NAV.map(sideNavBtn)}
         <div style={{ margin:'16px 2px 8px', fontSize:10, fontWeight:700,
           color:'rgba(255,255,255,.22)', textTransform:'uppercase', letterSpacing:'.12em' }}>
           Tools
         </div>
-        {TOOLS_NAV.map(n => <NavBtn key={n.id} n={n}/>)}
+        {TOOLS_NAV.map(sideNavBtn)}
       </nav>
       {/* Getting started checklist — dismisses when all done */}
       {checklistVisible && (
@@ -2778,7 +2770,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         </button>
       </div>
     </>
-  )}
+  )
 
   return (
     <MobileCtx.Provider value={isMobile}>
