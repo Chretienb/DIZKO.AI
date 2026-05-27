@@ -298,7 +298,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
 
       {/* Recent files list — like "Popular Song" in reference */}
       {projects.length>0 && projectFiles.length>0 && (
-        <div style={{ background:'#0f0f12', borderRadius:16, overflow:'hidden', border:'1px solid rgba(255,255,255,.06)' }}>
+        <div style={{ borderRadius:16, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 12px' }}>
             <h3 style={{ margin:0, fontSize:14, fontWeight:800, color:'rgba(255,255,255,.9)', letterSpacing:'-.3px' }}>Recent Stems</h3>
             <button onClick={()=>navigate('/studio')} style={{ background:'none', border:'none', fontSize:12, color:'rgba(255,255,255,.35)', cursor:'pointer', fontWeight:600 }}>Open Studio →</button>
