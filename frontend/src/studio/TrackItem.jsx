@@ -26,7 +26,17 @@ export default function TrackItem({
   const stemLabel = STEM_LABELS[s.instrument] || s.instrument || 'Track'
 
   return (
-    <div style={{ background:'#fff', borderRadius:20, border:`1px solid ${isExpanded?color+'28':'rgba(0,0,0,.05)'}`, boxShadow:isExpanded?`0 6px 24px ${color}10`:'0 1px 4px rgba(0,0,0,.05)', overflow:'hidden', transition:'all .2s', opacity:isMuted?.5:1 }}>
+    <div style={{
+      background: isMuted ? '#f9f9f9' : '#fff',
+      borderRadius: 20,
+      border: `1px solid ${isMuted ? 'rgba(0,0,0,.05)' : isExpanded ? color+'28' : isPlaying ? color+'40' : 'rgba(0,0,0,.05)'}`,
+      boxShadow: isMuted ? 'none'
+        : isPlaying ? `0 4px 20px ${color}22`
+        : isExpanded ? `0 6px 24px ${color}10`
+        : '0 1px 4px rgba(0,0,0,.05)',
+      overflow:'hidden', transition:'all .2s',
+      opacity: isMuted ? 0.55 : 1,
+    }}>
 
       {loadPct!=null && loadPct<100 && (
         <div style={{ height:3, background:'rgba(0,0,0,.04)' }}>
@@ -40,8 +50,11 @@ export default function TrackItem({
         onClick={() => onToggleExpand(s.id)}
         onKeyDown={e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onToggleExpand(s.id) } }}>
 
-        {/* Color bar — shows instrument type visually + as text for screen readers */}
-        <div aria-hidden="true" style={{ width:4, height:40, borderRadius:2, background:color, flexShrink:0, marginRight:14 }}/>
+        {/* Color bar + playing pulse */}
+        <div aria-hidden="true" style={{ position:'relative', width:4, height:40, borderRadius:2,
+          background: isMuted ? '#ddd' : color, flexShrink:0, marginRight:14,
+          boxShadow: isPlaying && !isMuted ? `0 0 8px ${color}` : 'none',
+          transition:'all .2s' }}/>
 
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>
@@ -58,47 +71,64 @@ export default function TrackItem({
           </div>
         </div>
 
-        {/* Volume slider */}
+        {/* Volume */}
         {!isMobile && (
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:12, flexShrink:0 }}
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:8, flexShrink:0 }}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
             <input type="range" min={0} max={1} step={0.01} value={volume} aria-label={`Volume for ${stemLabel}`}
               onChange={e=>onVolumeChange(s.id, parseFloat(e.target.value))}
-              style={{ width:64, accentColor:'#333', cursor:'pointer', opacity:isMuted?.3:1 }}/>
+              style={{ width:56, accentColor:'#333', cursor:'pointer', opacity:isMuted?.3:1 }}/>
           </div>
         )}
 
-        {/* Mute / Solo */}
-        <div style={{ display:'flex', gap:4, marginRight:8, flexShrink:0 }}
-          onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
-          <button onClick={()=>onMute(s.id)} aria-label={isMuted?`Unmute ${stemLabel}`:`Mute ${stemLabel}`} aria-pressed={isMuted}
-            style={{ width:32, height:32, borderRadius:9, border:`1px solid ${isMuted?'#f59e0b50':'rgba(0,0,0,.08)'}`, background:isMuted?'#f59e0b15':'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all .15s', flexShrink:0 }}>
-            {isMuted
-              ? <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-              : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
-            }
-          </button>
-          <button onClick={()=>onSolo(s.id)} aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo}
-            style={{ width:32, height:32, borderRadius:9, border:`1px solid ${isSolo?'#6366f145':'rgba(0,0,0,.08)'}`, background:isSolo?'#6366f112':'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all .15s', flexShrink:0, fontSize:11, fontWeight:800, color:isSolo?'#6366f1':'#bbb', letterSpacing:'.02em' }}>
-            S
-          </button>
-        </div>
+        {/* Mute pill — always visible, prominent */}
+        <button
+          onClick={e => { e.stopPropagation(); onMute(s.id) }}
+          aria-label={isMuted ? `Unmute ${stemLabel}` : `Mute ${stemLabel}`}
+          aria-pressed={isMuted}
+          style={{
+            height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
+            border: `1.5px solid ${isMuted ? '#f59e0b' : 'rgba(0,0,0,.1)'}`,
+            background: isMuted ? '#f59e0b' : 'transparent',
+            color: isMuted ? '#fff' : '#aaa',
+            fontSize:11, fontWeight:800, cursor:'pointer',
+            transition:'all .15s', letterSpacing:'.04em',
+            display:'flex', alignItems:'center', gap:5,
+          }}>
+          {isMuted ? (
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          ) : (
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+          )}
+          {isMuted ? 'Muted' : 'M'}
+        </button>
 
-        {/* Actions */}
-        <div style={{ display:'flex', gap:6, flexShrink:0 }}
+        {/* Solo */}
+        <button onClick={e=>{e.stopPropagation();onSolo(s.id)}}
+          aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo}
+          style={{ height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
+            border:`1.5px solid ${isSolo?'#6366f1':'rgba(0,0,0,.1)'}`,
+            background:isSolo?'#6366f1':'transparent',
+            color:isSolo?'#fff':'#aaa',
+            fontSize:11, fontWeight:800, cursor:'pointer', transition:'all .15s', letterSpacing:'.04em' }}>
+          S
+        </button>
+
+        {/* Secondary actions */}
+        <div style={{ display:'flex', gap:4, flexShrink:0 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
           <button onClick={()=>onPlay(s)} aria-label={`Preview ${stemLabel}`}
-            style={{ width:32, height:32, borderRadius:10, border:`1px solid ${color}28`, background:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color, transition:'all .12s' }}
-            onMouseEnter={e=>e.currentTarget.style.background=`${color}20`} onMouseLeave={e=>e.currentTarget.style.background=`${color}10`}>
-            <IconPlay size={10} color={color}/>
+            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`, background:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color, transition:'all .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.background=`${color}25`} onMouseLeave={e=>e.currentTarget.style.background=`${color}10`}>
+            <IconPlay size={9} color={color}/>
           </button>
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
-            style={{ width:32, height:32, borderRadius:10, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:'#ccc'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:16, height:16, borderRadius:'50%', background:color, color:'#fff', fontSize:8, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>{commentCount}</span>}
+            style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:'#ccc'} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%', background:color, color:'#fff', fontSize:7, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>{commentCount}</span>}
           </button>
           <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
-            style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(0,0,0,.07)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
+            style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(0,0,0,.07)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
             onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
             onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(0,0,0,.07)';e.currentTarget.style.background='transparent'}}>
             {isDeleting?<Spinner size={10} color="#ef4444"/>:<IconTrash size={12}/>}
