@@ -2559,84 +2559,82 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       : location.pathname.startsWith(n.path)
   ) ?? NAV[0]
 
-  // ── Sidebar — DAW-style channel strip active indicator ──────────────────────
+  // ── Sidebar — musician-first, each nav item has its own track color ──────────
+  const TRACK_COLORS = {
+    dashboard:    '#F4937A',   // coral   — home base
+    projects:     '#22c55e',   // green   — your sessions
+    studio:       '#a78bfa',   // purple  — where you create
+    collaborators:'#38bdf8',   // sky     — your crew
+    library:      '#f59e0b',   // amber   — your vault
+    analytics:    '#f472b6',   // pink    — your stats
+  }
+
   const sideNavBtn = (n) => {
     const on = currentNav?.id === n.id
+    const color = TRACK_COLORS[n.id] || C.coral
     return (
       <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
         aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
         style={{
-          display:'flex', alignItems:'center', gap:11, width:'100%',
-          padding:'9px 12px 9px 14px', border:'none', cursor:'pointer',
-          marginBottom:1, textAlign:'left', position:'relative',
-          fontSize:13, fontWeight: on ? 600 : 400,
-          color: on ? '#fff' : 'rgba(255,255,255,.38)',
-          background: 'transparent',
-          borderRadius: 8,
-          transition:'color .1s',
+          display:'flex', alignItems:'center', gap:12, width:'100%',
+          padding:'10px 14px', border:'none', cursor:'pointer',
+          marginBottom:2, textAlign:'left', borderRadius:10,
+          fontSize:13.5, fontWeight: on ? 700 : 400,
+          color: on ? '#fff' : 'rgba(255,255,255,.35)',
+          background: on ? `${color}14` : 'transparent',
+          transition:'all .12s',
         }}
         onMouseEnter={e => {
-          if (!on) e.currentTarget.style.color='rgba(255,255,255,.72)'
+          if (!on) { e.currentTarget.style.background=`${color}08`; e.currentTarget.style.color='rgba(255,255,255,.65)' }
           ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
         }}
-        onMouseLeave={e => { if(!on) e.currentTarget.style.color='rgba(255,255,255,.38)' }}>
-        {/* DAW channel-strip active bar — left edge, coral */}
+        onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.35)' }}}>
+
+        {/* Colored icon square — each track has its own color */}
         <div style={{
-          position:'absolute', left:0, top:'50%', transform:'translateY(-50%)',
-          width: on ? 3 : 0, height: on ? 18 : 0,
-          borderRadius:2, background:C.grad,
-          boxShadow: on ? `0 0 8px ${C.coral}` : 'none',
-          transition:'all .15s',
-        }}/>
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-          stroke={on ? C.coral : 'rgba(255,255,255,.32)'}
-          strokeWidth={on ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round"
-          style={{ flexShrink:0, transition:'stroke .1s' }}>
-          <path d={n.icon}/>
-        </svg>
-        {n.label}
-        {/* Subtle dot for active — like a channel record-arm */}
-        {on && <div style={{ marginLeft:'auto', width:5, height:5, borderRadius:'50%',
-          background:C.coral, boxShadow:`0 0 6px ${C.coral}`, flexShrink:0 }}/>}
+          width:30, height:30, borderRadius:8, flexShrink:0,
+          background: on ? `${color}25` : 'rgba(255,255,255,.05)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          transition:'all .12s',
+          boxShadow: on ? `0 0 12px ${color}30` : 'none',
+        }}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+            stroke={on ? color : 'rgba(255,255,255,.3)'}
+            strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <path d={n.icon}/>
+          </svg>
+        </div>
+
+        <span style={{ flex:1 }}>{n.label}</span>
+
+        {/* Active: colored pip on the right */}
+        {on && (
+          <div style={{ width:6, height:6, borderRadius:'50%', background:color,
+            boxShadow:`0 0 8px ${color}`, flexShrink:0 }}/>
+        )}
       </button>
     )
   }
 
   const SidebarContent = () => (
     <>
-      {/* Logo — waveform + brand */}
-      <div style={{ padding:'18px 16px 14px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:9, cursor:'pointer', marginBottom:12 }}
-          onClick={() => { navigate('/'); if (isMobile) setDrawerOpen(false) }}>
-          <img src={logo} style={{ width:30, height:30, borderRadius:7, objectFit:'cover', flexShrink:0 }} alt="" />
-          <span style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+      {/* Logo */}
+      <div style={{ padding:'22px 16px 18px', display:'flex', alignItems:'center', gap:10,
+        cursor:'pointer', borderBottom:'1px solid rgba(255,255,255,.05)', marginBottom:8 }}
+        onClick={() => { navigate('/'); if (isMobile) setDrawerOpen(false) }}>
+        <img src={logo} style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }} alt="" />
+        <div>
+          <div style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.5px', lineHeight:1.1 }}>
             Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-          </span>
-        </div>
-        {/* Waveform decoration — visual identity */}
-        <div style={{ display:'flex', alignItems:'flex-end', gap:2, height:16, paddingLeft:2 }}>
-          {[6,10,14,8,12,16,10,7,13,9,15,11,6,10,8].map((h,i) => (
-            <div key={i} style={{ width:2, height:h, borderRadius:1,
-              background: i % 3 === 0 ? C.coral : i % 3 === 1 ? C.pink : 'rgba(255,255,255,.15)',
-              opacity: i % 5 === 0 ? 1 : .5 }}/>
-          ))}
+          </div>
+          <div style={{ fontSize:9, color:'rgba(255,255,255,.2)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
         </div>
       </div>
 
-      <nav style={{ flex:1, padding:'2px 8px', overflowY:'auto' }}>
-        {/* Studio nav */}
+      <nav style={{ flex:1, padding:'4px 10px', overflowY:'auto' }}>
         {sideNavBtn(NAV[0])}
         {sideNavBtn(NAV[1])}
         {sideNavBtn(NAV[2])}
-
-        {/* Thin divider */}
-        <div style={{ margin:'12px 6px', height:1, background:'rgba(255,255,255,.06)',
-          position:'relative' }}>
-          <span style={{ position:'absolute', top:-7, left:8, fontSize:9, fontWeight:700,
-            color:'rgba(255,255,255,.18)', textTransform:'uppercase', letterSpacing:'.14em',
-            background:C.sidebar, padding:'0 6px' }}>Tools</span>
-        </div>
-
         {sideNavBtn(NAV[3])}
         {sideNavBtn(NAV[4])}
         {sideNavBtn(NAV[5])}
