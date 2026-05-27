@@ -2872,7 +2872,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           </header>
         )}
 
-        <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '16px' : '24px',
+        <div style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
           paddingBottom: nowPlaying ? (isMobile ? 160 : 100) : (isMobile ? 80 : 24) }}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
