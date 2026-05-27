@@ -1976,78 +1976,109 @@ function ModalUpload({ project, onClose, user }) {
 
   const queued = queue.filter(f => f.status === 'queued').length
 
-  return (
-    <Modal title="Upload Files"
-      sub={selProj?.title
-        ? `To "${selProj.title}"${myRole ? ` · ${myRole}` : ''}`
-        : 'Pick a session'}
-      onClose={onClose}>
+  const CARD_GRADIENTS_UPLOAD = [
+    'linear-gradient(135deg,#F4937A,#c0394f)',
+    'linear-gradient(135deg,#F7D98B,#d4793a)',
+    'linear-gradient(135deg,#E8709A,#8b1a4a)',
+    'linear-gradient(135deg,#a78bfa,#6366f1)',
+    'linear-gradient(135deg,#38bdf8,#0ea5e9)',
+    'linear-gradient(135deg,#f472b6,#ec4899)',
+  ]
 
-      {/* Project picker */}
+  return (
+    <Modal title="Upload to your session" sub={selProj ? selProj.title : undefined} onClose={onClose}>
+
+      {/* Session selector — mini cards, not pills */}
       {!project && (
-        <div style={{ marginBottom:18 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.3)',
-            textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10 }}>Session</div>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-            {projects.map(p => {
+        <div style={{ marginBottom:20 }}>
+          <p style={{ margin:'0 0 12px', fontSize:12, fontWeight:600, color:'rgba(255,255,255,.3)' }}>
+            Where are you uploading?
+          </p>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(130px,1fr))', gap:8 }}>
+            {projects.map((p, idx) => {
               const sel = selProj?.id === p.id
+              const g   = CARD_GRADIENTS_UPLOAD[idx % CARD_GRADIENTS_UPLOAD.length]
               return (
-                <button key={p.id} onClick={() => setSelProj(p)} style={{
-                  padding:'7px 16px', borderRadius:100,
-                  border:`1.5px solid ${sel ? C.coral : 'rgba(255,255,255,.1)'}`,
-                  background: sel ? `${C.coral}20` : 'transparent',
-                  color: sel ? C.coral : 'rgba(255,255,255,.45)',
-                  fontSize:12.5, fontWeight:700, cursor:'pointer',
-                  display:'flex', alignItems:'center', gap:6, transition:'all .12s',
-                }}>
-                  {sel && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={3.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
-                  {p.title}
+                <button key={p.id} onClick={() => setSelProj(p)}
+                  style={{
+                    height:64, borderRadius:14, overflow:'hidden', cursor:'pointer',
+                    position:'relative', border: sel ? `2px solid ${C.coral}` : '2px solid transparent',
+                    background:g, transition:'all .15s', textAlign:'left',
+                    boxShadow: sel ? `0 0 0 4px ${C.coral}25` : 'none',
+                  }}>
+                  {/* Dark overlay for text legibility */}
+                  <div style={{ position:'absolute', inset:0,
+                    background:'linear-gradient(to top, rgba(0,0,0,.7) 0%, rgba(0,0,0,.1) 100%)' }}/>
+                  {sel && (
+                    <div style={{ position:'absolute', top:7, right:7, width:16, height:16,
+                      borderRadius:'50%', background:C.coral,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round">
+                        <polyline points="20,6 9,17 4,12"/>
+                      </svg>
+                    </div>
+                  )}
+                  <span style={{ position:'absolute', bottom:10, left:12,
+                    fontSize:12.5, fontWeight:800, color:'#fff', letterSpacing:'-.3px',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                    right:12, display:'block' }}>{p.title}</span>
                 </button>
               )
             })}
-            {projects.length === 0 && <span style={{ fontSize:12, color:'rgba(255,255,255,.25)' }}>No sessions yet</span>}
+            {projects.length === 0 && (
+              <p style={{ margin:0, fontSize:12, color:'rgba(255,255,255,.25)', gridColumn:'1/-1' }}>
+                No sessions yet — create one first.
+              </p>
+            )}
           </div>
         </div>
       )}
 
-      {/* Role notice */}
+      {/* Role notice — subtle, not alarming */}
       {myRole && myRole !== 'Owner' && (
-        <div style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px',
-          borderRadius:10, background:`${C.coral}10`, border:`1px solid ${C.coral}20`,
-          marginBottom:14, fontSize:12 }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <span style={{ color:'rgba(255,255,255,.6)' }}>
-            Role: <strong style={{ color:C.coral }}>{myRole}</strong> · Can upload: <strong style={{ color:'rgba(255,255,255,.8)' }}>{ROLE_PERMS[myRole] || 'anything'}</strong>
-          </span>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16,
+          fontSize:12, color:'rgba(255,255,255,.4)' }}>
+          <div style={{ width:4, height:4, borderRadius:'50%', background:C.coral, flexShrink:0 }}/>
+          You're a <span style={{ color:C.coral, fontWeight:600 }}>{myRole}</span>
+          {' '}— can upload: <span style={{ color:'rgba(255,255,255,.65)' }}>{ROLE_PERMS[myRole] || 'anything'}</span>
         </div>
       )}
 
       {/* Drop zone */}
-      <div style={{ borderRadius:16,
-        border:`2px dashed ${drag ? C.coral : 'rgba(255,255,255,.1)'}`,
-        padding:'32px 20px', textAlign:'center', cursor:'pointer', marginBottom:14,
-        background: drag ? `${C.coral}08` : 'rgba(255,255,255,.03)', transition:'all .15s' }}
+      <div
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
-        onClick={() => inputRef.current.click()}>
-        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
-          aria-label="Upload audio files" style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
-        <div style={{ width:48, height:48, borderRadius:14, background:C.grad, margin:'0 auto 12px',
-          display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 6px 20px ${C.coral}40` }}>
-          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
-            <polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/>
+        onClick={() => inputRef.current.click()}
+        style={{
+          borderRadius:16, padding:'40px 24px', textAlign:'center', cursor:'pointer',
+          marginBottom:16, transition:'all .15s', position:'relative', overflow:'hidden',
+          background: drag ? `${C.coral}10` : 'rgba(255,255,255,.03)',
+          border: `1.5px dashed ${drag ? C.coral : 'rgba(255,255,255,.1)'}`,
+        }}>
+        <input ref={inputRef} type="file" multiple
+          accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
+          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
+
+        {/* Upload arrow icon — simple, not over-designed */}
+        <div style={{ marginBottom:14 }}>
+          <svg width={32} height={32} viewBox="0 0 24 24" fill="none"
+            stroke={drag ? C.coral : 'rgba(255,255,255,.3)'}
+            strokeWidth={1.5} strokeLinecap="round" style={{ transition:'stroke .15s' }}>
+            <polyline points="16,16 12,12 8,16"/>
+            <line x1="12" y1="12" x2="12" y2="21"/>
             <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
           </svg>
         </div>
-        <div style={{ fontSize:14, fontWeight:700, color:'rgba(255,255,255,.85)' }}>
-          Drop stems here or <span style={{ color:C.coral }}>browse</span>
-        </div>
-        <div style={{ fontSize:11.5, color:'rgba(255,255,255,.25)', marginTop:5, letterSpacing:'.02em' }}>
-          WAV · MP3 · M4A · AIFF · FLAC · AAC · max 50 MB
-        </div>
+
+        <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:700,
+          color: drag ? C.coral : 'rgba(255,255,255,.75)', transition:'color .15s' }}>
+          {drag ? 'Drop it' : 'Drop your stems here'}
+        </p>
+        <p style={{ margin:0, fontSize:12, color:'rgba(255,255,255,.22)' }}>
+          or <span style={{ color:C.coral, cursor:'pointer' }}>click to browse</span>
+          {' · '}WAV, MP3, AIFF, FLAC · 50 MB max
+        </p>
       </div>
 
       {/* Queue */}
