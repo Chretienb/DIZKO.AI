@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, files as filesApi, foldersApi } from '../lib/api.js'
+import { projects as projectsApi, files as filesApi, foldersApi, collaborators as collabsApi } from '../lib/api.js'
 import { Avatar, Spinner, Btn, C } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
 import musicIcon from '../assets/music.png'
@@ -263,6 +263,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [files,          setFiles]          = useState([])
   const [folders,        setFolders]        = useState([])
   const [activity,       setActivity]       = useState([])
+  const [collabs,        setCollabs]        = useState([])
   const [selectedFolder, setSelectedFolder] = useState('all')
   const [loading,        setLoading]        = useState(true)
   const [draggingId,     setDraggingId]     = useState(null)
@@ -275,10 +276,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     if (!projectId) return
     setLoading(true)
     try {
-      const [projRes, foldersRes] = await Promise.all([
+      const [projRes, foldersRes, collabsRes] = await Promise.all([
         projectsApi.get(projectId),
         foldersApi.list(projectId),
+        collabsApi.listByProject(projectId).catch(() => ({ data: [] })),
       ])
+      setCollabs(collabsRes.data || [])
       setProject(projRes.data)
       setFolders(foldersRes.data || [])
       const filesRes = await filesApi.list(projectId)
@@ -660,6 +663,53 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </div>
               </div>
             )}
+
+            {/* Collaborators */}
+            <div style={{ background:'#fff', borderRadius:14, padding:'16px',
+              border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                <p style={{ margin:0, fontSize:10, fontWeight:800, color:'#c0c4cc',
+                  textTransform:'uppercase', letterSpacing:'.1em' }}>Collaborators</p>
+                <button onClick={() => openModal?.('invite', { project })}
+                  style={{ fontSize:11, fontWeight:700, color:C.coral, background:'none', border:'none',
+                    cursor:'pointer', padding:0, transition:'opacity .12s' }}
+                  onMouseEnter={e=>e.currentTarget.style.opacity='.7'}
+                  onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                  + Invite
+                </button>
+              </div>
+              {collabs.length === 0 ? (
+                <p style={{ margin:0, fontSize:12, color:'#c8ccd4', fontWeight:500 }}>No collaborators yet.</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {collabs.map((c, i) => {
+                    const name = c.user?.full_name || c.full_name || c.email?.split('@')[0] || 'Collaborator'
+                    const colors = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1']
+                    const color  = colors[i % colors.length]
+                    return (
+                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:9 }}>
+                        <div style={{ width:30, height:30, borderRadius:'50%', background:`${color}18`,
+                          flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:11, fontWeight:800, color }}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#111',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</p>
+                          <p style={{ margin:0, fontSize:10.5, color:'#bbb', fontWeight:500,
+                            textTransform:'capitalize' }}>{c.role || 'Collaborator'}</p>
+                        </div>
+                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:100,
+                          background: c.status === 'active' ? '#22c55e18' : 'rgba(0,0,0,.05)',
+                          color: c.status === 'active' ? '#22c55e' : '#bbb' }}>
+                          {c.status === 'active' ? 'Active' : 'Pending'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
             <div style={{ background:'#fff', borderRadius:14, padding:'16px',
               border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
