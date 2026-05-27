@@ -169,24 +169,29 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
         {statCards.map(s => (
           isMobile ? (
             <div key={s.label}
-              style={{ borderRadius:16, padding:'20px 18px', background:C.surface, border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:12 }}>{s.label}</div>
-              <div style={{ fontSize:36, fontWeight:900, color:C.t1, letterSpacing:'-2px', lineHeight:1, marginBottom:6 }}>
+              style={{ borderRadius:16, padding:'22px 20px', background:'#0a0a0d',
+                border:'1px solid rgba(255,255,255,.06)',
+                boxShadow:'0 2px 12px rgba(0,0,0,.4)' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.28)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:14 }}>{s.label}</div>
+              <div style={{ fontSize:38, fontWeight:900, color:'#fff', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
                 {s.val===null?<Spinner size={22} color={s.accent}/>:s.val}
               </div>
-              <div style={{ fontSize:11.5, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
             </div>
           ) : (
             <button key={s.label} onClick={()=>navigate(`/${s.page}`)} aria-label={`${s.label}: ${s.val??'loading'}`}
-              style={{ borderRadius:16, padding:'20px 18px', cursor:'pointer', background:C.surface,
-                border:`1px solid ${C.border}`, transition:'all .18s', textAlign:'left', width:'100%' }}
-              onMouseEnter={e=>{e.currentTarget.style.background=C.surface2;e.currentTarget.style.borderColor='rgba(255,255,255,.12)'}}
-              onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderColor=C.border}}>
-              <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:12 }}>{s.label}</div>
-              <div style={{ fontSize:36, fontWeight:900, color:C.t1, letterSpacing:'-2px', lineHeight:1, marginBottom:6 }}>
+              style={{ borderRadius:16, padding:'22px 20px', cursor:'pointer',
+                background:'#0a0a0d',
+                border:'1px solid rgba(255,255,255,.06)',
+                boxShadow:'0 2px 12px rgba(0,0,0,.4)',
+                transition:'all .18s', textAlign:'left', width:'100%' }}
+              onMouseEnter={e=>{e.currentTarget.style.background='#111114';e.currentTarget.style.boxShadow=`0 4px 20px rgba(0,0,0,.5), 0 0 0 1px ${s.accent}20`}}
+              onMouseLeave={e=>{e.currentTarget.style.background='#0a0a0d';e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.4)'}}>
+              <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.28)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:14 }}>{s.label}</div>
+              <div style={{ fontSize:38, fontWeight:900, color:'#fff', letterSpacing:'-2px', lineHeight:1, marginBottom:8 }}>
                 {s.val===null?<Spinner size={22} color={s.accent}/>:s.val}
               </div>
-              <div style={{ fontSize:11.5, color:s.accent, fontWeight:600 }}>{s.sub}</div>
+              <div style={{ fontSize:12, color:s.accent, fontWeight:600 }}>{s.sub}</div>
             </button>
           )
         ))}
