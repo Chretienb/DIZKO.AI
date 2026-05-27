@@ -5,17 +5,19 @@ export const C = {
   pink:'#F28FB8',  rose:'#E8709A',
   grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
 
-  // Dark theme surfaces
-  bg:       '#0d0d12',   // main page background
-  surface:  '#111118',   // cards, panels
-  surface2: '#1a1a22',   // elevated / hover
+  // Dark theme — blue-gray tinted like the reference
+  bg:       '#1e1f2e',   // main content background
+  surface:  '#252638',   // cards and panels
+  surface2: '#2d2e45',   // hover / elevated
+  sidebar:  '#191a28',   // sidebar (slightly darker)
+  outer:    '#15162a',   // body / outermost wrapper
   border:   'rgba(255,255,255,.07)',
   border2:  'rgba(255,255,255,.04)',
 
   // Dark theme text
   t1: '#ffffff',
   t2: 'rgba(255,255,255,.55)',
-  t3: 'rgba(255,255,255,.25)',
+  t3: 'rgba(255,255,255,.28)',
 }
 
 function initials(fullName = '') {

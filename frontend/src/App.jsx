@@ -2560,46 +2560,71 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   ) ?? NAV[0]
 
   // ── Sidebar content — shared between desktop aside and mobile drawer ─────────
-  const SidebarContent = () => (
+  const SidebarContent = () => {
+    // Group nav items with section labels like the reference
+    const MAIN_NAV  = NAV.filter(n => ['dashboard','projects','studio'].includes(n.id))
+    const TOOLS_NAV = NAV.filter(n => ['collaborators','library','analytics'].includes(n.id))
+
+    const NavBtn = ({ n }) => {
+      const on = currentNav?.id === n.id
+      return (
+        <button onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
+          aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
+          style={{
+            display:'flex', alignItems:'center', gap:11, width:'100%',
+            padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer',
+            marginBottom:1, textAlign:'left',
+            fontSize:13.5, fontWeight: on ? 600 : 400,
+            color: on ? '#fff' : 'rgba(255,255,255,.42)',
+            background: on ? 'rgba(255,255,255,.08)' : 'transparent',
+            transition:'all .12s',
+          }}
+          onMouseEnter={e => {
+            if (!on) { e.currentTarget.style.background='rgba(255,255,255,.05)'; e.currentTarget.style.color='rgba(255,255,255,.75)' }
+            ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
+          }}
+          onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.42)' }}}>
+
+          {/* Icon in a small rounded box */}
+          <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
+            background: on ? `${C.coral}20` : 'rgba(255,255,255,.06)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            transition:'background .12s' }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+              stroke={on ? C.coral : 'rgba(255,255,255,.45)'}
+              strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+              <path d={n.icon}/>
+            </svg>
+          </div>
+          {n.label}
+        </button>
+      )
+    }
+
+    return (
     <>
-      <div style={{ padding:'20px 16px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
+      {/* Logo */}
+      <div style={{ padding:'22px 16px 18px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
         onClick={() => { navigate('/'); if (isMobile) setDrawerOpen(false) }}>
-        <img src={logo} style={{ width:36, height:36, borderRadius:10, objectFit:'cover', flexShrink:0 }} alt="" />
+        <img src={logo} style={{ width:34, height:34, borderRadius:9, objectFit:'cover', flexShrink:0 }} alt="" />
         <div>
-          <div style={{ fontSize:15, fontWeight:800, color:'#fff', letterSpacing:'-.4px', lineHeight:1.1 }}>
+          <div style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.5px', lineHeight:1 }}>
             Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
           </div>
-          <div style={{ fontSize:9, color:'rgba(255,255,255,.3)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
+          <div style={{ fontSize:9, color:'rgba(255,255,255,.25)', letterSpacing:'.12em', textTransform:'uppercase', marginTop:3 }}>Music Workspace</div>
         </div>
       </div>
-      <nav style={{ flex:1, padding:'8px 10px', overflowY:'auto' }}>
-        {NAV.map(n => {
-          const on = currentNav?.id === n.id
-          return (
-            <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
-              aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
-              style={{
-              display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px',
-              borderRadius:9, border:'none', cursor:'pointer', marginBottom:2, textAlign:'left',
-              fontSize:13, fontWeight: on ? 600 : 400,
-              color: on ? '#fff' : 'rgba(255,255,255,.38)',
-              background: on ? 'rgba(255,255,255,.1)' : 'transparent', transition:'all .15s',
-            }}
-            onMouseEnter={e => {
-              if (!on) { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color='rgba(255,255,255,.7)' }
-              ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
-            }}
-            onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.38)' }}}>
-              <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
-                stroke={on ? C.coral : 'rgba(255,255,255,.38)'}
-                strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
-                <path d={n.icon}/>
-              </svg>
-              {n.label}
-              {on && <span style={{ marginLeft:'auto', width:5, height:5, borderRadius:'50%', background:C.coral }} />}
-            </button>
-          )
-        })}
+
+      <nav style={{ flex:1, padding:'4px 10px', overflowY:'auto' }}>
+        {/* Main nav */}
+        {MAIN_NAV.map(n => <NavBtn key={n.id} n={n}/>)}
+
+        {/* Tools section */}
+        <div style={{ margin:'16px 2px 8px', fontSize:10, fontWeight:700,
+          color:'rgba(255,255,255,.22)', textTransform:'uppercase', letterSpacing:'.12em' }}>
+          Tools
+        </div>
+        {TOOLS_NAV.map(n => <NavBtn key={n.id} n={n}/>)}
       </nav>
       {/* Getting started checklist — dismisses when all done */}
       {checklistVisible && (
@@ -2753,11 +2778,11 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         </button>
       </div>
     </>
-  )
+  )}
 
   return (
     <MobileCtx.Provider value={isMobile}>
-    <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:'#f6f6f7',
+    <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', color:'#111' }}>
 
@@ -2778,13 +2803,13 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
       {/* ══ SIDEBAR (desktop only) ════════════════════════════════════════════ */}
       {!isMobile && (
-        <aside style={{ width:220, background:'#111', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
+        <aside style={{ width:220, background:C.sidebar, display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
           <SidebarContent />
         </aside>
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         {isMobile ? (
@@ -2809,7 +2834,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
           </header>
         ) : (
-          <header style={{ height:52, background:C.surface, borderBottom:`1px solid ${C.border}`,
+          <header style={{ height:52, background:C.bg, borderBottom:`1px solid ${C.border}`,
             display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0,
             position:'relative', zIndex:100 }}>
             <div style={{ display:'flex', gap:4 }}>
