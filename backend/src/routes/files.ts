@@ -6,7 +6,7 @@ import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
-import { analyzeWavBuffer } from '../lib/audioAnalysis'
+import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { generateStemName } from '../lib/naming'
 import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
@@ -198,16 +198,22 @@ files.post('/upload', async (c) => {
         file.name, instrument, bpm, key, projectTitle, essentiaAnalysis
       )
 
+      // Extract 512 waveform peaks from WAV buffer — stored so frontend renders
+      // instantly from DB instead of fetching from R2 on every page load.
+      const peaks = contentType === 'audio/wav' || file.name.endsWith('.wav')
+        ? extractWaveformPeaks(buffer, 512)
+        : null
+
       await supabase.from('stems').update({
         notes: JSON.stringify({
           status: 'ready', type: 'take', bpm, key,
-          // Store full Essentia analysis for future use
           ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
+          ...(peaks            ? { peaks }                              : {}),
         }),
         suggested_name: suggestedName,
       }).eq('id', takeId)
 
-      console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${essentiaAnalysis ? ' · Essentia ✓' : ' · fallback'})`)
+      console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
 
       // AI analysis — runs first so mix params are ready for Smart Mix
       await analyzeProject(projectId, user.id).catch(e =>

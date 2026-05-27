@@ -79,10 +79,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [smartMixInfo,  setSmartMixInfo] = useState(null)
   const audioRefs  = useRef({})
   const gainRefs   = useRef({})
-  const ctxRef     = useRef(null)
-  const startAtRef = useRef(0)
-  const offsetRef  = useRef(0)
-  const rafRef     = useRef(null)
+  const ctxRef       = useRef(null)
+  const startAtRef   = useRef(0)
+  const offsetRef    = useRef(0)
+  const rafRef       = useRef(null)
+  const analyserRefs = useRef({})   // stemId → AnalyserNode
   const [bpm, setBpm] = useState(120)
   const [beatFlash, setBeatFlash] = useState(false)
   const [metronomeOn, setMetronomeOn] = useState(true)
@@ -163,7 +164,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const stopAll = () => {
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
-    audioRefs.current = {}; gainRefs.current = {}
+    audioRefs.current = {}; gainRefs.current = {}; analyserRefs.current = {}
     if (ctxRef.current) { ctxRef.current.close().catch(()=>{}); ctxRef.current = null }
     cancelAnimationFrame(rafRef.current)
     clearInterval(beatTimerRef.current)
@@ -253,7 +254,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         if (effectiveDur > maxDur) maxDur = effectiveDur
         const src = ctx.createBufferSource(); src.buffer = decoded
         const gain = ctx.createGain(); gain.gain.value = (isMuted || isSilenced) ? 0 : vol
-        gainRefs.current[s.id] = gain; src.connect(gain); gain.connect(ctx.destination)
+        // Insert AnalyserNode between gain and destination for live waveform
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 2048
+        analyser.smoothingTimeConstant = 0.8
+        analyserRefs.current[s.id] = analyser
+        gainRefs.current[s.id] = gain
+        src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
         src.start(0, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
         audioRefs.current[s.id] = src
       } catch (e) {
@@ -523,6 +530,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
                   postingComment={postingComment}
                   currentTime={currentTime} duration={duration}
+                  isPlaying={playing}
+                  analyserNode={analyserRefs.current[s.id] || null}
+                  storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
                   onSeek={sec => { offsetRef.current = sec; setCurrentTime(sec) }}

@@ -165,6 +165,36 @@ function detectKey(samples: Float32Array, sampleRate: number): string {
   return bestMode === 'minor' ? `${bestKey}m` : bestKey
 }
 
+// ── Peak extraction for waveform display ─────────────────────────────────────
+// Returns numPeaks normalised amplitudes [0, 1] — stored in stems.notes.peaks
+// so the frontend can render instantly without fetching from R2.
+export function extractWaveformPeaks(buf: Buffer, numPeaks = 512): number[] | null {
+  const wav = readWavBuffer(buf)
+  if (!wav || wav.samples.length < numPeaks) return null
+
+  const { samples } = wav
+  const blockSize   = Math.floor(samples.length / numPeaks)
+  const peaks       = new Array<number>(numPeaks)
+
+  for (let i = 0; i < numPeaks; i++) {
+    let max = 0
+    const off = i * blockSize
+    for (let j = 0; j < blockSize; j++) {
+      const v = Math.abs(samples[off + j] ?? 0)
+      if (v > max) max = v
+    }
+    peaks[i] = parseFloat(max.toFixed(4))
+  }
+
+  // Normalise so the loudest bar hits 1.0
+  const globalMax = Math.max(...peaks)
+  if (globalMax > 0) {
+    for (let i = 0; i < numPeaks; i++) peaks[i] = parseFloat((peaks[i] / globalMax).toFixed(4))
+  }
+
+  return peaks
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function analyzeWavBuffer(buf: Buffer): Promise<{ bpm: number | null; key: string | null }> {
