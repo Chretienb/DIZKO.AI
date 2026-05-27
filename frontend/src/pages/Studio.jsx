@@ -267,8 +267,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     }))
 
     // ── Pass 2: schedule ALL sources at the same audio-clock instant ──────
-    // A 50ms lookahead gives the browser time to compile the graph
-    // before the clock reaches startTime — guaranteed sync on every device.
+    // Resume context first — Chrome/Safari suspend it even after user click.
+    // ctx.currentTime is frozen at 0 while suspended; scheduling against it
+    // produces wrong offsets and stems start at different times.
+    if (ctx.state === 'suspended') await ctx.resume()
+
+    // 50ms lookahead: enough for the browser to compile the graph
     const startTime = ctx.currentTime + 0.05
     let maxDur = 0
 
@@ -277,8 +281,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const vol         = getVolume(s.id)
       const isMuted     = mutedIds.has(s.id)
       const isSilenced  = soloId !== null && soloId !== s.id
-      const trimStart   = audio.duration * trim.start
+      const trimStart    = audio.duration * trim.start
       const effectiveDur = audio.duration * (trim.end - trim.start)
+      const playFrom     = trimStart + offsetRef.current
+      // Skip stem if the seek position is past its end — don't start it at all
+      if (playFrom >= audio.duration) return
       if (effectiveDur > maxDur) maxDur = effectiveDur
 
       const src     = ctx.createBufferSource(); src.buffer = audio
@@ -291,7 +298,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
 
       // All sources share the same startTime — perfectly in sync
-      src.start(startTime, trimStart + offsetRef.current, effectiveDur - offsetRef.current)
+      src.start(startTime, playFrom, effectiveDur - offsetRef.current)
       audioRefs.current[s.id] = src
     })
 
