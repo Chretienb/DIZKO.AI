@@ -213,7 +213,7 @@ export const files = {
 // ── Collaborators ─────────────────────────────────────────────────────────────
 export const collaborators = {
   // List by project — GET /projects/:id/collaborators
-  listByProject: (projectId)       => get(`/projects/${projectId}/collaborators`),
+  listByProject: (projectId)       => get(`/collaborators?project_id=${projectId}`),
   // Add to a specific project — POST /projects/:id/collaborators { email, role }
   addToProject:  (projectId, body) => post(`/projects/${projectId}/collaborators`, body),
   // Standalone list (all projects) — GET /collaborators?project_id=xxx

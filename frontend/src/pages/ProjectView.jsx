@@ -236,7 +236,8 @@ function MessageModal({ collab, onClose, onSend }) {
   const [sending, setSending] = useState(false)
   const [sent,    setSent]    = useState(false)
   const ref = useRef(null)
-  const name = collab.user?.full_name || collab.full_name || collab.email?.split('@')[0] || 'Collaborator'
+  const _em = collab.user?.email || collab.email || ''
+  const name = collab.user?.full_name || (_em ? _em.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,l=>l.toUpperCase()) : 'Collaborator')
 
   useEffect(() => { setTimeout(() => ref.current?.focus(), 60) }, [])
 
@@ -318,7 +319,8 @@ function MessageModal({ collab, onClose, onSend }) {
 
 // ── Remove confirm modal ──────────────────────────────────────────────────────
 function RemoveModal({ collab, onClose, onConfirm }) {
-  const name = collab.user?.full_name || collab.full_name || collab.email?.split('@')[0] || 'Collaborator'
+  const _em = collab.user?.email || collab.email || ''
+  const name = collab.user?.full_name || (_em ? _em.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,l=>l.toUpperCase()) : 'Collaborator')
   return (
     <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)' }}
@@ -391,10 +393,11 @@ function CollaboratorsPanel({ collabs, onInvite, onRemove, onMessage }) {
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
             {collabs.map((c, i) => {
-              const name  = c.user?.full_name || c.full_name || c.email || 'Collaborator'
-              const email = c.user?.email || c.email || ''
+              const rawEmail = c.user?.email || c.email || ''
+              const name  = c.user?.full_name
+                || (rawEmail ? rawEmail.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,l=>l.toUpperCase()) : 'Collaborator')
               const color = COLORS[i % COLORS.length]
-              const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+              const initials = name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?'
 
               return (
                 <div key={c.id}
