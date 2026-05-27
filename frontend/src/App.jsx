@@ -591,26 +591,27 @@ function Modal({ title, sub, onClose, children, width=520, accent }) {
       justifyContent:'center', padding:20 }}
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label={title}
-        style={{ background:'#fff', borderRadius:24, width:'100%', maxWidth:width,
-        maxHeight:'92vh', overflowY:'auto', boxShadow:'0 40px 120px rgba(0,0,0,.35)',
+        style={{ background:'#16161e', borderRadius:24, width:'100%', maxWidth:width,
+        maxHeight:'92vh', overflowY:'auto',
+        boxShadow:'0 40px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.07)',
         position:'relative' }}>
         {/* Accent bar */}
-        <div style={{ height:3, background:`linear-gradient(90deg,${bar},${bar}88)`,
+        <div style={{ height:3, background:`linear-gradient(90deg,${bar},${bar}60)`,
           borderRadius:'24px 24px 0 0' }}/>
         {/* Header */}
         <div style={{ padding:'22px 26px 18px', display:'flex', alignItems:'flex-start',
-          justifyContent:'space-between', borderBottom:'1px solid rgba(0,0,0,.06)' }}>
+          justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
           <div>
-            <h2 style={{ margin:0, fontSize:17, fontWeight:900, color:'#111', letterSpacing:'-.4px' }}>{title}</h2>
-            {sub && <p style={{ margin:'4px 0 0', fontSize:12.5, color:'#aaa', lineHeight:1.4 }}>{sub}</p>}
+            <h2 style={{ margin:0, fontSize:18, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>{title}</h2>
+            {sub && <p style={{ margin:'4px 0 0', fontSize:12.5, color:'rgba(255,255,255,.35)', lineHeight:1.4 }}>{sub}</p>}
           </div>
           <button onClick={onClose} aria-label="Close dialog"
             style={{ width:32, height:32, borderRadius:10,
-            background:'rgba(0,0,0,.06)', border:'none', cursor:'pointer', flexShrink:0, marginLeft:16,
+            background:'rgba(255,255,255,.07)', border:'none', cursor:'pointer', flexShrink:0, marginLeft:16,
             display:'flex', alignItems:'center', justifyContent:'center', transition:'background .15s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.12)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,.06)'}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth={2.5} strokeLinecap="round">
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.14)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth={2.5} strokeLinecap="round">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
@@ -1979,117 +1980,122 @@ function ModalUpload({ project, onClose, user }) {
     <Modal title="Upload Files"
       sub={selProj?.title
         ? `To "${selProj.title}"${myRole ? ` · ${myRole}` : ''}`
-        : 'Pick a project'}
+        : 'Pick a session'}
       onClose={onClose}>
+
+      {/* Project picker */}
       {!project && (
-        <div style={{ marginBottom:16 }}>
-          <MLabel>Project</MLabel>
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.3)',
+            textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10 }}>Session</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
             {projects.map(p => {
               const sel = selProj?.id === p.id
               return (
                 <button key={p.id} onClick={() => setSelProj(p)} style={{
-                  padding:'6px 14px', borderRadius:100,
-                  border:`1.5px solid ${sel ? C.coral : 'rgba(0,0,0,.09)'}`,
-                  background: sel ? C.coral : 'transparent', color: sel ? '#fff' : '#888',
-                  fontSize:12, fontWeight:700, cursor:'pointer',
-                  display:'flex', alignItems:'center', gap:5,
+                  padding:'7px 16px', borderRadius:100,
+                  border:`1.5px solid ${sel ? C.coral : 'rgba(255,255,255,.1)'}`,
+                  background: sel ? `${C.coral}20` : 'transparent',
+                  color: sel ? C.coral : 'rgba(255,255,255,.45)',
+                  fontSize:12.5, fontWeight:700, cursor:'pointer',
+                  display:'flex', alignItems:'center', gap:6, transition:'all .12s',
                 }}>
-                  {sel && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
+                  {sel && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={3.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
                   {p.title}
                 </button>
               )
             })}
-            {projects.length === 0 && <span style={{ fontSize:12, color:'#bbb' }}>No projects yet</span>}
+            {projects.length === 0 && <span style={{ fontSize:12, color:'rgba(255,255,255,.25)' }}>No sessions yet</span>}
           </div>
         </div>
       )}
 
-      {/* Role permissions notice */}
+      {/* Role notice */}
       {myRole && myRole !== 'Owner' && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 13px',
-          borderRadius:10, background:`${C.coral}06`, border:`1px solid ${C.coral}25`,
-          marginBottom:12, fontSize:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px',
+          borderRadius:10, background:`${C.coral}10`, border:`1px solid ${C.coral}20`,
+          marginBottom:14, fontSize:12 }}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <span style={{ color:'#555' }}>
-            You're a <strong style={{ color:C.coral }}>{myRole}</strong> on this project.
-            You can upload: <strong>{ROLE_PERMS[myRole] || 'anything'}</strong>.
-            Other files will prompt a request.
+          <span style={{ color:'rgba(255,255,255,.6)' }}>
+            Role: <strong style={{ color:C.coral }}>{myRole}</strong> · Can upload: <strong style={{ color:'rgba(255,255,255,.8)' }}>{ROLE_PERMS[myRole] || 'anything'}</strong>
           </span>
         </div>
       )}
 
       {/* Drop zone */}
-      <div style={{ borderRadius:16, border:`2px dashed ${drag ? C.coral : 'rgba(0,0,0,.1)'}`,
-        padding:'28px 20px', textAlign:'center', cursor:'pointer', marginBottom:12,
-        background: drag ? `${C.coral}06` : '#fafafa', transition:'all .15s' }}
+      <div style={{ borderRadius:16,
+        border:`2px dashed ${drag ? C.coral : 'rgba(255,255,255,.1)'}`,
+        padding:'32px 20px', textAlign:'center', cursor:'pointer', marginBottom:14,
+        background: drag ? `${C.coral}08` : 'rgba(255,255,255,.03)', transition:'all .15s' }}
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
         onClick={() => inputRef.current.click()}>
-        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip" aria-label="Upload audio files"
-          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
-        <div style={{ width:44, height:44, borderRadius:12, background:C.grad, margin:'0 auto 10px',
-          display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 12px ${C.coral}35` }}>
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
+        <input ref={inputRef} type="file" multiple accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
+          aria-label="Upload audio files" style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
+        <div style={{ width:48, height:48, borderRadius:14, background:C.grad, margin:'0 auto 12px',
+          display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 6px 20px ${C.coral}40` }}>
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
             <polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/>
             <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
           </svg>
         </div>
-        <div style={{ fontSize:13, fontWeight:700, color:'#222' }}>Drop files or click to browse</div>
-        <div style={{ fontSize:11.5, color:'#bbb', marginTop:3 }}>WAV · MP3 · M4A · AIFF · FLAC · AAC · max 50 MB</div>
+        <div style={{ fontSize:14, fontWeight:700, color:'rgba(255,255,255,.85)' }}>
+          Drop stems here or <span style={{ color:C.coral }}>browse</span>
+        </div>
+        <div style={{ fontSize:11.5, color:'rgba(255,255,255,.25)', marginTop:5, letterSpacing:'.02em' }}>
+          WAV · MP3 · M4A · AIFF · FLAC · AAC · max 50 MB
+        </div>
       </div>
 
       {/* Queue */}
       {queue.length > 0 && (
-        <div style={{ marginBottom:12, borderRadius:12, border:'1px solid rgba(0,0,0,.07)' }}>
+        <div style={{ marginBottom:12, borderRadius:12, border:'1px solid rgba(255,255,255,.07)',
+          overflow:'hidden' }}>
           {queue.map((item, i) => {
             const ext = item.file.name.split('.').pop().toUpperCase()
             const mb  = (item.file.size / 1048576).toFixed(1)
             const col = typeColor(ext)
             return (
-              <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
-                borderBottom: i < queue.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none',
-                background: item.status === 'error' ? 'rgba(239,68,68,.03)'
-                  : item.status === 'blocked' ? 'rgba(245,158,11,.04)' : 'transparent' }}>
-                <div style={{ width:30, height:30, borderRadius:8, background:`${col}15`, flexShrink:0,
+              <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px',
+                borderBottom: i < queue.length-1 ? '1px solid rgba(255,255,255,.05)' : 'none',
+                background: item.status === 'error' ? 'rgba(239,68,68,.06)'
+                  : item.status === 'blocked' ? 'rgba(245,158,11,.06)' : 'transparent' }}>
+                <div style={{ width:32, height:32, borderRadius:9, background:`${col}20`, flexShrink:0,
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:8, fontWeight:800, color:col, marginTop:2 }}>{ext}</div>
+                  fontSize:8, fontWeight:800, color:col, marginTop:1,
+                  border:`1px solid ${col}30` }}>{ext}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12.5, fontWeight:600, color:'#111',
+                  <div style={{ fontSize:12.5, fontWeight:600, color:'rgba(255,255,255,.85)',
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.file.name}</div>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:5, flexWrap:'wrap' }}>
-                    {/* Instrument picker — shown while queued */}
                     {(item.status === 'queued' || item.status === 'error') && (
                       <InstrPicker value={item.instrument} onChange={instr => setItemInstrument(i, instr)} />
                     )}
-                    {/* Show confirmed instrument after upload */}
                     {item.status === 'done' && item.instrument && (() => {
                       const ins = INSTR_LIST.find(x => x.id === item.instrument)
                       return ins ? (
                         <span style={{ fontSize:11, fontWeight:700, color:ins.color,
-                          background:`${ins.color}15`, padding:'2px 8px', borderRadius:100 }}>
+                          background:`${ins.color}18`, padding:'2px 8px', borderRadius:100 }}>
                           {ins.label}
                         </span>
                       ) : null
                     })()}
-                    <span style={{ fontSize:10.5, color:'#bbb' }}>{mb} MB</span>
+                    <span style={{ fontSize:10.5, color:'rgba(255,255,255,.3)' }}>{mb} MB</span>
                     {item.status === 'error' && <span style={{ color:'#ef4444', fontSize:10.5 }}>{item.error}</span>}
                     {item.status === 'blocked' && (
                       <span style={{ color:C.amber, fontSize:10.5, fontWeight:600 }}>
-                        Your role ({item.role}) can't upload {item.instrument}
+                        Role ({item.role}) can't upload {item.instrument}
                       </span>
                     )}
                   </div>
                   {!item.instrument && item.status === 'queued' && (
-                    <div style={{ fontSize:10, color:'#f59e0b', marginTop:3 }}>
-                      No instrument detected — please set one above
-                    </div>
+                    <div style={{ fontSize:10, color:C.amber, marginTop:3 }}>Set instrument type above</div>
                   )}
                   {item.status === 'uploading' && (
-                    <div style={{ height:2, background:'rgba(0,0,0,.06)', borderRadius:2, marginTop:6 }}>
+                    <div style={{ height:2, background:'rgba(255,255,255,.08)', borderRadius:2, marginTop:6 }}>
                       <div style={{ height:'100%', width:`${item.progress}%`, background:C.grad, borderRadius:2, transition:'width .3s' }}/>
                     </div>
                   )}
@@ -2136,12 +2142,12 @@ function ModalUpload({ project, onClose, user }) {
 
       {(doneCount > 0 || errorCount > 0) && !allDone && (
         <div style={{ fontSize:11.5, marginBottom:12, display:'flex', gap:8 }}>
-          {doneCount > 0 && <span style={{ color:'#16a34a', fontWeight:600 }}>{doneCount} uploaded</span>}
+          {doneCount > 0 && <span style={{ color:'#22c55e', fontWeight:600 }}>{doneCount} uploaded</span>}
           {errorCount > 0 && <span style={{ color:'#ef4444', fontWeight:600 }}>{errorCount} failed</span>}
         </div>
       )}
 
-      <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(0,0,0,.06)', paddingTop:16 }}>
+      <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(255,255,255,.07)', paddingTop:16 }}>
         {uploading ? (
           <Btn style={{ flex:1 }} disabled>
             <Spinner size={14} color="#fff"/> Uploading…
