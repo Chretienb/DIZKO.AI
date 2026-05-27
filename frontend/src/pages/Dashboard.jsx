@@ -270,26 +270,27 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                 <div key={p.id??i}
                   onClick={()=>navigate(`/projects/${p.id}`)}
                   style={{
-                    minWidth:150, width:150, flexShrink:0, borderRadius:14,
+                    minWidth:170, width:170, flexShrink:0, borderRadius:16,
                     overflow:'hidden', cursor:'pointer', display:'flex', flexDirection:'column',
-                    boxShadow:'0 4px 20px rgba(0,0,0,.4)',
+                    boxShadow:'0 6px 24px rgba(0,0,0,.5)',
                     transition:'transform .18s, box-shadow .18s',
                   }}
-                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-5px)';e.currentTarget.style.boxShadow='0 16px 40px rgba(0,0,0,.5)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,.4)'}}>
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow='0 20px 44px rgba(0,0,0,.6)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,.5)'}}>
 
                   {/* Gradient art */}
-                  <div style={{ height:96, background:g, position:'relative', flexShrink:0 }}>
-                    <div style={{ position:'absolute', bottom:10, right:10, opacity:.15 }}>
-                      <svg width={28} height={28} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6z"/></svg>
+                  <div style={{ height:116, background:g, position:'relative', flexShrink:0 }}>
+                    <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', border:'1px solid rgba(255,255,255,.07)', pointerEvents:'none' }}/>
+                    <div style={{ position:'absolute', bottom:12, right:12, opacity:.12 }}>
+                      <svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6z"/></svg>
                     </div>
                   </div>
 
                   {/* Footer */}
-                  <div style={{ background:'#0d0d10', padding:'10px 12px', flex:1 }}>
-                    {p.type && <div style={{ fontSize:8.5, fontWeight:700, color:'rgba(255,255,255,.25)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:3 }}>{p.type}</div>}
-                    <div style={{ fontSize:13, fontWeight:800, color:'#fff', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,.25)', marginTop:4 }}>{isOwner ? 'Creator' : 'Invited'}</div>
+                  <div style={{ background:'#0c0c0f', padding:'12px 14px 14px', flex:1 }}>
+                    {p.type && <div style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.22)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:4 }}>{p.type}</div>}
+                    <div style={{ fontSize:14, fontWeight:800, color:'#fff', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>{p.title}</div>
+                    <div style={{ fontSize:10.5, color:'rgba(255,255,255,.22)' }}>{isOwner ? 'Creator' : 'Invited'}</div>
                   </div>
                 </div>
               )

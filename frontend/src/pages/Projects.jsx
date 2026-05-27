@@ -125,55 +125,74 @@ export default function PageProjects({ openModal, refreshKey, user }) {
             return (
               <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                 style={{
-                  borderRadius:18, overflow:'hidden', cursor:'pointer',
+                  borderRadius:20, overflow:'hidden', cursor:'pointer',
                   display:'flex', flexDirection:'column',
-                  boxShadow:'0 4px 24px rgba(0,0,0,.4)',
-                  transition:'transform .2s, box-shadow .2s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow='0 20px 48px rgba(0,0,0,.55)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 24px rgba(0,0,0,.4)' }}>
+                  boxShadow:'0 8px 32px rgba(0,0,0,.5)',
+                  transition:'transform .22s, box-shadow .22s',
+                }}>
 
-                {/* Art — full gradient, no clutter */}
-                <div style={{ height: isMobile ? 160 : 200, background:g, position:'relative', overflow:'hidden', flexShrink:0 }}>
-                  {/* Subtle ring decoration */}
-                  <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180, borderRadius:'50%', border:'1px solid rgba(255,255,255,.08)', pointerEvents:'none' }}/>
-                  <div style={{ position:'absolute', bottom:16, right:18, opacity:.12 }}>
-                    <svg width={48} height={48} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6z"/></svg>
+                {/* Art */}
+                <div style={{ height: isMobile ? 180 : 240, background:g,
+                  position:'relative', overflow:'hidden', flexShrink:0 }}>
+
+                  {/* Decorative circles */}
+                  <div style={{ position:'absolute', top:-60, right:-60, width:240, height:240,
+                    borderRadius:'50%', border:'1px solid rgba(255,255,255,.07)', pointerEvents:'none' }}/>
+                  <div style={{ position:'absolute', top:-20, right:-20, width:140, height:140,
+                    borderRadius:'50%', border:'1px solid rgba(255,255,255,.05)', pointerEvents:'none' }}/>
+
+                  {/* Watermark note */}
+                  <div style={{ position:'absolute', bottom:20, right:20, opacity:.1 }}>
+                    <svg width={64} height={64} viewBox="0 0 24 24" fill="white">
+                      <path d="M9 18V5l12-3v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+                    </svg>
                   </div>
-                  {/* Role — top left, minimal */}
+
+                  {/* Role badge */}
                   {role && (
-                    <div style={{ position:'absolute', top:12, left:12,
-                      fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:100,
-                      backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
-                      background: isOwner ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.25)',
-                      color:'rgba(255,255,255,.8)', border:'1px solid rgba(255,255,255,.15)' }}>
+                    <div style={{ position:'absolute', top:14, left:14,
+                      fontSize:10.5, fontWeight:700, padding:'4px 11px', borderRadius:100,
+                      backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)',
+                      background:'rgba(0,0,0,.32)', color:'rgba(255,255,255,.85)',
+                      border:'1px solid rgba(255,255,255,.14)' }}>
                       {isOwner ? '★ Creator' : role}
+                    </div>
+                  )}
+
+                  {/* Status */}
+                  {p.status && (
+                    <div style={{ position:'absolute', top:14, right:14,
+                      fontSize:10.5, fontWeight:700, padding:'4px 11px', borderRadius:100,
+                      backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)',
+                      background:st.bg, color:st.color, border:`1px solid ${st.border}` }}>
+                      {p.status}
                     </div>
                   )}
                 </div>
 
-                {/* Footer — dark, clean */}
-                <div style={{ background:'#0d0d10', padding:'14px 16px 16px', flex:1 }}>
+                {/* Footer */}
+                <div style={{ background:'#0c0c0f', padding:'18px 20px 20px' }}>
                   {p.type && (
-                    <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)',
-                      textTransform:'uppercase', letterSpacing:'.1em', marginBottom:5 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.25)',
+                      textTransform:'uppercase', letterSpacing:'.12em', marginBottom:6 }}>
                       {p.type}
                     </div>
                   )}
-                  <div style={{ fontSize:17, fontWeight:800, color:'#fff', letterSpacing:'-.4px',
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>
+                  <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.6px',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:14 }}>
                     {p.title}
                   </div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:11, color:'rgba(255,255,255,.28)', fontWeight:500 }}>
-                      {isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}
+                    <span style={{ fontSize:11.5, color:'rgba(255,255,255,.25)', fontWeight:500 }}>
+                      {isOwner ? timeAgo(p.created_at) : `Joined`}
                     </span>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
-                      style={{ height:28, padding:'0 14px', borderRadius:100, border:'none',
-                        background:g, color:'#fff', fontSize:11.5, fontWeight:700,
-                        cursor:'pointer', transition:'opacity .15s' }}
-                      onMouseEnter={e=>e.currentTarget.style.opacity='.8'}
-                      onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                      style={{ height:32, padding:'0 18px', borderRadius:100, border:'none',
+                        background:g, color:'#fff', fontSize:12, fontWeight:700,
+                        cursor:'pointer', boxShadow:`0 4px 16px rgba(0,0,0,.3)`,
+                        transition:'opacity .15s, transform .12s' }}
+                      onMouseEnter={e=>{e.currentTarget.style.opacity='.85';e.currentTarget.style.transform='scale(1.04)'}}
+                      onMouseLeave={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.transform='scale(1)'}}>
                       Open →
                     </button>
                   </div>
@@ -183,14 +202,20 @@ export default function PageProjects({ openModal, refreshKey, user }) {
           })}
 
           {/* New project card */}
-          <div style={{ borderRadius:24, border:'2px dashed rgba(0,0,0,.09)', height:360, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14, background:'rgba(0,0,0,.012)', transition:'all .2s' }}
+          <div style={{ borderRadius:20, border:'1.5px dashed rgba(255,255,255,.1)',
+            cursor:'pointer', display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center', gap:16,
+            background:'rgba(255,255,255,.02)', transition:'all .2s',
+            minHeight: isMobile ? 180 : 320 }}
             onClick={() => openModal('new-project', {})}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background=`${C.coral}06` }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(0,0,0,.09)'; e.currentTarget.style.background='rgba(0,0,0,.012)' }}>
-            <div style={{ width:56, height:56, borderRadius:16, background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 6px 20px ${C.coral}40`, fontSize:28, color:'#fff', fontWeight:200 }}>+</div>
+            onMouseEnter={e => { e.currentTarget.style.borderColor=`${C.coral}60`; e.currentTarget.style.background=`${C.coral}06` }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(255,255,255,.1)'; e.currentTarget.style.background='rgba(255,255,255,.02)' }}>
+            <div style={{ width:52, height:52, borderRadius:16, background:C.grad,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:`0 8px 24px ${C.coral}40`, fontSize:26, color:'#fff', fontWeight:300 }}>+</div>
             <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:14, fontWeight:800, color:'#222' }}>New Project</div>
-              <div style={{ fontSize:12, color:C.t3, marginTop:4 }}>Start from scratch</div>
+              <div style={{ fontSize:14, fontWeight:700, color:'rgba(255,255,255,.7)' }}>New Project</div>
+              <div style={{ fontSize:11.5, color:'rgba(255,255,255,.25)', marginTop:4 }}>Start a new session</div>
             </div>
           </div>
         </div>
