@@ -454,31 +454,6 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
 
           {/* Right column */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {/* Team */}
-            <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
-                <div style={{ fontSize:14, fontWeight:900, color:'#111', letterSpacing:'-.3px' }}>Team</div>
-                <button onClick={()=>openModal('invite',{})} style={{ fontSize:12, fontWeight:700, color:C.coral, background:`${C.coral}10`, border:'none', cursor:'pointer', padding:'5px 12px', borderRadius:9 }}>+ Invite</button>
-              </div>
-              {loadingDetail ? <div style={{ padding:'12px 20px' }}><Spinner size={16}/></div>
-              : projectCollabs.length===0 ? <div style={{ padding:'12px 20px 18px', fontSize:13, color:'#bbb' }}>No team members yet.</div>
-              : projectCollabs.slice(0,4).map((c,i)=>{
-                const color=collabColor(i), name=collabName(c)
-                const filesUploaded=projectFiles.filter(f=>f.uploaded_by===c.user_id).length
-                return (
-                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 20px', transition:'background .12s', cursor:'pointer' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.02)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <Avatar name={name} url={c.user?.avatar_url} size={36} color={color}/>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
-                      <div style={{ fontSize:11, color:'#bbb', marginTop:2 }}>{c.role||'Collaborator'}</div>
-                    </div>
-                    {filesUploaded>0&&<span style={{ fontSize:11, fontWeight:600, color:'#bbb', background:'rgba(0,0,0,.04)', padding:'3px 9px', borderRadius:100, flexShrink:0 }}>{filesUploaded} file{filesUploaded!==1?'s':''}</span>}
-                  </div>
-                )
-              })}
-            </div>
-
             {/* Recent Activity */}
             <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', flex:1, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.04)' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 20px 12px' }}>
