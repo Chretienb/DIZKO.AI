@@ -143,12 +143,13 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
     ? [...new Set(projectFiles.filter(f => f.instrument !== 'original' && f.instrument !== 'smart_bounce' && !pn(f).parent_stem_id).map(f => f.uploaded_by))].slice(0, 5)
     : []
 
+  // Collaborators count includes the project owner (+1)
+  const collabCount = loadingData ? null : String((overview.collaborators ?? 0) + (projects.length > 0 ? 1 : 0))
+
   const statCards = [
-    { label:'Active Projects', val:loadingData?null:String(projectCount), sub:`${projects.length} total`, accent:C.coral, page:'projects',
-      icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> },
-    { label:'Total Files', val:loadingData?null:String(fileCount), sub:'in your projects', accent:C.amber, page:'library',
+    { label:'Total Files', val:loadingData?null:String(fileCount), sub:'across sessions', accent:C.amber, page:'library',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13,2 13,9 20,9"/></svg> },
-    { label:'Collaborators', val:loadingData?null:String(overview.collaborators??0), sub:'across projects', accent:C.pink, page:'collaborators',
+    { label:'Team', val:collabCount, sub:'members total', accent:C.pink, page:'collaborators',
       icon:<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg> },
   ]
 
@@ -406,20 +407,35 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
               if (events.length>=6) break
             }
             const dc = ev => ev.type==='bounce'?'#22c55e':ev.type==='separation'?C.amber:(STEM_COLORS[ev.f.instrument]||C.coral)
+            const projectTitle = projects[0]?.title || 'the project'
             return events.slice(0,5).map((ev, i) => (
               <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'flex-start',
                 paddingBottom:14, marginBottom: i < 4 ? 14 : 0,
                 borderBottom: i < 4 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
-                {/* Colored dot */}
                 <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0,
                   background:dc(ev), marginTop:4,
                   boxShadow: ev.type==='bounce' ? `0 0 8px ${dc(ev)}` : 'none' }}/>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.65)', lineHeight:1.5 }}>
+                  <p style={{ margin:'0 0 2px', fontSize:12.5, color:'rgba(255,255,255,.65)', lineHeight:1.5 }}>
                     <strong style={{ color:'rgba(255,255,255,.88)', fontWeight:700 }}>{ev.who}</strong>
-                    {ev.type==='upload' && <> uploaded <span style={{ color:dc(ev) }}>{ev.f.instrument||'a file'}</span></>}
-                    {ev.type==='separation' && <> split <span style={{ color:C.amber }}>{ev.count} stems</span></>}
-                    {ev.type==='bounce' && <> updated the <span style={{ color:'#22c55e' }}>session mix</span></>}
+                    {ev.type==='upload' && <>
+                      {' '}uploaded{' '}
+                      <span style={{ color:dc(ev), fontWeight:600 }}>{ev.f.instrument||'a file'}</span>
+                      {' '}on{' '}
+                      <span style={{ color:'rgba(255,255,255,.7)', fontWeight:600 }}>{projectTitle}</span>
+                    </>}
+                    {ev.type==='separation' && <>
+                      {' '}split{' '}
+                      <span style={{ color:C.amber, fontWeight:600 }}>{ev.count} stems</span>
+                      {' '}from{' '}
+                      <span style={{ color:'rgba(255,255,255,.7)', fontWeight:600 }}>{projectTitle}</span>
+                    </>}
+                    {ev.type==='bounce' && <>
+                      {' '}updated the{' '}
+                      <span style={{ color:'#22c55e', fontWeight:600 }}>AI Mix</span>
+                      {' '}on{' '}
+                      <span style={{ color:'rgba(255,255,255,.7)', fontWeight:600 }}>{projectTitle}</span>
+                    </>}
                   </p>
                   <span style={{ fontSize:10.5, color:'rgba(255,255,255,.22)' }}>{timeAgo(ev.created_at)}</span>
                 </div>
