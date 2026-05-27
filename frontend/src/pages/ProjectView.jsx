@@ -900,19 +900,27 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 border:'1px solid rgba(0,0,0,.06)', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }}>
                 <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                   textTransform:'uppercase', letterSpacing:'.1em' }}>Breakdown</p>
-                <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+
+                {/* Stacked bar */}
+                <div style={{ height:5, borderRadius:3, overflow:'hidden', display:'flex', gap:1, marginBottom:12 }}>
                   {instruments.map(([inst, count]) => (
-                    <div key={inst}>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                        <span style={{ fontSize:12, color:'#555', textTransform:'capitalize',
-                          fontWeight:600 }}>{inst}</span>
-                        <span style={{ fontSize:12, color:'#aaa' }}>{count}</span>
-                      </div>
-                      <div style={{ height:3, borderRadius:2, background:'rgba(0,0,0,.05)' }}>
-                        <div style={{ height:'100%', borderRadius:2, background:ic(inst),
-                          width:`${Math.round((count/files.length)*100)}%`,
-                          transition:'width .4s ease' }}/>
-                      </div>
+                    <div key={inst} style={{ height:'100%', borderRadius:3,
+                      width:`${(count/files.length)*100}%`,
+                      background:ic(inst), transition:'width .4s ease' }}/>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                  {instruments.map(([inst, count]) => (
+                    <div key={inst} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:ic(inst), flexShrink:0 }}/>
+                      <span style={{ flex:1, fontSize:12.5, fontWeight:600, color:'#444',
+                        textTransform:'capitalize' }}>{inst}</span>
+                      <span style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{count}</span>
+                      <span style={{ fontSize:10.5, color:'#c8ccd4', fontWeight:500, minWidth:28, textAlign:'right' }}>
+                        {Math.round((count/files.length)*100)}%
+                      </span>
                     </div>
                   ))}
                 </div>
