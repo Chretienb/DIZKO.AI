@@ -28,45 +28,61 @@ import { useEffect, useRef, useState } from 'react'
 
 // url → { peaks: Float32Array, duration: number }
 const peaksCache = new Map()
+// url → in-flight Promise — deduplicates concurrent requests for the same URL
+const inFlight   = new Map()
 
-async function fetchAndExtractPeaks(url, numPeaks) {
+async function fetchAndExtractPeaks(url, numPeaks = 256) {
   if (peaksCache.has(url)) return peaksCache.get(url)
+  if (inFlight.has(url))   return inFlight.get(url)
 
-  const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  const promise = (async () => {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
+    if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
 
-  const ctx     = new (window.AudioContext || window.webkitAudioContext)()
-  const decoded = await ctx.decodeAudioData(await res.arrayBuffer())
-  await ctx.close()
+    const ctx     = new (window.AudioContext || window.webkitAudioContext)()
+    const decoded = await ctx.decodeAudioData(await res.arrayBuffer())
+    await ctx.close()
 
-  const duration = decoded.duration
-  const numCh    = decoded.numberOfChannels
-  const len      = decoded.length
-  const mono     = new Float32Array(len)
+    const duration = decoded.duration
+    const numCh    = decoded.numberOfChannels
+    const len      = decoded.length
+    const mono     = new Float32Array(len)
 
-  for (let c = 0; c < numCh; c++) {
-    const ch = decoded.getChannelData(c)
-    for (let i = 0; i < len; i++) mono[i] += ch[i] / numCh
-  }
-
-  const blockSize = Math.floor(len / numPeaks)
-  const peaks     = new Float32Array(numPeaks)
-  for (let i = 0; i < numPeaks; i++) {
-    let max = 0, off = i * blockSize
-    for (let j = 0; j < blockSize; j++) {
-      const v = Math.abs(mono[off + j] || 0)
-      if (v > max) max = v
+    for (let c = 0; c < numCh; c++) {
+      const ch = decoded.getChannelData(c)
+      for (let i = 0; i < len; i++) mono[i] += ch[i] / numCh
     }
-    peaks[i] = max
-  }
 
-  // Normalise
-  const globalMax = Math.max(...peaks)
-  if (globalMax > 0) for (let i = 0; i < peaks.length; i++) peaks[i] /= globalMax
+    const blockSize = Math.floor(len / numPeaks)
+    const peaks     = new Float32Array(numPeaks)
+    for (let i = 0; i < numPeaks; i++) {
+      let max = 0, off = i * blockSize
+      for (let j = 0; j < blockSize; j++) {
+        const v = Math.abs(mono[off + j] || 0)
+        if (v > max) max = v
+      }
+      peaks[i] = max
+    }
 
-  const result = { peaks, duration }
-  peaksCache.set(url, result)
-  return result
+    const globalMax = Math.max(...peaks)
+    if (globalMax > 0) for (let i = 0; i < peaks.length; i++) peaks[i] /= globalMax
+
+    const result = { peaks, duration }
+    peaksCache.set(url, result)
+    return result
+  })()
+
+  inFlight.set(url, promise)
+  promise.finally(() => inFlight.delete(url))
+  return promise
+}
+
+/**
+ * Kick off peak extraction for a list of URLs in parallel.
+ * Call this when Studio loads so all waveforms are ready simultaneously.
+ */
+export function preloadPeaks(urls, numPeaks = 256) {
+  urls.forEach(url => { if (url && !peaksCache.has(url)) fetchAndExtractPeaks(url, numPeaks).catch(() => {}) })
 }
 
 // ── Static draw helpers ───────────────────────────────────────────────────────
@@ -123,10 +139,11 @@ export default function Waveform({
   muted       = false,
   height      = 44,
   onSeek,
+  eager       = false,   // skip IntersectionObserver — load immediately
 }) {
   const containerRef = useRef(null)
-  const bgCanvasRef  = useRef(null)   // static bg (unplayed bars)
-  const fgCanvasRef  = useRef(null)   // static fg (played bars) OR live animation
+  const bgCanvasRef  = useRef(null)
+  const fgCanvasRef  = useRef(null)
   const peaksRef     = useRef(null)
   const durationRef  = useRef(0)
   const rafRef       = useRef(null)
@@ -137,7 +154,6 @@ export default function Waveform({
     ? Math.min(1, currentTime / durationRef.current)
     : 0
 
-  // ── Initialise canvas sizes once container is visible ──────────────────────
   function initCanvases() {
     const el = containerRef.current
     if (!el) return
@@ -145,45 +161,56 @@ export default function Waveform({
     ;[bgCanvasRef, fgCanvasRef].forEach(r => r.current && setupCanvas(r.current, W, height))
   }
 
-  // ── Seed from storedPeaks prop (instant — no R2 fetch) ────────────────────
+  function applyPeaks(peaks, duration = 0) {
+    peaksRef.current    = peaks
+    durationRef.current = duration
+    drawStatic(bgCanvasRef.current, peaks, muted ? '#aaa' : color, muted)
+    setLoaded(true)
+  }
+
+  // ── Primary: use storedPeaks from DB (instant) ────────────────────────────
   useEffect(() => {
     if (!storedPeaks?.length) return
     initCanvases()
-    const arr = Float32Array.from(storedPeaks)
-    peaksRef.current = arr
-    // store duration as 0 — seek still works via onSeek(pct * durationRef)
-    // duration comes from the audio element in Studio, not needed for static draw
-    if (!loaded) {
-      drawStatic(bgCanvasRef.current, arr, muted ? '#aaa' : color, muted)
-      setLoaded(true)
-    }
+    applyPeaks(Float32Array.from(storedPeaks))
   }, [storedPeaks])
 
-  // ── Fallback: lazy R2 fetch when no stored peaks ───────────────────────────
+  // ── Secondary: check in-memory cache first, then fetch R2 ─────────────────
   useEffect(() => {
-    if (!url || storedPeaks?.length || loaded) return
+    if (!url || loaded) return
+
+    // If already in cache from preloadPeaks(), render immediately
+    if (peaksCache.has(url)) {
+      initCanvases()
+      const { peaks, duration } = peaksCache.get(url)
+      applyPeaks(peaks, duration)
+      return
+    }
+
+    const run = () => {
+      initCanvases()
+      fetchAndExtractPeaks(url, Math.floor((containerRef.current?.offsetWidth || 300) / 2))
+        .then(({ peaks, duration }) => applyPeaks(peaks, duration))
+        .catch(() => setError(true))
+    }
+
+    if (eager) {
+      // Studio mode: load immediately — preloadPeaks already fired for all stems
+      run()
+      return
+    }
+
+    // ProjectView mode: lazy via IntersectionObserver
     const el = containerRef.current
     if (!el) return
-
     const observer = new IntersectionObserver(entries => {
       if (!entries[0].isIntersecting) return
       observer.disconnect()
-      initCanvases()
-
-      const numPeaks = Math.floor((el.offsetWidth || 300) / 2)
-      fetchAndExtractPeaks(url, numPeaks)
-        .then(({ peaks, duration }) => {
-          peaksRef.current  = peaks
-          durationRef.current = duration
-          drawStatic(bgCanvasRef.current, peaks, muted ? '#aaa' : color, muted)
-          setLoaded(true)
-        })
-        .catch(() => setError(true))
+      run()
     }, { threshold: 0.1 })
-
     observer.observe(el)
     return () => observer.disconnect()
-  }, [url, storedPeaks])
+  }, [url, loaded, eager])
 
   // ── Live animation loop via AnalyserNode ──────────────────────────────────
   useEffect(() => {

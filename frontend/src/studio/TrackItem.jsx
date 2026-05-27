@@ -16,7 +16,7 @@ export default function TrackItem({
   isMuted, isSolo, isExpanded, isDeleting, loadPct, volume,
   uploader, uploaderName, takes,
   comments, commentDraft, postingComment,
-  currentTime, duration, isPlaying, analyserNode, storedPeaks,
+  currentTime, duration, isPlaying, analyserNode, storedPeaks, eager,
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
   gainRef,
@@ -117,6 +117,7 @@ export default function TrackItem({
             isPlaying={isPlaying}
             analyserNode={analyserNode}
             storedPeaks={storedPeaks}
+            eager={eager}
             muted={isMuted}
             height={44}
             onSeek={onSeek ? (sec) => onSeek(sec) : undefined}

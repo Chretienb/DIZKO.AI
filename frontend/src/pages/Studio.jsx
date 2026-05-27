@@ -7,6 +7,7 @@ import { getToken } from '../lib/utils.js'
 import Transport from '../studio/Transport.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
+import { preloadPeaks } from '../studio/Waveform.jsx'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -127,6 +128,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         const list = r.data || []
         setStems(list)
         setSelectedIds(new Set(list.filter(s => s.file_url && s.instrument !== 'original').map(s => s.id)))
+        // Kick off peak extraction for all stems in parallel so waveforms
+        // render simultaneously instead of staggered.
+        preloadPeaks(list.filter(s => s.file_url && !(() => { try { return JSON.parse(s.notes||'{}').peaks } catch { return null } })()).map(s => s.file_url))
       })
       .catch(e => console.warn('[studio]', e?.message))
       .finally(() => setLoadingStems(false))
@@ -533,6 +537,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   isPlaying={playing}
                   analyserNode={analyserRefs.current[s.id] || null}
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
+                  eager
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
                   onSeek={sec => { offsetRef.current = sec; setCurrentTime(sec) }}
