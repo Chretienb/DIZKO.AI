@@ -262,32 +262,64 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
             </button>
           </div>
         ) : (
-          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:4 }}>
+          <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:6 }}>
             {projects.slice(0,6).map((p,i)=>{
-              const g=CARD_GRADIENTS[i%CARD_GRADIENTS.length]
-              const isOwner=p.owner_id===user?.id
+              const blobColors = [
+                ['#F4937A','#F28FB8'],
+                ['#22c55e','#16a34a'],
+                ['#a78bfa','#6366f1'],
+                ['#38bdf8','#0ea5e9'],
+                ['#f59e0b','#f97316'],
+                ['#f472b6','#ec4899'],
+              ]
+              const [c1,c2] = blobColors[i % blobColors.length]
+              const isOwner = p.owner_id===user?.id
+              const delay = `${i * 1.2}s`
               return (
                 <div key={p.id??i}
                   onClick={()=>navigate(`/projects/${p.id}`)}
-                  style={{ minWidth:160, maxWidth:180, flexShrink:0, borderRadius:16, overflow:'hidden',
-                    cursor:'pointer', boxShadow:'0 4px 16px rgba(0,0,0,.4)',
-                    transition:'transform .18s, box-shadow .18s' }}
-                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-4px)';e.currentTarget.style.boxShadow='0 12px 32px rgba(0,0,0,.5)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.4)'}}>
-                  {/* Art */}
-                  <div style={{ height:100, background:g, position:'relative' }}>
-                    <div style={{ position:'absolute', top:8, left:8, padding:'3px 8px', borderRadius:100,
-                      fontSize:9.5, fontWeight:700, backdropFilter:'blur(10px)',
-                      background: isOwner ? 'rgba(244,147,122,.7)' : 'rgba(255,255,255,.18)',
-                      color:'#fff' }}>{isOwner ? '★ Creator' : 'Invited'}</div>
-                    <div style={{ position:'absolute', bottom:10, right:10, opacity:.2 }}>
-                      <svg width={24} height={24} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6z"/></svg>
+                  style={{
+                    position:'relative', minWidth:160, width:160, height:200,
+                    borderRadius:14, flexShrink:0, cursor:'pointer', zIndex:1,
+                    overflow:'hidden', flexDirection:'column',
+                    boxShadow:'0 8px 32px rgba(0,0,0,.5)',
+                    transition:'transform .2s, box-shadow .2s',
+                  }}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow=`0 20px 48px rgba(0,0,0,.6)`}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.5)'}}>
+
+                  {/* Animated color blob */}
+                  <div style={{
+                    position:'absolute', zIndex:1, top:'50%', left:'50%',
+                    width:140, height:140, borderRadius:'50%',
+                    background:`linear-gradient(135deg,${c1},${c2})`,
+                    filter:'blur(20px)',
+                    animation:`blob-bounce 5s infinite ease`,
+                    animationDelay: delay,
+                  }}/>
+
+                  {/* Glass layer */}
+                  <div style={{
+                    position:'absolute', top:4, left:4, right:4, bottom:4,
+                    zIndex:2, borderRadius:11,
+                    background:'rgba(10,10,14,.82)',
+                    backdropFilter:'blur(20px)',
+                    WebkitBackdropFilter:'blur(20px)',
+                    outline:'1px solid rgba(255,255,255,.08)',
+                    display:'flex', flexDirection:'column',
+                    justifyContent:'space-between', padding:'12px',
+                  }}>
+                    {/* Spacer */}
+                    <div style={{ flex:1 }}/>
+
+                    {/* Bottom: title */}
+                    <div>
+                      {p.type && <div style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.28)',
+                        textTransform:'uppercase', letterSpacing:'.1em', marginBottom:4 }}>{p.type}</div>}
+                      <div style={{ fontSize:13.5, fontWeight:800, color:'#fff',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                        letterSpacing:'-.3px' }}>{p.title}</div>
                     </div>
-                  </div>
-                  {/* Info */}
-                  <div style={{ background:'#0f0f12', padding:'10px 12px' }}>
-                    {p.type && <div style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.3)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:3 }}>{p.type}</div>}
-                    <div style={{ fontSize:13, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</div>
                   </div>
                 </div>
               )

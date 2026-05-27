@@ -118,43 +118,70 @@ export default function PageProjects({ openModal, refreshKey, user }) {
           )}
 
           {visible.map((p, i) => {
-            const g       = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
-            const st      = statusStyle(p.status)
-            const role    = myRoles[p.id]
-            const isOwner = role === 'Owner'
+            const blobColors = [
+              ['#F4937A','#F28FB8'],['#22c55e','#16a34a'],['#a78bfa','#6366f1'],
+              ['#38bdf8','#0ea5e9'],['#f59e0b','#f97316'],['#f472b6','#ec4899'],
+            ]
+            const [c1,c2]  = blobColors[i % blobColors.length]
+            const st       = statusStyle(p.status)
+            const role     = myRoles[p.id]
+            const isOwner  = role === 'Owner'
+            const delay    = `${i * 0.8}s`
             return (
               <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
-                style={{ borderRadius:24, overflow:'hidden', cursor:'pointer', position:'relative', height:isMobile?300:360, display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,.18)', transition:'transform .25s, box-shadow .25s' }}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-8px)'; e.currentTarget.style.boxShadow='0 24px 60px rgba(0,0,0,.28)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.18)' }}>
+                style={{
+                  position:'relative', borderRadius:18, cursor:'pointer',
+                  height: isMobile ? 260 : 300, overflow:'hidden', zIndex:1,
+                  boxShadow:'0 8px 32px rgba(0,0,0,.5)',
+                  transition:'transform .22s, box-shadow .22s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-7px)'; e.currentTarget.style.boxShadow=`0 24px 56px rgba(0,0,0,.6), 0 0 40px ${c1}20` }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.5)' }}>
 
-                {/* Art area */}
-                <div style={{ flex:1, background:g, position:'relative', overflow:'hidden' }}>
-                  <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180, borderRadius:'50%', border:'1.5px solid rgba(255,255,255,.12)' }}/>
-                  <div style={{ position:'absolute', top:-10, right:-10, width:110, height:110, borderRadius:'50%', border:'1.5px solid rgba(255,255,255,.1)' }}/>
-                  <div style={{ position:'absolute', bottom:20, left:20, width:60, height:60, borderRadius:'50%', border:'1px solid rgba(255,255,255,.08)' }}/>
-                  <div style={{ position:'absolute', bottom:24, right:22, opacity:.18 }}>
-                    <svg width={52} height={52} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6zM18 18a3 3 0 100-6 3 3 0 000 6z"/></svg>
+                {/* Animated blob */}
+                <div style={{
+                  position:'absolute', zIndex:1, top:'50%', left:'50%',
+                  width:180, height:180, borderRadius:'50%',
+                  background:`linear-gradient(135deg,${c1},${c2})`,
+                  filter:'blur(28px)', opacity:.9,
+                  animation:'blob-bounce 5s infinite ease',
+                  animationDelay: delay,
+                }}/>
+
+                {/* Dark glass panel */}
+                <div style={{
+                  position:'absolute', top:4, left:4, right:4, bottom:4, zIndex:2,
+                  borderRadius:15, background:'rgba(8,8,12,.80)',
+                  backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+                  outline:'1px solid rgba(255,255,255,.08)',
+                  display:'flex', flexDirection:'column', padding:'16px',
+                }}>
+                  {/* Role badge — top left only */}
+                  <div>
+                    <span style={{ fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:100,
+                      background:'rgba(255,255,255,.08)', color:'rgba(255,255,255,.45)' }}>
+                      {isOwner ? '★ Creator' : role || 'Invited'}
+                    </span>
                   </div>
-                  {role && (
-                    <div style={{ position:'absolute', top:16, left:16, zIndex:2, padding:'5px 11px', borderRadius:100, fontSize:10.5, fontWeight:700, backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', background:isOwner?'rgba(244,147,122,.75)':'rgba(255,255,255,.18)', color:'#fff', border:`1px solid ${isOwner?'rgba(244,147,122,.5)':'rgba(255,255,255,.2)'}`, display:'flex', alignItems:'center', gap:5 }}>
-                      {isOwner ? <><svg width={9} height={9} viewBox="0 0 24 24" fill="#fff"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>Creator</> : role}
-                    </div>
-                  )}
-                  {p.status && (
-                    <div style={{ position:'absolute', top:16, right:16, zIndex:2, padding:'5px 11px', borderRadius:100, fontSize:10.5, fontWeight:700, backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', background:st.bg, color:st.color, border:`1px solid ${st.border}` }}>{p.status}</div>
-                  )}
-                </div>
 
-                {/* Info panel */}
-                <div style={{ background:C.surface, padding:'18px 20px 20px', flexShrink:0 }}>
-                  {p.type && <div style={{ fontSize:10.5, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:6 }}>{p.type}</div>}
-                  <div style={{ fontSize:20, fontWeight:900, color:C.t1, letterSpacing:'-.6px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.2 }}>{p.title}</div>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12 }}>
-                    <div style={{ fontSize:12, color:C.t3 }}>{isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}</div>
+                  {/* Spacer */}
+                  <div style={{ flex:1 }}/>
+
+                  {/* Bottom info */}
+                  <div>
+                    {p.type && <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)',
+                      textTransform:'uppercase', letterSpacing:'.1em', marginBottom:6 }}>{p.type}</div>}
+                    <div style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-.5px',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:12 }}>
+                      {p.title}
+                    </div>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
-                      style={{ padding:'7px 18px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 12px rgba(0,0,0,.2)', transition:'opacity .15s' }}
-                      onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                      style={{ width:'100%', padding:'9px', borderRadius:100, border:'none',
+                        background:`linear-gradient(135deg,${c1},${c2})`, color:'#fff',
+                        fontSize:12, fontWeight:700, cursor:'pointer',
+                        boxShadow:`0 4px 14px ${c1}35`, transition:'opacity .15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
+                      onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                       Open →
                     </button>
                   </div>
