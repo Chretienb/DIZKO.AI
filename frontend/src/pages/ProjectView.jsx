@@ -901,26 +901,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <p style={{ margin:'0 0 12px', fontSize:10, fontWeight:800, color:'#c0c4cc',
                   textTransform:'uppercase', letterSpacing:'.1em' }}>Breakdown</p>
 
-                {/* Stacked bar */}
-                <div style={{ height:5, borderRadius:3, overflow:'hidden', display:'flex', gap:1, marginBottom:12 }}>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                   {instruments.map(([inst, count]) => (
-                    <div key={inst} style={{ height:'100%', borderRadius:3,
-                      width:`${(count/files.length)*100}%`,
-                      background:ic(inst), transition:'width .4s ease' }}/>
-                  ))}
-                </div>
-
-                {/* Rows */}
-                <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                  {instruments.map(([inst, count]) => (
-                    <div key={inst} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ width:8, height:8, borderRadius:'50%', background:ic(inst), flexShrink:0 }}/>
-                      <span style={{ flex:1, fontSize:12.5, fontWeight:600, color:'#444',
+                    <div key={inst} style={{ display:'flex', alignItems:'center', gap:5,
+                      padding:'4px 10px', borderRadius:100,
+                      background:`${ic(inst)}10`, border:`1px solid ${ic(inst)}25` }}>
+                      <div style={{ width:6, height:6, borderRadius:'50%', background:ic(inst) }}/>
+                      <span style={{ fontSize:11.5, fontWeight:700, color:ic(inst),
                         textTransform:'capitalize' }}>{inst}</span>
-                      <span style={{ fontSize:12.5, fontWeight:700, color:'#111' }}>{count}</span>
-                      <span style={{ fontSize:10.5, color:'#c8ccd4', fontWeight:500, minWidth:28, textAlign:'right' }}>
-                        {Math.round((count/files.length)*100)}%
-                      </span>
+                      <span style={{ fontSize:11, fontWeight:600, color:ic(inst), opacity:.6 }}>{count}</span>
                     </div>
                   ))}
                 </div>
