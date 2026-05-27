@@ -248,23 +248,29 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
 
     // ── Pass 1: decode all stems in parallel ──────────────────────────────
-    // Nothing starts playing yet — we collect decoded buffers first.
+    // Use a separate AudioContext for decoding — some browsers limit concurrent
+    // decodeAudioData calls on the playback context and silently fail.
+    const decodeCtx = new (window.AudioContext || window.webkitAudioContext)()
     const decoded = await Promise.all(loadableStems.map(async s => {
+      const label = s.suggested_name || s.original_name || s.id
       try {
         const buf = await fetchAudioCached(s.file_url, pct =>
           setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
         )
-        const audio = await ctx.decodeAudioData(buf.slice(0))
+        // Decode on a dedicated context so the playback context stays clean
+        const audio = await decodeCtx.decodeAudioData(buf.slice(0))
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        // Seed waveform cache from the already-decoded buffer — no extra R2 fetch
         seedPeaksFromBuffer(s.file_url, audio)
+        console.log(`[studio] ✓ decoded: ${label}`)
         return { s, audio }
       } catch (e) {
-        console.error('[playAll] decode failed:', s.suggested_name || s.original_name, e?.message)
+        console.error(`[studio] ✗ failed: ${label} —`, e?.message)
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+        addToast?.(`Could not load "${label}" — it will be skipped`, { type: 'info' })
         return null
       }
     }))
+    decodeCtx.close().catch(() => {})
 
     // ── Pass 2: schedule ALL sources at the same audio-clock instant ──────
     // Resume context first — Chrome/Safari suspend it even after user click.
