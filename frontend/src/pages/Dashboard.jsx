@@ -350,41 +350,48 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
 
       </div>{/* end LEFT */}
 
-      {/* RIGHT PANEL */}
-      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {/* RIGHT PANEL — no boxes, floats on background */}
+      <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
 
-        {/* Stat cards — vertical stack */}
-        {statCards.map(s => (
-          <button key={s.label} onClick={()=>navigate(`/${s.page}`)}
-            style={{ borderRadius:14, padding:'18px 16px', cursor:'pointer',
-              background:'#0a0a0d', border:'1px solid rgba(255,255,255,.06)',
-              boxShadow:'0 2px 12px rgba(0,0,0,.4)',
-              transition:'all .15s', textAlign:'left', width:'100%', display:'flex', alignItems:'center', gap:14 }}
-            onMouseEnter={e=>{e.currentTarget.style.background='#111114'}}
-            onMouseLeave={e=>{e.currentTarget.style.background='#0a0a0d'}}>
-            <div style={{ width:36, height:36, borderRadius:10, background:`${s.accent}18`,
-              display:'flex', alignItems:'center', justifyContent:'center', color:s.accent, flexShrink:0 }}>
-              {s.icon}
-            </div>
-            <div>
-              <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:3 }}>{s.label}</div>
-              <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-1px', lineHeight:1 }}>
-                {s.val===null?<Spinner size={16} color={s.accent}/>:s.val}
+        {/* Stats — 3 numbers, no cards, just color + type */}
+        <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+          {statCards.map((s, i) => (
+            <button key={s.label} onClick={()=>navigate(`/${s.page}`)}
+              style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 4px',
+                borderBottom: i < statCards.length-1 ? '1px solid rgba(255,255,255,.05)' : 'none',
+                background:'transparent', border:'none', cursor:'pointer',
+                textAlign:'left', width:'100%', transition:'opacity .12s' }}
+              onMouseEnter={e=>e.currentTarget.style.opacity='.75'}
+              onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+              {/* Colored accent bar */}
+              <div style={{ width:3, height:36, borderRadius:2, background:s.accent,
+                boxShadow:`0 0 10px ${s.accent}60`, flexShrink:0 }}/>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)',
+                  textTransform:'uppercase', letterSpacing:'.1em', marginBottom:3 }}>{s.label}</div>
+                <div style={{ fontSize:26, fontWeight:900, color:'#fff', letterSpacing:'-1.5px', lineHeight:1 }}>
+                  {s.val===null ? <Spinner size={16} color={s.accent}/> : s.val}
+                </div>
               </div>
-            </div>
-            <div style={{ marginLeft:'auto', fontSize:11, color:s.accent, fontWeight:600 }}>{s.sub}</div>
-          </button>
-        ))}
+              <div style={{ fontSize:11, color:s.accent, fontWeight:600, opacity:.7 }}>{s.sub}</div>
+            </button>
+          ))}
+        </div>
 
-        {/* Recent Activity */}
-        <div style={{ background:'#0a0a0d', borderRadius:14, overflow:'hidden', border:'1px solid rgba(255,255,255,.06)' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 10px' }}>
-            <span style={{ fontSize:13, fontWeight:800, color:'rgba(255,255,255,.8)' }}>Recent Activity</span>
-            <button onClick={()=>navigate('/analytics')} style={{ background:'none', border:'none', fontSize:11, color:C.coral, cursor:'pointer', fontWeight:600 }}>See all</button>
+        {/* Recent Activity — no box, inline timeline */}
+        <div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,.35)',
+              textTransform:'uppercase', letterSpacing:'.12em' }}>Activity</span>
+            <button onClick={()=>navigate('/analytics')}
+              style={{ background:'none', border:'none', fontSize:11, color:C.coral,
+                cursor:'pointer', fontWeight:600 }}>See all</button>
           </div>
-          {loadingDetail ? <div style={{ padding:'12px 16px' }}><Spinner size={14}/></div>
-          : projectFiles.length===0 ? <div style={{ padding:'12px 16px 16px', fontSize:12, color:'rgba(255,255,255,.25)' }}>No activity yet.</div>
-          : (() => {
+
+          {loadingDetail ? <Spinner size={14}/>
+          : projectFiles.length===0 ? (
+            <p style={{ margin:0, fontSize:12, color:'rgba(255,255,255,.2)' }}>No activity yet.</p>
+          ) : (() => {
             const events=[], seenParent=new Set()
             const sorted=[...projectFiles].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
             for (const f of sorted) {
@@ -398,20 +405,23 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
               }
               if (events.length>=6) break
             }
-            const dc=ev=>ev.type==='bounce'?'#22c55e':ev.type==='separation'?C.amber:(STEM_COLORS[ev.f.instrument]||C.coral)
-            return events.slice(0,5).map((ev,i)=>(
-              <div key={ev.id} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'9px 16px', borderTop:'1px solid rgba(255,255,255,.04)' }}>
-                <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:`${dc(ev)}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:dc(ev), boxShadow:ev.type==='bounce'?`0 0 6px ${dc(ev)}`:'none' }}/>
-                </div>
+            const dc = ev => ev.type==='bounce'?'#22c55e':ev.type==='separation'?C.amber:(STEM_COLORS[ev.f.instrument]||C.coral)
+            return events.slice(0,5).map((ev, i) => (
+              <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'flex-start',
+                paddingBottom:14, marginBottom: i < 4 ? 14 : 0,
+                borderBottom: i < 4 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                {/* Colored dot */}
+                <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0,
+                  background:dc(ev), marginTop:4,
+                  boxShadow: ev.type==='bounce' ? `0 0 8px ${dc(ev)}` : 'none' }}/>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,.7)', lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    <strong style={{ fontWeight:700, color:'rgba(255,255,255,.88)' }}>{ev.who}</strong>
-                    {ev.type==='upload'&&<> uploaded <span style={{ color:dc(ev) }}>{ev.f.instrument||'a file'}</span></>}
-                    {ev.type==='separation'&&<> split <span style={{ color:C.amber }}>{ev.count} stems</span></>}
-                    {ev.type==='bounce'&&<> updated the <span style={{ color:'#22c55e' }}>session mix</span></>}
-                  </div>
-                  <div style={{ fontSize:10, color:'rgba(255,255,255,.25)', marginTop:2 }}>{timeAgo(ev.created_at)}</div>
+                  <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.65)', lineHeight:1.5 }}>
+                    <strong style={{ color:'rgba(255,255,255,.88)', fontWeight:700 }}>{ev.who}</strong>
+                    {ev.type==='upload' && <> uploaded <span style={{ color:dc(ev) }}>{ev.f.instrument||'a file'}</span></>}
+                    {ev.type==='separation' && <> split <span style={{ color:C.amber }}>{ev.count} stems</span></>}
+                    {ev.type==='bounce' && <> updated the <span style={{ color:'#22c55e' }}>session mix</span></>}
+                  </p>
+                  <span style={{ fontSize:10.5, color:'rgba(255,255,255,.22)' }}>{timeAgo(ev.created_at)}</span>
                 </div>
               </div>
             ))
