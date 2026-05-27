@@ -118,69 +118,61 @@ export default function PageProjects({ openModal, refreshKey, user }) {
           )}
 
           {visible.map((p, i) => {
-            const blobColors = [
-              ['#F4937A','#F28FB8'],['#22c55e','#16a34a'],['#a78bfa','#6366f1'],
-              ['#38bdf8','#0ea5e9'],['#f59e0b','#f97316'],['#f472b6','#ec4899'],
-            ]
-            const [c1,c2]  = blobColors[i % blobColors.length]
-            const st       = statusStyle(p.status)
-            const role     = myRoles[p.id]
-            const isOwner  = role === 'Owner'
-            const delay    = `${i * 0.8}s`
+            const g       = CARD_GRADIENTS[i % CARD_GRADIENTS.length]
+            const st      = statusStyle(p.status)
+            const role    = myRoles[p.id]
+            const isOwner = role === 'Owner'
             return (
               <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)}
                 style={{
-                  position:'relative', borderRadius:18, cursor:'pointer',
-                  height: isMobile ? 260 : 300, overflow:'hidden', zIndex:1,
-                  boxShadow:'0 8px 32px rgba(0,0,0,.5)',
-                  transition:'transform .22s, box-shadow .22s',
+                  borderRadius:18, overflow:'hidden', cursor:'pointer',
+                  display:'flex', flexDirection:'column',
+                  boxShadow:'0 4px 24px rgba(0,0,0,.4)',
+                  transition:'transform .2s, box-shadow .2s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-7px)'; e.currentTarget.style.boxShadow=`0 24px 56px rgba(0,0,0,.6), 0 0 40px ${c1}20` }}
-                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,.5)' }}>
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow='0 20px 48px rgba(0,0,0,.55)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 24px rgba(0,0,0,.4)' }}>
 
-                {/* Animated blob */}
-                <div style={{
-                  position:'absolute', zIndex:1, top:'50%', left:'50%',
-                  width:180, height:180, borderRadius:'50%',
-                  background:`linear-gradient(135deg,${c1},${c2})`,
-                  filter:'blur(28px)', opacity:.9,
-                  animation:'blob-bounce 5s infinite ease',
-                  animationDelay: delay,
-                }}/>
-
-                {/* Dark glass panel */}
-                <div style={{
-                  position:'absolute', top:4, left:4, right:4, bottom:4, zIndex:2,
-                  borderRadius:15, background:'rgba(8,8,12,.80)',
-                  backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
-                  outline:'1px solid rgba(255,255,255,.08)',
-                  display:'flex', flexDirection:'column', padding:'16px',
-                }}>
-                  {/* Role badge — top left only */}
-                  <div>
-                    <span style={{ fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:100,
-                      background:'rgba(255,255,255,.08)', color:'rgba(255,255,255,.45)' }}>
-                      {isOwner ? '★ Creator' : role || 'Invited'}
-                    </span>
+                {/* Art — full gradient, no clutter */}
+                <div style={{ height: isMobile ? 160 : 200, background:g, position:'relative', overflow:'hidden', flexShrink:0 }}>
+                  {/* Subtle ring decoration */}
+                  <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180, borderRadius:'50%', border:'1px solid rgba(255,255,255,.08)', pointerEvents:'none' }}/>
+                  <div style={{ position:'absolute', bottom:16, right:18, opacity:.12 }}>
+                    <svg width={48} height={48} viewBox="0 0 24 24" fill="white"><path d="M9 18V5l12-3v13M6 21a3 3 0 100-6 3 3 0 000 6z"/></svg>
                   </div>
-
-                  {/* Spacer */}
-                  <div style={{ flex:1 }}/>
-
-                  {/* Bottom info */}
-                  <div>
-                    {p.type && <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)',
-                      textTransform:'uppercase', letterSpacing:'.1em', marginBottom:6 }}>{p.type}</div>}
-                    <div style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-.5px',
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:12 }}>
-                      {p.title}
+                  {/* Role — top left, minimal */}
+                  {role && (
+                    <div style={{ position:'absolute', top:12, left:12,
+                      fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:100,
+                      backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
+                      background: isOwner ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.25)',
+                      color:'rgba(255,255,255,.8)', border:'1px solid rgba(255,255,255,.15)' }}>
+                      {isOwner ? '★ Creator' : role}
                     </div>
+                  )}
+                </div>
+
+                {/* Footer — dark, clean */}
+                <div style={{ background:'#0d0d10', padding:'14px 16px 16px', flex:1 }}>
+                  {p.type && (
+                    <div style={{ fontSize:9.5, fontWeight:700, color:'rgba(255,255,255,.28)',
+                      textTransform:'uppercase', letterSpacing:'.1em', marginBottom:5 }}>
+                      {p.type}
+                    </div>
+                  )}
+                  <div style={{ fontSize:17, fontWeight:800, color:'#fff', letterSpacing:'-.4px',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>
+                    {p.title}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:11, color:'rgba(255,255,255,.28)', fontWeight:500 }}>
+                      {isOwner ? timeAgo(p.created_at) : `Joined as ${role||'Collaborator'}`}
+                    </span>
                     <button onClick={e => { e.stopPropagation(); navigate(`/projects/${p.id}`) }}
-                      style={{ width:'100%', padding:'9px', borderRadius:100, border:'none',
-                        background:`linear-gradient(135deg,${c1},${c2})`, color:'#fff',
-                        fontSize:12, fontWeight:700, cursor:'pointer',
-                        boxShadow:`0 4px 14px ${c1}35`, transition:'opacity .15s' }}
-                      onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
+                      style={{ height:28, padding:'0 14px', borderRadius:100, border:'none',
+                        background:g, color:'#fff', fontSize:11.5, fontWeight:700,
+                        cursor:'pointer', transition:'opacity .15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='.8'}
                       onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                       Open →
                     </button>
