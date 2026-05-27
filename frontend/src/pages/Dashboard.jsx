@@ -278,8 +278,8 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
               const g=CARD_GRADIENTS[i%CARD_GRADIENTS.length], isOwner=p.owner_id===user?.id
               return (
                 <div key={p.id??i} role="button" tabIndex={0} aria-label={`Open project ${p.title}`}
-                  onClick={()=>openModal('project',{...p,g,tracks:0,collab:[]})}
-                  onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();openModal('project',{...p,g,tracks:0,collab:[]})} }}
+                  onClick={()=>navigate(`/projects/${p.id}`)}
+                  onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();navigate(`/projects/${p.id}`)} }}
                   style={{ borderRadius:20, overflow:'hidden', cursor:'pointer', position:'relative', height:isMobile?220:280, display:'flex', flexDirection:'column', boxShadow:'0 6px 24px rgba(0,0,0,.16)', transition:'transform .22s, box-shadow .22s' }}
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow='0 20px 48px rgba(0,0,0,.24)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,.16)'}}>
@@ -291,7 +291,7 @@ export default function PageDashboard({ playing, setPlay, drag, setDrag, openMod
                   <div style={{ background:'#fff', padding:'14px 16px 16px', flexShrink:0 }}>
                     {p.type&&<div style={{ fontSize:10, fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{p.type}</div>}
                     <div style={{ fontSize:15, fontWeight:900, color:'#111', letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:10 }}>{p.title}</div>
-                    <button onClick={e=>{e.stopPropagation();openModal('project',{...p,g,tracks:0,collab:[]})}} style={{ width:'100%', padding:'8px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 10px rgba(0,0,0,.18)', transition:'opacity .15s' }}
+                    <button onClick={e=>{e.stopPropagation();navigate(`/projects/${p.id}`)}} style={{ width:'100%', padding:'8px', borderRadius:100, border:'none', background:g, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 3px 10px rgba(0,0,0,.18)', transition:'opacity .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>Open →</button>
                   </div>
                 </div>
