@@ -2850,64 +2850,56 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           </header>
         ) : (
           <header style={{
-            height:56, background:'rgba(18,18,22,.8)',
-            backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
-            borderBottom:`1px solid rgba(255,255,255,.06)`,
-            display:'flex', alignItems:'center', padding:'0 20px', gap:10, flexShrink:0,
-            position:'sticky', top:0, zIndex:100,
+            height:54, background:'transparent',
+            display:'flex', alignItems:'center', padding:'0 28px', gap:16,
+            flexShrink:0, position:'relative', zIndex:100,
           }}>
 
-            {/* Page title — bold, current location */}
-            <div style={{ display:'flex', alignItems:'center', gap:8, flex:1, minWidth:0 }}>
-              {/* Current page icon */}
-              {currentNav && (
-                <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
-                  background:'rgba(255,255,255,.07)',
-                  display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                    stroke={C.coral} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-                    <path d={currentNav.icon}/>
-                  </svg>
-                </div>
-              )}
-              <span style={{ fontSize:15, fontWeight:800, color:'#fff',
-                letterSpacing:'-.4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {currentNav?.label || 'Dizko'}
+            {/* Left — greeting / page name */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <span style={{ fontSize:13, fontWeight:700, color:'rgba(255,255,255,.35)',
+                letterSpacing:'-.1px' }}>
+                {currentNav?.id === 'dashboard'
+                  ? `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'} ·`
+                  : null}
               </span>
+              {currentNav?.id !== 'dashboard' && (
+                <span style={{ fontSize:14, fontWeight:800, color:'rgba(255,255,255,.7)',
+                  letterSpacing:'-.3px' }}>{currentNav?.label}</span>
+              )}
             </div>
 
-            {/* Search */}
+            {/* Center — search pill */}
             <div style={{ display:'flex', alignItems:'center', gap:8,
-              background:'rgba(255,255,255,.05)', border:`1px solid rgba(255,255,255,.08)`,
-              borderRadius:10, padding:'0 12px', height:34, width:220, transition:'all .15s' }}
-              onFocusCapture={e => e.currentTarget.style.borderColor='rgba(255,255,255,.18)'}
-              onBlurCapture={e => e.currentTarget.style.borderColor='rgba(255,255,255,.08)'}>
+              background:'rgba(255,255,255,.06)',
+              borderRadius:100, padding:'0 16px', height:36, width:240,
+              border:'1px solid rgba(255,255,255,.07)', transition:'all .2s' }}
+              onFocusCapture={e => { e.currentTarget.style.background='rgba(255,255,255,.1)'; e.currentTarget.style.borderColor='rgba(255,255,255,.14)' }}
+              onBlurCapture={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.borderColor='rgba(255,255,255,.07)' }}>
               <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-                stroke='rgba(255,255,255,.3)' strokeWidth={2.5} strokeLinecap="round">
+                stroke='rgba(255,255,255,.25)' strokeWidth={2.5} strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input placeholder="Search…"
+              <input placeholder="Search files, projects…"
                 style={{ background:'none', border:'none', outline:'none',
-                  fontSize:13, color:'#fff', width:'100%',
-                  '::placeholder': { color:'rgba(255,255,255,.3)' } }} />
+                  fontSize:12.5, color:'rgba(255,255,255,.8)', width:'100%' }} />
             </div>
 
-            {/* Upload */}
-            <button onClick={() => openModal('upload', {})}
-              style={{ height:34, padding:'0 16px', borderRadius:10, border:'none',
-                background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700,
-                cursor:'pointer', letterSpacing:'-.2px', flexShrink:0,
-                boxShadow:`0 2px 10px ${C.coral}35`, transition:'opacity .15s' }}
-              onMouseEnter={e => e.currentTarget.style.opacity='.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-              + Upload
-            </button>
-
-            {/* Notifications */}
-            <NotificationBellLight user={user} />
-
-            {/* Avatar */}
-            <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+            {/* Right — actions + avatar */}
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <button onClick={() => openModal('upload', {})}
+                style={{ height:34, padding:'0 16px', borderRadius:100, border:'none',
+                  background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700,
+                  cursor:'pointer', boxShadow:`0 4px 14px ${C.coral}30`,
+                  transition:'opacity .15s, transform .12s', letterSpacing:'-.1px' }}
+                onMouseEnter={e=>{e.currentTarget.style.opacity='.88';e.currentTarget.style.transform='scale(1.03)'}}
+                onMouseLeave={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.transform='scale(1)'}}>
+                + Upload
+              </button>
+              <NotificationBellLight user={user} />
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,.1)' }}/>
+              <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+            </div>
           </header>
         )}
 
