@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; padding: 0; background: #15162a; color: #fff; }
+html, body, #root { height: 100%; margin: 0; padding: 0; background: #18181b; color: #f1f1f3; }
 
 /* Tailwind preflight override — keep dark bg everywhere */
-body { background-color: #15162a !important; }
+body { background-color: #18181b !important; }

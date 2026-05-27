@@ -2560,37 +2560,31 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   ) ?? NAV[0]
 
   // ── Sidebar content — shared between desktop aside and mobile drawer ─────────
-  const MAIN_NAV  = NAV.filter(n => ['dashboard','projects','studio'].includes(n.id))
-  const TOOLS_NAV = NAV.filter(n => ['collaborators','library','analytics'].includes(n.id))
-
+  // Sidebar nav item — simple icon + text, no icon box, matches reference
   const sideNavBtn = (n) => {
     const on = currentNav?.id === n.id
     return (
       <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
         aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
         style={{
-          display:'flex', alignItems:'center', gap:11, width:'100%',
-          padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', gap:10, width:'100%',
+          padding:'8px 12px', borderRadius:8, border:'none', cursor:'pointer',
           marginBottom:1, textAlign:'left',
-          fontSize:13.5, fontWeight: on ? 600 : 400,
-          color: on ? '#fff' : 'rgba(255,255,255,.42)',
-          background: on ? 'rgba(255,255,255,.08)' : 'transparent',
-          transition:'all .12s',
+          fontSize:13, fontWeight: on ? 600 : 400,
+          color: on ? '#fff' : 'rgba(255,255,255,.45)',
+          background: on ? 'rgba(255,255,255,.07)' : 'transparent',
+          transition:'all .1s',
         }}
         onMouseEnter={e => {
-          if (!on) { e.currentTarget.style.background='rgba(255,255,255,.05)'; e.currentTarget.style.color='rgba(255,255,255,.75)' }
+          if (!on) { e.currentTarget.style.background='rgba(255,255,255,.04)'; e.currentTarget.style.color='rgba(255,255,255,.7)' }
           ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
         }}
-        onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.42)' }}}>
-        <div style={{ width:28, height:28, borderRadius:8, flexShrink:0,
-          background: on ? `${C.coral}20` : 'rgba(255,255,255,.06)',
-          display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-            stroke={on ? C.coral : 'rgba(255,255,255,.45)'}
-            strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-            <path d={n.icon}/>
-          </svg>
-        </div>
+        onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.45)' }}}>
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
+          stroke={on ? C.coral : 'rgba(255,255,255,.4)'}
+          strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+          <path d={n.icon}/>
+        </svg>
         {n.label}
       </button>
     )
@@ -2599,24 +2593,28 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const SidebarContent = () => (
     <>
       {/* Logo */}
-      <div style={{ padding:'22px 16px 18px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
+      <div style={{ padding:'20px 16px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
         onClick={() => { navigate('/'); if (isMobile) setDrawerOpen(false) }}>
-        <img src={logo} style={{ width:34, height:34, borderRadius:9, objectFit:'cover', flexShrink:0 }} alt="" />
-        <div>
-          <div style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.5px', lineHeight:1 }}>
-            Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-          </div>
-          <div style={{ fontSize:9, color:'rgba(255,255,255,.25)', letterSpacing:'.12em', textTransform:'uppercase', marginTop:3 }}>Music Workspace</div>
-        </div>
+        <img src={logo} style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }} alt="" />
+        <span style={{ fontSize:17, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+          Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+        </span>
       </div>
 
-      <nav style={{ flex:1, padding:'4px 10px', overflowY:'auto' }}>
-        {MAIN_NAV.map(sideNavBtn)}
-        <div style={{ margin:'16px 2px 8px', fontSize:10, fontWeight:700,
-          color:'rgba(255,255,255,.22)', textTransform:'uppercase', letterSpacing:'.12em' }}>
-          Tools
+      <nav style={{ flex:1, padding:'4px 8px', overflowY:'auto' }}>
+        {/* Main */}
+        {sideNavBtn(NAV[0])}
+        {sideNavBtn(NAV[1])}
+        {sideNavBtn(NAV[2])}
+
+        {/* Workspace section */}
+        <div style={{ margin:'18px 4px 6px', fontSize:9.5, fontWeight:700,
+          color:'rgba(255,255,255,.2)', textTransform:'uppercase', letterSpacing:'.14em' }}>
+          Workspace
         </div>
-        {TOOLS_NAV.map(sideNavBtn)}
+        {sideNavBtn(NAV[3])}
+        {sideNavBtn(NAV[4])}
+        {sideNavBtn(NAV[5])}
       </nav>
       {/* Getting started checklist — dismisses when all done */}
       {checklistVisible && (

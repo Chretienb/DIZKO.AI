@@ -5,17 +5,17 @@ export const C = {
   pink:'#F28FB8',  rose:'#E8709A',
   grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
 
-  // Dark theme — blue-gray tinted like the reference
-  bg:       '#1e1f2e',   // main content background
-  surface:  '#252638',   // cards and panels
-  surface2: '#2d2e45',   // hover / elevated
-  sidebar:  '#191a28',   // sidebar (slightly darker)
-  outer:    '#15162a',   // body / outermost wrapper
-  border:   'rgba(255,255,255,.07)',
+  // Dark theme — near black like the reference image
+  bg:       '#1c1c1f',   // main content background
+  surface:  '#222226',   // cards and panels
+  surface2: '#2a2a2e',   // hover / elevated
+  sidebar:  '#111113',   // sidebar (near black)
+  outer:    '#18181b',   // body / outermost wrapper
+  border:   'rgba(255,255,255,.08)',
   border2:  'rgba(255,255,255,.04)',
 
   // Dark theme text
-  t1: '#ffffff',
+  t1: '#f1f1f3',
   t2: 'rgba(255,255,255,.55)',
   t3: 'rgba(255,255,255,.28)',
 }
