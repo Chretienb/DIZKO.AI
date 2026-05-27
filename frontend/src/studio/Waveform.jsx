@@ -37,7 +37,7 @@ async function decode(url) {
   if (cache.has(url))   return cache.get(url)
   if (pending.has(url)) return pending.get(url)
 
-  const p = fetch(url, { mode: 'cors', credentials: 'omit' })
+  const p = fetch(url, { mode: 'cors', credentials: 'omit', cache: 'reload' })
     .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer() })
     .then(buf => new Promise((resolve, reject) => {
       const ac = new (window.AudioContext || window.webkitAudioContext)()

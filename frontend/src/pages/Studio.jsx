@@ -34,7 +34,9 @@ function cacheSet(key, val) {
 
 async function fetchAudioCached(url, onProgress) {
   if (audioBufferCache.has(url)) { onProgress?.(100); return audioBufferCache.get(url) }
-  const res = await fetch(url, { mode:'cors', credentials:'omit' })
+  // cache:'reload' forces a fresh request — R2 304 responses omit CORS headers
+  // which causes the browser to block the response. reload bypasses the cache.
+  const res = await fetch(url, { mode:'cors', credentials:'omit', cache:'reload' })
   if (!res.ok) throw new Error(`Audio fetch failed: ${res.status} ${res.statusText}`)
   const total = Number(res.headers.get('Content-Length') || 0)
   const reader = res.body?.getReader()
