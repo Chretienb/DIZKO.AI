@@ -101,15 +101,24 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const trackColor = (s, i) => stemColors[s.instrument] || stemColors[parsedNotes(s).stem_type] || defaultColors[i % 6]
 
   useEffect(() => {
+    // Use cached project ID so stems load immediately instead of waiting
+    // for the project list to return first (removes one sequential API round-trip).
+    const cached = sessionStorage.getItem('dizko_active_project')
+    if (cached) { setActiveId(cached); setLoading(false) }
+
     projectsApi.list().then(r => {
       const list = r.data || []
       setProjects(list)
-      if (list.length) setActiveId(list[0].id)
+      // Only override cached ID if it's no longer valid
+      if (!cached || !list.find(p => p.id === cached)) {
+        if (list.length) setActiveId(list[0].id)
+      }
     }).catch(e => console.warn('[studio]', e?.message)).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     if (!activeId) return
+    sessionStorage.setItem('dizko_active_project', activeId)
     setAiAnalysis(null)
     setStemComments({})
     setStemHistory({})
