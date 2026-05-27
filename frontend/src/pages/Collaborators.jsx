@@ -14,8 +14,68 @@ function displayName(c) {
 }
 
 // ── Profile card ──────────────────────────────────────────────────────────────
+// ── Remove confirm modal ──────────────────────────────────────────────────────
+function RemoveModal({ name, color, initials, onConfirm, onClose }) {
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center',
+      justifyContent:'center', background:'rgba(0,0,0,.45)', backdropFilter:'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', width:360,
+        maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.22)',
+        textAlign:'center' }}>
+
+        {/* Avatar */}
+        <div style={{ width:64, height:64, borderRadius:'50%', margin:'0 auto 16px',
+          background:`${color}18`, border:`2.5px solid ${color}30`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:20, fontWeight:900, color }}>
+          {initials}
+        </div>
+
+        {/* Icon */}
+        <div style={{ width:48, height:48, borderRadius:'50%', background:'#fef2f2',
+          margin:'0 auto 14px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+            strokeWidth={2} strokeLinecap="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="23" y1="11" x2="17" y2="11"/>
+          </svg>
+        </div>
+
+        <p style={{ margin:'0 0 8px', fontSize:18, fontWeight:900, color:'#111', letterSpacing:'-.5px' }}>
+          Remove {name}?
+        </p>
+        <p style={{ margin:'0 0 24px', fontSize:13, color:'#888', lineHeight:1.65 }}>
+          They will lose access to this project and all its files.<br/>This cannot be undone.
+        </p>
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose}
+            style={{ flex:1, height:42, borderRadius:12, border:'1.5px solid rgba(0,0,0,.1)',
+              background:'none', fontSize:14, fontWeight:600, color:'#666', cursor:'pointer',
+              transition:'background .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,.04)'}
+            onMouseLeave={e=>e.currentTarget.style.background='none'}>
+            Cancel
+          </button>
+          <button onClick={() => { onConfirm(); onClose() }}
+            style={{ flex:1, height:42, borderRadius:12, border:'none',
+              background:'#ef4444', color:'#fff', fontSize:14, fontWeight:700,
+              cursor:'pointer', boxShadow:'0 4px 14px rgba(239,68,68,.35)',
+              transition:'opacity .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.opacity='.88'}
+            onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+            Yes, Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProfileCard({ c, index, isOnline, onMessage, onWork, onRemove }) {
-  const [confirm, setConfirm] = useState(false)
+  const [showRemove, setShowRemove] = useState(false)
   const color    = COLORS[index % COLORS.length]
   const n        = displayName(c)
   const initials = n.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?'
@@ -63,53 +123,41 @@ function ProfileCard({ c, index, isOnline, onMessage, onWork, onRemove }) {
       </p>
 
       {/* Actions */}
-      {confirm ? (
-        <div style={{ width:'100%' }}>
-          <p style={{ margin:'0 0 10px', fontSize:13, color:'#ef4444', fontWeight:700 }}>
-            Remove {n.split(' ')[0]}?
-          </p>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => { setConfirm(false); onRemove(c.id) }}
-              style={{ flex:1, height:36, borderRadius:10, border:'none',
-                background:'#ef4444', color:'#fff', fontSize:13, fontWeight:700,
-                cursor:'pointer', boxShadow:'0 3px 10px rgba(239,68,68,.3)' }}>
-              Yes, remove
-            </button>
-            <button onClick={() => setConfirm(false)}
-              style={{ flex:1, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.1)',
-                background:'transparent', color:'#555', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%' }}>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => onMessage(c)}
-              style={{ flex:1, height:36, borderRadius:10, border:`1.5px solid ${color}30`,
-                background:`${color}08`, fontSize:13, fontWeight:700, color, cursor:'pointer',
-                transition:'all .12s' }}
-              onMouseEnter={e=>e.currentTarget.style.background=`${color}18`}
-              onMouseLeave={e=>e.currentTarget.style.background=`${color}08`}>
-              Message
-            </button>
-            <button onClick={() => onWork(c)}
-              style={{ flex:1, height:36, borderRadius:10, border:'none',
-                background:C.grad, color:'#fff', fontSize:13, fontWeight:700,
-                cursor:'pointer', boxShadow:`0 4px 12px ${C.coral}30` }}>
-              Work
-            </button>
-          </div>
-          <button onClick={() => setConfirm(true)}
-            style={{ width:'100%', height:34, borderRadius:10,
-              border:'1px solid rgba(239,68,68,.2)', background:'rgba(239,68,68,.04)',
-              color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer',
+      <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%' }}>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={() => onMessage(c)}
+            style={{ flex:1, height:36, borderRadius:10, border:`1.5px solid ${color}30`,
+              background:`${color}08`, fontSize:13, fontWeight:700, color, cursor:'pointer',
               transition:'all .12s' }}
-            onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.1)'}
-            onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,.04)'}>
-            Remove
+            onMouseEnter={e=>e.currentTarget.style.background=`${color}18`}
+            onMouseLeave={e=>e.currentTarget.style.background=`${color}08`}>
+            Message
+          </button>
+          <button onClick={() => onWork(c)}
+            style={{ flex:1, height:36, borderRadius:10, border:'none',
+              background:C.grad, color:'#fff', fontSize:13, fontWeight:700,
+              cursor:'pointer', boxShadow:`0 4px 12px ${C.coral}30` }}>
+            Work
           </button>
         </div>
+        <button onClick={() => setShowRemove(true)}
+          style={{ width:'100%', height:34, borderRadius:10,
+            border:'1px solid rgba(239,68,68,.2)', background:'rgba(239,68,68,.04)',
+            color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all .12s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.1)'}
+          onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,.04)'}>
+          Remove
+        </button>
+      </div>
+
+      {/* Remove modal */}
+      {showRemove && (
+        <RemoveModal
+          name={n.split(' ')[0]}
+          color={color}
+          initials={initials}
+          onConfirm={() => onRemove(c.id)}
+          onClose={() => setShowRemove(false)}/>
       )}
     </div>
   )
