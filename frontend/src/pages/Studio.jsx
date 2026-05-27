@@ -537,7 +537,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   isPlaying={playing}
                   analyserNode={analyserRefs.current[s.id] || null}
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
-                  eager
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
                   onSeek={sec => { offsetRef.current = sec; setCurrentTime(sec) }}

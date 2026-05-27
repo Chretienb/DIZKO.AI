@@ -1,303 +1,214 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-// url → { peaks: Float32Array, duration: number }
-const peaksCache = new Map()
-const inFlight   = new Map()
+const cache   = new Map()   // url → Float32Array of peaks
+const pending = new Map()   // url → Promise
 
-async function fetchAndExtractPeaks(url, numPeaks = 256) {
-  if (peaksCache.has(url)) return peaksCache.get(url)
-  if (inFlight.has(url))   return inFlight.get(url)
-
-  const promise = (async () => {
-    const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
-    if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-
-    const ctx     = new (window.AudioContext || window.webkitAudioContext)()
-    const decoded = await ctx.decodeAudioData(await res.arrayBuffer())
-    await ctx.close()
-
-    const duration = decoded.duration
-    const numCh    = decoded.numberOfChannels
-    const len      = decoded.length
-    const mono     = new Float32Array(len)
-    for (let c = 0; c < numCh; c++) {
-      const ch = decoded.getChannelData(c)
-      for (let i = 0; i < len; i++) mono[i] += ch[i] / numCh
-    }
-
-    const blockSize = Math.floor(len / numPeaks)
-    const peaks     = new Float32Array(numPeaks)
-    for (let i = 0; i < numPeaks; i++) {
-      let max = 0, off = i * blockSize
-      for (let j = 0; j < blockSize; j++) {
-        const v = Math.abs(mono[off + j] || 0)
-        if (v > max) max = v
-      }
-      peaks[i] = max
-    }
-    const globalMax = Math.max(...peaks)
-    if (globalMax > 0) for (let i = 0; i < peaks.length; i++) peaks[i] /= globalMax
-
-    const result = { peaks, duration }
-    peaksCache.set(url, result)
-    return result
-  })()
-
-  inFlight.set(url, promise)
-  promise.finally(() => inFlight.delete(url))
-  return promise
+export function preloadPeaks(urls) {
+  urls.forEach(u => u && !cache.has(u) && decode(u).catch(() => {}))
 }
 
-export function preloadPeaks(urls, numPeaks = 256) {
-  urls.forEach(url => {
-    if (url && !peaksCache.has(url)) fetchAndExtractPeaks(url, numPeaks).catch(() => {})
-  })
+async function decode(url) {
+  if (cache.has(url))   return cache.get(url)
+  if (pending.has(url)) return pending.get(url)
+
+  const p = fetch(url, { mode: 'cors', credentials: 'omit' })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer() })
+    .then(buf => {
+      return new Promise((resolve, reject) => {
+        const ac = new (window.AudioContext || window.webkitAudioContext)()
+        ac.decodeAudioData(buf,
+          decoded => {
+            ac.close()
+            // mono mix
+            const ch   = decoded.numberOfChannels
+            const len  = decoded.length
+            const mono = new Float32Array(len)
+            for (let c = 0; c < ch; c++) {
+              const d = decoded.getChannelData(c)
+              for (let i = 0; i < len; i++) mono[i] += d[i] / ch
+            }
+            // 512 peaks
+            const N  = 512
+            const bs = Math.floor(len / N)
+            const pk = new Float32Array(N)
+            for (let i = 0; i < N; i++) {
+              let mx = 0
+              for (let j = 0; j < bs; j++) mx = Math.max(mx, Math.abs(mono[i*bs+j]||0))
+              pk[i] = mx
+            }
+            const max = Math.max(...pk) || 1
+            for (let i = 0; i < N; i++) pk[i] /= max
+            cache.set(url, pk)
+            resolve(pk)
+          },
+          reject
+        )
+      })
+    })
+    .finally(() => pending.delete(url))
+
+  pending.set(url, p)
+  return p
 }
 
-// ── Draw helpers (use canvas physical size from DPR-scaled dimensions) ────────
-const DPR = window.devicePixelRatio || 1
+function paint(canvas, peaks, color, progress, muted) {
+  if (!canvas || !peaks) return
+  const dpr  = window.devicePixelRatio || 1
+  const W    = canvas.clientWidth
+  const H    = canvas.clientHeight
+  if (!W || !H) return
 
-function setupCanvas(canvas, W, H) {
-  canvas.width        = W * DPR
-  canvas.height       = H * DPR
-  canvas.style.width  = `${W}px`
-  canvas.style.height = `${H}px`
-  const ctx = canvas.getContext('2d')
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
-}
-
-function drawPeakBars(canvas, peaks, color, opacity, H) {
-  if (!canvas || !peaks?.length) return
-  const ctx  = canvas.getContext('2d')
-  const W    = canvas.width / DPR
-  const mid  = H / 2
-  const n    = peaks.length
-  const barW = W / n
-  ctx.clearRect(0, 0, W, H)
-  ctx.fillStyle = color + (opacity < 1 ? Math.round(opacity * 255).toString(16).padStart(2,'0') : '')
-  for (let i = 0; i < n; i++) {
-    const h = Math.max(1, peaks[i] * H * 0.85)
-    ctx.fillRect(i * barW, mid - h / 2, Math.max(barW - 0.5, 1), h)
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+    canvas.width  = W * dpr
+    canvas.height = H * dpr
   }
+
+  const ctx  = canvas.getContext('2d')
+  const mid  = (H * dpr) / 2
+  const n    = peaks.length
+  const barW = (W * dpr) / n
+  const playX = Math.floor(progress * n)
+
+  ctx.clearRect(0, 0, W * dpr, H * dpr)
+
+  for (let i = 0; i < n; i++) {
+    const h = Math.max(dpr, peaks[i] * H * dpr * 0.85)
+    ctx.fillStyle = muted
+      ? 'rgba(150,150,150,0.3)'
+      : i < playX ? color : color + '44'
+    ctx.fillRect(i * barW, mid - h/2, Math.max(barW - dpr, dpr), h)
+  }
+}
+
+function paintLive(canvas, analyser, color, muted) {
+  if (!canvas || !analyser) return
+  const dpr = window.devicePixelRatio || 1
+  const W   = canvas.clientWidth
+  const H   = canvas.clientHeight
+  if (!W || !H) return
+
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+    canvas.width  = W * dpr
+    canvas.height = H * dpr
+  }
+
+  const ctx  = canvas.getContext('2d')
+  const buf  = analyser.frequencyBinCount
+  const data = new Uint8Array(buf)
+  analyser.getByteTimeDomainData(data)
+
+  ctx.clearRect(0, 0, W * dpr, H * dpr)
+  ctx.lineWidth   = 2 * dpr
+  ctx.strokeStyle = muted ? 'rgba(150,150,150,0.5)' : color
+  ctx.shadowBlur  = 6
+  ctx.shadowColor = muted ? 'transparent' : color + 'aa'
+  ctx.beginPath()
+
+  const sw = (W * dpr) / buf
+  for (let i = 0; i < buf; i++) {
+    const y = ((data[i] / 128) / 2) * H * dpr
+    i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sw, y)
+  }
+  ctx.stroke()
+  ctx.shadowBlur = 0
 }
 
 export default function Waveform({
   url,
   color        = '#F4937A',
   currentTime  = 0,
+  duration     = 0,
   isPlaying    = false,
-  analyserNode,
-  storedPeaks,
+  analyserNode = null,
+  storedPeaks  = null,
   muted        = false,
   height       = 44,
   onSeek,
-  eager        = false,
 }) {
-  const containerRef = useRef(null)
-  const bgRef        = useRef(null)
-  const fgRef        = useRef(null)
-  const peaksRef     = useRef(null)
-  const durationRef  = useRef(0)
-  const widthRef     = useRef(0)
-  const rafRef       = useRef(null)
+  const canvasRef = useRef(null)
+  const rafRef    = useRef(null)
+  const peaksRef  = useRef(null)
   const [ready, setReady] = useState(false)
-  const [error, setError] = useState(false)
 
-  const progress = durationRef.current > 0
-    ? Math.min(1, currentTime / durationRef.current)
-    : 0
+  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0
 
-  // ── Size canvases to the container's real pixel width ─────────────────────
-  const sizeCanvases = useCallback((W) => {
-    if (!W || W === widthRef.current) return
-    widthRef.current = W
-    if (bgRef.current) setupCanvas(bgRef.current, W, height)
-    if (fgRef.current) setupCanvas(fgRef.current, W, height)
-    // Redraw if we already have peaks
-    if (peaksRef.current) {
-      drawPeakBars(bgRef.current, peaksRef.current, muted ? '#aaa' : color, 0.33, height)
-      drawPeakBars(fgRef.current, peaksRef.current, muted ? '#aaa' : color, 1,    height)
-    }
-  }, [color, muted, height])
-
-  // ── ResizeObserver — fires as soon as container has real dimensions ─────────
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const ro = new ResizeObserver(entries => {
-      const W = Math.round(entries[0].contentRect.width)
-      if (W > 0) sizeCanvases(W)
-    })
-    ro.observe(el)
-    // Also check immediately in case it's already sized
-    if (el.offsetWidth > 0) sizeCanvases(el.offsetWidth)
-    return () => ro.disconnect()
-  }, [sizeCanvases])
-
-  // ── Apply peaks and draw ───────────────────────────────────────────────────
-  const applyPeaks = useCallback((peaks, duration = 0) => {
-    peaksRef.current    = peaks
-    durationRef.current = duration
-    const W = widthRef.current || containerRef.current?.offsetWidth || 0
-    if (W > 0) sizeCanvases(W)
-    drawPeakBars(bgRef.current, peaks, muted ? '#aaa' : color, 0.33, height)
-    setReady(true)
-  }, [color, muted, height, sizeCanvases])
-
-  // ── Load peaks: storedPeaks → cache → R2 fetch ────────────────────────────
+  // ── Load peaks ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!url) return
+    let cancelled = false
 
-    // 1. Stored peaks from DB (instant)
+    // Use stored peaks from DB if available
     if (storedPeaks?.length) {
-      applyPeaks(Float32Array.from(storedPeaks))
+      peaksRef.current = Float32Array.from(storedPeaks)
+      setReady(true)
       return
     }
 
-    // 2. In-memory cache hit (instant if preloadPeaks() already ran)
-    if (peaksCache.has(url)) {
-      const { peaks, duration } = peaksCache.get(url)
-      applyPeaks(peaks, duration)
+    // Use cached peaks if already decoded
+    if (cache.has(url)) {
+      peaksRef.current = cache.get(url)
+      setReady(true)
       return
     }
 
-    // 3. Fetch from R2
-    const load = () => {
-      const numPeaks = Math.max(128, Math.floor((widthRef.current || 300) / 2))
-      fetchAndExtractPeaks(url, numPeaks)
-        .then(({ peaks, duration }) => applyPeaks(peaks, duration))
-        .catch(() => setError(true))
-    }
+    // Decode from R2
+    decode(url)
+      .then(pk => {
+        if (cancelled) return
+        peaksRef.current = pk
+        setReady(true)
+      })
+      .catch(() => {}) // fail silently — just no waveform
 
-    if (eager) {
-      // Studio: load right away, ResizeObserver will redraw once container sizes
-      load()
-      return
-    }
+    return () => { cancelled = true }
+  }, [url, storedPeaks])
 
-    // ProjectView: wait until visible
-    const el = containerRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(entries => {
-      if (!entries[0].isIntersecting) return
-      observer.disconnect()
-      load()
-    }, { threshold: 0.1 })
-    observer.observe(el)
-    return () => observer.disconnect()
-
-  }, [url, storedPeaks, eager, applyPeaks])
-
-  // ── Live 60fps oscilloscope via AnalyserNode ──────────────────────────────
+  // ── Draw loop ─────────────────────────────────────────────────────────────
   useEffect(() => {
     cancelAnimationFrame(rafRef.current)
 
-    if (!analyserNode || !isPlaying || !fgRef.current) {
-      // Not playing — draw static played bars
-      if (ready && peaksRef.current && !isPlaying) {
-        const W   = widthRef.current || 300
-        const mid = height / 2
-        const ctx = fgRef.current?.getContext('2d')
-        if (!ctx) return
-        const n     = peaksRef.current.length
-        const barW  = W / n
-        const playX = Math.floor(progress * n)
-        ctx.clearRect(0, 0, W, height)
-        ctx.fillStyle = muted ? 'rgba(180,180,180,.6)' : color
-        for (let i = 0; i < playX; i++) {
-          const h = Math.max(1, peaksRef.current[i] * height * 0.85)
-          ctx.fillRect(i * barW, mid - h / 2, Math.max(barW - 0.5, 1), h)
-        }
+    if (!ready) return
+
+    if (isPlaying && analyserNode) {
+      // Live oscilloscope at 60fps
+      const loop = () => {
+        paintLive(canvasRef.current, analyserNode, color, muted)
+        rafRef.current = requestAnimationFrame(loop)
       }
-      return
+      rafRef.current = requestAnimationFrame(loop)
+    } else {
+      // Static peaks
+      paint(canvasRef.current, peaksRef.current, color, progress, muted)
     }
 
-    const canvas    = fgRef.current
-    const ctx       = canvas.getContext('2d')
-    const W         = widthRef.current || 300
-    const H         = height
-    const bufferLen = analyserNode.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLen)
-
-    const draw = () => {
-      rafRef.current = requestAnimationFrame(draw)
-      analyserNode.getByteTimeDomainData(dataArray)
-      ctx.clearRect(0, 0, W, H)
-      ctx.lineWidth   = 1.5
-      ctx.strokeStyle = muted ? 'rgba(180,180,180,.6)' : color
-      ctx.shadowBlur  = 4
-      ctx.shadowColor = muted ? 'transparent' : `${color}80`
-      ctx.beginPath()
-      const sliceW = W / bufferLen
-      let x = 0
-      for (let i = 0; i < bufferLen; i++) {
-        const y = ((dataArray[i] / 128) / 2) * H
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-        x += sliceW
-      }
-      ctx.lineTo(W, H / 2)
-      ctx.stroke()
-      ctx.shadowBlur = 0
-    }
-    draw()
     return () => cancelAnimationFrame(rafRef.current)
-  }, [analyserNode, isPlaying, muted, color, height, ready, progress])
+  }, [ready, isPlaying, analyserNode, color, muted, progress])
 
-  // ── Redraw bg + played when muted/color/progress changes ─────────────────
-  useEffect(() => {
-    if (!ready || !peaksRef.current || isPlaying) return
-    drawPeakBars(bgRef.current, peaksRef.current, muted ? '#aaa' : color, 0.33, height)
-    // Played portion
-    const W   = widthRef.current || 300
-    const mid = height / 2
-    const ctx = fgRef.current?.getContext('2d')
-    if (!ctx) return
-    const n     = peaksRef.current.length
-    const barW  = W / n
-    const playX = Math.floor(progress * n)
-    ctx.clearRect(0, 0, W, height)
-    ctx.fillStyle = muted ? 'rgba(180,180,180,.6)' : color
-    for (let i = 0; i < playX; i++) {
-      const h = Math.max(1, peaksRef.current[i] * height * 0.85)
-      ctx.fillRect(i * barW, mid - h / 2, Math.max(barW - 0.5, 1), h)
-    }
-  }, [ready, muted, color, progress, isPlaying, height])
-
-  const handleClick = (e) => {
-    if (!onSeek) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const pct  = (e.clientX - rect.left) / rect.width
-    if (durationRef.current > 0) onSeek(pct * durationRef.current)
-    else onSeek(pct)
+  const handleClick = e => {
+    if (!onSeek || !duration) return
+    const r = e.currentTarget.getBoundingClientRect()
+    onSeek(((e.clientX - r.left) / r.width) * duration)
   }
 
-  if (error) return null
-
   return (
-    <div ref={containerRef}
-      style={{ width:'100%', height, position:'relative', cursor: onSeek ? 'pointer' : 'default' }}
+    <div style={{ width:'100%', height, position:'relative', cursor: onSeek ? 'pointer' : 'default' }}
       onClick={handleClick}>
-
+      {/* Placeholder while decoding */}
       {!ready && (
-        <div style={{ position:'absolute', inset:0, display:'flex',
-          alignItems:'center', gap:1.5, padding:'0 2px' }}>
-          {Array.from({ length: 40 }, (_, i) => (
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', gap:1, padding:'0 2px' }}>
+          {Array.from({length:40},(_,i) => (
             <div key={i} style={{ flex:1, borderRadius:1, background:`${color}18`,
-              height:`${28 + Math.sin(i * 0.65) * 18}%` }}/>
+              height:`${28+Math.sin(i*.7)*18}%` }}/>
           ))}
         </div>
       )}
-
-      <canvas ref={bgRef} style={{ position:'absolute', inset:0, display: ready ? 'block' : 'none' }}/>
-      <canvas ref={fgRef} style={{ position:'absolute', inset:0, display: ready ? 'block' : 'none' }}/>
-
+      <canvas ref={canvasRef} style={{ width:'100%', height, display: ready ? 'block' : 'none' }}/>
+      {/* Playhead */}
       {ready && !isPlaying && progress > 0 && progress < 1 && (
-        <div style={{
-          position:'absolute', top:0, bottom:0, left:`${progress * 100}%`,
+        <div style={{ position:'absolute', top:0, bottom:0, left:`${progress*100}%`,
           width:2, background:'#fff', borderRadius:1,
           boxShadow:'0 0 4px rgba(255,255,255,.7)',
-          transform:'translateX(-50%)', pointerEvents:'none',
-        }}/>
+          transform:'translateX(-50%)', pointerEvents:'none' }}/>
       )}
     </div>
   )
