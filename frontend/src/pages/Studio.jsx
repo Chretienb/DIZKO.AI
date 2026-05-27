@@ -7,7 +7,7 @@ import { getToken } from '../lib/utils.js'
 import Transport from '../studio/Transport.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
-import { preloadPeaks } from '../studio/Waveform.jsx'
+import { preloadPeaks, seedPeaksFromBuffer } from '../studio/Waveform.jsx'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -256,6 +256,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         )
         const audio = await ctx.decodeAudioData(buf.slice(0))
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+        // Seed waveform cache from the already-decoded buffer — no extra R2 fetch
+        seedPeaksFromBuffer(s.file_url, audio)
         return { s, audio }
       } catch (e) {
         console.error('[playAll] decode failed:', s.suggested_name || s.original_name, e?.message)

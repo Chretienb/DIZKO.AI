@@ -3,52 +3,58 @@ import { useEffect, useRef, useState } from 'react'
 const cache   = new Map()   // url → Float32Array of peaks
 const pending = new Map()   // url → Promise
 
-export function preloadPeaks(urls) {
-  urls.forEach(u => u && !cache.has(u) && decode(u).catch(() => {}))
+// Waveform components listen for this event to re-check the cache after seeding
+const PEAKS_EVENT = 'dizko:peaks_ready'
+
+// ── Seed from an already-decoded AudioBuffer (called from Studio after playback decode) ──
+// Reuses the buffer Studio already decoded — no extra R2 fetch needed.
+export function seedPeaksFromBuffer(url, audioBuffer) {
+  if (cache.has(url)) return
+  const numCh = audioBuffer.numberOfChannels
+  const len   = audioBuffer.length
+  const mono  = new Float32Array(len)
+  for (let c = 0; c < numCh; c++) {
+    const ch = audioBuffer.getChannelData(c)
+    for (let i = 0; i < len; i++) mono[i] += ch[i] / numCh
+  }
+  const N  = 512
+  const bs = Math.floor(len / N)
+  const pk = new Float32Array(N)
+  for (let i = 0; i < N; i++) {
+    let mx = 0
+    for (let j = 0; j < bs; j++) mx = Math.max(mx, Math.abs(mono[i*bs+j]||0))
+    pk[i] = mx
+  }
+  const max = Math.max(...pk) || 1
+  for (let i = 0; i < N; i++) pk[i] /= max
+  cache.set(url, pk)
+  // Notify any mounted Waveform components that peaks are now available
+  window.dispatchEvent(new CustomEvent(PEAKS_EVENT, { detail: { url } }))
 }
 
+// Fallback fetch+decode (for waveforms before first play)
 async function decode(url) {
   if (cache.has(url))   return cache.get(url)
   if (pending.has(url)) return pending.get(url)
 
   const p = fetch(url, { mode: 'cors', credentials: 'omit' })
     .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer() })
-    .then(buf => {
-      return new Promise((resolve, reject) => {
-        const ac = new (window.AudioContext || window.webkitAudioContext)()
-        ac.decodeAudioData(buf,
-          decoded => {
-            ac.close()
-            // mono mix
-            const ch   = decoded.numberOfChannels
-            const len  = decoded.length
-            const mono = new Float32Array(len)
-            for (let c = 0; c < ch; c++) {
-              const d = decoded.getChannelData(c)
-              for (let i = 0; i < len; i++) mono[i] += d[i] / ch
-            }
-            // 512 peaks
-            const N  = 512
-            const bs = Math.floor(len / N)
-            const pk = new Float32Array(N)
-            for (let i = 0; i < N; i++) {
-              let mx = 0
-              for (let j = 0; j < bs; j++) mx = Math.max(mx, Math.abs(mono[i*bs+j]||0))
-              pk[i] = mx
-            }
-            const max = Math.max(...pk) || 1
-            for (let i = 0; i < N; i++) pk[i] /= max
-            cache.set(url, pk)
-            resolve(pk)
-          },
-          reject
-        )
-      })
-    })
+    .then(buf => new Promise((resolve, reject) => {
+      const ac = new (window.AudioContext || window.webkitAudioContext)()
+      ac.decodeAudioData(buf, decoded => {
+        ac.close()
+        seedPeaksFromBuffer(url, decoded)
+        resolve(cache.get(url))
+      }, reject)
+    }))
     .finally(() => pending.delete(url))
 
   pending.set(url, p)
   return p
+}
+
+export function preloadPeaks(urls) {
+  urls.forEach(u => u && !cache.has(u) && decode(u).catch(() => {}))
 }
 
 function paint(canvas, peaks, color, progress, muted) {
@@ -137,30 +143,43 @@ export default function Waveform({
     if (!url) return
     let cancelled = false
 
-    // Use stored peaks from DB if available
-    if (storedPeaks?.length) {
-      peaksRef.current = Float32Array.from(storedPeaks)
-      setReady(true)
-      return
+    const tryLoad = () => {
+      // Use stored peaks from DB
+      if (storedPeaks?.length) {
+        peaksRef.current = Float32Array.from(storedPeaks)
+        setReady(true)
+        return true
+      }
+      // Use in-memory cache (populated by seedPeaksFromBuffer or preloadPeaks)
+      if (cache.has(url)) {
+        peaksRef.current = cache.get(url)
+        setReady(true)
+        return true
+      }
+      return false
     }
 
-    // Use cached peaks if already decoded
-    if (cache.has(url)) {
-      peaksRef.current = cache.get(url)
-      setReady(true)
-      return
-    }
+    if (tryLoad()) return
 
-    // Decode from R2
+    // Listen for when Studio seeds this URL's peaks after playback decode
+    const onPeaksReady = (e) => {
+      if (e.detail?.url === url && !cancelled) tryLoad()
+    }
+    window.addEventListener(PEAKS_EVENT, onPeaksReady)
+
+    // Decode from R2 as fallback (runs in parallel with Studio's decode)
     decode(url)
       .then(pk => {
         if (cancelled) return
         peaksRef.current = pk
         setReady(true)
       })
-      .catch(() => {}) // fail silently — just no waveform
+      .catch(() => {}) // fail silently — waveform stays as placeholder
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      window.removeEventListener(PEAKS_EVENT, onPeaksReady)
+    }
   }, [url, storedPeaks])
 
   // ── Draw loop ─────────────────────────────────────────────────────────────
