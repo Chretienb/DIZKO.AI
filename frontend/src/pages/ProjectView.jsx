@@ -388,14 +388,23 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <span>{project?.title}</span>
         </div>
 
-        {/* Project title + pills + action buttons */}
+        {/* Project title + pills (top-right) + buttons (below pills) — matches Figma layout */}
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
+          {/* LEFT: title + subtitle */}
           <div style={{ flex:1, minWidth:0 }}>
-            <h1 style={{ margin:'0 0 10px', fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1px', textTransform:'uppercase' }}>
+            <h1 style={{ margin:'0 0 8px', fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1px', textTransform:'uppercase' }}>
               {project?.title}
             </h1>
+            <div style={{ fontSize:12, color:C.t3, display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+              <span>{parentFiles.length} stem{parentFiles.length!==1?'s':''}</span>
+              {project?.updated_at && <><span style={{ opacity:.4 }}>·</span><span>Last edited {timeAgo(project.updated_at)}</span></>}
+              <span style={{ opacity:.4 }}>·</span><span>WAV · 44.1kHz</span>
+            </div>
+          </div>
+          {/* RIGHT: pills on top row, buttons below — exactly like Figma */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:10, flexShrink:0 }}>
             {/* Pills row */}
-            <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:9 }}>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:7, justifyContent:'flex-end' }}>
               <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.12)', border:'1px solid rgba(99,102,241,.22)', padding:'4px 11px', borderRadius:20 }}>
                 <svg width={8} height={8} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                 Auto-labeled
@@ -403,28 +412,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               {projBpm && <span style={{ fontSize:11, fontWeight:700, color:C.coral, background:`${C.coral}12`, border:`1px solid ${C.coral}28`, padding:'4px 11px', borderRadius:20 }}>BPM: {Math.round(projBpm)}</span>}
               {projKey?.trim() && <span style={{ fontSize:11, fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.22)', padding:'4px 11px', borderRadius:20 }}>Key: {projKey}</span>}
             </div>
-            {/* Subtitle */}
-            <div style={{ fontSize:12, color:C.t3, display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
-              <span>{parentFiles.length} stem{parentFiles.length!==1?'s':''}</span>
-              {project?.updated_at && <><span style={{ opacity:.4 }}>·</span><span>Last edited {timeAgo(project.updated_at)}</span></>}
-              <span style={{ opacity:.4 }}>·</span><span>WAV · 44.1kHz</span>
+            {/* Action buttons */}
+            <div style={{ display:'flex', gap:9, flexWrap:'wrap', justifyContent:'flex-end' }}>
+              <button onClick={() => openModal?.('upload', { project })}
+                style={{ height:36, padding:'0 16px', borderRadius:10, border:`1px solid ${C.border}`, cursor:'pointer', background:'rgba(255,255,255,.04)', color:C.t2, fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', gap:6, transition:'all .12s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.08)'}
+                onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+                Upload
+              </button>
+              <button onClick={() => navigate('/studio')}
+                style={{ height:36, padding:'0 16px', borderRadius:10, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', gap:7, boxShadow:`0 3px 14px ${C.coral}30`, transition:'opacity .12s' }}
+                onMouseEnter={e=>e.currentTarget.style.opacity='.82'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                Open in Studio
+              </button>
             </div>
-          </div>
-          {/* Action buttons */}
-          <div style={{ display:'flex', gap:9, flexShrink:0, flexWrap:'wrap', alignItems:'center' }}>
-            <button onClick={() => openModal?.('upload', { project })}
-              style={{ height:36, padding:'0 16px', borderRadius:10, border:`1px solid ${C.border}`, cursor:'pointer', background:'rgba(255,255,255,.04)', color:C.t2, fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', gap:6, transition:'all .12s' }}
-              onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.08)'}
-              onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
-              Upload
-            </button>
-            <button onClick={() => navigate('/studio')}
-              style={{ height:36, padding:'0 16px', borderRadius:10, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', gap:7, boxShadow:`0 3px 14px ${C.coral}30`, transition:'opacity .12s' }}
-              onMouseEnter={e=>e.currentTarget.style.opacity='.82'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-              Open in Studio
-            </button>
           </div>
         </div>
 
@@ -575,30 +578,41 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
         )}
 
-        {/* ── Recent Activity ── */}
-        <div style={{ background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflow:'hidden', marginTop:4 }}>
-          <div style={{ padding:'16px 20px 12px', borderBottom:`1px solid ${C.border}` }}>
-            <span style={{ fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>Recent Activity</span>
-          </div>
-          {activity.length === 0 ? (
-            <div style={{ padding:'28px 20px', textAlign:'center', fontSize:12.5, color:C.t3 }}>No activity yet. Uploads and invites will show here.</div>
-          ) : (
-            activity.slice(0, 8).map((n, i) => {
-              const colors = [C.coral, '#6366f1', '#22c55e', '#94a3b8']
-              const clr    = colors[i % colors.length]
-              return (
-                <div key={n.id || i} style={{ display:'flex', alignItems:'center', gap:13, padding:'13px 20px', borderBottom: i < Math.min(activity.length,8)-1 ? `1px solid ${C.border2}` : 'none', transition:'background .1s' }}
-                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.025)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <div style={{ width:7, height:7, borderRadius:'50%', background:clr, flexShrink:0 }}/>
-                  <div style={{ flex:1, fontSize:13, color:C.t2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {n.body || n.message || n.title}
+        {/* ── Recent Activity — falls back to file upload history if notifications are empty ── */}
+        {(() => {
+          const actItems = activity.length > 0 ? activity
+            : [...files]
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 8)
+                .map(f => ({
+                  id: f.id,
+                  body: `${f.original_name || f.suggested_name || 'File'} uploaded — auto-labeled "${f.suggested_name || f.instrument || 'Audio'}"`,
+                  created_at: f.created_at,
+                }))
+          return (
+          <div style={{ background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflow:'hidden', marginTop:4 }}>
+            <div style={{ padding:'16px 20px 12px', borderBottom:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>Recent Activity</span>
+            </div>
+            {actItems.length === 0 ? (
+              <div style={{ padding:'28px 20px', textAlign:'center', fontSize:12.5, color:C.t3 }}>No activity yet.</div>
+            ) : (
+              actItems.map((n, i) => {
+                const colors = [C.coral, '#6366f1', '#22c55e', '#94a3b8']
+                const clr    = colors[i % colors.length]
+                return (
+                  <div key={n.id || i} style={{ display:'flex', alignItems:'center', gap:13, padding:'13px 20px', borderBottom: i < actItems.length-1 ? `1px solid ${C.border2}` : 'none', transition:'background .1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.025)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:clr, flexShrink:0 }}/>
+                    <div style={{ flex:1, fontSize:13, color:C.t2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {n.body || n.message || n.title}
+                    </div>
+                    <span style={{ fontSize:11.5, color:C.t3, flexShrink:0 }}>{timeAgo(n.created_at)}</span>
                   </div>
-                  <span style={{ fontSize:11.5, color:C.t3, flexShrink:0 }}>{timeAgo(n.created_at)}</span>
-                </div>
-              )
-            })
-          )}
+                )
+              })
+            )}
 
           {/* Collaborators quick section */}
           {collabs.length > 0 && (
@@ -626,6 +640,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
           )}
         </div>
+          )
+        })()}
       </div>
 
       {/* ══════════════════════════════════════════════════════════
