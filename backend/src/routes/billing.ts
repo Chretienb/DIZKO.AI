@@ -19,10 +19,35 @@ billing.get('/status', requireAuth, async (c) => {
   if (error || !profile) return c.json({ data: null, error: 'Profile not found', status: 404 }, 404)
 
   const p = profile as any
+
+  // Compute actual storage from stems table — source of truth.
+  // This is accurate even if the increment_storage RPC is not deployed or drifted.
+  const { data: stemsData, error: stemsErr } = await supabase
+    .from('stems')
+    .select('file_size')
+    .eq('uploaded_by', userId)
+
+  if (stemsErr) console.error('[billing] stems query error:', stemsErr.message)
+
+  const actualBytes: number = ((stemsData as any[]) ?? [])
+    .reduce((sum, s) => sum + (Number(s.file_size) || 0), 0)
+
+  // Heal the counter in the background if it has drifted
+  if (actualBytes !== p.storage_used_bytes) {
+    supabase.from('profiles')
+      .update({ storage_used_bytes: actualBytes })
+      .eq('id', userId)
+      .then(({ error: e }) => {
+        if (e) console.error('[billing] storage sync error:', e.message)
+        else   console.log(`[billing] healed storage for ${userId}: ${p.storage_used_bytes} → ${actualBytes}`)
+      })
+      .catch(() => {})
+  }
+
   const trialEnd    = new Date(p.trial_end)
   const daysLeft    = Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / 86_400_000))
-  const storageUsedGb  = (p.storage_used_bytes  / 1_073_741_824).toFixed(2)
-  const storageLimitGb = (p.storage_limit_bytes / 1_073_741_824).toFixed(2)
+  const storageUsedGb  = (actualBytes            / 1_073_741_824).toFixed(2)
+  const storageLimitGb = (p.storage_limit_bytes  / 1_073_741_824).toFixed(2)
 
   return c.json({
     data: {
@@ -31,11 +56,11 @@ billing.get('/status', requireAuth, async (c) => {
       trial_end:           p.trial_end,
       trial_days_left:     daysLeft,
       has_payment_method:  !!p.stripe_subscription_id,
-      storage_used_bytes:  p.storage_used_bytes,
+      storage_used_bytes:  actualBytes,
       storage_limit_bytes: p.storage_limit_bytes,
       storage_used_gb:     storageUsedGb,
       storage_limit_gb:    storageLimitGb,
-      storage_percent:     Math.round((p.storage_used_bytes / p.storage_limit_bytes) * 100),
+      storage_percent:     Math.round((actualBytes / p.storage_limit_bytes) * 100),
     },
     error: null,
     status: 200,

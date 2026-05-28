@@ -11,7 +11,7 @@ import { writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join }                   from 'path'
 import { tmpdir }                 from 'os'
 import { supabase }               from './supabase'
-import { uploadToR2, getR2SignedUrl } from './r2'
+import { uploadToR2, getR2SignedUrl, deleteFromR2 } from './r2'
 import { getLatestAnalysis }      from './aiAnalysis'
 import type { MixParam }          from './aiAnalysis'
 
@@ -50,11 +50,24 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
 
   const { data: stems, error } = await supabase
     .from('stems')
-    .select('id, instrument, uploaded_by, suggested_name, file_url, storage_path, created_at')
+    .select('id, instrument, uploaded_by, suggested_name, file_url, storage_path, created_at, file_size')
     .in('track_id', trackIds)
     .order('created_at', { ascending: false })
 
   if (error || !stems?.length) return null
+
+  // Delete all previous smart_bounce records for this project (R2 + DB)
+  // so they don't accumulate and inflate storage counts.
+  const oldBounces = (stems as any[]).filter(s => s.instrument === 'smart_bounce')
+  for (const old of oldBounces) {
+    if (old.storage_path) await deleteFromR2(old.storage_path).catch(() => {})
+    if (old.file_size && old.uploaded_by) {
+      await supabase.rpc('decrement_storage', { user_id: old.uploaded_by, bytes: old.file_size }).catch(() => {})
+    }
+  }
+  if (oldBounces.length > 0) {
+    await supabase.from('stems').delete().in('id', oldBounces.map((s: any) => s.id))
+  }
 
   const takes = latestTakes(stems)
   if (takes.length < 1) {
@@ -113,6 +126,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
       notes: JSON.stringify({ project_id: projectId, contributors: [contributors[0]?.instrument], stem_count: 1, auto: true }),
       uploaded_by: triggeredBy,
     })
+    await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }).catch(() => {})
     return { bounce_url: bounceUrl, storage_path: storagePath, contributors: contributors.filter(Boolean), stem_count: 1 }
   }
 
@@ -211,6 +225,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
     }),
     uploaded_by:    triggeredBy,
   }).select().single()
+  await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }).catch(() => {})
 
   console.log(`[smartBounce] done — ${validFiles.length} stems → ${bounceUrl}`)
 

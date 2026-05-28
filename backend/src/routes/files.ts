@@ -106,8 +106,11 @@ files.post('/upload', async (c) => {
   }
   const fileUrl = await getR2SignedUrl(storagePath)
 
-  // Increment storage used (non-blocking)
-  ;(async () => { try { await supabase.rpc('increment_storage', { user_id: user.id, bytes: file.size }) } catch {} })()
+  // Increment storage counter (non-blocking — billing/status heals drift anyway)
+  ;(async () => {
+    const { error: rpcErr } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: file.size })
+    if (rpcErr) console.error('[upload] increment_storage rpc error (run 006_storage_rpc.sql migration):', rpcErr.message)
+  })()
 
   // 3. Resolve or create track
   const { data: existingTrack } = await supabase
@@ -350,7 +353,10 @@ files.post('/:id/separate-stems', async (c) => {
           notes:          JSON.stringify({ parent_stem_id: takeId, stem_type: type, bpm, key }),
           uploaded_by:    user.id,
         })
-        ;(async () => { try { await supabase.rpc('increment_storage', { user_id: user.id, bytes: buf.length }) } catch {} })()
+        ;(async () => {
+          const { error: rpcErr } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: buf.length })
+          if (rpcErr) console.error('[stems] increment_storage rpc error:', rpcErr.message)
+        })()
         count++
       } catch (e) {
         console.error(`[replicate] error processing ${type}:`, (e as Error).message)

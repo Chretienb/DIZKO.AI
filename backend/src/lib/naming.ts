@@ -2,8 +2,8 @@
  * AI-powered (or heuristic) stem naming.
  *
  * Priority:
- *  1. OpenAI GPT-4o-mini  — if OPENAI_API_KEY is set
- *  2. Smart heuristics    — always available, always fast
+ *  1. Claude Haiku — if ANTHROPIC_API_KEY is set
+ *  2. Smart heuristics — always available, always fast
  */
 
 const INSTRUMENT_MAP: Record<string, string> = {

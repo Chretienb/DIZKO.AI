@@ -16,6 +16,8 @@ import PageLibraryNew      from './pages/Library.jsx'
 import PageAnalyticsNew    from './pages/Analytics.jsx'
 import ProjectView         from './pages/ProjectView.jsx'
 import { TermsPage, PrivacyPage, CookiesPage } from './pages/Legal.jsx'
+import NotificationBell from './components/NotificationBell.jsx'
+import PageAccount from './pages/Account.jsx'
 
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
 export class ErrorBoundary extends React.Component {
@@ -160,6 +162,7 @@ const C = {
   coral:'#F4937A', peach:'#F4A97C', amber:'#F5C97A',
   pink:'#F28FB8',  rose:'#E8709A',
   grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
+  bg:'#18181b', sidebar:'#18181b', surface:'#18181b',
 }
 
 // ─── SPINNER — music equalizer bars ────────────────────────────────────────
@@ -310,7 +313,7 @@ const Btn = React.memo(function Btn({ children, onClick, style={}, variant='prim
   const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', transition:'opacity .15s', ...style }
   const vars = {
     primary: { background:C.grad, color:'#fff', boxShadow:`0 4px 14px ${C.coral}40` },
-    ghost:   { background:'rgba(0,0,0,.05)', color:'#444' },
+    ghost:   { background:'rgba(255,255,255,.06)', color:C.t2 },
     danger:  { background:'rgba(239,68,68,.1)', color:'#ef4444' },
   }
   return <button onClick={onClick} style={{ ...base, ...vars[variant] }}
@@ -430,157 +433,7 @@ async function setupPushNotifications() {
   }
 }
 
-// Light-themed bell for the white top header bar
-function NotificationBellLight({ user }) {
-  const [notifs,  setNotifs]  = React.useState([])
-  const [open,    setOpen]    = React.useState(false)
-  const panelRef = React.useRef()
-  const navigate = useNavigate()
-
-  const unread = notifs.filter(n => !n.read).length
-
-  const load = React.useCallback(() => {
-    notificationsApi.list().then(r => setNotifs(r.data || [])).catch(e => console.warn("[dizko]", e?.message))
-  }, [])
-
-  React.useEffect(() => { load() }, [])
-
-  React.useEffect(() => {
-    if (!user?.id) return
-    const ch = supabase.channel(`notifs-light:${user.id}`)
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
-        filter:`user_id=eq.${user.id}` }, () => load())
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [user?.id])
-
-  React.useEffect(() => {
-    const handler = e => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const markAllRead = async () => {
-    await notificationsApi.readAll()
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
-  }
-  const markRead = async id => {
-    await notificationsApi.read(id)
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }
-
-  const typeIcon = type => {
-    const icons = {
-      upload:       { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: C.coral },
-      mix_ready:    { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>, color: '#16a34a' },
-      message:      { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, color: '#6366f1' },
-      invite:       { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>, color: C.amber },
-      stems_ready:  { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>, color: '#8b5cf6' },
-      ai_analysis:  { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>, color: '#6366f1' },
-      file_uploaded:{ svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: C.coral },
-    }
-    return icons[type] || { svg: <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, color: '#aaa' }
-  }
-
-  return (
-    <div style={{ position:'relative' }} ref={panelRef}>
-      <button onClick={() => { setOpen(o => !o); if (!open) load() }}
-        aria-label="Notifications" aria-expanded={open}
-        style={{ width:36, height:36, borderRadius:10, border:'1px solid rgba(0,0,0,.08)',
-          background: open ? 'rgba(0,0,0,.06)' : 'rgba(0,0,0,.04)',
-          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          color:'#777', position:'relative', transition:'all .12s' }}
-        onMouseEnter={e => { e.currentTarget.style.background='rgba(0,0,0,.08)'; e.currentTarget.style.color='#333' }}
-        onMouseLeave={e => { e.currentTarget.style.background= open ?'rgba(0,0,0,.06)':'rgba(0,0,0,.04)'; e.currentTarget.style.color='#777' }}>
-        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
-        {unread > 0 && (
-          <div style={{ position:'absolute', top:3, right:3, width:16, height:16,
-            borderRadius:'50%', background:C.coral, border:'2px solid #fff',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:8.5, fontWeight:900, color:'#fff' }}>
-            {unread > 9 ? '9+' : unread}
-          </div>
-        )}
-      </button>
-
-      {open && (
-        <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:360,
-          background:'#fff', borderRadius:16, boxShadow:'0 16px 50px rgba(0,0,0,.15)',
-          border:'1px solid rgba(0,0,0,.08)', zIndex:9999, overflow:'hidden' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'14px 18px', borderBottom:'1px solid rgba(0,0,0,.06)' }}>
-            <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>
-              Notifications
-              {unread > 0 && <span style={{ marginLeft:8, fontSize:11, fontWeight:700,
-                color:C.coral, background:`${C.coral}15`, padding:'2px 8px', borderRadius:100 }}>
-                {unread} new
-              </span>}
-            </div>
-            {unread > 0 && (
-              <button onClick={markAllRead} style={{ fontSize:11.5, fontWeight:600,
-                color:'#aaa', background:'none', border:'none', cursor:'pointer' }}>
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div style={{ maxHeight:400, overflowY:'auto' }}>
-            {notifs.length === 0 && (
-              <div style={{ padding:'32px', textAlign:'center', color:'#bbb', fontSize:13 }}>
-                No notifications yet
-              </div>
-            )}
-            {notifs.map((n, i) => {
-              const { svg, color } = typeIcon(n.type)
-              const displayTitle = n.title || n.message || 'Notification'
-              const displayBody  = n.title ? n.message : null
-              return (
-                <div key={n.id}
-                  onClick={() => {
-                    markRead(n.id)
-                    if (n.action_url) { navigate(n.action_url); setOpen(false) }
-                  }}
-                  style={{ display:'flex', gap:12, padding:'12px 18px',
-                    cursor: n.action_url ? 'pointer' : 'default',
-                    background: n.read ? 'transparent' : `${C.coral}04`,
-                    borderBottom: i < notifs.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none',
-                    transition:'background .12s' }}
-                  onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,.025)'}
-                  onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : `${C.coral}04`}>
-                  <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
-                    background:`${color}15`, display:'flex', alignItems:'center',
-                    justifyContent:'center', color }}>
-                    {svg}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:'#111',
-                      lineHeight:1.4, marginBottom:2 }}>{displayTitle}</div>
-                    {displayBody && (
-                      <div style={{ fontSize:12, color:'#888', overflow:'hidden',
-                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayBody}</div>
-                    )}
-                    <div style={{ fontSize:11, color:'#ccc', marginTop:3 }}>{timeAgo(n.created_at)}</div>
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                    {!n.read && (
-                      <div style={{ width:7, height:7, borderRadius:'50%', background:C.coral }}/>
-                    )}
-                    {n.action_url && (
-                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round">
-                        <polyline points="9,18 15,12 9,6"/>
-                      </svg>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+const NotificationBellLight = NotificationBell
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
 function Modal({ title, sub, onClose, children, width=520, accent }) {
@@ -625,22 +478,22 @@ function Modal({ title, sub, onClose, children, width=520, accent }) {
 function Field({ label, type='text', placeholder, value, onChange, as, hint }) {
   const base = {
     width:'100%', padding:'10px 13px', fontSize:13.5, borderRadius:10,
-    border:'1.5px solid rgba(0,0,0,.09)', outline:'none', background:'#fafafa',
-    color:'#111', fontFamily:'inherit', boxSizing:'border-box', resize:'vertical',
+    border:`1.5px solid ${C.border}`, outline:'none', background:C.surface2,
+    color:C.t1, fontFamily:'inherit', boxSizing:'border-box', resize:'vertical',
     transition:'border .15s, box-shadow .15s',
   }
   const handlers = {
     onFocus: e => { e.target.style.borderColor=C.coral; e.target.style.boxShadow=`0 0 0 3px ${C.coral}18` },
-    onBlur:  e => { e.target.style.borderColor='rgba(0,0,0,.09)'; e.target.style.boxShadow='none' },
+    onBlur:  e => { e.target.style.borderColor=C.border; e.target.style.boxShadow='none' },
   }
   return (
     <div style={{ marginBottom:14 }}>
-      {label && <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#555',
+      {label && <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:C.t3,
         textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>{label}</label>}
       {as === 'textarea'
         ? <textarea placeholder={placeholder} value={value} onChange={onChange} rows={3} style={base} {...handlers}/>
         : <input type={type} placeholder={placeholder} value={value} onChange={onChange} style={base} {...handlers}/>}
-      {hint && <div style={{ fontSize:11, color:'#bbb', marginTop:4 }}>{hint}</div>}
+      {hint && <div style={{ fontSize:11, color:C.t3, marginTop:4 }}>{hint}</div>}
     </div>
   )
 }
@@ -656,8 +509,8 @@ function ModalSuccess({ title, body, onClose, accent='#22c55e' }) {
           <polyline points="20,6 9,17 4,12"/>
         </svg>
       </div>
-      <div style={{ fontSize:15, fontWeight:800, color:'#111', marginBottom:6 }}>{title}</div>
-      {body && <p style={{ color:'#aaa', fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>{body}</p>}
+      <div style={{ fontSize:15, fontWeight:800, color:C.t1, marginBottom:6 }}>{title}</div>
+      {body && <p style={{ color:C.t3, fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>{body}</p>}
       <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
     </div>
   )
@@ -672,9 +525,9 @@ function PillSelect({ options, value, onChange, getColor }) {
         const col = getColor ? getColor(opt) : C.coral
         return (
           <button key={opt} onClick={() => onChange(opt)} style={{
-            padding:'6px 14px', borderRadius:100, border:`1.5px solid ${on ? col : 'rgba(0,0,0,.09)'}`,
-            background: on ? `${col}14` : 'transparent',
-            color: on ? col : '#888', fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .12s',
+            padding:'6px 14px', borderRadius:100, border:`1.5px solid ${on ? col : C.border}`,
+            background: on ? `${col}18` : 'transparent',
+            color: on ? col : C.t3, fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .12s',
           }}>{opt}</button>
         )
       })}
@@ -684,7 +537,7 @@ function PillSelect({ options, value, onChange, getColor }) {
 
 // Section label used inside modals
 function MLabel({ children }) {
-  return <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase',
+  return <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase',
     letterSpacing:'.07em', marginBottom:8 }}>{children}</div>
 }
 
@@ -730,7 +583,7 @@ function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user
     }).finally(() => setLoading(false))
   }, [project?.id])
 
-  const toggleFirst = () => { if (files.length) playTrack(files[0]) }
+  const toggleFirst = () => { if (files.length) playTrack(files[0], files) }
 
   const tags = [project.status, `${files.length} Files`, project.type].filter(Boolean)
 
@@ -985,12 +838,12 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
     <Modal title="Account Settings" sub="Profile and preferences" onClose={onClose} accent="#6366f1">
       {/* Avatar */}
       <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', marginBottom:20,
-        background:'linear-gradient(135deg,rgba(99,102,241,.06),rgba(244,147,122,.04))',
-        borderRadius:14, border:'1px solid rgba(99,102,241,.12)' }}>
+        background:`linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,147,122,.05))`,
+        borderRadius:14, border:`1px solid rgba(99,102,241,.15)` }}>
         <div style={{ position:'relative', cursor:'pointer' }} onClick={() => avatarInput.current?.click()}>
           <Avatar name={name || user?.full_name} url={avatarUrl} size={54} color={C.coral}
             border={`3px solid ${C.coral}40`}/>
-          <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'rgba(0,0,0,.35)',
+          <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'rgba(0,0,0,.5)',
             display:'flex', alignItems:'center', justifyContent:'center', opacity:0, transition:'opacity .15s' }}
             onMouseEnter={e => e.currentTarget.style.opacity=1}
             onMouseLeave={e => e.currentTarget.style.opacity=0}>
@@ -1004,9 +857,9 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
           <input ref={avatarInput} type="file" accept="image/*" aria-label="Upload profile photo" style={{ display:'none' }} onChange={pickAvatar}/>
         </div>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:14, fontWeight:800, color:'#111' }}>{name || user?.full_name || 'Your Name'}</div>
-          <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{email || user?.email}</div>
-          <div style={{ fontSize:11, color:'#6366f1', marginTop:4, cursor:'pointer', fontWeight:600 }}
+          <div style={{ fontSize:14, fontWeight:800, color:C.t1 }}>{name || user?.full_name || 'Your Name'}</div>
+          <div style={{ fontSize:11.5, color:C.t3, marginTop:2 }}>{email || user?.email}</div>
+          <div style={{ fontSize:11, color:'#818cf8', marginTop:4, cursor:'pointer', fontWeight:600 }}
             onClick={() => avatarInput.current?.click()}>
             {uploading ? 'Uploading…' : 'Change photo'}
           </div>
@@ -1020,22 +873,22 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
       <Field label="Email Address" type="email" placeholder="you@email.com" value={email}
         onChange={e => { setEmail(e.target.value); setSaved(false) }} />
 
-      <div style={{ background:'rgba(0,0,0,.02)', borderRadius:10,
-        border:`1px solid ${pwOpen ? 'rgba(99,102,241,.25)' : 'rgba(0,0,0,.06)'}`,
+      <div style={{ background:C.surface2, borderRadius:10,
+        border:`1px solid ${pwOpen ? 'rgba(99,102,241,.3)' : C.border}`,
         marginBottom:18, overflow:'hidden', transition:'border-color .15s' }}>
 
         {/* Header row */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px' }}>
           <div>
-            <div style={{ fontSize:13, fontWeight:700, color:'#111' }}>Password</div>
-            <div style={{ fontSize:11.5, color: pwSaved ? '#16a34a' : '#aaa', marginTop:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.t1 }}>Password</div>
+            <div style={{ fontSize:11.5, color: pwSaved ? '#22c55e' : C.t3, marginTop:1 }}>
               {pwSaved ? 'Password updated successfully' : 'Click Change to set a new password'}
             </div>
           </div>
           <button onClick={() => { setPwOpen(v => !v); setPwError(''); setNewPw(''); setConfirmPw('') }}
             style={{ fontSize:12, fontWeight:700,
-              color: pwOpen ? '#888' : '#6366f1',
-              background: pwOpen ? 'rgba(0,0,0,.05)' : 'rgba(99,102,241,.1)',
+              color: pwOpen ? C.t3 : '#818cf8',
+              background: pwOpen ? 'rgba(255,255,255,.08)' : 'rgba(99,102,241,.15)',
               border:'none', borderRadius:8, padding:'5px 12px', cursor:'pointer', transition:'all .15s' }}>
             {pwOpen ? 'Cancel' : 'Change →'}
           </button>
@@ -1043,22 +896,22 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 
         {/* Inline password form */}
         {pwOpen && (
-          <div style={{ padding:'0 14px 14px', borderTop:'1px solid rgba(0,0,0,.06)' }}>
+          <div style={{ padding:'0 14px 14px', borderTop:`1px solid ${C.border}` }}>
             <div style={{ height:12 }}/>
 
             {/* New password */}
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>New Password</div>
+              <div style={{ fontSize:11, fontWeight:600, color:C.t3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>New Password</div>
               <div style={{ position:'relative' }}>
                 <input type={showNew ? 'text' : 'password'} value={newPw}
                   onChange={e => { setNewPw(e.target.value); setPwError('') }}
                   placeholder="Min 8 characters"
                   style={{ width:'100%', padding:'11px 40px 11px 13px', fontSize:13.5, borderRadius:10,
-                    border:`1.5px solid ${pwError && !newPw ? '#ef4444' : 'rgba(0,0,0,.1)'}`,
-                    outline:'none', background:'#fff', boxSizing:'border-box', fontFamily:'inherit' }}/>
+                    border:`1.5px solid ${pwError && !newPw ? '#ef4444' : C.border}`,
+                    outline:'none', background:C.surface, color:C.t1, boxSizing:'border-box', fontFamily:'inherit' }}/>
                 <button onClick={() => setShowNew(v => !v)} type="button"
                   style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
-                    background:'none', border:'none', cursor:'pointer', color:'#bbb', padding:2 }}>
+                    background:'none', border:'none', cursor:'pointer', color:C.t3, padding:2 }}>
                   {showNew
                     ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                     : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
@@ -1068,18 +921,18 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 
             {/* Confirm password */}
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>Confirm Password</div>
+              <div style={{ fontSize:11, fontWeight:600, color:C.t3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>Confirm Password</div>
               <div style={{ position:'relative' }}>
                 <input type={showConfirm ? 'text' : 'password'} value={confirmPw}
                   onChange={e => { setConfirmPw(e.target.value); setPwError('') }}
                   placeholder="Repeat new password"
                   onKeyDown={e => e.key === 'Enter' && changePassword()}
                   style={{ width:'100%', padding:'11px 40px 11px 13px', fontSize:13.5, borderRadius:10,
-                    border:`1.5px solid ${pwError && confirmPw !== newPw ? '#ef4444' : 'rgba(0,0,0,.1)'}`,
-                    outline:'none', background:'#fff', boxSizing:'border-box', fontFamily:'inherit' }}/>
+                    border:`1.5px solid ${pwError && confirmPw !== newPw ? '#ef4444' : C.border}`,
+                    outline:'none', background:C.surface, color:C.t1, boxSizing:'border-box', fontFamily:'inherit' }}/>
                 <button onClick={() => setShowConfirm(v => !v)} type="button"
                   style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
-                    background:'none', border:'none', cursor:'pointer', color:'#bbb', padding:2 }}>
+                    background:'none', border:'none', cursor:'pointer', color:C.t3, padding:2 }}>
                   {showConfirm
                     ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                     : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
@@ -1095,10 +948,10 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
                     : /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) ? 4 : 3
                   const colors = ['#ef4444','#f59e0b','#22c55e','#16a34a']
                   return <div key={level} style={{ flex:1, height:3, borderRadius:2,
-                    background: level <= strength ? colors[strength-1] : 'rgba(0,0,0,.08)',
+                    background: level <= strength ? colors[strength-1] : 'rgba(255,255,255,.08)',
                     transition:'background .2s' }}/>
                 })}
-                <span style={{ fontSize:10, color:'#aaa', marginLeft:6 }}>
+                <span style={{ fontSize:10, color:C.t3, marginLeft:6 }}>
                   {newPw.length < 8 ? 'Too short' : newPw.length < 12 ? 'Fair' :
                    /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) ? 'Strong' : 'Good'}
                 </span>
@@ -1106,21 +959,21 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
             )}
 
             {pwError && (
-              <div style={{ padding:'8px 12px', borderRadius:8, background:'rgba(239,68,68,.07)',
-                border:'1px solid rgba(239,68,68,.15)', fontSize:12, color:'#ef4444', marginBottom:10 }}>
+              <div style={{ padding:'8px 12px', borderRadius:8, background:'rgba(239,68,68,.1)',
+                border:'1px solid rgba(239,68,68,.2)', fontSize:12, color:'#f87171', marginBottom:10 }}>
                 {pwError}
               </div>
             )}
 
             <button onClick={changePassword} disabled={pwLoading || !newPw || !confirmPw}
               style={{ width:'100%', padding:'11px', borderRadius:10, border:'none',
-                background: pwLoading || !newPw || !confirmPw ? '#f0f0f0' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                color: pwLoading || !newPw || !confirmPw ? '#bbb' : '#fff',
+                background: pwLoading || !newPw || !confirmPw ? 'rgba(255,255,255,.06)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: pwLoading || !newPw || !confirmPw ? C.t3 : '#fff',
                 fontSize:13.5, fontWeight:700, cursor: pwLoading || !newPw || !confirmPw ? 'default' : 'pointer',
                 display:'flex', alignItems:'center', justifyContent:'center', gap:7,
                 boxShadow: pwLoading || !newPw || !confirmPw ? 'none' : '0 4px 14px rgba(99,102,241,.35)',
                 transition:'all .15s' }}>
-              {pwLoading ? <><Spinner size={13} color="#bbb"/> Updating…</> : 'Update Password'}
+              {pwLoading ? <><Spinner size={13} color={C.t3}/> Updating…</> : 'Update Password'}
             </button>
           </div>
         )}
@@ -1128,13 +981,13 @@ function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
 
       {saved && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 13px', marginBottom:14,
-          background:'rgba(34,197,94,.07)', borderRadius:9, border:'1px solid rgba(34,197,94,.15)' }}>
+          background:'rgba(34,197,94,.08)', borderRadius:9, border:'1px solid rgba(34,197,94,.2)' }}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-          <span style={{ fontSize:12.5, color:'#16a34a', fontWeight:600 }}>Changes saved</span>
+          <span style={{ fontSize:12.5, color:'#22c55e', fontWeight:600 }}>Changes saved</span>
         </div>
       )}
 
-      <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(0,0,0,.06)', paddingTop:18 }}>
+      <div style={{ display:'flex', gap:8, borderTop:`1px solid ${C.border}`, paddingTop:18 }}>
         <Btn onClick={save} style={{ flex:1 }} disabled={loading}>
           {loading ? <><Spinner size={13} color="#fff"/> Saving…</> : saved ? 'Saved' : 'Save Changes'}
         </Btn>
@@ -1155,8 +1008,6 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   const status     = billingStatus?.subscription_status ?? 'trialing'
   const plan       = billingStatus?.plan ?? 'free_trial'
   const daysLeft   = billingStatus?.trial_days_left ?? 0
-  const usedGb     = billingStatus?.storage_used_gb ?? '0.00'
-  const limitGb    = billingStatus?.storage_limit_gb ?? '10.00'
   const storagePct = billingStatus?.storage_percent ?? 0
 
   const PLANS = [
@@ -1204,10 +1055,10 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.coral }} />
             <span style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.06em' }}>FREE FOR 2 MONTHS</span>
           </div>
-          <div style={{ fontSize:24, fontWeight:900, color:'#0a0a0f', letterSpacing:'-1px', lineHeight:1.15, marginBottom:6 }}>
+          <div style={{ fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px', lineHeight:1.15, marginBottom:6 }}>
             Start your free trial
           </div>
-          <div style={{ fontSize:13, color:'#888' }}>
+          <div style={{ fontSize:13, color:C.t3 }}>
             No charge until month 3 · Cancel anytime
           </div>
         </div>
@@ -1220,30 +1071,30 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
               <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
                 display:'flex', alignItems:'center', justifyContent:'space-between',
                 padding:'14px 16px', borderRadius:14, cursor:'pointer', textAlign:'left',
-                border: on ? `2px solid ${C.coral}` : '1.5px solid #ebebeb',
-                background: on ? 'linear-gradient(135deg,rgba(244,147,122,.07),rgba(242,143,184,.05))' : '#fff',
+                border: on ? `2px solid ${C.coral}` : `1.5px solid ${C.border}`,
+                background: on ? `linear-gradient(135deg,${C.coral}0d,rgba(242,143,184,.07))` : C.surface2,
                 transition:'all .15s', outline:'none',
               }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   {/* Radio dot */}
                   <div style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                    border: `2px solid ${on ? C.coral : '#ddd'}`, background: on ? C.coral : '#fff', transition:'all .15s' }}>
+                    border: `2px solid ${on ? C.coral : C.border}`, background: on ? C.coral : 'transparent', transition:'all .15s' }}>
                     {on && <div style={{ width:6, height:6, borderRadius:'50%', background:'#fff' }} />}
                   </div>
                   <div>
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:'#0a0a0f' }}>{p.label}</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:C.t1 }}>{p.label}</span>
                       {p.popular && (
                         <span style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:100,
                           background:C.grad, color:'#fff', letterSpacing:'.06em' }}>POPULAR</span>
                       )}
                     </div>
-                    <div style={{ fontSize:11.5, color:'#999' }}>{p.storage} storage · Unlimited everything</div>
+                    <div style={{ fontSize:11.5, color:C.t3 }}>{p.storage} storage · Unlimited everything</div>
                   </div>
                 </div>
                 <div style={{ textAlign:'right', flexShrink:0 }}>
-                  <div style={{ fontSize:16, fontWeight:800, color: on ? C.coral : '#333' }}>${p.price}</div>
-                  <div style={{ fontSize:10, color:'#bbb' }}>/mo after trial</div>
+                  <div style={{ fontSize:16, fontWeight:800, color: on ? C.coral : C.t2 }}>${p.price}</div>
+                  <div style={{ fontSize:10, color:C.t3 }}>/mo after trial</div>
                 </div>
               </button>
             )
@@ -1262,17 +1113,19 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         {/* CTA */}
         <button onClick={handleCheckout} disabled={acting} style={{
           width:'100%', padding:'14px', borderRadius:12, border:'none', cursor: acting ? 'default' : 'pointer',
-          background: acting ? '#ccc' : C.grad, color:'#fff', fontSize:14, fontWeight:800,
+          background: acting ? 'rgba(255,255,255,.1)' : C.grad, color:'#fff', fontSize:14, fontWeight:800,
           letterSpacing:'-.2px', marginBottom:10, transition:'opacity .15s', opacity: acting ? .7 : 1,
         }}>
           {acting ? 'Opening Stripe…' : `Start Free Trial — ${selected.label} Plan`}
         </button>
-        <div style={{ fontSize:11, color:'#bbb', textAlign:'center', marginBottom:14 }}>
+        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginBottom:14 }}>
           $0 today · Billed ${selected.price}/mo starting month 3 · Cancel before then, pay nothing
         </div>
         <button onClick={onClose} style={{ width:'100%', padding:'11px', borderRadius:12,
-          border:'1.5px solid #ebebeb', background:'transparent', color:'#999',
-          fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          border:`1.5px solid ${C.border}`, background:'transparent', color:C.t3,
+          fontSize:13, fontWeight:600, cursor:'pointer', transition:'color .15s' }}
+          onMouseEnter={e => e.currentTarget.style.color=C.t2}
+          onMouseLeave={e => e.currentTarget.style.color=C.t3}>
           Maybe later
         </button>
       </div>
@@ -1317,19 +1170,27 @@ function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         )}
       </div>
 
-      <div style={{ padding:'12px 14px', background:'#f9f9f9', borderRadius:10, marginBottom:18 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6 }}>
-          <span style={{ fontWeight:600, color:'#555' }}>Storage</span>
-          <span style={{ fontWeight:700, color:'#111' }}>{usedGb} / {limitGb} GB</span>
-        </div>
-        <div style={{ height:4, background:'#e5e5e5', borderRadius:4 }}>
-          <div style={{ width:`${Math.min(storagePct,100)}%`, height:'100%',
-            background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4, transition:'width .3s' }}/>
-        </div>
-        {storagePct > 90 && (
-          <div style={{ fontSize:11, color:'#ef4444', marginTop:5, fontWeight:600 }}>Storage almost full — upgrade your plan</div>
-        )}
-      </div>
+      {(() => {
+        const usedB  = billingStatus?.storage_used_bytes  ?? 0
+        const limB   = billingStatus?.storage_limit_bytes ?? 1
+        const fmt    = n => n >= 1_073_741_824 ? `${(n/1_073_741_824).toFixed(1)} GB` : n >= 1_048_576 ? `${(n/1_048_576).toFixed(0)} MB` : `${(n/1024).toFixed(0)} KB`
+        const barW   = usedB > 0 ? Math.max(1, storagePct) : 0
+        return (
+          <div style={{ padding:'12px 14px', background:C.surface2, borderRadius:10, border:`1px solid ${C.border}`, marginBottom:18 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6 }}>
+              <span style={{ fontWeight:600, color:C.t2 }}>Storage</span>
+              <span style={{ fontWeight:700, color:C.t1 }}>{fmt(usedB)} <span style={{ color:C.t3, fontWeight:500 }}>/ {fmt(limB)}</span></span>
+            </div>
+            <div style={{ height:4, background:'rgba(255,255,255,.08)', borderRadius:4 }}>
+              <div style={{ width:`${barW}%`, height:'100%',
+                background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4, transition:'width .3s' }}/>
+            </div>
+            {storagePct > 90 && (
+              <div style={{ fontSize:11, color:'#f87171', marginTop:5, fontWeight:600 }}>Storage almost full — upgrade your plan</div>
+            )}
+          </div>
+        )
+      })()}
 
       <div style={{ display:'flex', gap:8 }}>
         <Btn style={{ flex:1 }} onClick={handlePortal} disabled={acting}>
@@ -1382,22 +1243,22 @@ function ModalKeyboardShortcuts({ onClose }) {
         {GROUPS.map(g => (
           <div key={g.title}>
             <MLabel>{g.title}</MLabel>
-            <div style={{ borderRadius:12, border:'1px solid rgba(0,0,0,.07)', overflow:'hidden',
-              background:'#fafafa' }}>
+            <div style={{ borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden',
+              background:C.surface2 }}>
               {g.shortcuts.map((s, i) => (
                 <div key={s.desc} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                   padding:'10px 16px',
-                  borderBottom: i < g.shortcuts.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
-                  <span style={{ fontSize:13, color:'#444', fontWeight:500 }}>{s.desc}</span>
+                  borderBottom: i < g.shortcuts.length-1 ? `1px solid ${C.border2}` : 'none' }}>
+                  <span style={{ fontSize:13, color:C.t2, fontWeight:500 }}>{s.desc}</span>
                   <div style={{ display:'flex', gap:4, alignItems:'center' }}>
                     {s.keys.map((k, ki) => (
                       <React.Fragment key={ki}>
-                        {ki > 0 && <span style={{ fontSize:9, color:'#ccc', fontWeight:500 }}>+</span>}
-                        <kbd style={{ fontSize:11, fontWeight:700, color:'#444',
-                          background:'#fff', border:'1px solid rgba(0,0,0,.12)',
-                          borderBottom:'2px solid rgba(0,0,0,.15)',
+                        {ki > 0 && <span style={{ fontSize:9, color:C.t3, fontWeight:500 }}>+</span>}
+                        <kbd style={{ fontSize:11, fontWeight:700, color:C.t1,
+                          background:'rgba(255,255,255,.08)', border:`1px solid rgba(255,255,255,.12)`,
+                          borderBottom:`2px solid rgba(255,255,255,.06)`,
                           borderRadius:6, padding:'3px 8px', fontFamily:'inherit',
-                          boxShadow:'0 1px 2px rgba(0,0,0,.05)' }}>{k}</kbd>
+                          boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}>{k}</kbd>
                       </React.Fragment>
                     ))}
                   </div>
@@ -1407,7 +1268,7 @@ function ModalKeyboardShortcuts({ onClose }) {
           </div>
         ))}
       </div>
-      <div style={{ borderTop:'1px solid rgba(0,0,0,.06)', paddingTop:18, marginTop:4 }}>
+      <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:18, marginTop:4 }}>
         <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
       </div>
     </Modal>
@@ -1684,7 +1545,7 @@ function ModalViewWork({ collab, onClose, playTrack }) {
           {files.map(f => {
             const stemColor = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }[f.instrument] || '#bbb'
             return (
-              <div key={f.id} onClick={() => { playTrack(f); onClose() }}
+              <div key={f.id} onClick={() => { playTrack(f, files); onClose() }}
                 style={{ display:'flex', alignItems:'center', gap:11, padding:'10px 13px',
                   borderRadius:11, cursor:'pointer', border:'1px solid transparent',
                   transition:'all .12s' }}
@@ -2175,6 +2036,7 @@ const CARD_GRADIENTS = [
 // ─── MINI PLAYER ───────────────────────────────────────────────────────────
 function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const audioRef               = useRef(null)
+  const dragRef                = useRef(null)
   const [playing,  setPlaying] = useState(false)
   const [progress, setProgress]= useState(0)
   const [duration, setDuration]= useState(0)
@@ -2184,10 +2046,11 @@ function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const [liked,    setLiked]   = useState(false)
   const [likeCount,setLikeCount]= useState(0)
   const [approved, setApproved]= useState(false)
+  const [expanded, setExpanded]= useState(false)
+  const isMobile = useIsMobile()
 
-  const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
+  const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
-  // Parse initial liked/approved state from stem notes
   useEffect(() => {
     if (!track) return
     try {
@@ -2203,218 +2066,323 @@ function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     if (!track?.file_url) return
     setLoading(true)
     setProgress(0); setCurrent(0); setDuration(0)
-
     const a = new Audio(track.file_url)
     audioRef.current = a
     a.volume = vol
-    a.ontimeupdate  = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
+    a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
-    a.oncanplay     = () => setLoading(false)
-    a.onended       = () => { setPlaying(false); goNext() }
-
-    const playPromise = a.play()
-    setPlaying(true)
-
-    return () => {
-      playPromise?.then(() => { a.pause(); a.src = '' }).catch(() => { a.src = '' })
-    }
+    a.oncanplay        = () => setLoading(false)
+    a.onended          = () => { setPlaying(false); goNext() }
+    const p = a.play(); setPlaying(true)
+    return () => { p?.then(() => { a.pause(); a.src='' }).catch(() => { a.src='' }) }
   }, [track?.file_url])
 
   const toggle = () => {
     if (!audioRef.current) return
     if (playing) { audioRef.current.pause(); setPlaying(false) }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true) }
+    else { audioRef.current.play().catch(()=>{}); setPlaying(true) }
   }
 
-  const seek = (e) => {
+  const seek = e => {
     if (!audioRef.current || !duration) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration
+    const r = e.currentTarget.getBoundingClientRect()
+    audioRef.current.currentTime = ((e.clientX - r.left) / r.width) * duration
   }
 
-  const idx    = playlist.findIndex(f => f.id === track?.id)
+  const idx     = playlist.findIndex(f => f.id === track?.id)
   const hasPrev = idx > 0
   const hasNext = idx >= 0 && idx < playlist.length - 1
-
-  const goPrev = () => { if (hasPrev) onPlay(playlist[idx - 1], playlist) }
-  const goNext = () => { if (hasNext) onPlay(playlist[idx + 1], playlist) }
+  const goPrev  = () => { if (hasPrev) onPlay(playlist[idx-1], playlist) }
+  const goNext  = () => { if (hasNext) onPlay(playlist[idx+1], playlist) }
 
   const toggleLike = async () => {
-    const newLiked = !liked
-    setLiked(newLiked)
-    setLikeCount(c => newLiked ? c + 1 : Math.max(0, c - 1))
-    try {
-      await fetch(`/api/files/${track.id}/like`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-    } catch {}
+    const v = !liked; setLiked(v); setLikeCount(c => v ? c+1 : Math.max(0,c-1))
+    try { await fetch(`/api/files/${track.id}/like`, { method:'POST', credentials:'include', headers:{ Authorization:`Bearer ${getToken()}` } }) } catch {}
   }
-
   const toggleApprove = async () => {
-    const newApproved = !approved
-    setApproved(newApproved)
-    try {
-      await fetch(`/api/files/${track.id}/approve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-    } catch {}
+    const v = !approved; setApproved(v)
+    try { await fetch(`/api/files/${track.id}/approve`, { method:'POST', credentials:'include', headers:{ Authorization:`Bearer ${getToken()}` } }) } catch {}
   }
 
   useEffect(() => {
-    const handler = (e) => {
+    const handler = e => {
       const a = audioRef.current; if (!a) return
       const { action } = e.detail
-      if (action === 'toggle')   toggle()
-      if (action === 'seekBack') a.currentTime = Math.max(0, a.currentTime - 5)
-      if (action === 'seekFwd')  a.currentTime = Math.min(a.duration || 0, a.currentTime + 5)
-      if (action === 'volUp')    { a.volume = Math.min(1, a.volume + 0.1); setVol(a.volume) }
-      if (action === 'volDown')  { a.volume = Math.max(0, a.volume - 0.1); setVol(a.volume) }
+      if (action==='toggle')   toggle()
+      if (action==='seekBack') a.currentTime = Math.max(0, a.currentTime-5)
+      if (action==='seekFwd')  a.currentTime = Math.min(a.duration||0, a.currentTime+5)
+      if (action==='volUp')    { a.volume=Math.min(1,a.volume+0.1); setVol(a.volume) }
+      if (action==='volDown')  { a.volume=Math.max(0,a.volume-0.1); setVol(a.volume) }
     }
     window.addEventListener('dizko:playback', handler)
     return () => window.removeEventListener('dizko:playback', handler)
   }, [playing])
 
+  // Drag-to-expand: track pointer delta on the handle
+  const dragState = useRef({ active:false, startY:0, startExpanded:false })
+  const onDragStart = e => {
+    const y = e.touches ? e.touches[0].clientY : e.clientY
+    dragState.current = { active:true, startY:y, startExpanded:expanded }
+    e.preventDefault()
+  }
+  useEffect(() => {
+    const onMove = e => {
+      if (!dragState.current.active) return
+      const y = e.touches ? e.touches[0].clientY : e.clientY
+      const delta = dragState.current.startY - y
+      if (delta > 40 && !dragState.current.startExpanded) { setExpanded(true); dragState.current.active=false }
+      if (delta < -40 && dragState.current.startExpanded) { setExpanded(false); dragState.current.active=false }
+    }
+    const onUp = () => { dragState.current.active = false }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('touchmove', onMove, { passive:false })
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [expanded])
+
   const name       = track?.suggested_name || track?.original_name || 'Untitled'
-  const notes      = (() => { try { return JSON.parse(track?.notes || '{}') } catch { return {} } })()
+  const notes      = (() => { try { return JSON.parse(track?.notes||'{}') } catch { return {} } })()
   const bpm        = notes.bpm ? `${Math.round(notes.bpm)} BPM` : null
   const key        = notes.key || null
   const instrument = track?.instrument || null
   const meta       = [instrument, bpm, key].filter(Boolean).join(' · ')
 
+  // Bottom offset to sit above mobile nav
+  const navH   = isMobile ? 60 : 0
+  // Panel height: on mobile fill almost the full screen, on desktop a fixed sheet
+  const panelH = isMobile ? `calc(100dvh - ${72 + navH}px)` : '500px'
+
   return (
-    <div style={{
-      position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)',
-      width:540, maxWidth:'calc(100vw - 32px)',
-      background:'#111', borderRadius:20, zIndex:2000,
-      boxShadow:'0 12px 48px rgba(0,0,0,.6)',
-      border:'1px solid rgba(255,255,255,.07)',
-      overflow:'hidden',
-    }}>
-      {/* Top loading bar — replaces the % spinner */}
-      <div style={{ height:2, background:'rgba(255,255,255,.06)' }}>
-        {loading && (
-          <div style={{ height:'100%', background:C.grad, width:'40%',
-            animation:'dizko-load 1s ease-in-out infinite alternate',
-            borderRadius:2 }}/>
-        )}
-      </div>
+    <>
+      {/* ── Backdrop ── */}
+      <div onClick={() => setExpanded(false)} style={{
+        position:'fixed', inset:0, zIndex:1997,
+        background:'rgba(0,0,0,.55)',
+        backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)',
+        opacity: expanded ? 1 : 0,
+        pointerEvents: expanded ? 'auto' : 'none',
+        transition:'opacity .3s ease',
+      }}/>
 
-      <div style={{ padding:'12px 18px', display:'flex', alignItems:'center', gap:14 }}>
-
-        {/* Instrument icon */}
-        <div style={{ width:40, height:40, borderRadius:11, background:C.grad, flexShrink:0,
-          display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round">
-            <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
-          </svg>
+      {/* ── Expanded panel — slides up independently of the bar ── */}
+      <div style={{
+        position:'fixed',
+        left:0, right:0,
+        bottom: navH + 72,
+        height: panelH,
+        zIndex:1998,
+        background:'#0e0e11',
+        borderTop:'1px solid rgba(255,255,255,.08)',
+        transform: expanded ? 'translateY(0)' : 'translateY(100%)',
+        transition:'transform .38s cubic-bezier(.32,.72,0,1)',
+        overflowY:'auto',
+        // On desktop, show the panel as a centered sheet with rounded top
+        ...(isMobile ? {} : {
+          left:'50%', right:'auto',
+          width: 520,
+          transform: expanded ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(100%)',
+          borderRadius:'20px 20px 0 0',
+          boxShadow:'0 -8px 48px rgba(0,0,0,.5)',
+        }),
+      }}>
+        {/* Drag handle pill */}
+        <div style={{ display:'flex', justifyContent:'center', paddingTop:12, paddingBottom:4 }}>
+          <div onClick={() => setExpanded(false)} style={{ width:36, height:4, borderRadius:2, background:'rgba(255,255,255,.15)', cursor:'pointer' }}/>
         </div>
 
-        {/* Track info */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden',
-            textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px' }}>{name}</div>
-          {meta && <div style={{ fontSize:10.5, color:'rgba(255,255,255,.35)', marginTop:2, letterSpacing:'.02em' }}>{meta}</div>}
+        {/* Content */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:22, padding:'16px 28px 32px' }}>
+
+          {/* Artwork */}
+          <div style={{ width:140, height:140, borderRadius:24, flexShrink:0,
+            background:`linear-gradient(135deg, ${C.coral}35, #6366f120)`,
+            border:`1px solid rgba(255,255,255,.07)`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:`0 24px 64px ${C.coral}22` }}>
+            <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth={1.2} strokeLinecap="round">
+              <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+            </svg>
+          </div>
+
+          {/* Track info */}
+          <div style={{ textAlign:'center', width:'100%', maxWidth:380 }}>
+            <div style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px', lineHeight:1.2, marginBottom:5 }}>{name}</div>
+            {meta && <div style={{ fontSize:13, color:'rgba(255,255,255,.32)', letterSpacing:'.02em' }}>{meta}</div>}
+          </div>
+
+          {/* Seek bar */}
+          <div style={{ width:'100%', maxWidth:400 }}>
+            <div onClick={seek} role="slider" aria-label="Seek"
+              style={{ height:4, borderRadius:3, background:'rgba(255,255,255,.1)', cursor:'pointer', position:'relative', marginBottom:8 }}>
+              <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress}%`, background:C.grad, borderRadius:3, transition:'width .1s linear' }}/>
+              <div style={{ position:'absolute', top:'50%', left:`${progress}%`, transform:'translate(-50%,-50%)', width:13, height:13, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 6px rgba(0,0,0,.5)', pointerEvents:'none' }}/>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between' }}>
+              <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.3)' }}>{fmt(current)}</span>
+              <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.2)' }}>{duration ? fmt(duration) : '--:--'}</span>
+            </div>
+          </div>
+
+          {/* Transport */}
+          <div style={{ display:'flex', alignItems:'center', gap:28 }}>
+            <button onClick={goPrev} disabled={!hasPrev} aria-label="Previous"
+              style={{ background:'none', border:'none', cursor:hasPrev?'pointer':'default', color:hasPrev?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)', padding:0, transition:'color .12s' }}
+              onMouseEnter={e=>{ if(hasPrev)e.currentTarget.style.color='#fff' }}
+              onMouseLeave={e=>e.currentTarget.style.color=hasPrev?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)'}>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg>
+            </button>
+
+            <button onClick={toggle} aria-label={playing?'Pause':'Play'}
+              style={{ width:64, height:64, borderRadius:'50%', border:'none', cursor:'pointer', background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 8px 32px ${C.coral}55`, flexShrink:0, transition:'transform .1s, box-shadow .1s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='scale(1.07)'; e.currentTarget.style.boxShadow=`0 10px 40px ${C.coral}70` }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.boxShadow=`0 8px 32px ${C.coral}55` }}>
+              {playing
+                ? <svg width={17} height={17} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                : <svg width={17} height={17} viewBox="0 0 24 24" fill="#fff" style={{marginLeft:2}}><polygon points="5,3 19,12 5,21"/></svg>}
+            </button>
+
+            <button onClick={goNext} disabled={!hasNext} aria-label="Next"
+              style={{ background:'none', border:'none', cursor:hasNext?'pointer':'default', color:hasNext?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)', padding:0, transition:'color .12s' }}
+              onMouseEnter={e=>{ if(hasNext)e.currentTarget.style.color='#fff' }}
+              onMouseLeave={e=>e.currentTarget.style.color=hasNext?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)'}>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z"/></svg>
+            </button>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
+              style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'none', cursor:'pointer', color:liked?'#ef4444':'rgba(255,255,255,.3)', padding:0, transition:'color .12s' }}>
+              <svg width={19} height={19} viewBox="0 0 24 24" fill={liked?'#ef4444':'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+              </svg>
+              {likeCount > 0 && <span style={{ fontSize:12, fontWeight:700 }}>{likeCount}</span>}
+            </button>
+
+            <button onClick={toggleApprove} aria-label={approved?'Approved':'Approve'} aria-pressed={approved}
+              style={{ display:'flex', alignItems:'center', gap:6, height:36, padding:'0 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, transition:'all .15s',
+                border:`1px solid ${approved?'rgba(34,197,94,.4)':'rgba(255,255,255,.1)'}`,
+                background:approved?'rgba(34,197,94,.12)':'rgba(255,255,255,.04)',
+                color:approved?'#22c55e':'rgba(255,255,255,.35)' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+              {approved?'Approved':'Approve'}
+            </button>
+
+            <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth={2} strokeLinecap="round">
+                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
+              </svg>
+              <input type="range" min={0} max={1} step={.05} value={vol} aria-label="Volume"
+                onChange={e=>{const v=+e.target.value;setVol(v);if(audioRef.current)audioRef.current.volume=v}}
+                style={{ width:80, accentColor:C.coral, cursor:'pointer' }}/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bar — always fixed at bottom, never moves ── */}
+      <div style={{
+        position:'fixed', left:0, right:0, bottom: navH,
+        height:72, zIndex:2000,
+        background:'rgba(12,12,15,.96)',
+        backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)',
+        borderTop:'1px solid rgba(255,255,255,.07)',
+        display:'flex', flexDirection:'column',
+      }}>
+        {/* Progress / loading line */}
+        <div style={{ height:2, background:'rgba(255,255,255,.04)', flexShrink:0, overflow:'hidden' }}>
+          {loading
+            ? <div style={{ height:'100%', background:C.grad, width:'35%', animation:'mp-load 1s ease-in-out infinite alternate', borderRadius:2 }}/>
+            : <div style={{ height:'100%', background:C.grad, width:`${progress}%`, transition:'width .1s linear' }}/>}
         </div>
 
-        {/* Like */}
-        <button onClick={toggleLike} aria-label={liked ? 'Unlike' : 'Like'} aria-pressed={liked}
-          style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center',
-            gap:4, padding:0, transition:'transform .1s', flexShrink:0 }}
-          onMouseEnter={e=>e.currentTarget.style.transform='scale(1.15)'}
-          onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-          <svg width={16} height={16} viewBox="0 0 24 24"
-            fill={liked ? '#ef4444' : 'none'}
-            stroke={liked ? '#ef4444' : 'rgba(255,255,255,.35)'}
-            strokeWidth={2} strokeLinecap="round">
-            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-          </svg>
-          {likeCount > 0 && <span style={{ fontSize:10, color:liked?'#ef4444':'rgba(255,255,255,.3)', fontWeight:600 }}>{likeCount}</span>}
-        </button>
+        <div style={{ flex:1, display:'flex', alignItems:'center', padding:'0 14px 0 10px', gap:0 }}>
 
-        {/* Approve */}
-        <button onClick={toggleApprove} aria-label={approved ? 'Remove approval' : 'Approve stem'} aria-pressed={approved}
-          style={{ background: approved ? 'rgba(34,197,94,.15)' : 'rgba(255,255,255,.05)',
-            border: `1px solid ${approved ? 'rgba(34,197,94,.4)' : 'rgba(255,255,255,.1)'}`,
-            borderRadius:8, width:30, height:30, cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', transition:'all .15s', flexShrink:0 }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-            stroke={approved ? '#22c55e' : 'rgba(255,255,255,.3)'}
-            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20,6 9,17 4,12"/>
-          </svg>
-        </button>
+          {/* Chevron / expand toggle */}
+          <button
+            onMouseDown={onDragStart} onTouchStart={onDragStart}
+            onClick={() => setExpanded(e => !e)}
+            aria-label={expanded ? 'Collapse player' : 'Expand player'}
+            style={{ width:30, height:30, border:'none', background:'none', cursor:'ns-resize', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(255,255,255,.25)', transition:'color .15s', padding:0 }}
+            onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.6)'}
+            onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.25)'}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
+              style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition:'transform .3s' }}>
+              <polyline points="18,15 12,9 6,15"/>
+            </svg>
+          </button>
 
-        {/* Close */}
-        <button onClick={onClose} aria-label="Close player"
-          style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.3)',
-            fontSize:20, lineHeight:1, padding:0, flexShrink:0, transition:'color .12s' }}
-          onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.8)'}
-          onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>×</button>
-      </div>
+          {/* Track icon */}
+          <div style={{ width:36, height:36, borderRadius:10, background:C.grad, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 12px 0 4px', boxShadow:`0 2px 10px ${C.coral}30` }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round">
+              <path d="M9 18V5l12-2v13M6 18a3 3 0 100-6 3 3 0 000 6z"/>
+            </svg>
+          </div>
 
-      {/* Seek bar */}
-      <div onClick={seek} style={{ margin:'0 18px', height:3, borderRadius:2,
-        background:'rgba(255,255,255,.08)', cursor:'pointer', position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress}%`,
-          background:C.grad, borderRadius:2, transition:'width .1s linear' }}/>
-      </div>
+          {/* Track info — click to expand */}
+          <div style={{ flex:1, minWidth:0, cursor:'pointer' }} onClick={() => setExpanded(e => !e)}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px' }}>{name}</div>
+            {meta && <div style={{ fontSize:10.5, color:'rgba(255,255,255,.28)', marginTop:1 }}>{meta}</div>}
+          </div>
 
-      {/* Transport + time */}
-      <div style={{ padding:'10px 18px 14px', display:'flex', alignItems:'center', gap:10 }}>
-        {/* Prev */}
-        <button onClick={goPrev} disabled={!hasPrev} aria-label="Previous track"
-          style={{ background:'none', border:'none', cursor:hasPrev?'pointer':'default',
-            color:hasPrev?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)', padding:0, display:'flex', alignItems:'center', transition:'color .12s' }}
-          onMouseEnter={e=>{ if(hasPrev) e.currentTarget.style.color='#fff' }}
-          onMouseLeave={e=>e.currentTarget.style.color=hasPrev?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)'}>
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg>
-        </button>
+          {/* Prev / Play-Pause / Next */}
+          <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0, marginLeft:8 }}>
+            <button onClick={goPrev} disabled={!hasPrev} aria-label="Previous"
+              style={{ background:'none', border:'none', cursor:hasPrev?'pointer':'default', color:hasPrev?'rgba(255,255,255,.45)':'rgba(255,255,255,.12)', padding:'0 6px', display:'flex', alignItems:'center', transition:'color .1s' }}
+              onMouseEnter={e=>{ if(hasPrev)e.currentTarget.style.color='#fff' }}
+              onMouseLeave={e=>e.currentTarget.style.color=hasPrev?'rgba(255,255,255,.45)':'rgba(255,255,255,.12)'}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg>
+            </button>
 
-        {/* Play / Pause */}
-        <button onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}
-          style={{ width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer',
-            background:C.grad, display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 2px 12px ${C.coral}50`, flexShrink:0 }}>
-          {playing
-            ? <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-            : <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
-        </button>
+            <button onClick={toggle} aria-label={playing?'Pause':'Play'}
+              style={{ width:38, height:38, borderRadius:'50%', border:'none', cursor:'pointer', background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 12px ${C.coral}40`, flexShrink:0 }}>
+              {playing
+                ? <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                : <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{marginLeft:1}}><polygon points="5,3 19,12 5,21"/></svg>}
+            </button>
 
-        {/* Next */}
-        <button onClick={goNext} disabled={!hasNext} aria-label="Next track"
-          style={{ background:'none', border:'none', cursor:hasNext?'pointer':'default',
-            color:hasNext?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)', padding:0, display:'flex', alignItems:'center', transition:'color .12s' }}
-          onMouseEnter={e=>{ if(hasNext) e.currentTarget.style.color='#fff' }}
-          onMouseLeave={e=>e.currentTarget.style.color=hasNext?'rgba(255,255,255,.6)':'rgba(255,255,255,.15)'}>
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z"/></svg>
-        </button>
+            <button onClick={goNext} disabled={!hasNext} aria-label="Next"
+              style={{ background:'none', border:'none', cursor:hasNext?'pointer':'default', color:hasNext?'rgba(255,255,255,.45)':'rgba(255,255,255,.12)', padding:'0 6px', display:'flex', alignItems:'center', transition:'color .1s' }}
+              onMouseEnter={e=>{ if(hasNext)e.currentTarget.style.color='#fff' }}
+              onMouseLeave={e=>e.currentTarget.style.color=hasNext?'rgba(255,255,255,.45)':'rgba(255,255,255,.12)'}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z"/></svg>
+            </button>
+          </div>
 
-        {/* Time */}
-        <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.4)', marginLeft:4 }}>
-          {fmt(current)}
-        </span>
-        <div style={{ flex:1 }}/>
-        <span style={{ fontSize:11, fontFamily:'monospace', color:'rgba(255,255,255,.25)' }}>
-          {duration ? fmt(duration) : '--:--'}
-        </span>
+          {/* Time */}
+          <span style={{ fontSize:10.5, fontFamily:'monospace', color:'rgba(255,255,255,.25)', marginLeft:6, flexShrink:0 }}>{fmt(current)}</span>
 
-        {/* Volume */}
-        <input type="range" min={0} max={1} step={.05} value={vol} aria-label="Volume"
-          onChange={e => { const v=+e.target.value; setVol(v); if(audioRef.current) audioRef.current.volume=v }}
-          style={{ width:56, accentColor:C.coral, cursor:'pointer' }}/>
+          {/* Like */}
+          <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
+            style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:3, padding:'0 8px', color:liked?'#ef4444':'rgba(255,255,255,.25)', transition:'color .12s', flexShrink:0 }}>
+            <svg width={15} height={15} viewBox="0 0 24 24" fill={liked?'#ef4444':'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+            </svg>
+          </button>
+
+          {/* Close */}
+          <button onClick={onClose} aria-label="Close player"
+            style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.2)', padding:6, flexShrink:0, display:'flex', alignItems:'center', transition:'color .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.65)'}
+            onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.2)'}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
 
       <style>{`
-        @keyframes dizko-load {
-          from { transform: translateX(-100%) }
-          to   { transform: translateX(350%) }
+        @keyframes mp-load {
+          from { transform:translateX(-100%) }
+          to   { transform:translateX(350%) }
         }
       `}</style>
-    </div>
+    </>
   )
 }
 
@@ -2470,14 +2438,13 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const [playing, setPlay]     = useState(false)
   const [drag,    setDrag]     = useState(false)
   const [modal,   setModal]    = useState(null)
-  const [userMenu, setMenu]    = useState(false)
   const [refreshKey, setRefresh] = useState(0)
   const [nowPlaying, setNowPlaying] = useState(null)
   const [playlist,   setPlaylist]   = useState([])
 
   const playTrack = useCallback((file, list = []) => {
     setNowPlaying(file)
-    if (list.length > 1) setPlaylist(list)
+    setPlaylist(list.length > 0 ? list : [file])
   }, [])
 
   const GATED_MODALS = ['new-project', 'upload', 'invite']
@@ -2559,7 +2526,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     n.path === '/'
       ? location.pathname === '/'
       : location.pathname.startsWith(n.path)
-  ) ?? NAV[0]
+  ) ?? (location.pathname === '/account' ? { id:'account', label:'Account', path:'/account' } : NAV[0])
 
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
   const TRACK_COLORS = {
@@ -2641,36 +2608,37 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         {sideNavBtn(NAV[4])}
         {sideNavBtn(NAV[5])}
       </nav>
-      {/* Getting started checklist — dismisses when all done */}
+      {/* Getting started checklist */}
       {checklistVisible && (
-        <div style={{ margin:'0 10px 8px', borderRadius:12, background:'rgba(244,147,122,.07)',
-          border:'1px solid rgba(244,147,122,.18)', padding:'10px 12px' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-            <span style={{ fontSize:10, fontWeight:800, color:C.coral, letterSpacing:'.1em',
-              textTransform:'uppercase' }}>Get started</span>
+        <div style={{ margin:'0 10px 8px', padding:'10px 12px', borderRadius:12,
+          border:`1px solid ${C.border}` }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:C.t2 }}>Get started</span>
             <button onClick={() => setChecklistVisible(false)}
-              style={{ background:'none', border:'none', color:'rgba(255,255,255,.2)',
-                cursor:'pointer', fontSize:14, padding:0, lineHeight:1 }}>×</button>
+              style={{ background:'none', border:'none', cursor:'pointer', color:C.t3,
+                padding:2, display:'flex', lineHeight:1 }}
+              onMouseEnter={e => e.currentTarget.style.color=C.t2}
+              onMouseLeave={e => e.currentTarget.style.color=C.t3}>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
           {CHECKLIST.map((item, i) => {
             const done = checklistDone[i]
             return (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
-                padding:'5px 0', opacity: done ? .5 : 1 }}>
-                <div style={{ width:16, height:16, borderRadius:'50%', flexShrink:0,
-                  border:`1.5px solid ${done ? '#22c55e' : 'rgba(255,255,255,.2)'}`,
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                <div style={{ width:15, height:15, borderRadius:'50%', flexShrink:0,
+                  border:`1.5px solid ${done ? '#22c55e' : 'rgba(255,255,255,.15)'}`,
                   background: done ? '#22c55e' : 'transparent',
                   display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  {done && <svg width={8} height={8} viewBox="0 0 24 24" fill="none"
-                    stroke="#fff" strokeWidth={3} strokeLinecap="round">
-                    <polyline points="20,6 9,17 4,12"/>
-                  </svg>}
+                  {done && <svg width={7} height={7} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>}
                 </div>
-                <button onClick={item.action} style={{ background:'none', border:'none',
-                  cursor: done ? 'default' : 'pointer', padding:0, textAlign:'left',
-                  fontSize:11.5, fontWeight: done ? 400 : 600,
-                  color: done ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.75)',
-                  textDecoration: done ? 'line-through' : 'none' }}>
+                <button onClick={done ? undefined : item.action}
+                  style={{ background:'none', border:'none', padding:0, textAlign:'left',
+                    cursor: done ? 'default' : 'pointer', fontSize:11.5,
+                    color: done ? C.t3 : C.t2, fontWeight: done ? 400 : 500,
+                    textDecoration: done ? 'line-through' : 'none' }}>
                   {item.label}
                 </button>
               </div>
@@ -2682,101 +2650,28 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:8 }}>
           <span style={{ color:'rgba(255,255,255,.3)' }}>Storage</span>
-          <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>{billingStatus ? `${billingStatus.storage_used_gb} / ${billingStatus.storage_limit_gb} GB` : '— / — GB'}</span>
+          <span style={{ color:'rgba(255,255,255,.5)', fontWeight:600 }}>
+            {billingStatus ? (() => {
+              const b = billingStatus.storage_used_bytes ?? 0
+              const l = billingStatus.storage_limit_bytes ?? 1
+              const fmt = n => n >= 1_073_741_824 ? `${(n/1_073_741_824).toFixed(1)} GB` : n >= 1_048_576 ? `${(n/1_048_576).toFixed(0)} MB` : `${(n/1024).toFixed(0)} KB`
+              return `${fmt(b)} / ${fmt(l)}`
+            })() : '— / —'}
+          </span>
         </div>
         <div style={{ height:3, background:'rgba(255,255,255,.08)', borderRadius:3 }}>
           <div style={{ width:`${Math.min(billingStatus?.storage_percent ?? 0, 100)}%`, height:'100%', background:C.grad, borderRadius:3 }} />
         </div>
       </div>
-      <div style={{ padding:'8px 10px 12px', borderTop:'1px solid rgba(255,255,255,.06)', position:'relative' }}>
-        {userMenu && (
-          <>
-            <div style={{ position:'fixed', inset:0, zIndex:50 }} onClick={() => setMenu(false)} />
-            <div style={{ position:'absolute', bottom:'calc(100% + 8px)', left:8, right:8, zIndex:51,
-              background:'#18181b', borderRadius:16,
-              boxShadow:'0 16px 48px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07)',
-              overflow:'hidden' }}>
-
-              {/* User info */}
-              <div style={{ padding:'14px 16px 12px', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <Avatar name={user?.full_name} url={user?.avatar_url} size={34} color={C.coral} border="none"/>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#fff', letterSpacing:'-.2px',
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {user?.full_name || 'My Account'}
-                    </div>
-                    <div style={{ fontSize:10.5, color:'rgba(255,255,255,.35)', marginTop:1,
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {user?.email || ''}
-                    </div>
-                  </div>
-                </div>
-                {/* Plan badge */}
-                <div style={{ marginTop:10, display:'inline-flex', alignItems:'center', gap:5,
-                  background:'rgba(255,255,255,.06)', borderRadius:8, padding:'4px 10px' }}>
-                  <div style={{ width:5, height:5, borderRadius:'50%',
-                    background: billingStatus?.has_payment_method ? '#22c55e' : '#f59e0b' }} />
-                  <span style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,.5)', letterSpacing:'.04em' }}>
-                    {currentPlanLabel.toUpperCase()}
-                    {billingStatus?.subscription_status === 'trialing' && trialDaysLeft !== null
-                      ? ` · ${trialDaysLeft}D LEFT` : ''}
-                  </span>
-                </div>
-              </div>
-
-              {/* Menu items */}
-              <div style={{ padding:'6px' }}>
-                {[
-                  { label:'Account Settings',  icon:'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z', modal:'account-settings' },
-                  { label:'Billing & Plan',     icon:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', modal:'billing' },
-                  { label:'Keyboard Shortcuts', icon:'M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z', modal:'shortcuts' },
-                ].map(item => (
-                  <button key={item.label} onClick={() => { setMenu(false); openModal(item.modal, {}) }} style={{
-                    display:'flex', alignItems:'center', gap:9, width:'100%', padding:'9px 10px',
-                    borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
-                    fontSize:12.5, color:'rgba(255,255,255,.75)', fontWeight:500,
-                    background:'transparent', transition:'background .1s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
-                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-                      stroke="rgba(255,255,255,.35)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={item.icon}/>
-                    </svg>
-                    {item.label}
-                  </button>
-                ))}
-
-                <div style={{ height:1, background:'rgba(255,255,255,.06)', margin:'4px 0' }} />
-
-                <button onClick={() => { setMenu(false); onLogout(); navigate('/login') }} style={{
-                  display:'flex', alignItems:'center', gap:9, width:'100%', padding:'9px 10px',
-                  borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
-                  fontSize:12.5, color:'#f87171', fontWeight:600,
-                  background:'transparent', transition:'background .1s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.08)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-                    stroke="#f87171" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-                  </svg>
-                  Log out
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Trigger button */}
-        <button onClick={() => setMenu(m => !m)} style={{
+      <div style={{ padding:'8px 10px 12px', borderTop:'1px solid rgba(255,255,255,.06)' }}>
+        <button onClick={() => navigate('/account')} style={{
           display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px',
           borderRadius:10, border:'none', cursor:'pointer', textAlign:'left',
-          background: userMenu ? 'rgba(255,255,255,.09)' : 'transparent', transition:'background .15s',
+          background: location.pathname === '/account' ? 'rgba(255,255,255,.09)' : 'transparent',
+          transition:'background .15s',
         }}
-        onMouseEnter={e => { if(!userMenu) e.currentTarget.style.background='rgba(255,255,255,.06)' }}
-        onMouseLeave={e => { if(!userMenu) e.currentTarget.style.background=userMenu?'rgba(255,255,255,.09)':'transparent' }}>
+        onMouseEnter={e => { if(location.pathname !== '/account') e.currentTarget.style.background='rgba(255,255,255,.06)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = location.pathname === '/account' ? 'rgba(255,255,255,.09)' : 'transparent' }}>
           <Avatar name={user?.full_name} url={user?.avatar_url} size={28} color={C.coral} border="none"/>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.85)',
@@ -2785,10 +2680,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             </div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,.3)' }}>{currentPlanLabel}</div>
           </div>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-            stroke={userMenu ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.2)'}
-            strokeWidth={2} strokeLinecap="round" style={{ transition:'stroke .15s', flexShrink:0 }}>
-            <polyline points="18,15 12,9 6,15"/>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+            stroke="rgba(255,255,255,.2)" strokeWidth={2} strokeLinecap="round" style={{ flexShrink:0 }}>
+            <polyline points="9,18 15,12 9,6"/>
           </svg>
         </button>
       </div>
@@ -2898,13 +2792,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               </button>
               <NotificationBellLight user={user} />
               <div style={{ width:1, height:20, background:'rgba(255,255,255,.1)' }}/>
-              <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+              <div onClick={() => navigate('/account')} style={{ cursor:'pointer' }}>
+                <Avatar name={user?.full_name} url={user?.avatar_url} size={30} color={C.coral} border="none"/>
+              </div>
             </div>
           </header>
         )}
 
         <div style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
-          paddingBottom: nowPlaying ? (isMobile ? 160 : 100) : (isMobile ? 80 : 24) }}>
+          paddingBottom: nowPlaying ? (isMobile ? 148 : 88) : (isMobile ? 76 : 24) }}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
@@ -2913,6 +2809,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/collaborators" element={<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />} />
             <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/analytics"     element={<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />} />
+            <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </div>
