@@ -27,19 +27,19 @@ export default function TrackItem({
 
   return (
     <div style={{
-      background: isMuted ? '#f9f9f9' : '#fff',
+      background: isMuted ? C.surface2 : C.surface,
       borderRadius: 20,
-      border: `1px solid ${isMuted ? 'rgba(0,0,0,.05)' : isExpanded ? color+'28' : isPlaying ? color+'40' : 'rgba(0,0,0,.05)'}`,
+      border: `1px solid ${isMuted ? C.border : isExpanded ? color+'28' : isPlaying ? color+'40' : C.border}`,
       boxShadow: isMuted ? 'none'
         : isPlaying ? `0 4px 20px ${color}22`
         : isExpanded ? `0 6px 24px ${color}10`
-        : '0 1px 4px rgba(0,0,0,.05)',
+        : '0 1px 4px rgba(0,0,0,.3)',
       overflow:'hidden', transition:'all .2s',
       opacity: isMuted ? 0.55 : 1,
     }}>
 
       {loadPct!=null && loadPct<100 && (
-        <div style={{ height:3, background:'rgba(0,0,0,.04)' }}>
+        <div style={{ height:3, background:'rgba(255,255,255,.07)' }}>
           <div style={{ height:'100%', width:`${loadPct}%`, background:color, transition:'width .15s' }}/>
         </div>
       )}
@@ -52,7 +52,7 @@ export default function TrackItem({
 
         {/* Color bar + playing pulse */}
         <div aria-hidden="true" style={{ position:'relative', width:4, height:40, borderRadius:2,
-          background: isMuted ? '#ddd' : color, flexShrink:0, marginRight:14,
+          background: isMuted ? 'rgba(255,255,255,.2)' : color, flexShrink:0, marginRight:14,
           boxShadow: isPlaying && !isMuted ? `0 0 8px ${color}` : 'none',
           transition:'all .2s' }}/>
 
@@ -67,7 +67,7 @@ export default function TrackItem({
             </span>
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
             <span style={{ fontSize:11.5, color:C.t3 }}>{uploaderName}</span>
-            {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(0,0,0,.04)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
+            {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(255,255,255,.07)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
           </div>
         </div>
 
@@ -88,7 +88,7 @@ export default function TrackItem({
           aria-pressed={isMuted}
           style={{
             height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
-            border: `1.5px solid ${isMuted ? '#f59e0b' : 'rgba(0,0,0,.1)'}`,
+            border: `1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
             background: isMuted ? '#f59e0b' : 'transparent',
             color: isMuted ? '#fff' : '#aaa',
             fontSize:11, fontWeight:800, cursor:'pointer',
@@ -107,7 +107,7 @@ export default function TrackItem({
         <button onClick={e=>{e.stopPropagation();onSolo(s.id)}}
           aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo}
           style={{ height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
-            border:`1.5px solid ${isSolo?'#6366f1':'rgba(0,0,0,.1)'}`,
+            border:`1.5px solid ${isSolo?'#6366f1':C.border}`,
             background:isSolo?'#6366f1':'transparent',
             color:isSolo?'#fff':'#aaa',
             fontSize:11, fontWeight:800, cursor:'pointer', transition:'all .15s', letterSpacing:'.04em' }}>
@@ -123,14 +123,14 @@ export default function TrackItem({
             <IconPlay size={9} color={color}/>
           </button>
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
-            style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(0,0,0,.03)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:'#ccc'} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%', background:color, color:'#fff', fontSize:7, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>{commentCount}</span>}
+            style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(255,255,255,.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%', background:color, color:'#fff', fontSize:7, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}` }}>{commentCount}</span>}
           </button>
           <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
             onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
-            onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(0,0,0,.07)';e.currentTarget.style.background='transparent'}}>
+            onMouseLeave={e=>{e.currentTarget.style.color=C.t3;e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background='transparent'}}>
             {isDeleting?<Spinner size={10} color="#ef4444"/>:<IconTrash size={12}/>}
           </button>
           <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center' }}><IconDown size={14} rotate={isExpanded}/></div>
@@ -157,14 +157,14 @@ export default function TrackItem({
 
       {/* Expanded panel */}
       {isExpanded && (
-        <div style={{ borderTop:'1px solid rgba(0,0,0,.05)', padding:'16px 22px', background:'rgba(0,0,0,.014)' }}>
+        <div style={{ borderTop:`1px solid ${C.border}`, padding:'16px 22px', background:'rgba(255,255,255,.02)' }}>
 
           {/* Take history */}
           {takes&&takes.length>1&&(
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Take History</div>
               {takes.map((t,ti)=>(
-                <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:ti<takes.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
+                <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:ti<takes.length-1?`1px solid ${C.border}`:'none' }}>
                   <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`, padding:'2px 8px', borderRadius:100 }}>v{takes.length-ti}</span>
                   <span style={{ fontSize:12.5, color:C.t2, flex:1 }}>{t.suggested_name||t.original_name}</span>
                   <span style={{ fontSize:11, color:C.t3 }}>{timeAgo(t.created_at)}</span>
@@ -188,7 +188,7 @@ export default function TrackItem({
           </div>
 
           {(comments||[]).length===0 ? (
-            <div style={{ fontSize:12.5, color:'#ccc', marginBottom:14, padding:'10px 0', textAlign:'center' }}>No comments yet — be the first</div>
+            <div style={{ fontSize:12.5, color:C.t3, marginBottom:14, padding:'10px 0', textAlign:'center' }}>No comments yet — be the first</div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
               {comments.map(cm=>(
@@ -196,8 +196,8 @@ export default function TrackItem({
                   <div aria-hidden="true" style={{ width:30, height:30, borderRadius:'50%', background:`${color}15`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color }}>{(cm.user_name||'?').charAt(0).toUpperCase()}</div>
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
-                      <span style={{ fontSize:12, fontWeight:700, color:'#222' }}>{cm.user_name||'Someone'}</span>
-                      {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(0,0,0,.04)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
+                      <span style={{ fontSize:12, fontWeight:700, color:C.t1 }}>{cm.user_name||'Someone'}</span>
+                      {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(255,255,255,.07)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
                     </div>
                     <div style={{ fontSize:13, color:C.t2, lineHeight:1.55, marginBottom:6 }}>{cm.text}</div>
                     <button
@@ -222,11 +222,11 @@ export default function TrackItem({
             <input id={`comment-${s.id}`} placeholder="Leave a comment…" value={commentDraft||''}
               onChange={e=>onCommentChange(s.id, e.target.value)}
               onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey) onPostComment(s.id, currentTime) }}
-              style={{ flex:1, padding:'9px 13px', borderRadius:10, border:'1px solid rgba(0,0,0,.1)', fontSize:13, outline:'none', background:C.surface2, fontFamily:'inherit' }}/>
+              style={{ flex:1, padding:'9px 13px', borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, outline:'none', background:C.surface2, color:C.t1, fontFamily:'inherit' }}/>
             <button onClick={()=>onPostComment(s.id, currentTime)}
               disabled={postingComment===s.id||!commentDraft?.trim()}
               aria-label="Post comment"
-              style={{ padding:'9px 16px', borderRadius:10, border:'none', background:commentDraft?.trim()?'#111':'rgba(0,0,0,.06)', color:commentDraft?.trim()?'#fff':'#ccc', fontSize:12.5, fontWeight:700, cursor:commentDraft?.trim()?'pointer':'default', transition:'all .15s' }}>
+              style={{ padding:'9px 16px', borderRadius:10, border:'none', background:commentDraft?.trim()?C.grad:'rgba(255,255,255,.07)', color:commentDraft?.trim()?'#fff':C.t3, fontSize:12.5, fontWeight:700, cursor:commentDraft?.trim()?'pointer':'default', transition:'all .15s' }}>
               {postingComment===s.id?<Spinner size={11} color="#fff"/>:'Post'}
             </button>
           </div>

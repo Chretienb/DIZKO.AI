@@ -25,7 +25,7 @@ function LoadingBlock({ label, size = 22 }) {
 function AnalyticsTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,.1)', fontSize:12 }}>
+    <div style={{ background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10, padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,.4)', fontSize:12 }}>
       {label && <div style={{ fontWeight:700, color:C.t1, marginBottom:6 }}>{label}</div>}
       {payload.map((p, i) => (
         <div key={i} style={{ display:'flex', alignItems:'center', gap:6, color:C.t2, marginTop: i ? 3 : 0 }}>
@@ -186,9 +186,9 @@ export default function PageAnalytics({ onGated, hasAccess }) {
     <>
       {/* YouTube */}
       <div style={{ borderRadius:24, overflow:'hidden', marginBottom:24,
-        background: ytConnected ? '#fff' : 'linear-gradient(135deg,#0f0f14 0%,#1a0820 60%,#0a1018 100%)',
-        boxShadow: ytConnected ? '0 1px 4px rgba(0,0,0,.06)' : '0 8px 40px rgba(0,0,0,.25)',
-        border: ytConnected ? '1px solid rgba(0,0,0,.05)' : 'none', position:'relative' }}>
+        background: ytConnected ? C.surface : 'linear-gradient(135deg,#0f0f14 0%,#1a0820 60%,#0a1018 100%)',
+        boxShadow: ytConnected ? '0 4px 20px rgba(0,0,0,.3)' : '0 8px 40px rgba(0,0,0,.25)',
+        border: ytConnected ? `1px solid ${C.border}` : 'none', position:'relative' }}>
 
         {!ytConnected && <>
           <div style={{ position:'absolute', top:'-20%', right:'-5%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(255,0,0,.18) 0%,transparent 65%)', pointerEvents:'none' }}/>
@@ -230,7 +230,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                 {[{label:'Countries reached',val:'47'},{label:'Cities tracked',val:'120+'},{label:'Venue matches',val:'∞'}].map(s => (
                   <div key={s.label} style={{ padding:'16px 22px', borderRadius:16, background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)', backdropFilter:'blur(12px)' }}>
                     <div style={{ fontSize:28, fontWeight:900, color:'#fff', letterSpacing:'-1px' }}>{s.val}</div>
-                    <div style={{ fontSize:12, color:'rgba(255,255,255,.3)', marginTop:4 }}>{s.label}</div>
+                    <div style={{ fontSize:12, color:C.t3, marginTop:4 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -254,7 +254,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                     {ytData.cities?.slice(0,3).map(c=>c.city).join(', ') || ytData.countries?.slice(0,3).map(c=>countryName(c.country_code)).join(', ') || 'the world'}
                   </span>
                 </h2>
-                <div style={{ fontSize:13, color:'#aaa' }}>{ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString() || '—'} total views across {ytData.countries?.length || 0} countries</div>
+                <div style={{ fontSize:13, color:C.t2 }}>{ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString() || '—'} total views across {ytData.countries?.length || 0} countries</div>
               </div>
               <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
                 {[{label:'Top country',val:countryName(ytData.countries?.[0]?.country_code||'')||'—'},{label:'Total views',val:ytData.countries?.reduce((s,c)=>s+c.views,0)?.toLocaleString()||'—'}].map(s => (
@@ -274,7 +274,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                   return (
                     <div key={c.country_code} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
                       <span style={{ fontSize:13, fontWeight:600, color:C.t2, width:140, flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{countryName(c.country_code)}</span>
-                      <div style={{ flex:1, height:7, borderRadius:4, background:'rgba(0,0,0,.05)', overflow:'hidden' }}>
+                      <div style={{ flex:1, height:7, borderRadius:4, background:'rgba(255,255,255,.08)', overflow:'hidden' }}>
                         <div style={{ width:`${(c.views/max)*100}%`, height:'100%', borderRadius:4, background: i===0?'#ff0000':i===1?'#ff4444':C.coral, transition:'width .5s' }}/>
                       </div>
                       <span style={{ fontSize:12, fontWeight:800, color:C.t1, width:48, textAlign:'right', flexShrink:0 }}>{c.views>=1000?`${(c.views/1000).toFixed(1)}k`:c.views}</span>
@@ -285,8 +285,8 @@ export default function PageAnalytics({ onGated, hasAccess }) {
               <div>
                 <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:14 }}>Top Cities — tap to find venues</div>
                 {(ytData.cities||[]).length === 0 ? (
-                  <div style={{ padding:'20px', borderRadius:14, background:'rgba(0,0,0,.03)', textAlign:'center' }}>
-                    <div style={{ fontSize:13, color:'#aaa', marginBottom:6 }}>City data coming soon</div>
+                  <div style={{ padding:'20px', borderRadius:14, background:'rgba(255,255,255,.03)', textAlign:'center' }}>
+                    <div style={{ fontSize:13, color:C.t2, marginBottom:6 }}>City data coming soon</div>
                     <div style={{ fontSize:12, color:C.t3 }}>Needs more views to unlock city-level data</div>
                   </div>
                 ) : (
@@ -294,7 +294,7 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                     <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:16 }}>
                       {(ytData.cities||[]).slice(0,6).map(c => (
                         <button key={c.city} onClick={()=>loadYtVenuesForCity(c.city)}
-                          style={{ padding:'6px 14px', borderRadius:100, fontSize:12.5, fontWeight:700, cursor:'pointer', background:selectedYtCity===c.city?'#ff0000':'rgba(0,0,0,.04)', color:selectedYtCity===c.city?'#fff':'#444', border:selectedYtCity===c.city?'none':'1px solid rgba(0,0,0,.09)', transition:'all .15s' }}>
+                          style={{ padding:'6px 14px', borderRadius:100, fontSize:12.5, fontWeight:700, cursor:'pointer', background:selectedYtCity===c.city?'#ff0000':'rgba(255,255,255,.06)', color:selectedYtCity===c.city?'#fff':C.t2, border:selectedYtCity===c.city?'none':`1px solid ${C.border}`, transition:'all .15s' }}>
                           {c.city} <span style={{ opacity:.55, fontSize:10, marginLeft:5 }}>{c.views>=1000?`${(c.views/1000).toFixed(0)}k`:c.views}</span>
                         </button>
                       ))}
@@ -305,17 +305,17 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                         {(ytCityVenues[selectedYtCity]||[]).slice(0,4).map(v => (
                           <a key={v.id} href={v.url||'#'} target="_blank" rel="noopener noreferrer"
-                            style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:14, background:'rgba(0,0,0,.025)', border:`1px solid ${C.border}`, textDecoration:'none', transition:'all .15s' }}
-                            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.04)';e.currentTarget.style.borderColor='rgba(255,0,0,.18)'}}
-                            onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,.025)';e.currentTarget.style.borderColor='rgba(0,0,0,.07)'}}>
-                            <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,0,0,.08)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:14, background:'rgba(255,255,255,.04)', border:`1px solid ${C.border}`, textDecoration:'none', transition:'all .15s' }}
+                            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,0,0,.06)';e.currentTarget.style.borderColor='rgba(255,0,0,.25)'}}
+                            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.04)';e.currentTarget.style.borderColor=C.border}}>
+                            <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,0,0,.1)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             </div>
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontSize:13.5, fontWeight:700, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
-                              <div style={{ fontSize:11.5, color:'#aaa', marginTop:2 }}>{v.address||`${v.city}, ${v.state}`}</div>
+                              <div style={{ fontSize:11.5, color:C.t2, marginTop:2 }}>{v.address||`${v.city}, ${v.state}`}</div>
                             </div>
-                            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                           </a>
                         ))}
                       </div>
@@ -332,16 +332,16 @@ export default function PageAnalytics({ onGated, hasAccess }) {
       <div style={{ marginBottom:20 }}>
         <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:16 }}>Project Stats</div>
         {loading ? <LoadingBlock/> : isEmpty ? (
-          <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}>
-            <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, border:`1px solid ${C.border}`, boxShadow:'0 4px 20px rgba(0,0,0,.3)' }}>
+            <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:10 }}><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
             <div style={{ fontSize:14, fontWeight:700, color:C.t1, marginBottom:5 }}>No data yet</div>
-            <div style={{ fontSize:12, color:'#aaa' }}>Upload files to your projects to see stats here</div>
+            <div style={{ fontSize:12, color:C.t3 }}>Upload files to your projects to see stats here</div>
           </div>
         ) : (
           <>
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:12, marginBottom:16 }}>
               {statCards.map(s => (
-                <div key={s.label} style={{ background:C.surface, borderRadius:16, padding:'16px 18px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+                <div key={s.label} style={{ background:C.surface, borderRadius:16, padding:'16px 18px', boxShadow:'0 4px 20px rgba(0,0,0,.3)', border:`1px solid ${C.border}` }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                     <span style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em' }}>{s.label}</span>
                     <div style={{ width:28, height:28, borderRadius:8, background:`${s.color}12`, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -354,10 +354,10 @@ export default function PageAnalytics({ onGated, hasAccess }) {
               ))}
             </div>
 
-            <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', marginBottom:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+            <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', marginBottom:16, boxShadow:'0 4px 20px rgba(0,0,0,.3)', border:`1px solid ${C.border}` }}>
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>Upload Activity</div>
-                <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>Files uploaded per day — last 30 days</div>
+                <div style={{ fontSize:12, color:C.t3, marginTop:2 }}>Files uploaded per day — last 30 days</div>
               </div>
               <ResponsiveContainer width="100%" height={140}>
                 <AreaChart data={activityByDay} margin={{ top:4, right:4, bottom:0, left:-20 }}>
@@ -367,19 +367,19 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                       <stop offset="95%" stopColor={C.coral} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" vertical={false}/>
                   <XAxis dataKey="label" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} interval={Math.floor(activityByDay.length/6)}/>
                   <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
-                  <Tooltip content={<AnalyticsTooltip/>} cursor={{ stroke:'rgba(0,0,0,.06)', strokeWidth:1 }}/>
+                  <Tooltip content={<AnalyticsTooltip/>} cursor={{ stroke:'rgba(255,255,255,.1)', strokeWidth:1 }}/>
                   <Area type="monotone" dataKey="uploads" name="Uploads" stroke={C.coral} strokeWidth={2} fill="url(#uploadGrad)" dot={false} activeDot={{ r:4, fill:C.coral, strokeWidth:0 }}/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16, marginBottom:16 }}>
-              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 4px 20px rgba(0,0,0,.3)', border:`1px solid ${C.border}` }}>
                 <div style={{ fontSize:14, fontWeight:800, color:C.t1, marginBottom:4 }}>Stem Types</div>
-                <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Breakdown by instrument</div>
+                <div style={{ fontSize:12, color:C.t3, marginBottom:16 }}>Breakdown by instrument</div>
                 <div style={{ display:'flex', alignItems:'center', gap:20 }}>
                   <ResponsiveContainer width={130} height={130}>
                     <PieChart>
@@ -400,15 +400,15 @@ export default function PageAnalytics({ onGated, hasAccess }) {
                   </div>
                 </div>
               </div>
-              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${C.border}` }}>
+              <div style={{ background:C.surface, borderRadius:20, padding:'20px 24px', boxShadow:'0 4px 20px rgba(0,0,0,.3)', border:`1px solid ${C.border}` }}>
                 <div style={{ fontSize:14, fontWeight:800, color:C.t1, marginBottom:4 }}>Files per Project</div>
-                <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>Total uploads per project</div>
+                <div style={{ fontSize:12, color:C.t3, marginBottom:16 }}>Total uploads per project</div>
                 <ResponsiveContainer width="100%" height={130}>
                   <BarChart data={byProject} margin={{ top:4, right:4, bottom:0, left:-20 }} barSize={16}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" vertical={false}/>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" vertical={false}/>
                     <XAxis dataKey="name" tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false}/>
                     <YAxis tick={{ fontSize:10, fill:'#bbb' }} tickLine={false} axisLine={false} allowDecimals={false}/>
-                    <Tooltip content={<AnalyticsTooltip/>} cursor={{ fill:'rgba(0,0,0,.03)' }}/>
+                    <Tooltip content={<AnalyticsTooltip/>} cursor={{ fill:'rgba(255,255,255,.04)' }}/>
                     <Bar dataKey="files" name="Files" radius={[5,5,0,0]}>
                       {byProject.map((e,i) => <Cell key={i} fill={e.fill}/>)}
                     </Bar>
@@ -429,47 +429,47 @@ export default function PageAnalytics({ onGated, hasAccess }) {
           </div>
           <span style={{ fontSize:11, color:C.t3 }}>No account needed</span>
         </div>
-        <div style={{ display:'flex', gap:8, marginBottom:16, background:'#f7f7f8', borderRadius:12, padding:'4px', alignItems:'center' }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:10, flexShrink:0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <div style={{ display:'flex', gap:8, marginBottom:16, background:C.surface2, borderRadius:12, border:`1px solid ${C.border}`, padding:'4px', alignItems:'center' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:10, flexShrink:0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input placeholder="Artist name…" value={lfmArtist} onChange={e=>setLfmArtist(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loadLastFm()}
             style={{ flex:1, padding:'9px 8px', background:'transparent', border:'none', outline:'none', fontSize:13, fontFamily:'inherit', color:C.t1 }}/>
           <button onClick={loadLastFm} disabled={lfmLoading||!lfmArtist.trim()}
-            style={{ padding:'8px 16px', borderRadius:9, border:'none', background:lfmArtist.trim()?'#111':'transparent', color:lfmArtist.trim()?'#fff':'#ccc', fontSize:12, fontWeight:700, cursor:lfmArtist.trim()?'pointer':'default', transition:'all .15s' }}>
+            style={{ padding:'8px 16px', borderRadius:9, border:'none', background:lfmArtist.trim()?C.grad:'transparent', color:lfmArtist.trim()?'#fff':C.t3, fontSize:12, fontWeight:700, cursor:lfmArtist.trim()?'pointer':'default', transition:'all .15s' }}>
             {lfmLoading?<Spinner size={11} color="#fff"/>:'Search'}
           </button>
         </div>
-        {lfmError&&<div style={{ padding:'10px 14px', borderRadius:10, background:'#fef2f2', border:'1px solid #fecaca', fontSize:13, color:'#ef4444', marginBottom:12 }}>{lfmError}</div>}
+        {lfmError&&<div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)', fontSize:13, color:'#f87171', marginBottom:12 }}>{lfmError}</div>}
         {lfmData&&(
           <div>
-            <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:18, padding:'16px', borderRadius:14, background:'#f9f9fb' }}>
+            <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:18, padding:'16px', borderRadius:14, background:C.surface2, border:`1px solid ${C.border}` }}>
               {lfmData.image&&<img src={lfmData.image} alt="" style={{ width:60, height:60, borderRadius:12, objectFit:'cover', flexShrink:0 }}/>}
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:19, fontWeight:900, color:C.t1, letterSpacing:'-.5px', marginBottom:5 }}>{lfmData.name}</div>
                 <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                  {lfmData.tags?.map(t=><span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100, background:C.surface, border:`1px solid ${C.border}`, color:'#777', textTransform:'capitalize' }}>{t}</span>)}
+                  {lfmData.tags?.map(t=><span key={t} style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:100, background:'rgba(255,255,255,.07)', border:`1px solid ${C.border}`, color:C.t2, textTransform:'capitalize' }}>{t}</span>)}
                 </div>
               </div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
               {[{label:'Monthly Listeners',val:lfmData.listeners,sub:'on Last.fm'},{label:'Total Plays',val:lfmData.playcount,sub:'all time'}].map((s,i)=>(
-                <div key={i} style={{ padding:'14px 16px', borderRadius:12, background:'#f9f9fb', border:`1px solid ${C.border}` }}>
+                <div key={i} style={{ padding:'14px 16px', borderRadius:12, background:C.surface2, border:`1px solid ${C.border}` }}>
                   <div style={{ fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px', lineHeight:1 }}>
                     {s.val>=1000000?`${(s.val/1000000).toFixed(1)}M`:s.val>=1000?`${(s.val/1000).toFixed(s.val>=10000?0:1)}K`:s.val.toLocaleString()}
                   </div>
-                  <div style={{ fontSize:11, fontWeight:600, color:'#999', marginTop:4 }}>{s.label}</div>
+                  <div style={{ fontSize:11, fontWeight:600, color:C.t3, marginTop:4 }}>{s.label}</div>
                   <div style={{ fontSize:10, color:C.t3 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
-            {lfmData.bio&&<p style={{ fontSize:13, color:C.t2, lineHeight:1.7, marginBottom:18, borderLeft:'3px solid #eee', paddingLeft:12 }}>{lfmData.bio.slice(0,260)}{lfmData.bio.length>260?'…':''}</p>}
+            {lfmData.bio&&<p style={{ fontSize:13, color:C.t2, lineHeight:1.7, marginBottom:18, borderLeft:`3px solid ${C.border}`, paddingLeft:12 }}>{lfmData.bio.slice(0,260)}{lfmData.bio.length>260?'…':''}</p>}
             {lfmData.top_tracks?.length>0&&(
               <div style={{ marginBottom:14 }}>
-                <div style={{ fontSize:10, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:8 }}>Top Tracks</div>
+                <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:8 }}>Top Tracks</div>
                 {lfmData.top_tracks.map((t,i)=>(
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', borderRadius:9, transition:'background .1s' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='#f7f7f8'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <span style={{ fontSize:11, color:'#ccc', fontWeight:700, minWidth:18, textAlign:'right' }}>{i+1}</span>
-                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:'#222', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</span>
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.05)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <span style={{ fontSize:11, color:C.t3, fontWeight:700, minWidth:18, textAlign:'right' }}>{i+1}</span>
+                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</span>
                     <span style={{ fontSize:11, color:C.t3, flexShrink:0 }}>{t.playcount>=1000000?`${(t.playcount/1000000).toFixed(1)}M`:t.playcount>=1000?`${(t.playcount/1000).toFixed(0)}K`:t.playcount>0?t.playcount:'—'}</span>
                   </div>
                 ))}

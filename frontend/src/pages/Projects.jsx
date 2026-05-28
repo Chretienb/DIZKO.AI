@@ -15,11 +15,11 @@ const CARD_GRADIENTS = [
 ]
 
 const statusStyle = s => ({
-  'In Progress': { bg:'rgba(59,130,246,.1)',    color:'#2563eb', border:'rgba(59,130,246,.2)'   },
-  'Review':      { bg:'rgba(245,201,122,.15)',  color:'#b45309', border:'rgba(245,201,122,.4)'  },
-  'New Takes':   { bg:'rgba(232,112,154,.12)',  color:'#E8709A', border:'rgba(232,112,154,.3)'  },
-  'Draft':       { bg:'rgba(0,0,0,.06)',         color:C.t3,    border:'rgba(0,0,0,.12)'       },
-}[s] || { bg:'rgba(0,0,0,.06)', color:C.t3, border:'rgba(0,0,0,.12)' })
+  'In Progress': { bg:'rgba(59,130,246,.15)',    color:'#60a5fa', border:'rgba(59,130,246,.25)'  },
+  'Review':      { bg:'rgba(245,201,122,.12)',   color:'#f5c97a', border:'rgba(245,201,122,.25)' },
+  'New Takes':   { bg:'rgba(232,112,154,.12)',   color:'#E8709A', border:'rgba(232,112,154,.25)' },
+  'Draft':       { bg:'rgba(255,255,255,.07)',   color:C.t3,      border:'rgba(255,255,255,.1)'  },
+}[s] || { bg:'rgba(255,255,255,.07)', color:C.t3, border:'rgba(255,255,255,.1)' })
 
 function timeAgo(isoString) {
   if (!isoString) return ''
@@ -93,7 +93,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
         {filters.map(f => {
           const on = filter === f
           return (
-            <button key={f} onClick={() => setFilter(f)} style={{ padding:'7px 16px', borderRadius:100, border:'none', cursor:'pointer', fontSize:12.5, fontWeight:600, background:on?'#111':'#fff', color:on?'#fff':'#666', boxShadow:on?'none':'0 1px 3px rgba(0,0,0,.08)', transition:'all .15s' }}>{f}</button>
+            <button key={f} onClick={() => setFilter(f)} style={{ padding:'7px 16px', borderRadius:100, border:`1px solid ${on?'rgba(255,255,255,.2)':'rgba(255,255,255,.07)'}`, cursor:'pointer', fontSize:12.5, fontWeight:600, background:on?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)', color:on?'#fff':C.t3, transition:'all .15s' }}>{f}</button>
           )
         })}
       </div>
@@ -109,7 +109,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
       {/* Grid */}
       {loading ? (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)', gap:20 }}>
-          {[0,1,2].map(i => <div key={i} style={{ borderRadius:24, height:isMobile?300:360, background:'linear-gradient(160deg,#e8e8e8,#d4d4d4)', opacity:.5 }}/>)}
+          {[0,1,2].map(i => <div key={i} style={{ borderRadius:24, height:isMobile?300:360, background:'linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02))', border:'1px solid rgba(255,255,255,.06)' }}/>)}
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)', gap:20 }}>
