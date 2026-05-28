@@ -142,7 +142,7 @@ billing.post('/portal', requireAuth, async (c) => {
   const origin  = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
   const session = await stripe.billingPortal.sessions.create({
     customer:   customerId,
-    return_url: `${origin}/settings`,
+    return_url: `${origin}/account`,
   })
 
   return c.json({ data: { url: session.url }, error: null, status: 200 })
