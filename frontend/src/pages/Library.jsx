@@ -61,11 +61,32 @@ function getGroupKey(instr) {
   return 'other'
 }
 
+function BottomSheet({ open, onClose, title, children }) {
+  if (!open) return null
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div onClick={onClose} style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)' }}/>
+      <div style={{ position:'relative', background:C.surface, borderRadius:'20px 20px 0 0', border:`1px solid ${C.border}`, borderBottom:'none', maxHeight:'82vh', display:'flex', flexDirection:'column', zIndex:1 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 14px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <span style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>{title}</span>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', color:C.t3, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style={{ overflowY:'auto', WebkitOverflowScrolling:'touch', paddingBottom:'env(safe-area-inset-bottom, 20px)' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PageLibrary({ openModal, playTrack, addToast, user }) {
   const [projects,     setProjects]     = useState([])
   const [activeId,     setActiveId]     = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const isMobile = React.useContext(MobileCtx)
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [files,        setFiles]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [loadingFiles, setLoadingFiles] = useState(false)
@@ -291,7 +312,7 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
                     <div key={f.id} style={{ borderBottom: fi < group.items.length-1 ? `1px solid ${C.border2}` : 'none' }}>
                       {/* File row */}
                       <div
-                        onClick={() => setSelectedFile(isSel ? null : f)}
+                        onClick={() => { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) }}
                         style={{ display:'flex', alignItems:'center', gap:11, padding:'11px 20px', cursor:'pointer', background:isSel?`${C.coral}07`:'transparent', borderLeft:`2px solid ${isSel?C.coral:'transparent'}`, transition:'background .1s' }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.background='rgba(255,255,255,.025)' }}
                         onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.background='transparent' }}>
@@ -412,6 +433,75 @@ export default function PageLibrary({ openModal, playTrack, addToast, user }) {
           </div>
         )}
       </div>
+
+      {/* ── Mobile: File detail bottom sheet ── */}
+      {isMobile && (
+        <BottomSheet open={!!(selectedFile && mobileDetailOpen)} onClose={() => { setMobileDetailOpen(false); setSelectedFile(null) }} title="File Details">
+          {selectedFile && (
+            <div style={{ padding:'16px 20px 24px' }}>
+              {/* File icon + name */}
+              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:`${selTypeClr}15`, border:`1px solid ${selTypeClr}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:900, color:selTypeClr, flexShrink:0 }}>{selExt}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.t1, lineHeight:1.35, wordBreak:'break-word' }}>{fileLabel(selectedFile)}</div>
+                  {selectedFile.original_name && selectedFile.original_name !== fileLabel(selectedFile) && (
+                    <div style={{ fontSize:11, color:C.t3, marginTop:2, wordBreak:'break-word' }}>{selectedFile.original_name}</div>
+                  )}
+                </div>
+              </div>
+              {/* Stats */}
+              <div style={{ display:'flex', flexDirection:'column', gap:11, marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+                {[
+                  { label:'Format',    val: selExt },
+                  { label:'File size', val: fmtSize(selectedFile.file_size) },
+                  { label:'Uploaded',  val: timeAgo(selectedFile.created_at) },
+                  ...(selNotes.bpm      ? [{ label:'BPM',      val: String(Math.round(selNotes.bpm)) }]  : []),
+                  ...(selNotes.key      ? [{ label:'Key',      val: `${selNotes.key}${selNotes.scale==='minor'?'m':''}` }] : []),
+                  ...(selNotes.duration ? [{ label:'Duration', val: `${Math.floor(selNotes.duration/60)}:${String(Math.round(selNotes.duration%60)).padStart(2,'0')}` }] : []),
+                ].map(row => (
+                  <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:13, color:C.t3 }}>{row.label}</span>
+                    <span style={{ fontSize:13, fontWeight:600, color:C.t1 }}>{row.val}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Detected labels */}
+              <div style={{ marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10 }}>Detected Labels</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:selInstrClr, background:`${selInstrClr}15`, border:`1px solid ${selInstrClr}25`, padding:'5px 13px', borderRadius:20, textTransform:'capitalize' }}>
+                    {selectedFile.instrument || 'recording'}
+                  </span>
+                  {selNotes.bpm && (
+                    <span style={{ fontSize:12, fontWeight:700, color:C.coral, background:`${C.coral}12`, border:`1px solid ${C.coral}25`, padding:'5px 13px', borderRadius:20 }}>
+                      {Math.round(selNotes.bpm)} BPM
+                    </span>
+                  )}
+                  {selNotes.key && (
+                    <span style={{ fontSize:12, fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.22)', padding:'5px 13px', borderRadius:20 }}>
+                      {selNotes.key}{selNotes.scale==='minor'?'m':''}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Actions */}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <button onClick={() => { playTrack(selectedFile, parentFiles); setMobileDetailOpen(false) }}
+                  style={{ height:48, borderRadius:12, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:`0 4px 16px ${C.coral}28` }}>
+                  <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
+                  Play
+                </button>
+                {isOwner && (
+                  <button onClick={() => { deleteFile(selectedFile.id); setMobileDetailOpen(false) }}
+                    style={{ height:46, borderRadius:12, border:'1px solid rgba(239,68,68,.28)', cursor:'pointer', background:'rgba(239,68,68,.07)', color:'#f87171', fontSize:14, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                    Delete file
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </BottomSheet>
+      )}
 
       {/* ── Right: Detail panel ── */}
       {selectedFile && !isMobile && (

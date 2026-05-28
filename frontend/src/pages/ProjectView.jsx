@@ -194,6 +194,27 @@ function RemoveModal({ collab, onClose, onConfirm }) {
   )
 }
 
+// ── Bottom Sheet ──────────────────────────────────────────────────────────────
+function BottomSheet({ open, onClose, title, children }) {
+  if (!open) return null
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div onClick={onClose} style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)' }}/>
+      <div style={{ position:'relative', background:C.surface, borderRadius:'20px 20px 0 0', border:`1px solid ${C.border}`, borderBottom:'none', maxHeight:'82vh', display:'flex', flexDirection:'column', zIndex:1 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 14px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <span style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px' }}>{title}</span>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', color:C.t3, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style={{ overflowY:'auto', WebkitOverflowScrolling:'touch', paddingBottom:'env(safe-area-inset-bottom, 20px)' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const { id: projectId } = useParams()
@@ -211,6 +232,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [renamingId,   setRenamingId]   = useState(null)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [isPlaying,    setIsPlaying]    = useState(false)
+  const [mobileProjectsOpen, setMobileProjectsOpen] = useState(false)
+  const [mobileDetailOpen,   setMobileDetailOpen]   = useState(false)
 
   // Collabs panel expand
   const [showCollabs, setShowCollabs] = useState(false)
@@ -381,30 +404,45 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       ══════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
 
+        {/* Mobile: project switcher bar */}
+        {isMobile && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:10 }}>
+            <button onClick={() => setMobileProjectsOpen(true)}
+              style={{ display:'flex', alignItems:'center', gap:6, height:38, padding:'0 14px', borderRadius:10, border:`1px solid ${C.border}`, background:'rgba(255,255,255,.04)', color:C.t2, fontSize:12.5, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              Projects
+            </button>
+            <span style={{ fontSize:15, fontWeight:800, color:C.t1, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.4px' }}>
+              {project?.title}
+            </span>
+          </div>
+        )}
+
         {/* Breadcrumb */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:C.t3 }}>
+        {!isMobile && <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:C.t3 }}>
           <button onClick={() => navigate('/projects')} style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:12.5, fontWeight:500, padding:0, transition:'color .12s' }} onMouseEnter={e=>e.currentTarget.style.color=C.t1} onMouseLeave={e=>e.currentTarget.style.color=C.t3}>Projects</button>
           <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
           <span>{project?.title}</span>
-        </div>
+        </div>}
 
-        {/* Project title + pills (top-right) + buttons (below pills) — matches Figma layout */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
-          {/* LEFT: title + subtitle */}
-          <div style={{ flex:1, minWidth:0 }}>
-            <h1 style={{ margin:'0 0 8px', fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1px', textTransform:'uppercase' }}>
-              {project?.title}
-            </h1>
-            <div style={{ fontSize:12, color:C.t3, display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
-              <span>{parentFiles.length} stem{parentFiles.length!==1?'s':''}</span>
-              {project?.updated_at && <><span style={{ opacity:.4 }}>·</span><span>Last edited {timeAgo(project.updated_at)}</span></>}
-              <span style={{ opacity:.4 }}>·</span><span>WAV · 44.1kHz</span>
+        {/* Project title + pills + buttons */}
+        <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-start', justifyContent:'space-between', gap: isMobile ? 10 : 16 }}>
+          {/* Title + subtitle */}
+          {!isMobile && (
+            <div style={{ flex:1, minWidth:0 }}>
+              <h1 style={{ margin:'0 0 8px', fontSize:28, fontWeight:900, color:C.t1, letterSpacing:'-1px', textTransform:'uppercase' }}>
+                {project?.title}
+              </h1>
+              <div style={{ fontSize:12, color:C.t3, display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+                <span>{parentFiles.length} stem{parentFiles.length!==1?'s':''}</span>
+                {project?.updated_at && <><span style={{ opacity:.4 }}>·</span><span>Last edited {timeAgo(project.updated_at)}</span></>}
+                <span style={{ opacity:.4 }}>·</span><span>WAV · 44.1kHz</span>
+              </div>
             </div>
-          </div>
-          {/* RIGHT: pills on top row, buttons below — exactly like Figma */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:10, flexShrink:0 }}>
-            {/* Pills row */}
-            <div style={{ display:'flex', flexWrap:'wrap', gap:7, justifyContent:'flex-end' }}>
+          )}
+          {/* Pills + buttons — stack on mobile, float right on desktop */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems: isMobile ? 'flex-start' : 'flex-end', gap:10, flexShrink:0 }}>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
               <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.12)', border:'1px solid rgba(99,102,241,.22)', padding:'4px 11px', borderRadius:20 }}>
                 <svg width={8} height={8} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                 Auto-labeled
@@ -412,17 +450,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               {projBpm && <span style={{ fontSize:11, fontWeight:700, color:C.coral, background:`${C.coral}12`, border:`1px solid ${C.coral}28`, padding:'4px 11px', borderRadius:20 }}>BPM: {Math.round(projBpm)}</span>}
               {projKey?.trim() && <span style={{ fontSize:11, fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.22)', padding:'4px 11px', borderRadius:20 }}>Key: {projKey}</span>}
             </div>
-            {/* Action buttons */}
-            <div style={{ display:'flex', gap:9, flexWrap:'wrap', justifyContent:'flex-end' }}>
+            {isMobile && (
+              <div style={{ fontSize:11.5, color:C.t3, display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+                <span>{parentFiles.length} stem{parentFiles.length!==1?'s':''}</span>
+                {project?.updated_at && <><span style={{ opacity:.4 }}>·</span><span>Last edited {timeAgo(project.updated_at)}</span></>}
+              </div>
+            )}
+            <div style={{ display:'flex', gap:9, flexWrap:'wrap', width: isMobile ? '100%' : 'auto' }}>
               <button onClick={() => openModal?.('upload', { project })}
-                style={{ height:36, padding:'0 16px', borderRadius:10, border:`1px solid ${C.border}`, cursor:'pointer', background:'rgba(255,255,255,.04)', color:C.t2, fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', gap:6, transition:'all .12s' }}
+                style={{ height:isMobile?42:36, padding:'0 16px', borderRadius:10, border:`1px solid ${C.border}`, cursor:'pointer', background:'rgba(255,255,255,.04)', color:C.t2, fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .12s', flex: isMobile ? 1 : 'none' }}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.08)'}
                 onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
                 Upload
               </button>
               <button onClick={() => navigate('/studio')}
-                style={{ height:36, padding:'0 16px', borderRadius:10, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', gap:7, boxShadow:`0 3px 14px ${C.coral}30`, transition:'opacity .12s' }}
+                style={{ height:isMobile?42:36, padding:'0 16px', borderRadius:10, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:7, boxShadow:`0 3px 14px ${C.coral}30`, transition:'opacity .12s', flex: isMobile ? 1 : 'none' }}
                 onMouseEnter={e=>e.currentTarget.style.opacity='.82'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
                 Open in Studio
@@ -433,7 +476,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
         {/* ── Audio mini-player ── */}
         {playerFile && (
-          <div style={{ background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, padding:'14px 18px', display:'flex', alignItems:'center', gap:16 }}>
+          <div style={{ background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, padding: isMobile ? '12px 14px' : '14px 18px', display:'flex', alignItems:'center', gap: isMobile ? 10 : 16 }}>
             {/* Controls */}
             <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
               <button style={{ width:28, height:28, borderRadius:'50%', border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.t3 }}
@@ -512,7 +555,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
                       return (
                         <div key={f.id}
-                          onClick={() => { if (!isRen) setSelectedFile(isSel ? null : f) }}
+                          onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) } }}
                           style={{
                             display:'flex', alignItems:'center', gap:14, padding:'14px 18px',
                             cursor:'pointer', borderBottom: fi < group.items.length-1 ? `1px solid ${isFinals ? 'rgba(34,197,94,.12)' : C.border2}` : 'none',
@@ -748,6 +791,102 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </>
           )}
         </div>
+      )}
+
+      {/* ══ Mobile: Projects bottom sheet ══ */}
+      {isMobile && (
+        <BottomSheet open={mobileProjectsOpen} onClose={() => setMobileProjectsOpen(false)} title="My Projects">
+          <div style={{ padding:'6px 0 8px' }}>
+            {allProjects.map((p, i) => {
+              const on     = p.id === projectId
+              const status = deriveStatus(p)
+              return (
+                <button key={p.id}
+                  onClick={() => { navigate(`/projects/${p.id}`); setMobileProjectsOpen(false) }}
+                  style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'14px 20px', border:'none', cursor:'pointer', textAlign:'left', background: on ? `${C.coral}10` : 'transparent', borderLeft:`3px solid ${on ? C.coral : 'transparent'}`, transition:'all .12s' }}>
+                  <span style={{ fontSize:11, fontWeight:700, color:on?C.coral:C.t3, minWidth:22, textAlign:'right', flexShrink:0 }}>{i+1}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13.5, fontWeight:on?800:600, color:on?C.t1:C.t2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textTransform:'uppercase', letterSpacing:'.02em' }}>{p.title}</div>
+                    <div style={{ fontSize:11, color:C.t3, marginTop:1 }}>{STATUS_LABEL[status]}</div>
+                  </div>
+                  <div style={{ width:8, height:8, borderRadius:'50%', background:STATUS_DOT[status], flexShrink:0, boxShadow: status !== 'draft' ? `0 0 5px ${STATUS_DOT[status]}` : 'none' }}/>
+                </button>
+              )
+            })}
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* ══ Mobile: Stem detail bottom sheet ══ */}
+      {isMobile && selectedFile && (
+        <BottomSheet open={mobileDetailOpen} onClose={() => { setMobileDetailOpen(false); setSelectedFile(null) }} title="Stem Details">
+          <div style={{ padding:'16px 20px 24px' }}>
+            {/* Name + badge */}
+            <div style={{ marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:15, fontWeight:800, color:C.t1, lineHeight:1.35, wordBreak:'break-word', marginBottom:9 }}>
+                {project?.title} — {selectedFile.suggested_name || selectedFile.original_name || 'Untitled'}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:20, background:'rgba(99,102,241,.12)', border:'1px solid rgba(99,102,241,.22)', width:'fit-content' }}>
+                <svg width={8} height={8} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="#6366f1"/></svg>
+                <span style={{ fontSize:11, fontWeight:700, color:'#6366f1' }}>Auto-analyzed</span>
+              </div>
+            </div>
+            {/* Stats */}
+            <div style={{ display:'flex', flexDirection:'column', gap:11, marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+              {[
+                { label:'Format',      val: selExt },
+                { label:'Sample rate', val: selectedFile.instrument === 'vocals' ? '48kHz' : '44.1kHz' },
+                { label:'Bit depth',   val: '24-bit' },
+                ...(selNotes.duration  ? [{ label:'Duration',  val: fmtDur(selNotes.duration) }] : []),
+                ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
+              ].map(row => (
+                <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontSize:13, color:C.t3 }}>{row.label}</span>
+                  <span style={{ fontSize:13, fontWeight:600, color:C.t1 }}>{row.val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Detected Labels */}
+            <div style={{ marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.14em', marginBottom:10 }}>Detected Labels</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                {selLabels.map(([lbl, clr], i) => (
+                  <span key={i} style={{ padding:'6px 14px', borderRadius:8, background:`${clr}15`, border:`1px solid ${clr}28`, fontSize:12.5, fontWeight:700, color:clr }}>
+                    {lbl}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {/* Versions */}
+            {(selVNum !== null || selVersions.length > 0) && (
+              <div style={{ marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.14em', marginBottom:10 }}>Versions</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {selVNum !== null && (
+                    <div style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px', borderRadius:10, background:`${C.coral}12`, border:`1px solid ${C.coral}28` }}>
+                      <span style={{ fontSize:12, fontWeight:800, color:C.coral }}>v{selVNum}</span>
+                      <span style={{ fontSize:13, fontWeight:600, color:C.t1, flex:1 }}>{versionLabel(selVNum)}</span>
+                      <span style={{ fontSize:10, fontWeight:700, color:C.coral, background:`${C.coral}20`, padding:'2px 7px', borderRadius:5 }}>Current</span>
+                    </div>
+                  )}
+                  {selVersions.map(f => (
+                    <button key={f.id} onClick={() => setSelectedFile(f)}
+                      style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,.04)', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'left', width:'100%' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:C.t3 }}>{f.vNum !== null ? `v${f.vNum}` : '—'}</span>
+                      <span style={{ fontSize:13, fontWeight:500, color:C.t2, flex:1 }}>{f.vNum !== null ? versionLabel(f.vNum) : (f.suggested_name || f.original_name)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Play button */}
+            <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true); playTrack(selectedFile, parentFiles); setMobileDetailOpen(false) }}
+              style={{ width:'100%', height:48, borderRadius:12, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:15, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:`0 4px 16px ${C.coral}30` }}>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
+              Play Stem
+            </button>
+          </div>
+        </BottomSheet>
       )}
 
       {/* CSS for hover-reveal play buttons */}
