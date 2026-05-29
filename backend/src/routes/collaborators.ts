@@ -37,6 +37,39 @@ collaborators.get('/', async (c) => {
     })
   )
 
+  // Prepend the project owner as a synthetic entry so the frontend always
+  // shows them in the collaborators list with the correct role badge.
+  if (projectId) {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('owner_id')
+      .eq('id', projectId)
+      .single()
+
+    if (project?.owner_id) {
+      const alreadyListed = enriched.some((r: any) => r.user_id === project.owner_id)
+      if (!alreadyListed) {
+        const { data: ownerAuth } = await supabase.auth.admin.getUserById(project.owner_id)
+        const o = ownerAuth?.user
+        const ownerEntry: Record<string, unknown> = {
+          id:         `owner-${project.owner_id}`,
+          project_id: projectId,
+          user_id:    project.owner_id,
+          role:       'owner',
+          status:     'accepted',
+          _isOwner:   true,
+          user: {
+            id:         o?.id,
+            email:      o?.email ?? '',
+            full_name:  o?.user_metadata?.full_name  ?? null,
+            avatar_url: o?.user_metadata?.avatar_url ?? null,
+          },
+        }
+        enriched.unshift(ownerEntry as typeof enriched[number])
+      }
+    }
+  }
+
   return c.json({ data: enriched, error: null, status: 200 })
 })
 
@@ -57,10 +90,40 @@ collaborators.patch('/:id', sanitize, async (c) => {
 
 // ── DELETE /collaborators/:id ─────────────────────────────────────────────────
 collaborators.delete('/:id', async (c) => {
+  const requesterId = c.var.user.id
+  const collabId    = c.req.param('id')
+
+  // Fetch the record so we know which project and whose seat this is
+  const { data: collab, error: fetchErr } = await supabase
+    .from('collaborators')
+    .select('project_id, user_id')
+    .eq('id', collabId)
+    .single()
+
+  if (fetchErr || !collab) return c.json({ data: null, error: 'Collaborator not found', status: 404 }, 404)
+
+  // Only the project owner may remove collaborators
+  const { data: project } = await supabase
+    .from('projects')
+    .select('owner_id')
+    .eq('id', collab.project_id)
+    .single()
+
+  if (!project) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+
+  if (project.owner_id !== requesterId) {
+    return c.json({ data: null, error: 'Only the project owner can remove collaborators', status: 403 }, 403)
+  }
+
+  // The owner cannot be removed from their own project
+  if (collab.user_id === project.owner_id) {
+    return c.json({ data: null, error: 'Cannot remove the project owner', status: 403 }, 403)
+  }
+
   const { error } = await supabase
     .from('collaborators')
     .delete()
-    .eq('id', c.req.param('id'))
+    .eq('id', collabId)
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { message: 'Collaborator removed' }, error: null, status: 200 })

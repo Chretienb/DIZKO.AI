@@ -657,31 +657,98 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               })
             )}
 
-          {/* Collaborators quick section */}
-          {collabs.length > 0 && (
-            <div style={{ padding:'12px 20px', borderTop:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ display:'flex' }}>
-                  {collabs.slice(0,4).map((c,i) => {
-                    const COLORS = [C.coral,'#8b5cf6','#22c55e','#f59e0b']
-                    const nm = c.user?.full_name || c.user?.email || 'C'
-                    return (
-                      <div key={c.id} style={{ width:26, height:26, borderRadius:'50%', background:`${COLORS[i%COLORS.length]}20`, border:`2px solid ${C.surface}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:9.5, fontWeight:800, color:COLORS[i%COLORS.length], marginLeft: i>0?-8:0, zIndex:collabs.length-i }}>
+          {/* Collaborators section */}
+          {collabs.length > 0 && (() => {
+            const isOwner = project?.owner_id === user?.id
+            return (
+              <div style={{ borderTop:`1px solid ${C.border}` }}>
+                {/* Section header */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 20px 8px' }}>
+                  <span style={{ fontSize:10, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.1em' }}>
+                    Collaborators · {collabs.length}
+                  </span>
+                  {/* Only the owner can invite more people */}
+                  {isOwner && (
+                    <button onClick={() => openModal?.('invite', { project })}
+                      style={{ height:26, padding:'0 10px', borderRadius:7, border:`1px solid ${C.coral}35`, background:`${C.coral}10`, color:C.coral, fontSize:11, fontWeight:700, cursor:'pointer', transition:'all .12s' }}
+                      onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}20`}
+                      onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}10`}>
+                      + Invite
+                    </button>
+                  )}
+                </div>
+
+                {/* Each collaborator row */}
+                {collabs.map((collab, ci) => {
+                  const COLORS   = [C.coral,'#8b5cf6','#22c55e','#f59e0b','#ec4899']
+                  const clr      = COLORS[ci % COLORS.length]
+                  const nm       = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
+                  const isSelf   = collab.user_id === user?.id
+                  const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
+
+                  return (
+                    <div key={collab.id}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 20px',
+                        borderTop: ci > 0 ? `1px solid ${C.border2}` : 'none',
+                        transition:'background .1s' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.025)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+
+                      {/* Avatar */}
+                      <div style={{ width:30, height:30, borderRadius:'50%', background:`${clr}18`,
+                        border:`1.5px solid ${clr}30`, display:'flex', alignItems:'center',
+                        justifyContent:'center', fontSize:11, fontWeight:800, color:clr, flexShrink:0 }}>
                         {nm.charAt(0).toUpperCase()}
                       </div>
-                    )
-                  })}
-                </div>
-                <span style={{ fontSize:12, color:C.t3 }}>{collabs.length} collaborator{collabs.length!==1?'s':''}</span>
+
+                      {/* Name + role */}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:isSelf ? C.t1 : C.t2,
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {nm}{isSelf ? ' (you)' : ''}
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:1 }}>
+                          <span style={{ fontSize:10, fontWeight:700,
+                            color: isOwnerEntry ? '#f59e0b' : '#94a3b8',
+                            background: isOwnerEntry ? 'rgba(245,158,11,.12)' : 'rgba(148,163,184,.1)',
+                            border: `1px solid ${isOwnerEntry ? 'rgba(245,158,11,.25)' : 'rgba(148,163,184,.18)'}`,
+                            padding:'1px 7px', borderRadius:20, textTransform:'capitalize' }}>
+                            {isOwnerEntry ? 'Owner' : (collab.role || 'Collaborator')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                        {/* Message — visible to all, but not on yourself */}
+                        {!isSelf && (
+                          <button onClick={() => setMsgCollab(collab)}
+                            style={{ height:26, padding:'0 10px', borderRadius:7,
+                              border:`1px solid ${C.border}`, background:'transparent',
+                              color:C.t3, fontSize:11, fontWeight:600, cursor:'pointer', transition:'all .12s' }}
+                            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=C.t1 }}
+                            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.t3 }}>
+                            Message
+                          </button>
+                        )}
+                        {/* Remove — only owner can remove; cannot remove owner or yourself */}
+                        {isOwner && !isOwnerEntry && !isSelf && (
+                          <button onClick={() => setRemCollab(collab)}
+                            style={{ height:26, padding:'0 10px', borderRadius:7,
+                              border:'1px solid rgba(239,68,68,.28)', background:'rgba(239,68,68,.06)',
+                              color:'#f87171', fontSize:11, fontWeight:600, cursor:'pointer', transition:'all .12s' }}
+                            onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.14)'}
+                            onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,.06)'}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <button onClick={() => openModal?.('invite', { project })}
-                style={{ height:28, padding:'0 12px', borderRadius:8, border:`1px solid ${C.coral}35`, background:`${C.coral}10`, color:C.coral, fontSize:11.5, fontWeight:700, cursor:'pointer', transition:'all .12s' }}
-                onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}20`}
-                onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}10`}>
-                + Invite
-              </button>
-            </div>
-          )}
+            )
+          })()}
         </div>
           )
         })()}
