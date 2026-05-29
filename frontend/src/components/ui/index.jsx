@@ -16,8 +16,8 @@ export const C = {
 
   // Dark theme text
   t1: '#f1f1f3',
-  t2: 'rgba(255,255,255,.55)',
-  t3: 'rgba(255,255,255,.28)',
+  t2: 'rgba(255,255,255,.75)',
+  t3: 'rgba(255,255,255,.48)',
 }
 
 function initials(fullName = '') {
