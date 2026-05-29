@@ -11,32 +11,34 @@ analytics.use('*', requireAuth)
 analytics.get('/overview', async (c) => {
   const userId = c.var.user.id
 
-  // Fetch project IDs and track IDs in parallel first
-  const [{ data: ownedProjects }, { data: allTracks }] = await Promise.all([
+  // Round 1 — two independent queries in parallel
+  const [{ data: ownedProjects }, { count: files }] = await Promise.all([
     supabase.from('projects').select('id').eq('owner_id', userId),
-    supabase.from('tracks').select('id, project_id'),
+    supabase.from('stems').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
   ])
 
   const projectIds = (ownedProjects ?? []).map((p: { id: string }) => p.id)
-  const trackIds   = (allTracks    ?? [])
-    .filter((t: { project_id: string }) => projectIds.includes(t.project_id))
-    .map((t: { id: string }) => t.id)
 
-  const [{ count: projects }, { count: files }, { count: collaborators }, { count: sharedFiles }] =
-    await Promise.all([
-      supabase.from('projects').select('id', { count: 'exact', head: true }).eq('owner_id', userId),
-      supabase.from('stems').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
-      projectIds.length
-        ? supabase.from('collaborators').select('id', { count: 'exact', head: true }).in('project_id', projectIds)
-        : Promise.resolve({ count: 0 }),
-      trackIds.length
-        ? supabase.from('stems').select('id', { count: 'exact', head: true }).in('track_id', trackIds)
-        : Promise.resolve({ count: 0 }),
-    ])
+  // Round 2 — filter tracks by project (was fetching ALL tracks before), count collabs in parallel
+  const [{ data: projectTracks }, { count: collaborators }] = await Promise.all([
+    projectIds.length
+      ? supabase.from('tracks').select('id').in('project_id', projectIds)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+    projectIds.length
+      ? supabase.from('collaborators').select('id', { count: 'exact', head: true }).in('project_id', projectIds)
+      : Promise.resolve({ count: 0 }),
+  ])
+
+  const trackIds = (projectTracks ?? []).map((t: { id: string }) => t.id)
+
+  // Round 3 — shared files (stems belonging to tracks in owned projects)
+  const { count: sharedFiles } = trackIds.length
+    ? await supabase.from('stems').select('id', { count: 'exact', head: true }).in('track_id', trackIds)
+    : { count: 0 }
 
   return c.json({
     data: {
-      projects:      projects      ?? 0,
+      projects:      projectIds.length,
       files:         files         ?? 0,
       collaborators: collaborators ?? 0,
       sharedFiles:   sharedFiles   ?? 0,
