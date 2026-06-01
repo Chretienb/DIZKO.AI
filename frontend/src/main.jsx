@@ -12,6 +12,7 @@ import ResetPassword from './ResetPassword.jsx'
 import { TermsPage as Terms, PrivacyPage as Privacy, CookiesPage } from './pages/Legal.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
+import { ThemeProvider } from './lib/theme.jsx'
 import { supabase } from './lib/supabase'
 
 const TOKEN_KEY  = 'disco_token'
@@ -200,10 +201,12 @@ function Root() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <Root />
-      </BrowserRouter>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Root />
+        </BrowserRouter>
+      </ErrorBoundary>
+    </ThemeProvider>
   </StrictMode>
 )

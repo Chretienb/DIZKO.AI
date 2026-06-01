@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
+import { assertProjectAccess } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const collaborators = new Hono<{ Variables: HonoVariables }>()
@@ -12,8 +13,12 @@ collaborators.use('*', requireAuth)
 collaborators.get('/', async (c) => {
   const projectId = c.req.query('project_id')
 
-  let query = supabase.from('collaborators').select('*')
-  if (projectId) query = query.eq('project_id', projectId)
+  // Must scope to a project the caller belongs to — never expose the whole table
+  if (!projectId) return c.json({ data: null, error: 'project_id required', status: 400 }, 400)
+  if (!(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  let query = supabase.from('collaborators').select('*').eq('project_id', projectId)
 
   const { data: rows, error } = await query
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
@@ -71,6 +76,86 @@ collaborators.get('/', async (c) => {
   }
 
   return c.json({ data: enriched, error: null, status: 200 })
+})
+
+// ── GET /collaborators/all — every collaborator across the user's projects ────
+// One call instead of N (one per project). Used by the Crew page.
+collaborators.get('/all', async (c) => {
+  const userId = c.var.user.id
+
+  // Projects the user owns or collaborates on
+  const { data: owned } = await supabase
+    .from('projects').select('id, title').eq('owner_id', userId)
+  const { data: memberRows } = await supabase
+    .from('collaborators').select('project_id').eq('user_id', userId)
+
+  const ownedMap = new Map((owned ?? []).map(p => [p.id, p.title]))
+  const projectIds = new Set<string>([
+    ...ownedMap.keys(),
+    ...((memberRows ?? []).map(r => r.project_id as string)),
+  ])
+  if (projectIds.size === 0) return c.json({ data: [], error: null, status: 200 })
+
+  // Titles + owner_id for every project (owned and joined)
+  const titleMap = new Map<string, string>(ownedMap)
+  const ownerOf  = new Map<string, string>()   // projectId → owner_id
+  const { data: allProjects } = await supabase
+    .from('projects').select('id, title, owner_id').in('id', [...projectIds])
+  ;(allProjects ?? []).forEach(p => {
+    titleMap.set(p.id, p.title)
+    if (p.owner_id) ownerOf.set(p.id, p.owner_id as string)
+  })
+
+  // All collaborator rows for those projects, in one query
+  const { data: rows, error } = await supabase
+    .from('collaborators').select('*').in('project_id', [...projectIds])
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  // Synthesize an "owner" entry per project (so the person who invited you,
+  // i.e. the project owner, shows up in your crew — they're not a collaborators row).
+  const ownerEntries = [...projectIds].map(pid => {
+    const oid = ownerOf.get(pid)
+    if (!oid) return null
+    return { id:`owner-${pid}`, project_id:pid, user_id:oid, role:'owner', status:'accepted', _isOwner:true }
+  }).filter(Boolean) as any[]
+
+  const combined = [...(rows ?? []), ...ownerEntries]
+
+  // Resolve each distinct user once (avatar/name), then build deduped list
+  const userIds = [...new Set(combined.map(r => r.user_id).filter(Boolean) as string[])]
+  const userCache = new Map<string, any>()
+  await Promise.all(userIds.map(async uid => {
+    const { data: u } = await supabase.auth.admin.getUserById(uid)
+    if (u?.user) userCache.set(uid, u.user)
+  }))
+
+  // Rank: owners & accepted first, pending last — so a person isn't shown by a
+  // still-pending row when they're also accepted/owner elsewhere.
+  const rank = (s: string) => s === 'pending' ? 1 : 0
+  const ordered = combined.sort((a, b) => rank(a.status) - rank(b.status))
+
+  const seen = new Set<string>()
+  const out: any[] = []
+  for (const row of ordered) {
+    if (row.user_id === userId) continue   // don't list yourself
+    // include pending invites — an invited person is still part of the crew
+    const key = (row.user_id as string) || (row.email as string) || (row.id as string)
+    if (seen.has(key)) continue
+    seen.add(key)
+    const au = row.user_id ? userCache.get(row.user_id as string) : null
+    out.push({
+      ...row,
+      projectTitle: titleMap.get(row.project_id as string) ?? null,
+      user: {
+        id:         au?.id ?? null,
+        email:      au?.email ?? row.email ?? '',
+        full_name:  au?.user_metadata?.full_name  ?? null,
+        avatar_url: au?.user_metadata?.avatar_url ?? null,
+      },
+    })
+  }
+
+  return c.json({ data: out, error: null, status: 200 })
 })
 
 // ── PATCH /collaborators/:id ──────────────────────────────────────────────────

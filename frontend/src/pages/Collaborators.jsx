@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi, invitations as invitationsApi, accessRequests } from '../lib/api.js'
-import { Btn, Spinner, C } from '../components/ui/index.jsx'
+import { Btn, Spinner, C, Avatar } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
 
 const COLORS = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1', C.pink]
@@ -43,7 +43,7 @@ function RemoveModal({ name, color, init, onConfirm, onClose }) {
             style={{ flex:1, height:42, borderRadius:12, border:`1.5px solid ${C.border}`,
               background:'none', fontSize:14, fontWeight:600, color:C.t2, cursor:'pointer',
               transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.06)'}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}
             onMouseLeave={e => e.currentTarget.style.background='none'}>
             Cancel
           </button>
@@ -77,83 +77,64 @@ function CollabRow({ c, index, isOnline, onMessage, onWork, onRemove }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => { setHovered(false); setMenuOpen(false) }}
         style={{
-          display:'flex', alignItems:'center', gap:16,
-          padding:'14px 20px', borderRadius:16,
-          background: hovered ? 'rgba(255,255,255,.04)' : 'transparent',
-          border: `1px solid ${hovered ? C.border : 'transparent'}`,
-          transition:'all .15s', cursor:'default',
+          display:'flex', alignItems:'center', gap:13,
+          padding:'10px 12px', borderRadius:12,
+          background: hovered ? 'rgba(var(--fg),.04)' : 'transparent',
+          transition:'background .15s', cursor:'default',
         }}>
 
         {/* Avatar */}
         <div style={{ position:'relative', flexShrink:0 }}>
-          <div style={{ width:46, height:46, borderRadius:14,
-            background:`linear-gradient(145deg, ${color}22, ${color}0a)`,
-            border:`1.5px solid ${color}30`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:15, fontWeight:900, color, letterSpacing:'-.5px' }}>
-            {init}
-          </div>
-          <div style={{ position:'absolute', bottom:-2, right:-2,
-            width:12, height:12, borderRadius:'50%',
-            background: isOnline ? '#22c55e' : 'rgba(255,255,255,.15)',
-            border:`2px solid ${C.bg}`,
-            boxShadow: isOnline ? '0 0 6px #22c55e80' : 'none',
-            transition:'all .2s' }}/>
+          <Avatar name={name} url={c.user?.avatar_url} size={38} color={color} border="none" />
+          <div style={{ position:'absolute', bottom:-1, right:-1,
+            width:11, height:11, borderRadius:'50%',
+            background: c.status === 'pending' ? '#f59e0b' : isOnline ? '#22c55e' : 'rgba(var(--fg),.2)',
+            border:`2px solid ${C.bg}` }}/>
         </div>
 
         {/* Name + meta */}
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
-            <span style={{ fontSize:14, fontWeight:800, color:C.t1, letterSpacing:'-.3px',
+          <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+            <span style={{ fontSize:13.5, fontWeight:600, color:C.t1,
               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
               {name}
             </span>
-            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:100,
-              background:`${color}14`, color, textTransform:'capitalize', flexShrink:0 }}>
+            <span style={{ fontSize:10, fontWeight:500, color:C.t3, textTransform:'capitalize', flexShrink:0 }}>
               {c.role || 'Collaborator'}
             </span>
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {c.projectTitle && (
-              <span style={{ fontSize:11.5, color:C.t3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {c.projectTitle}
-              </span>
-            )}
-            {c.projectTitle && isOnline !== undefined && (
-              <span style={{ color:'rgba(255,255,255,.12)', fontSize:10 }}>·</span>
-            )}
-            <span style={{ fontSize:11, fontWeight:600, color: isOnline ? '#22c55e' : 'rgba(255,255,255,.2)', flexShrink:0 }}>
-              {isOnline ? 'Online' : 'Away'}
-            </span>
+          <div style={{ fontSize:11.5, fontWeight:400, color:C.t3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:1 }}>
+            {[c.projectTitle, c.status === 'pending' ? 'Invited · pending' : (isOnline ? 'Online' : 'Away')].filter(Boolean).join(' · ')}
           </div>
         </div>
 
-        {/* Actions — visible on hover */}
-        <div style={{ display:'flex', gap:6, flexShrink:0, opacity: hovered ? 1 : 0, transition:'opacity .15s' }}>
+        {/* Actions — always visible, flat */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
           <button onClick={() => onMessage(c)}
-            style={{ height:32, padding:'0 14px', borderRadius:9,
-              border:`1px solid ${C.border}`, background:'rgba(255,255,255,.05)',
-              fontSize:12, fontWeight:600, color:C.t2, cursor:'pointer',
-              transition:'all .12s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=color; e.currentTarget.style.color=color }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.t2 }}>
+            style={{ height:30, padding:'0 12px', borderRadius:8,
+              border:'none', background:'rgba(var(--fg),.06)',
+              fontSize:12, fontWeight:500, color:C.t2, cursor:'pointer',
+              transition:'background .12s' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.1)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}>
             Message
           </button>
           <button onClick={() => onWork(c)}
-            style={{ height:32, padding:'0 14px', borderRadius:9,
-              border:'none', background:C.grad, color:'#fff',
-              fontSize:12, fontWeight:700, cursor:'pointer',
-              boxShadow:`0 4px 12px ${C.coral}30` }}>
+            style={{ height:30, padding:'0 12px', borderRadius:8,
+              border:'none', background:`${C.coral}1a`, color:C.coral,
+              fontSize:12, fontWeight:500, cursor:'pointer', transition:'background .12s' }}
+            onMouseEnter={e => e.currentTarget.style.background=`${C.coral}29`}
+            onMouseLeave={e => e.currentTarget.style.background=`${C.coral}1a`}>
             Open
           </button>
           <button
             onClick={() => setMenuOpen(v => !v)}
-            style={{ width:32, height:32, borderRadius:9, border:`1px solid ${C.border}`,
-              background:'rgba(255,255,255,.05)', cursor:'pointer',
+            style={{ width:30, height:30, borderRadius:8, border:'none',
+              background:'transparent', cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center',
-              color:C.t3, position:'relative', transition:'all .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.1)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.05)'}>
+              color:C.t3, position:'relative', transition:'background .12s' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.08)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
             <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
               <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
             </svg>
@@ -204,27 +185,17 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
 
   const load = () => {
     setLoading(true)
+    // One call for all collaborators (no per-project waterfall), in parallel
+    // with projects (for owned-ids → access requests) and pending invites.
     Promise.all([
+      collabsApi.listAll().catch(() => ({ data:[] })),
       projectsApi.list().catch(() => ({ data:[] })),
       invitationsApi.list().catch(() => ({ data:[] })),
-    ]).then(([projRes, invRes]) => {
-      const projs = projRes.data || []
+    ]).then(([crewRes, projRes, invRes]) => {
+      setCollabs(crewRes.data || [])
       setInvites(invRes.data || [])
-      const owned = new Set(projs.filter(p => p.owner_id === user?.id).map(p => p.id))
-      setOwnedIds(owned)
-      if (!projs.length) { setCollabs([]); return }
-      return Promise.all(projs.map(p => collabsApi.listByProject(p.id).catch(() => ({ data:[] }))))
-        .then(results => {
-          const seen = new Set(), all = []
-          results.forEach((r, pi) => {
-            ;(r.data || []).forEach(c => {
-              if (c.status === 'pending') return
-              const key = c.user_id || c.id
-              if (!seen.has(key)) { seen.add(key); all.push({ ...c, projectTitle: projs[pi]?.title }) }
-            })
-          })
-          setCollabs(all)
-        })
+      const projs = projRes.data || []
+      setOwnedIds(new Set(projs.filter(p => p.owner_id === user?.id).map(p => p.id)))
     }).catch(console.warn).finally(() => setLoading(false))
   }
 
@@ -263,7 +234,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28 }}>
         <div>
-          <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>
+          <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>
             Crew
           </h1>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -272,15 +243,23 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
             </span>
             {onlineNow > 0 && (
               <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:12,
-                fontWeight:700, color:'#22c55e' }}>
+                fontWeight:500, color:'#22c55e' }}>
                 <span style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e',
-                  display:'inline-block', boxShadow:'0 0 6px #22c55e' }}/>
+                  display:'inline-block' }}/>
                 {onlineNow} online
               </span>
             )}
           </div>
         </div>
-        <Btn onClick={() => openModal('invite', {})}>+ Invite</Btn>
+        <button onClick={() => openModal('invite', {})}
+          style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 14px', borderRadius:8,
+            border:'none', background:`${C.coral}1a`, color:C.coral, fontSize:13, fontWeight:500,
+            cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
+          onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}29`}
+          onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}1a`}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Invite
+        </button>
       </div>
 
       {/* ── Access requests ───────────────────────────────────────────────── */}
@@ -293,7 +272,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
           </p>
           {accessReqs.map((req, i) => (
             <div key={req.id} style={{ display:'flex', alignItems:'center', gap:12,
-              padding:'10px 0', borderTop: i > 0 ? `1px solid rgba(255,255,255,.05)` : 'none' }}>
+              padding:'10px 0', borderTop: i > 0 ? `1px solid rgba(var(--fg),.05)` : 'none' }}>
               <div style={{ width:34, height:34, borderRadius:10, background:`${C.amber}15`,
                 flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                 fontSize:13, fontWeight:800, color:C.amber }}>
@@ -377,11 +356,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
         <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:8 }}>
           {[0,1,2,3].map(i => (
             <div key={i} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 20px',
-              borderRadius:16, background:'rgba(255,255,255,.02)' }}>
+              borderRadius:16, background:'rgba(var(--fg),.02)' }}>
               <div style={{ width:46, height:46, borderRadius:14, background:C.surface2, flexShrink:0 }}/>
               <div style={{ flex:1 }}>
                 <div style={{ height:13, width:`${40+i*12}%`, borderRadius:4, background:C.surface2, marginBottom:7 }}/>
-                <div style={{ height:10, width:'25%', borderRadius:4, background:'rgba(255,255,255,.05)' }}/>
+                <div style={{ height:10, width:'25%', borderRadius:4, background:'rgba(var(--fg),.05)' }}/>
               </div>
             </div>
           ))}

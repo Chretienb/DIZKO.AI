@@ -2,6 +2,18 @@
 // Vite proxies /api → http://localhost:4000 (see vite.config.js)
 // All responses have the shape: { data, error, status }
 
+/**
+ * @typedef {import('./types').Project} Project
+ * @typedef {import('./types').FileRecord} FileRecord
+ * @typedef {import('./types').Collaborator} Collaborator
+ * @typedef {import('./types').Folder} Folder
+ * @typedef {import('./types').Notification} Notification
+ */
+/**
+ * @template T
+ * @typedef {import('./types').ApiResponse<T>} ApiResponse
+ */
+
 const BASE = '/api'
 
 // ── SWR cache ─────────────────────────────────────────────────────────────────
@@ -169,17 +181,38 @@ export const auth = {
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 export const projects = {
+  /** @returns {Promise<import('./types').ApiResponse<Project[]>>} */
   list:   ()         => get('/projects'),
+  /** @returns {Promise<import('./types').ApiResponse<Project>>} */
   get:    (id)       => get(`/projects/${id}`),
+  /** @returns {Promise<import('./types').ApiResponse<Project>>} */
   create: (body)     => post('/projects', body),
+  /** @returns {Promise<import('./types').ApiResponse<Project>>} */
   update: (id, body) => patch(`/projects/${id}`, body),
   delete: (id)       => del(`/projects/${id}`),
+  uploadCover: (id, file) => {
+    const token = getToken()
+    const form  = new FormData()
+    form.append('file', file)
+    return fetch(`${BASE}/projects/${id}/cover`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (res.status === 401) { setToken(null); window.location.href = '/login' }
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      return json
+    })
+  },
 }
 
 // ── Files (audio stems stored under a project) ────────────────────────────────
 export const files = {
+  /** @returns {Promise<ApiResponse<FileRecord[]>>} */
   list:   (projectId)       => get(`/projects/${projectId}/files`),
   create: (projectId, body) => post(`/projects/${projectId}/files`, body),
+  /** @returns {Promise<ApiResponse<FileRecord>>} */
   get:    (id)              => get(`/files/${id}`),
   update: (id, body)        => patch(`/files/${id}`, body),
   delete:        (id)        => del(`/files/${id}`),
@@ -213,7 +246,9 @@ export const files = {
 
 // ── Collaborators ─────────────────────────────────────────────────────────────
 export const collaborators = {
-  // List by project — GET /projects/:id/collaborators
+  /** All collaborators across the user's projects, one call. @returns {Promise<ApiResponse<Collaborator[]>>} */
+  listAll:       ()               => get('/collaborators/all'),
+  /** @returns {Promise<ApiResponse<Collaborator[]>>} */
   listByProject: (projectId)       => get(`/collaborators?project_id=${projectId}`),
   // Add to a specific project — POST /projects/:id/collaborators { email, role }
   addToProject:  (projectId, body) => post(`/projects/${projectId}/collaborators`, body),

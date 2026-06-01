@@ -1,30 +1,30 @@
 import React from 'react'
 
 export const C = {
+  // Brand colors — fixed across themes
   coral:'#F4937A', peach:'#F4A97C', amber:'#F5C97A',
   pink:'#F28FB8',  rose:'#E8709A',
   grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
 
-  // Dark theme — near black like the reference image
-  bg:       '#1c1c1f',   // main content background
-  surface:  '#222226',   // cards and panels
-  surface2: '#2a2a2e',   // hover / elevated
-  sidebar:  '#111113',   // sidebar (near black)
-  outer:    '#18181b',   // body / outermost wrapper
-  border:   'rgba(255,255,255,.08)',
-  border2:  'rgba(255,255,255,.04)',
+  // Neutral tokens — resolved from CSS variables so they flip with the theme
+  bg:       'var(--bg)',         // main content background
+  surface:  'var(--surface)',    // cards and panels
+  surface2: 'var(--surface-2)',  // hover / elevated
+  sidebar:  'var(--sidebar)',
+  outer:    'var(--outer)',      // body / outermost wrapper
+  border:   'var(--border)',
+  border2:  'var(--border-2)',
 
-  // Dark theme text
-  t1: '#f1f1f3',
-  t2: 'rgba(255,255,255,.75)',
-  t3: 'rgba(255,255,255,.48)',
+  t1: 'var(--t1)',
+  t2: 'var(--t2)',
+  t3: 'var(--t3)',
 }
 
 function initials(fullName = '') {
   return fullName.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').join('').slice(0, 2) || '?'
 }
 
-export const ProgressRing = React.memo(function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(255,255,255,.08)', children }) {
+export const ProgressRing = React.memo(function ProgressRing({ pct, size = 44, stroke = 3, color = C.coral, bg = 'rgba(var(--fg),.08)', children }) {
   const r    = (size - stroke) / 2
   const circ = 2 * Math.PI * r
   const off  = circ * (1 - Math.min(pct, 100) / 100)
@@ -92,15 +92,23 @@ export const Avatar = React.memo(function Avatar({ name, url, size = 36, color =
     border: border || `2px solid ${color}44`,
     ...(extra || {}),
   }
-  if (url) {
-    return <img src={url} alt={name || ''} style={{ ...base, objectFit:'cover', background:`${color}22` }}
-      onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
-  }
-  return (
+  const fallback = (display) => (
     <div style={{ ...base, background:`linear-gradient(135deg,${color},${color}bb)`,
-      display:'flex', alignItems:'center', justifyContent:'center',
+      display, alignItems:'center', justifyContent:'center',
       fontSize:fs, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
       {initials(name || '')}
     </div>
   )
+  if (url) {
+    // Render img + a hidden initials fallback; on load error, swap to fallback.
+    // alt="" so a broken image never shows the name as alt text.
+    return (
+      <>
+        <img src={url} alt="" style={{ ...base, objectFit:'cover', background:`${color}22` }}
+          onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
+        {fallback('none')}
+      </>
+    )
+  }
+  return fallback('flex')
 })

@@ -26,7 +26,7 @@ export default function Transport({
 
       <button onClick={onStop} aria-label="Stop playback"
         style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:C.t3, transition:'all .12s', flexShrink:0 }}
-        onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.07)';e.currentTarget.style.color=C.t2}}
+        onMouseEnter={e=>{e.currentTarget.style.background='rgba(var(--fg),.07)';e.currentTarget.style.color=C.t2}}
         onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.t3}}>
         <IconStop size={10}/>
       </button>
@@ -37,9 +37,9 @@ export default function Transport({
         </ProgressRing>
       ) : (
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? 'Pause' : 'Play all tracks'}
-          style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer', background:C.grad, display:'flex', alignItems:'center', justifyContent:'center', transition:'opacity .12s', flexShrink:0, boxShadow:`0 4px 12px ${C.coral}35` }}
-          onMouseEnter={e=>e.currentTarget.style.opacity='.8'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-          {playing ? <IconPause size={12} color="#fff"/> : <IconPlay size={12} color="#fff"/>}
+          style={{ width:38, height:38, borderRadius:'50%', border:`1px solid ${C.border}`, cursor:'pointer', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s', flexShrink:0, color:C.t1 }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.06)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          {playing ? <IconPause size={13} color="currentColor"/> : <IconPlay size={13} color="currentColor"/>}
         </button>
       )}
 
@@ -50,44 +50,7 @@ export default function Transport({
           <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress*100}%`, background:C.coral, borderRadius:2, transition:'width .08s' }}/>
         </div>
         <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:600, color:C.t3, minWidth:36, flexShrink:0 }}>{fmt(currentTime)}</span>
-        <div aria-hidden="true" style={{ width:5, height:5, borderRadius:'50%', flexShrink:0, background:beatFlash?C.coral:'rgba(255,255,255,.15)', transition:beatFlash?'none':'all .2s' }}/>
-      </div>
-
-      <div style={{ width:1, height:22, background:C.border, flexShrink:0 }}/>
-
-      <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-        {!isMobile && (
-          <button onClick={onToggleMetronome} aria-label={metronomeOn ? 'Metronome on' : 'Metronome off'} aria-pressed={metronomeOn}
-            style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, cursor:'pointer', background:metronomeOn?'rgba(255,255,255,.1)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={metronomeOn?C.t1:C.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 2,20 22,20"/><line x1="12" y1="12" x2="16" y2="8"/><line x1="12" y1="20" x2="12" y2="14"/></svg>
-          </button>
-        )}
-        {!isMobile && (
-          <div style={{ display:'flex', alignItems:'center', background:'rgba(255,255,255,.05)', border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden', height:34 }}>
-            <button onClick={() => onBpmChange(bpm-1)} disabled={bpm<=40} aria-label="Decrease BPM"
-              style={{ width:28, height:'100%', border:'none', background:'transparent', cursor:bpm<=40?'default':'pointer', color:bpm<=40?C.t3:C.t2, fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'0 10px', borderLeft:`1px solid ${C.border}`, borderRight:`1px solid ${C.border}`, minWidth:52 }}>
-              <input type="number" min={40} max={250} value={bpm} step={1} aria-label="BPM value"
-                onChange={e=>onBpmChange(e.target.value)}
-                style={{ width:40, background:'none', border:'none', outline:'none', fontSize:15, fontWeight:800, color:C.t1, fontFamily:'monospace', textAlign:'center', padding:0 }}/>
-              <span style={{ fontSize:7, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.12em', marginTop:-1 }}>BPM</span>
-            </div>
-            <button onClick={() => onBpmChange(bpm+1)} disabled={bpm>=250} aria-label="Increase BPM"
-              style={{ width:28, height:'100%', border:'none', background:'transparent', cursor:bpm>=250?'default':'pointer', color:bpm>=250?C.t3:C.t2, fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
-          </div>
-        )}
-        <button onClick={onDetectBpm} disabled={detectingBpm||stems.length===0} aria-label="Auto-detect BPM"
-          style={{ height:34, padding:'0 12px', borderRadius:10, fontSize:12, fontWeight:600, background:'rgba(255,255,255,.05)', border:`1px solid ${C.border}`, color:detectingBpm?C.t3:C.t2, cursor:detectingBpm||stems.length===0?'default':'pointer', display:'flex', alignItems:'center', gap:5, transition:'all .15s' }}
-          onMouseEnter={e=>{ if(!detectingBpm)e.currentTarget.style.background='rgba(255,255,255,.1)' }} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.05)'}>
-          {detectingBpm ? <><Spinner size={10} color={C.t3}/> Detecting…</> : 'Detect'}
-        </button>
-        {!isMobile && bpm!==120 && (
-          <button onClick={() => onBpmChange(120)} aria-label="Reset BPM to 120"
-            style={{ height:34, width:34, borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.t3, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
-            onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(255,255,255,.07)'}} onMouseLeave={e=>{e.currentTarget.style.color=C.t3;e.currentTarget.style.background='transparent'}}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-          </button>
-        )}
+        <div aria-hidden="true" style={{ width:5, height:5, borderRadius:'50%', flexShrink:0, background:beatFlash?C.coral:'rgba(var(--fg),.15)', transition:beatFlash?'none':'all .2s' }}/>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
+import { assertProjectAccess, projectIdForStem } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const stemComments = new Hono<{ Variables: HonoVariables }>()
@@ -9,6 +10,11 @@ stemComments.use('*', requireAuth)
 
 stemComments.get('/:stemId', async (c) => {
   const userId = c.var.user.id
+
+  // Only project members may read a stem's comments
+  const projectId = await projectIdForStem(c.req.param('stemId'))
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: comments, error } = await supabase
     .from('stem_comments').select('*')
@@ -47,6 +53,11 @@ stemComments.post('/:stemId', sanitize, async (c) => {
   const text   = (body.text || '').trim().slice(0, 500)
   if (!text) return c.json({ error: 'text is required' }, 400)
 
+  // Only project members may comment on a stem
+  const projectId = await projectIdForStem(c.req.param('stemId'))
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   let userName = 'Unknown', avatarUrl: string | null = null
   try {
     const { data: u } = await supabase.auth.admin.getUserById(userId)
@@ -56,7 +67,7 @@ stemComments.post('/:stemId', sanitize, async (c) => {
 
   const { data, error } = await supabase.from('stem_comments').insert({
     stem_id:       c.req.param('stemId'),
-    project_id:    body.project_id || '',
+    project_id:    projectId,
     user_id:       userId,
     user_name:     userName,
     avatar_url:    avatarUrl,

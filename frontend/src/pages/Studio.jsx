@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
@@ -62,6 +63,152 @@ function LoadingBlock() {
   return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'60px' }}><Spinner size={22}/></div>
 }
 
+// ── Stems library ─────────────────────────────────────────────────────────────
+const LIB_LABELS = { vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', guitar:'Guitar', keys:'Keys', synth:'Synth', harmony:'Harmony' }
+const LIB_COLORS = { vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#F5C97A', guitar:'#EA9F1E', keys:'#7E77D0', synth:'#7E77D0', harmony:'#E8709A' }
+
+// A single stem in the side library — one compact line: dot · name · sender · +/-.
+// Draggable onto the board.
+function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
+  const color = LIB_COLORS[s.instrument] || '#A5A5AD'
+  const label = LIB_LABELS[s.instrument] || s.instrument || 'Stem'
+  const on  = boardIds.has(s.id)
+  const up  = uploaders[s.uploaded_by]
+  const who = up?.full_name?.split(' ')[0] || up?.email?.split('@')[0] || ''
+
+  return (
+    <div draggable
+      onDragStart={e => { e.dataTransfer.setData('text/stem-id', s.id); e.dataTransfer.effectAllowed = 'copy' }}
+      title="Drag onto the board"
+      style={{ display:'flex', alignItems:'center', gap:9, padding:'6px 8px', borderRadius:8, cursor:'grab',
+        background: on ? `${color}12` : 'transparent' }}>
+      <span style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>
+      <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'baseline', gap:6 }}>
+        <span style={{ fontSize:12.5, fontWeight:400, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {s.suggested_name || s.original_name || label}
+        </span>
+        {who && <span style={{ fontSize:11, fontWeight:400, color:C.t3, flexShrink:0 }}>· {who}</span>}
+      </div>
+      <button onClick={() => on ? onRemove(s.id) : onAdd(s.id)}
+        aria-label={on ? 'Remove from board' : 'Add to board'} title={on ? 'Remove from board' : 'Add to board'}
+        style={{ width:20, height:20, borderRadius:6, flexShrink:0, cursor:'pointer',
+          border:'none', background: on ? color : 'rgba(var(--fg),.06)',
+          color: on ? '#fff' : C.t3, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round">
+          {on ? <line x1="5" y1="12" x2="19" y2="12"/> : <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+// ── Project picker — searchable dropdown (scales to many projects) ───────────
+function ProjectThumb({ project, size = 22 }) {
+  const url = project?.cover_url
+  return (
+    <div style={{ width:size, height:size, borderRadius:6, flexShrink:0, overflow:'hidden',
+      background: url ? `center/cover url(${url})` : 'linear-gradient(145deg,#7E77D0,#2E2A66)',
+      display:'flex', alignItems:'center', justifyContent:'center' }}>
+      {!url && (
+        <svg width="52%" height="52%" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" strokeWidth={1.6} strokeLinecap="round">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+      )}
+    </div>
+  )
+}
+
+function ProjectPicker({ projects, activeId, onSelect }) {
+  const [open, setOpen] = React.useState(false)
+  const [q, setQ] = React.useState('')
+  const [rect, setRect] = React.useState(null)
+  const btnRef = React.useRef(null)
+  const popRef = React.useRef(null)
+  const inputRef = React.useRef(null)
+  const active = projects.find(p => p.id === activeId)
+
+  const place = React.useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setRect({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 280) })
+  }, [])
+
+  React.useEffect(() => {
+    if (!open) return
+    place()
+    const onDoc = e => {
+      if (btnRef.current?.contains(e.target) || popRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, place])
+
+  const filtered = projects.filter(p => p.title.toLowerCase().includes(q.trim().toLowerCase()))
+
+  return (
+    <>
+      <button ref={btnRef} onClick={() => setOpen(o => !o)}
+        style={{ display:'flex', alignItems:'center', gap:8, height:34, padding:'0 10px', borderRadius:9,
+          background:C.surface, border:`1px solid ${open ? C.coral+'55' : C.border}`, cursor:'pointer',
+          maxWidth:240, fontFamily:'inherit', transition:'border-color .12s' }}>
+        <ProjectThumb project={active} />
+        <span style={{ fontSize:13, fontWeight:400, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {active?.title || 'Select project'}
+        </span>
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round"
+          style={{ flexShrink:0, transform:open?'rotate(180deg)':'none', transition:'transform .15s' }}><polyline points="6,9 12,15 18,9"/></svg>
+      </button>
+
+      {open && rect && createPortal(
+        <div ref={popRef} style={{ position:'fixed', top:rect.top, left:rect.left, zIndex:4000, width:300,
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden',
+          boxShadow:'0 16px 48px rgba(0,0,0,.45)' }}>
+          <div style={{ padding:8, borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 10px', height:34,
+              background:'rgba(var(--fg),.05)', borderRadius:8 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder="Search projects…"
+                style={{ flex:1, border:'none', outline:'none', background:'transparent', color:C.t1, fontSize:13, fontFamily:'inherit' }}/>
+            </div>
+          </div>
+          <div style={{ maxHeight:340, overflowY:'auto', padding:6 }}>
+            {filtered.length === 0 && (
+              <div style={{ padding:'18px 12px', fontSize:12.5, color:C.t3, textAlign:'center' }}>No matches</div>
+            )}
+            {filtered.map(p => {
+              const on = p.id === activeId
+              return (
+                <button key={p.id} onClick={() => { onSelect(p.id); setOpen(false); setQ('') }}
+                  style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'7px 8px', borderRadius:8,
+                    border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                    background: on ? `${C.coral}14` : 'transparent', transition:'background .1s' }}
+                  onMouseEnter={e => { if(!on) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
+                  onMouseLeave={e => { if(!on) e.currentTarget.style.background='transparent' }}>
+                  <ProjectThumb project={p} size={28} />
+                  <span style={{ flex:1, minWidth:0, fontSize:13, fontWeight:400, color: on ? C.coral : C.t1,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</span>
+                  {on && <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={3} strokeLinecap="round" style={{ flexShrink:0 }}><polyline points="20,6 9,17 4,12"/></svg>}
+                </button>
+              )
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,      setProjects]     = useState([])
@@ -89,8 +236,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const analyserRefs = useRef({})   // stemId → AnalyserNode
   const [bpm, setBpm] = useState(120)
   const [beatFlash, setBeatFlash] = useState(false)
-  const [metronomeOn, setMetronomeOn] = useState(true)
-  const metronomeRef = useRef(true)
+  const [metronomeOn, setMetronomeOn] = useState(false)
+  const metronomeRef = useRef(false)
   const bpmRef       = useRef(120)
   const beatTimerRef = useRef(null)
   const bpmSaveTimer = useRef(null)
@@ -138,7 +285,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       .then(r => {
         const list = r.data || []
         setStems(list)
-        setSelectedIds(new Set(list.filter(s => s.file_url && s.instrument !== 'original').map(s => s.id)))
         // Kick off peak extraction for all stems in parallel so waveforms
         // render simultaneously instead of staggered.
         preloadPeaks(list.filter(s => s.file_url && !(() => { try { return JSON.parse(s.notes||'{}').peaks } catch { return null } })()).map(s => s.file_url))
@@ -171,7 +317,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           addToast?.(<><strong style={{color:'#fff'}}>{uploaderName}</strong> uploaded a new <strong style={{color:C.coral}}>{s.instrument||'stem'}</strong> — smart mix updating…</>, { type:'new', duration:8000 })
         }
         setStems(prev => { if (prev.find(x => x.id === s.id)) return prev; return [s, ...prev] })
-        if (s.file_url && s.instrument !== 'original') setSelectedIds(prev => new Set([...prev, s.id]))
+        // A fresh upload joins the board automatically so it's immediately usable.
+        if (s.file_url && s.instrument !== 'original' && s.instrument !== 'smart_bounce') {
+          const sn = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
+          if (!sn.parent_stem_id) setBoardIds(prev => new Set([...prev, s.id]))
+        }
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -255,7 +405,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     stopAll(); gainRefs.current = {}; analyserRefs.current = {}
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctxRef.current = ctx
-    const loadableStems = mixerStems.filter(s => s.file_url)
+    const loadableStems = boardStems.filter(s => s.file_url)
     setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
 
     // ── Pass 1: decode all stems in parallel ──────────────────────────────
@@ -383,12 +533,27 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (!activeId) return
     setDawExporting(true)
     try {
-      const res = await fetch(`/api/projects/${activeId}/export?format=${format}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
+      // Export exactly the stems on the board (the user's chosen working set)
+      const ids = [...boardIds].join(',')
+      const qs  = `format=${format}${ids ? `&stem_ids=${encodeURIComponent(ids)}` : ''}`
+      const res = await fetch(`/api/projects/${activeId}/export?${qs}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
       if (!res.ok) { const j = await res.json().catch(()=>({})); addToast(j.error||'Export failed', 'error'); return }
-      const blob = await res.blob(), url = URL.createObjectURL(blob), a = document.createElement('a')
       const proj = projects.find(p => p.id === activeId)
-      a.href = url; a.download = `${(proj?.title||'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`; a.click()
-      URL.revokeObjectURL(url); addToast('Export ready — check your downloads', 'success')
+      const fallbackName = `${(proj?.title||'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`
+      const ct = res.headers.get('content-type') || ''
+      const a = document.createElement('a')
+      if (ct.includes('application/json')) {
+        // New flow: zip lives on R2, download it directly
+        const j = await res.json()
+        a.href = j.data?.url; a.download = j.data?.filename || fallbackName
+      } else {
+        // Fallback: zip streamed in the response body
+        const blob = await res.blob()
+        a.href = URL.createObjectURL(blob); a.download = fallbackName
+      }
+      a.click()
+      if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href)
+      addToast('Export ready — check your downloads', 'success')
     } catch (e) { addToast('Export failed: '+e.message, 'error') } finally { setDawExporting(false) }
   }
 
@@ -403,7 +568,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const [volumes,       setVolumes]       = useState({})
   const [trims,         setTrims]         = useState({})
-  const [selectedIds,   setSelectedIds]   = useState(new Set())
+  const [boardIds,      setBoardIds]      = useState(new Set())   // stems placed on the board (persisted per user+project)
+  const [boardReady,    setBoardReady]    = useState(false)       // saved layout loaded for this project?
+  const [dragOver,      setDragOver]      = useState(false)       // drop-zone highlight
   const [expandedId,    setExpandedId]    = useState(null)
   const [deletingId,    setDeletingId]    = useState(null)
   const [uploaders,     setUploaders]     = useState({})
@@ -502,54 +669,150 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     return m
   }, [stems])
 
+
+  // ── Board layout persistence (per user + project) ────────────────────────────
+  const boardKey = activeId && user?.id ? `studio_board:${user.id}:${activeId}` : null
+
+  // Load saved layout when project/stems change. First visit → pre-fill with the
+  // latest take of each instrument (sensible default, then the user tweaks).
+  useEffect(() => {
+    if (!boardKey || loadingStems) return
+    setBoardReady(false)
+    let ids
+    try {
+      const raw = localStorage.getItem(boardKey)
+      if (raw) ids = new Set(JSON.parse(raw))
+    } catch {}
+    if (!ids) ids = new Set([...takeMap.values()].map(s => s.id))
+    // Drop any ids that no longer exist as mixer stems
+    const valid = new Set(mixerStems.map(s => s.id))
+    setBoardIds(new Set([...ids].filter(id => valid.has(id))))
+    setBoardReady(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardKey, loadingStems])
+
+  // Persist on every board change (once the saved layout has loaded)
+  useEffect(() => {
+    if (!boardKey || !boardReady) return
+    try { localStorage.setItem(boardKey, JSON.stringify([...boardIds])) } catch {}
+  }, [boardKey, boardReady, boardIds])
+
+  const addToBoard = useCallback(id => {
+    setBoardIds(prev => (prev.has(id) ? prev : new Set([...prev, id])))
+  }, [])
+  const removeFromBoard = useCallback(id => {
+    setBoardIds(prev => { const n = new Set(prev); n.delete(id); return n })
+  }, [])
+
+  // Board = chosen subset of mixer stems, in library order
+  const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
+
   return (
     <>
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-        <div>
-          <h1 style={{ margin:'0 0 4px', fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>Studio</h1>
-          <p style={{ margin:0, fontSize:13, color:C.t3 }}>
-            {loading ? 'Loading…' : `${mixerStems.length} track${mixerStems.length!==1?'s':''} · ${activeProject?.title||'—'}`}
-          </p>
-        </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {projects.length > 1 && projects.map(p => (
-            <button key={p.id} onClick={() => setActiveId(p.id)}
-              style={{ padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer', background:activeId===p.id?`${C.coral}12`:'transparent', border:`1px solid ${activeId===p.id?C.coral+'40':C.border}`, color:activeId===p.id?C.coral:C.t3 }}>
-              {p.title}
-            </button>
-          ))}
-          <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload</Btn>
+      {/* ── Console header + transport — sticky DAW-style bar ── */}
+      <div style={{ position:'sticky', top: isMobile ? -16 : -24, zIndex:20, background:C.bg,
+        paddingTop: isMobile ? 16 : 24, paddingBottom:16,
+        marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
+        paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>
+        <div style={{ borderRadius:16, overflow:'hidden', border:`1px solid ${C.border}`,
+          background:C.surface, boxShadow:'0 2px 12px rgba(0,0,0,.25)' }}>
+
+          {/* Title strip */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+            padding:'12px 16px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+              <span style={{ fontSize:11, fontWeight:700, letterSpacing:'.24em', color:C.t3, textTransform:'uppercase', flexShrink:0 }}>Studio</span>
+              <span style={{ width:1, height:16, background:C.border, flexShrink:0 }}/>
+              <ProjectPicker projects={projects} activeId={activeId} onSelect={setActiveId} />
+              {!isMobile && !loading && (
+                <span style={{ fontSize:12, color:C.t3, fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}>
+                  <span style={{ color:C.coral, fontWeight:700 }}>{boardStems.length}</span> / {mixerStems.length} on board
+                </span>
+              )}
+            </div>
+            <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
+              <button onClick={() => openModal('upload', { project:activeProject })}
+                style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 12px', borderRadius:8,
+                  border:'none', background:'rgba(var(--fg),.05)', color:C.t1, fontSize:13, fontWeight:500,
+                  cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='rgba(var(--fg),.05)'}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Upload
+              </button>
+            </div>
+          </div>
+
+          {/* Transport row */}
+          <div style={{ padding:'10px 14px' }}>
+            <Transport
+              playing={playing} loadingPct={loadingPct}
+              onStop={stop} onPlay={playAll} onPause={pause}
+              currentTime={currentTime} duration={duration} offsetRef={offsetRef}
+              bpm={bpm} onBpmChange={handleBpmChange}
+              metronomeOn={metronomeOn}
+              onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
+              beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
+              stems={stems}
+            />
+          </div>
         </div>
       </div>
 
-      <Transport
-        playing={playing} loadingPct={loadingPct}
-        onStop={stop} onPlay={playAll} onPause={pause}
-        currentTime={currentTime} duration={duration} offsetRef={offsetRef}
-        bpm={bpm} onBpmChange={handleBpmChange}
-        metronomeOn={metronomeOn}
-        onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
-        beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
-        stems={stems}
-      />
-
       {loading ? <LoadingBlock/> : (
-        <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1fr 300px', gap:20, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'240px 1fr 300px', gap:20, alignItems:'start' }}>
 
-          {/* Track list */}
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {/* ── Stems library panel — drag onto the board ── */}
+          {!isMobile && (
+            <div style={{ position:'sticky', top:165, borderRadius:14, overflow:'hidden',
+              border:`1px solid ${C.border}`, background:C.surface }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'10px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
+                <span style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Stems</span>
+                <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'1px 8px', borderRadius:100 }}>{mixerStems.length}</span>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:1, padding:6, maxHeight:'calc(100vh - 260px)', overflowY:'auto' }}>
+                {!loadingStems && mixerStems.length === 0 && (
+                  <div style={{ fontSize:12, color:C.t3, padding:'12px 4px' }}>No stems yet — upload to begin.</div>
+                )}
+                {mixerStems.map(s => (
+                  <LibraryRow key={s.id} s={s}
+                    boardIds={boardIds} uploaders={uploaders}
+                    onAdd={addToBoard} onRemove={removeFromBoard} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Board panel (drop zone) ── */}
+          <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${dragOver ? C.coral : C.border}`,
+            background:C.bg, transition:'border-color .15s' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'10px 14px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Board</span>
+              <span style={{ fontSize:10.5, fontWeight:500, color:C.t3 }}>{boardStems.length} track{boardStems.length!==1?'s':''}</span>
+            </div>
+          <div
+            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true) }}
+            onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
+            onDrop={e => {
+              e.preventDefault(); setDragOver(false)
+              const id = e.dataTransfer.getData('text/stem-id')
+              if (id) addToBoard(id)
+            }}
+            style={{ display:'flex', flexDirection:'column', gap:10, padding:14,
+              background: dragOver ? `${C.coral}08` : 'transparent', transition:'background .15s' }}>
             {stems.filter(s=>s.instrument==='original').map(s => {
               const n = parsedNotes(s)
               if (n.status !== 'processing' && n.pipeline !== 'local') return null
               return (
-                <div key={s.id} style={{ background:C.surface, borderRadius:20, padding:'16px 20px', border:'1px solid rgba(245,158,11,.2)', boxShadow:'0 1px 4px rgba(255,255,255,.06)' }}>
+                <div key={s.id} style={{ background:C.surface, borderRadius:20, padding:'16px 20px', border:'1px solid rgba(245,158,11,.2)', boxShadow:'0 1px 4px rgba(var(--fg),.06)' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <Spinner size={13} color={C.amber}/>
                     <span style={{ fontSize:13.5, fontWeight:700, color:C.t1, flex:1 }}>{s.original_name}</span>
                     <span style={{ fontSize:11, color:C.amber, fontWeight:700 }}>AI analyzing…</span>
                   </div>
-                  <div style={{ height:2, background:'rgba(255,255,255,.08)', borderRadius:1, overflow:'hidden', marginTop:12 }}>
+                  <div style={{ height:2, background:'rgba(var(--fg),.08)', borderRadius:1, overflow:'hidden', marginTop:12 }}>
                     <div style={{ height:'100%', width:'60%', background:C.amber, opacity:.5 }}/>
                   </div>
                 </div>
@@ -559,35 +822,43 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             {/* Skeleton while stems are loading — never show empty state during load */}
             {loadingStems && [0,1,2].map(i => (
               <div key={i} style={{ background:C.surface, borderRadius:20, padding:'14px 18px',
-                boxShadow:'0 1px 4px rgba(255,255,255,.06)', border:`1px solid ${C.border}`,
+                boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ width:4, height:40, borderRadius:2, background:'rgba(255,255,255,.08)' }}/>
+                  <div style={{ width:4, height:40, borderRadius:2, background:'rgba(var(--fg),.08)' }}/>
                   <div style={{ flex:1 }}>
-                    <div style={{ height:13, width:`${45+i*15}%`, borderRadius:4, background:'rgba(255,255,255,.08)', marginBottom:8 }}/>
-                    <div style={{ height:10, width:'30%', borderRadius:4, background:'rgba(255,255,255,.06)' }}/>
+                    <div style={{ height:13, width:`${45+i*15}%`, borderRadius:4, background:'rgba(var(--fg),.08)', marginBottom:8 }}/>
+                    <div style={{ height:10, width:'30%', borderRadius:4, background:'rgba(var(--fg),.06)' }}/>
                   </div>
                   <div style={{ display:'flex', gap:6 }}>
-                    {[0,1,2,3].map(j => <div key={j} style={{ width:28, height:28, borderRadius:8, background:'rgba(255,255,255,.06)' }}/>)}
+                    {[0,1,2,3].map(j => <div key={j} style={{ width:28, height:28, borderRadius:8, background:'rgba(var(--fg),.06)' }}/>)}
                   </div>
                 </div>
-                <div style={{ height:44, borderRadius:8, background:'linear-gradient(90deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,.03) 100%)' }}/>
+                <div style={{ height:44, borderRadius:8, background:'linear-gradient(90deg,rgba(var(--fg),.06) 0%,rgba(var(--fg),.03) 100%)' }}/>
               </div>
             ))}
 
             {/* True empty state — only when not loading and genuinely no stems */}
             {!loadingStems && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
-              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(255,255,255,.06)', border:`1px solid ${C.border}` }}>
+              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}` }}>
                 <div style={{ width:60, height:60, borderRadius:18, background:`${C.coral}10`, border:`1.5px dashed ${C.coral}40`, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round"><path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/></svg>
                 </div>
-                <div style={{ fontSize:16, fontWeight:900, color:C.t1, marginBottom:6 }}>No tracks yet</div>
+                <div style={{ fontSize:16, fontWeight:700, color:C.t1, marginBottom:6 }}>No tracks yet</div>
                 <div style={{ fontSize:13, color:C.t3, marginBottom:22 }}>Upload audio to start your session</div>
                 <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
               </div>
             )}
 
-            {mixerStems.map((s, i) => {
+            {/* Board has stems available but none placed yet */}
+            {!loadingStems && mixerStems.length > 0 && boardStems.length === 0 && (
+              <div style={{ background:C.surface, borderRadius:20, padding:'48px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1.5px dashed ${C.border}` }}>
+                <div style={{ fontSize:15, fontWeight:700, color:C.t1, marginBottom:6 }}>Your board is empty</div>
+                <div style={{ fontSize:13, color:C.t3 }}>{isMobile ? 'Add stems from the list to build your mix.' : 'Drag stems from the list on the left to build your mix.'}</div>
+              </div>
+            )}
+
+            {boardStems.map((s, i) => {
               const color      = trackColor(s, i)
               const uploader   = uploaders[s.uploaded_by]
               const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
@@ -608,35 +879,39 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   analyserNode={analyserRefs.current[s.id] || null}
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
-                  onPlay={(stem) => playTrack(stem, mixerStems)} onToggleExpand={handleToggleExpand}
+                  onPlay={(stem) => playTrack(stem, boardStems)} onToggleExpand={handleToggleExpand}
                   onSeek={sec => { offsetRef.current = sec; setCurrentTime(sec) }}
                   onDelete={deleteStem}
                   onVolumeChange={(id, v) => { setVolumes(prev=>({...prev,[id]:v})); if(gainRefs.current[id]&&!mutedIds.has(id)) gainRefs.current[id].gain.value=v }}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
                   onPostComment={postComment}
                   onLikeComment={likeComment}
+                  onRemoveFromBoard={removeFromBoard}
                   gainRef={gainRefs.current[s.id]}
                 />
               )
             })}
           </div>
+          </div>
 
-          {/* Right panel */}
+          {/* ── AI / Mix panel ── */}
+          <div style={{ position:'sticky', top:165 }}>
           <AIPanel
             aiAnalysis={aiAnalysis}
             smartMixUrl={smartMixUrl} smartMixInfo={smartMixInfo}
-            smartMixing={smartMixing} mixerStems={mixerStems}
+            smartMixing={smartMixing} mixerStems={boardStems}
             onGenerateMix={async () => {
               if (!activeId || smartMixing) return
               setSmartMixing(true)
               try { const r = await smartBounceApi(activeId); setSmartMixUrl(r.data?.bounce_url); setSmartMixInfo({ contributors:r.data?.contributors||[], stem_count:r.data?.stem_count }) }
-              catch { addToast?.('Not enough stems yet.', { type:'info' }) }
+              catch {}
               setSmartMixing(false)
             }}
-            onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'AI Mix', instrument:'smart_bounce' })}
+            onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
             openModal={openModal} activeProject={activeProject}
             activeId={activeId} dawExporting={dawExporting} onExportDAW={exportToDAW}
           />
+          </div>
         </div>
       )}
     </>

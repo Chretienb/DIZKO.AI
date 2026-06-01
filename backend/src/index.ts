@@ -221,4 +221,6 @@ console.log(`  OpenAI   : ${process.env.OPENAI_API_KEY ? '✓ configured' : '⚠
 export default {
   port: PORT,
   fetch: app.fetch,
+  // Exports stream many WAVs from R2 and zip them — well past the 10s default.
+  idleTimeout: 120,
 }

@@ -86,39 +86,6 @@ function paint(canvas, peaks, color, progress, muted) {
   }
 }
 
-function paintLive(canvas, analyser, color, muted) {
-  if (!canvas || !analyser) return
-  const dpr = window.devicePixelRatio || 1
-  const W   = canvas.clientWidth
-  const H   = canvas.clientHeight
-  if (!W || !H) return
-
-  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
-    canvas.width  = W * dpr
-    canvas.height = H * dpr
-  }
-
-  const ctx  = canvas.getContext('2d')
-  const buf  = analyser.frequencyBinCount
-  const data = new Uint8Array(buf)
-  analyser.getByteTimeDomainData(data)
-
-  ctx.clearRect(0, 0, W * dpr, H * dpr)
-  ctx.lineWidth   = 2 * dpr
-  ctx.strokeStyle = muted ? 'rgba(150,150,150,0.5)' : color
-  ctx.shadowBlur  = 6
-  ctx.shadowColor = muted ? 'transparent' : color + 'aa'
-  ctx.beginPath()
-
-  const sw = (W * dpr) / buf
-  for (let i = 0; i < buf; i++) {
-    const y = ((data[i] / 128) / 2) * H * dpr
-    i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sw, y)
-  }
-  ctx.stroke()
-  ctx.shadowBlur = 0
-}
-
 export default function Waveform({
   url,
   color        = '#F4937A',
@@ -183,25 +150,27 @@ export default function Waveform({
   }, [url, storedPeaks])
 
   // ── Draw loop ─────────────────────────────────────────────────────────────
+  // Always draw the real waveform peaks. While playing, re-paint on each frame
+  // so the played/upcoming progress fill sweeps smoothly across the bars.
+  const progressRef = useRef(progress)
+  progressRef.current = progress
+
   useEffect(() => {
     cancelAnimationFrame(rafRef.current)
-
     if (!ready) return
 
-    if (isPlaying && analyserNode) {
-      // Live oscilloscope at 60fps
+    if (isPlaying) {
       const loop = () => {
-        paintLive(canvasRef.current, analyserNode, color, muted)
+        paint(canvasRef.current, peaksRef.current, color, progressRef.current, muted)
         rafRef.current = requestAnimationFrame(loop)
       }
       rafRef.current = requestAnimationFrame(loop)
     } else {
-      // Static peaks
       paint(canvasRef.current, peaksRef.current, color, progress, muted)
     }
 
     return () => cancelAnimationFrame(rafRef.current)
-  }, [ready, isPlaying, analyserNode, color, muted, progress])
+  }, [ready, isPlaying, color, muted, progress])
 
   const handleClick = e => {
     if (!onSeek || !duration) return
@@ -226,7 +195,7 @@ export default function Waveform({
       {ready && !isPlaying && progress > 0 && progress < 1 && (
         <div style={{ position:'absolute', top:0, bottom:0, left:`${progress*100}%`,
           width:2, background:'#fff', borderRadius:1,
-          boxShadow:'0 0 4px rgba(255,255,255,.7)',
+          boxShadow:'0 0 4px rgba(var(--fg),.7)',
           transform:'translateX(-50%)', pointerEvents:'none' }}/>
       )}
     </div>
