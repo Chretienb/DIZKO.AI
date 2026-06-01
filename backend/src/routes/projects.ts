@@ -7,6 +7,11 @@ import { generateStemName } from '../lib/naming'
 import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
+import { uploadToR2, getR2SignedUrl } from '../lib/r2'
+import { execSync } from 'child_process'
+import { writeFileSync, readFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
 import type { HonoVariables } from '../types'
 
 const projects = new Hono<{ Variables: HonoVariables }>()
@@ -65,6 +70,9 @@ projects.get('/:id/export', async (c) => {
   const projectId = c.req.param('id')
   const userId    = c.var.user.id
   const format    = c.req.query('format') ?? 'all'
+  // Optional: export exactly these stem ids (the Studio board selection)
+  const stemIdParam = c.req.query('stem_ids')
+  const boardIds = stemIdParam ? new Set(stemIdParam.split(',').filter(Boolean)) : null
 
   const { data: proj } = await supabase
     .from('projects').select('id, title, owner_id').eq('id', projectId).single()
@@ -136,7 +144,13 @@ projects.get('/:id/export', async (c) => {
     }
   }
 
-  const latestTakes = [...takeMap.values()]
+  // If the client sent an explicit board selection, export exactly those stems
+  // (in board order) and skip the latest/best-take auto-selection above.
+  const latestTakes = boardIds
+    ? uploadedStems.filter((s: any) => boardIds.has(s.id))
+    : [...takeMap.values()]
+  if (boardIds && latestTakes.length === 0)
+    return c.json({ error: 'No stems on the board to export' }, 400)
 
   // Take number = how many times this person uploaded a file with this base name
   const takeCountMap = new Map<string, number>()
@@ -239,13 +253,26 @@ projects.get('/:id/export', async (c) => {
   const zipBuffer = await buildExportZip(opts, format)
   const safeProjName = ((proj as any).title as string).replace(/[^a-zA-Z0-9 _-]/g, '_')
 
-  return new Response(zipBuffer, {
-    headers: {
-      'Content-Type':        'application/zip',
-      'Content-Disposition': `attachment; filename="${safeProjName}_Dizko_Export.zip"`,
-      'Content-Length':      String(zipBuffer.length),
-    },
-  })
+  // Upload the zip to R2 and hand back a short-lived signed URL. The browser
+  // then downloads the (large) bytes directly from R2 — not back through the
+  // API/proxy/gateway — which avoids response-streaming timeouts (502/ERR_FAILED).
+  const filename = `${safeProjName}_Dizko_Export.zip`
+  const key = `exports/${projectId}/${Date.now()}_${filename}`
+  try {
+    await uploadToR2(key, zipBuffer, 'application/zip')
+    const url = await getR2SignedUrl(key, 3600)   // 1-hour download link
+    return c.json({ data: { url, filename }, error: null, status: 200 })
+  } catch (e) {
+    console.error('[export] R2 upload failed:', (e as Error).message)
+    // Fallback: stream the zip directly (works locally / short exports)
+    return new Response(zipBuffer, {
+      headers: {
+        'Content-Type':        'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length':      String(zipBuffer.length),
+      },
+    })
+  }
 })
 
 // ── GET /projects/:id — only accessible to owner and active collaborators ──────
@@ -299,11 +326,12 @@ projects.get('/:id/stem-history', async (c) => {
 
 // ── POST /projects ────────────────────────────────────────────────────────────
 projects.post('/', sanitize, async (c) => {
-  const { title, type, notes, status } = c.var.body as {
+  const { title, type, notes, status, cover_url } = c.var.body as {
     title?: string
     type?: string
     notes?: string
     status?: string
+    cover_url?: string
   }
 
   if (!title) {
@@ -317,6 +345,7 @@ projects.post('/', sanitize, async (c) => {
       type:     type   ?? 'Album',
       notes:    notes  ?? '',
       status:   status ?? 'Draft',
+      cover_url: cover_url ?? null,
       owner_id: c.var.user.id,
     })
     .select()
@@ -328,7 +357,7 @@ projects.post('/', sanitize, async (c) => {
 
 // ── PATCH /projects/:id ───────────────────────────────────────────────────────
 projects.patch('/:id', sanitize, async (c) => {
-  const allowed = ['title', 'type', 'notes', 'status', 'release_date'] as const
+  const allowed = ['title', 'type', 'notes', 'status', 'release_date', 'cover_url'] as const
   const body = c.var.body as Record<string, unknown>
   const updates: Record<string, unknown> = {}
 
@@ -347,6 +376,70 @@ projects.patch('/:id', sanitize, async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data, error: null, status: 200 })
+})
+
+// ── POST /projects/:id/cover — upload a cover image ───────────────────────────
+const MAX_COVER_BYTES = 5 * 1024 * 1024   // 5 MB
+
+projects.post('/:id/cover', async (c) => {
+  const projectId = c.req.param('id')
+  const userId    = c.var.user.id
+
+  // Only the owner may change the cover
+  const { data: proj } = await supabase
+    .from('projects').select('id, owner_id').eq('id', projectId).single()
+  if (!proj || (proj as any).owner_id !== userId) {
+    return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+  }
+
+  let formData: FormData
+  try { formData = await c.req.formData() } catch {
+    return c.json({ data: null, error: 'Expected multipart/form-data', status: 400 }, 400)
+  }
+
+  const file = formData.get('file') as File | null
+  if (!file) return c.json({ data: null, error: 'file is required', status: 400 }, 400)
+  if (file.size > MAX_COVER_BYTES) return c.json({ data: null, error: 'Image must be under 5 MB', status: 413 }, 413)
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const allowed = ['jpg','jpeg','png','gif','webp','heic','heif','tiff','tif','bmp','avif']
+  if (!allowed.includes(ext)) return c.json({ data: null, error: 'Unsupported image format', status: 400 }, 400)
+
+  let buf = Buffer.from(await file.arrayBuffer())
+
+  // Normalize odd formats to a square jpg (same approach as avatar upload)
+  const needsConvert = ['heic','heif','tiff','tif','bmp','webp','avif'].includes(ext)
+  if (needsConvert) {
+    const tmpIn  = join(tmpdir(), `cover_in_${projectId}_${Date.now()}.${ext}`)
+    const tmpOut = join(tmpdir(), `cover_out_${projectId}_${Date.now()}.jpg`)
+    try {
+      writeFileSync(tmpIn, buf)
+      execSync(
+        `ffmpeg -y -i "${tmpIn}" -update 1 -vf "scale=800:800:force_original_aspect_ratio=increase,crop=800:800" "${tmpOut}"`,
+        { stdio: 'pipe' }
+      )
+      buf = readFileSync(tmpOut)
+    } finally {
+      try { unlinkSync(tmpIn)  } catch {}
+      try { unlinkSync(tmpOut) } catch {}
+    }
+  }
+
+  const storagePath = `covers/${projectId}.jpg`
+  const { error: upErr } = await supabase.storage
+    .from('stems')
+    .upload(storagePath, buf, { contentType: 'image/jpeg', upsert: true })
+  if (upErr) return c.json({ data: null, error: upErr.message, status: 500 }, 500)
+
+  // Cache-bust the public URL so the new image shows immediately
+  const { data: { publicUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
+  const coverUrl = `${publicUrl}?v=${Date.now()}`
+
+  const { error } = await supabase
+    .from('projects').update({ cover_url: coverUrl }).eq('id', projectId)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  return c.json({ data: { cover_url: coverUrl }, error: null, status: 200 })
 })
 
 // ── DELETE /projects/:id ──────────────────────────────────────────────────────

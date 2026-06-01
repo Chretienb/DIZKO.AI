@@ -5,6 +5,36 @@
  * Owners bypass all restrictions.
  */
 
+import { supabase } from './supabase'
+
+/**
+ * True if `userId` may access `projectId` (owner OR active collaborator).
+ * The service-role client bypasses Postgres RLS, so every by-id route must
+ * call this — there is no DB-level safety net.
+ */
+export async function assertProjectAccess(projectId: string, userId: string): Promise<boolean> {
+  if (!projectId || !userId) return false
+  const { data: project } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  if (!project) return false
+  if ((project as any).owner_id === userId) return true
+
+  const { data: collab } = await supabase
+    .from('collaborators').select('id')
+    .eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
+  return !!collab
+}
+
+/** Resolve the project id that owns a given stem, or null. */
+export async function projectIdForStem(stemId: string): Promise<string | null> {
+  const { data: stem } = await supabase
+    .from('stems').select('track_id').eq('id', stemId).single()
+  if (!(stem as any)?.track_id) return null
+  const { data: track } = await supabase
+    .from('tracks').select('project_id').eq('id', (stem as any).track_id).single()
+  return (track as any)?.project_id ?? null
+}
+
 // Map role → allowed instrument types ('*' = unrestricted)
 export const ROLE_INSTRUMENTS: Record<string, string[]> = {
   'Owner':        ['*'],

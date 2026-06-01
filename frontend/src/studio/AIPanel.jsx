@@ -25,18 +25,8 @@ export default function AIPanel({
       <div style={{ borderRadius:24, background:C.surface, border:`1px solid ${C.border}`, boxShadow:'0 4px 24px rgba(0,0,0,.4)' }}>
         <div style={{ padding:'28px 24px 24px' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-              <div style={{ width:36, height:36, borderRadius:10, background:C.surface2, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <svg width={22} height={22} viewBox="0 0 100 100" fill="none" aria-hidden="true">
-                  {[0,30,60,90,120,150,180,210,240,270,300,330].map((angle,i)=>(
-                    <rect key={i} x="46" y="8" width="8" height="36" rx="4" fill="#D97757" transform={`rotate(${angle} 50 50)`} opacity={1-(i%3)*0.08}/>
-                  ))}
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:C.t3, letterSpacing:'.02em' }}>Claude by Anthropic</div>
-                <div style={{ fontSize:18, fontWeight:900, color:C.t1, letterSpacing:'-.6px', lineHeight:1.1 }}>AI Mix</div>
-              </div>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ fontSize:20, fontWeight:900, color:C.t1, letterSpacing:'-.6px', lineHeight:1.1 }}>Smart Mix</div>
             </div>
             {smartMixUrl&&smartMixInfo?.stem_count&&<span style={{ fontSize:11, fontWeight:600, color:'#bbb' }}>{smartMixInfo.stem_count} stems</span>}
           </div>
@@ -54,7 +44,7 @@ export default function AIPanel({
                   {aiAnalysis.conflicts.map((c,i)=>(
                     <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'10px 13px', borderRadius:10, background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.2)' }}>
                       <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, marginTop:2 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                      <span style={{ fontSize:12.5, color:'#fcd34d', lineHeight:1.55 }}>{c.detail}</span>
+                      <span style={{ fontSize:12.5, color:'var(--warn-text)', lineHeight:1.55 }}>{c.detail}</span>
                     </div>
                   ))}
                 </div>
@@ -85,19 +75,21 @@ export default function AIPanel({
 
           {smartMixUrl ? (
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={onPlayMix} aria-label="Play AI Mix"
-                style={{ flex:1, height:48, borderRadius:14, border:'none', background:C.grad, color:'#fff', fontSize:15, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:9, boxShadow:`0 8px 28px ${C.coral}35`, letterSpacing:'-.3px' }}>
-                <IconPlay size={14} color="#fff"/> Play AI Mix
+              <button onClick={onPlayMix} aria-label="Play Mix"
+                style={{ flex:1, height:42, borderRadius:10, border:'none', background:`${C.coral}1a`, color:C.coral, fontSize:13.5, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'background .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.coral}29`} onMouseLeave={e=>e.currentTarget.style.background=`${C.coral}1a`}>
+                <IconPlay size={13} color="currentColor"/> Play Mix
               </button>
-              <a href={smartMixUrl} download="ai_mix.wav" aria-label="Download AI Mix"
-                style={{ width:48, height:48, borderRadius:14, border:`1px solid ${C.border}`, background:C.surface2, display:'flex', alignItems:'center', justifyContent:'center', color:C.t3, textDecoration:'none' }}>
+              <a href={smartMixUrl} download="mix.wav" aria-label="Download Mix"
+                style={{ width:42, height:42, borderRadius:10, border:'none', background:'rgba(var(--fg),.05)', display:'flex', alignItems:'center', justifyContent:'center', color:C.t3, textDecoration:'none' }}>
                 <IconDl size={15}/>
               </a>
             </div>
           ) : (
-            <button onClick={onGenerateMix} disabled={smartMixing||mixerStems.length<1} aria-label="Generate AI Mix with Claude"
-              style={{ width:'100%', height:48, borderRadius:14, border:'none', background:mixerStems.length<1?'rgba(255,255,255,.06)':C.grad, color:mixerStems.length<1?C.t3:'#fff', fontSize:15, fontWeight:800, cursor:mixerStems.length<1?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:9, boxShadow:mixerStems.length>=1&&!smartMixing?`0 8px 28px ${C.coral}35`:'none', letterSpacing:'-.3px', transition:'all .2s' }}>
-              {smartMixing ? <><Spinner size={14} color="#fff"/> Mixing with Claude…</> : <><IconMix size={14}/> Generate AI Mix</>}
+            <button onClick={onGenerateMix} disabled={smartMixing} aria-label="Generate Mix"
+              style={{ width:'100%', height:42, borderRadius:10, border:'none', background:`${C.coral}1a`, color:C.coral, fontSize:13.5, fontWeight:500, cursor:smartMixing?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, opacity:smartMixing?.6:1, transition:'background .15s' }}
+              onMouseEnter={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}29` }} onMouseLeave={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}1a` }}>
+              {smartMixing ? <><Spinner size={14} color={C.coral}/> Mixing…</> : <><IconMix size={14}/> Generate Mix</>}
             </button>
           )}
         </div>
@@ -113,8 +105,8 @@ export default function AIPanel({
           {DAW_OPTIONS.map(opt=>(
             <button key={opt.id} onClick={()=>onExportDAW(opt.id)} disabled={dawExporting||!activeId}
               aria-label={`Export for ${opt.label}`}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:12, border:`1px solid ${C.border}`, background:'rgba(255,255,255,.03)', cursor:dawExporting||!activeId?'default':'pointer', textAlign:'left', transition:'background .12s' }}
-              onMouseEnter={e=>{if(!dawExporting)e.currentTarget.style.background='rgba(255,255,255,.07)'}} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}>
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:12, border:`1px solid ${C.border}`, background:'rgba(var(--fg),.03)', cursor:dawExporting||!activeId?'default':'pointer', textAlign:'left', transition:'background .12s' }}
+              onMouseEnter={e=>{if(!dawExporting)e.currentTarget.style.background='rgba(var(--fg),.07)'}} onMouseLeave={e=>e.currentTarget.style.background='rgba(var(--fg),.03)'}>
               <div aria-hidden="true" style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={opt.icon}/></svg>
               </div>

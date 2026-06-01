@@ -1,8 +1,114 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   THEME TOKENS
+   Neutral colors flow through these CSS variables so the whole app can flip
+   between dark / light by toggling `data-theme` on <html>.
+   Dark = default (:root). Light overrides under [data-theme="light"].
+   Brand + semantic accent colors (coral, success, danger…) stay fixed across
+   both themes and are defined once here.
+   ───────────────────────────────────────────────────────────────────────── */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Foreground RGB triple — used as rgba(var(--fg), α) so any white-alpha
+     (border / text / icon) flips polarity with the theme. */
+  --fg: 255,255,255;
+
+  /* Surfaces */
+  --bg:        #000000;   /* main content canvas */
+  --surface:   #141416;   /* cards / panels */
+  --surface-2: #1c1c1f;   /* hover / elevated */
+  --surface-3: #232327;   /* doubly elevated / inputs */
+  --sidebar:   #000000;
+  --outer:     #000000;   /* body / outermost wrapper */
+
+  /* Text */
+  --t1: #f1f1f3;                  /* primary */
+  --t2: rgba(255,255,255,.75);    /* secondary */
+  --t3: rgba(255,255,255,.48);    /* muted */
+  --t4: rgba(255,255,255,.30);    /* faint */
+
+  /* Named borders */
+  --border:   rgba(255,255,255,.08);
+  --border-2: rgba(255,255,255,.04);
+
+  /* Hairline / overlay scale (flips polarity in light) */
+  --line-1: rgba(255,255,255,.04);
+  --line-2: rgba(255,255,255,.06);
+  --line-3: rgba(255,255,255,.08);
+  --line-4: rgba(255,255,255,.12);
+  --line-5: rgba(255,255,255,.20);
+
+  /* Interactive overlays */
+  --hover:   rgba(255,255,255,.05);
+  --hover-2: rgba(255,255,255,.10);
+  --active:  rgba(255,255,255,.14);
+
+  /* Backdrops / scrims */
+  --scrim: rgba(0,0,0,.60);
+
+  /* Brand + semantic accents (theme-independent) */
+  --brand:        #f4937a;
+  --brand-strong: #e95a51;
+  --grad:         linear-gradient(135deg,#f4937a,#f28fb8);
+  --success: #22c55e;
+  --danger:  #ef4444;
+  --warning: #f59e0b;
+  --warn-text: #fcd34d;   /* readable warning text on tinted box (dark) */
+  --accent:  #6366f1;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --fg: 0,0,0;
+
+  /* Surfaces */
+  --bg:        #f6f6f8;
+  --surface:   #ffffff;
+  --surface-2: #f0f0f3;
+  --surface-3: #e7e7ec;
+  --sidebar:   #ffffff;
+  --outer:     #ececef;
+
+  /* Text */
+  --t1: #18181b;
+  --t2: rgba(0,0,0,.72);
+  --t3: rgba(0,0,0,.50);
+  --t4: rgba(0,0,0,.34);
+
+  /* Named borders */
+  --border:   rgba(0,0,0,.10);
+  --border-2: rgba(0,0,0,.06);
+
+  /* Hairline / overlay scale */
+  --line-1: rgba(0,0,0,.04);
+  --line-2: rgba(0,0,0,.06);
+  --line-3: rgba(0,0,0,.08);
+  --line-4: rgba(0,0,0,.12);
+  --line-5: rgba(0,0,0,.18);
+
+  /* Interactive overlays */
+  --hover:   rgba(0,0,0,.04);
+  --hover-2: rgba(0,0,0,.07);
+  --active:  rgba(0,0,0,.10);
+
+  /* Backdrops / scrims */
+  --scrim: rgba(0,0,0,.40);
+
+  /* Light-mode accent tuning for contrast on white */
+  --success: #16a34a;
+  --warning: #d97706;
+  --warn-text: #92591a;   /* dark amber — readable on the light tinted box */
+}
+
 *, *::before, *::after { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; padding: 0; background: #18181b; color: #f1f1f3; }
-body { background-color: #18181b !important; }
+html, body, #root { height: 100%; margin: 0; padding: 0;
+  background: var(--outer); color: var(--t1);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; }
+body { background-color: var(--outer) !important;
+  transition: background-color .2s ease, color .2s ease; }
 
 @keyframes blob-bounce {
   0%   { transform: translate(-100%, -100%) translate3d(0,   0,   0); }

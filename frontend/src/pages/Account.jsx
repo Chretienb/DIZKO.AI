@@ -9,10 +9,10 @@ const Row = ({ icon, label, sub, onClick, danger }) => {
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ display:'flex', alignItems:'center', gap:14, width:'100%', padding:'13px 18px',
         border:'none', cursor:'pointer', textAlign:'left', transition:'background .12s',
-        background: hov ? (danger ? 'rgba(239,68,68,.07)' : 'rgba(255,255,255,.04)') : 'transparent' }}>
+        background: hov ? (danger ? 'rgba(239,68,68,.07)' : 'rgba(var(--fg),.04)') : 'transparent' }}>
       <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
-        background: danger ? 'rgba(239,68,68,.1)' : 'rgba(255,255,255,.06)',
-        border: `1px solid ${danger ? 'rgba(239,68,68,.2)' : 'rgba(255,255,255,.06)'}`,
+        background: danger ? 'rgba(239,68,68,.1)' : 'rgba(var(--fg),.06)',
+        border: `1px solid ${danger ? 'rgba(239,68,68,.2)' : 'rgba(var(--fg),.06)'}`,
         display:'flex', alignItems:'center', justifyContent:'center' }}>
         <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
           stroke={danger ? '#f87171' : hov ? C.t1 : C.t2}
@@ -105,7 +105,7 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
                   {fmtBytes(usedBytes)} <span style={{ color:C.t3, fontWeight:500 }}>/ {fmtBytes(limitBytes)}</span>
                 </span>
               </div>
-              <div style={{ height:4, borderRadius:3, background:'rgba(255,255,255,.08)' }}>
+              <div style={{ height:4, borderRadius:3, background:'rgba(var(--fg),.08)' }}>
                 <div style={{ height:'100%', borderRadius:3, width:`${barWidth}%`,
                   background: storage > 80 ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : C.grad,
                   transition:'width .4s ease' }}/>

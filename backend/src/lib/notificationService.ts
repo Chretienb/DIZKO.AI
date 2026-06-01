@@ -50,6 +50,28 @@ export interface NotifPayload {
   emailHtml?:   string
 }
 
+// Types that email by default (high-value events the user wants in their inbox).
+// `presence`/`message` stay in-app only unless a caller opts in explicitly.
+const EMAIL_BY_DEFAULT: Record<string, boolean> = {
+  upload:      true,
+  invite:      true,
+  mix_ready:   true,
+  stems_ready: true,
+}
+
+// Minimal branded HTML for auto-generated emails (when no custom template given).
+function defaultEmailHtml(title: string, body: string, actionUrl?: string): string {
+  const base = process.env.FRONTEND_ORIGIN || 'https://dizko.ai'
+  const link = actionUrl ? (actionUrl.startsWith('http') ? actionUrl : `${base}${actionUrl}`) : base
+  return `<!DOCTYPE html><html><body style="margin:0;background:#0e0e11;font-family:-apple-system,Segoe UI,sans-serif;padding:32px">
+    <div style="max-width:440px;margin:0 auto;background:#16161e;border-radius:16px;padding:28px;color:#f1f1f3">
+      <div style="font-size:18px;font-weight:800;margin-bottom:8px">${title}</div>
+      <div style="font-size:14px;line-height:1.6;color:#b8b8c4;margin-bottom:22px">${body}</div>
+      <a href="${link}" style="display:inline-block;background:#F4937A;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 22px;border-radius:10px">Open Dizko</a>
+      <div style="font-size:11px;color:#6b6b78;margin-top:24px">You're receiving this because you're part of a Dizko project.</div>
+    </div></body></html>`
+}
+
 // ── Dedup store (in-memory; good enough for single-process; use Redis in prod) ──
 const dedupStore = new Map<string, number>()
 setInterval(() => {
@@ -72,8 +94,12 @@ export async function notify(payload: NotifPayload): Promise<void> {
   const {
     type, recipientIds, title, body, actorId, projectId,
     actionUrl, metadata = {}, dedupKey = `${type}:${projectId ?? ''}`,
-    dedupWindow = 5 * 60_000, email = false, emailSubject, emailHtml,
+    dedupWindow = 5 * 60_000, emailSubject, emailHtml,
   } = payload
+
+  // Email if the caller opted in OR this is a high-value type that emails by default.
+  const sendMail = payload.email ?? (EMAIL_BY_DEFAULT[type] ?? false)
+  const html     = emailHtml ?? defaultEmailHtml(title, body, actionUrl)
 
   await Promise.all(
     recipientIds.map(async (userId) => {
@@ -87,7 +113,7 @@ export async function notify(payload: NotifPayload): Promise<void> {
       await Promise.allSettled([
         saveInApp(userId, type, title, body, actorId, projectId, actionUrl, metadata),
         sendPush(userId, title, body, actionUrl),
-        email ? sendEmail(userId, emailSubject ?? title, emailHtml ?? `<p>${body}</p>`) : Promise.resolve(),
+        sendMail ? sendEmail(userId, emailSubject ?? title, html) : Promise.resolve(),
       ])
     })
   )
@@ -150,20 +176,26 @@ async function sendPush(userId: string, title: string, body: string, url?: strin
 // ── Channel 3: Email (Resend) ─────────────────────────────────────────────────
 async function sendEmail(userId: string, subject: string, html: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return
+  if (!apiKey) { console.warn('[email] RESEND_API_KEY not set — skipping'); return }
 
   // Fetch the user's email
   const { data: u } = await supabase.auth.admin.getUserById(userId)
   const email = u?.user?.email
-  if (!email) return
+  if (!email) { console.warn(`[email] no address for user ${userId}`); return }
 
   const from = process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>'
 
-  await fetch('https://api.resend.com/emails', {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ from, to: email, subject, html }),
-  }).catch(e => console.error('[email] send failed:', e.message))
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ from, to: email, subject, html }),
+    })
+    if (!res.ok) console.error(`[email] Resend ${res.status} for ${email}:`, await res.text())
+    else console.log(`[email] sent "${subject}" → ${email}`)
+  } catch (e) {
+    console.error('[email] send failed:', (e as Error).message)
+  }
 }
 
 // ── Helpers used by event producers ───────────────────────────────────────────

@@ -8,7 +8,7 @@ import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { generateStemName } from '../lib/naming'
-import { roleCanUpload, instrumentToRoleHint } from '../lib/rbac'
+import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
 
@@ -299,6 +299,10 @@ files.post('/:id/separate-stems', async (c) => {
   const { data: track } = await supabase.from('tracks').select('project_id').eq('id', t.track_id).single()
   const projectId = (track as any)?.project_id
 
+  // Only project members may run (expensive) stem separation
+  if (!projectId || !(await assertProjectAccess(projectId, user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   // Mark as separating
   await supabase.from('stems').update({
     notes: JSON.stringify({ ...notes, separating: true }),
@@ -386,6 +390,11 @@ files.get('/:id', async (c) => {
   if (error) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
 
   const stem = data as any
+  // Only members of the stem's project may read it (and get a signed URL)
+  const projectId = stem?.tracks?.project_id
+  if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   if (stem?.storage_path) stem.file_url = await getR2SignedUrl(stem.storage_path)
 
   return c.json({ data: stem, error: null, status: 200 })
@@ -401,6 +410,11 @@ files.patch('/:id', sanitize, async (c) => {
   if (Object.keys(updates).length === 0)
     return c.json({ data: null, error: 'No updatable fields provided', status: 400 }, 400)
 
+  // Only members of the stem's project may edit it
+  const projectId = await projectIdForStem(c.req.param('id'))
+  if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   updates.updated_at = new Date().toISOString()
   const { data, error } = await supabase
     .from('stems').update(updates).eq('id', c.req.param('id')).select().single()
@@ -411,6 +425,11 @@ files.patch('/:id', sanitize, async (c) => {
 
 // ── DELETE /files/:id ──────────────────────────────────────────────────────────
 files.delete('/:id', async (c) => {
+  // Only members of the stem's project may delete it
+  const projectId = await projectIdForStem(c.req.param('id'))
+  if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   const { data: stem, error: fetchErr } = await supabase
     .from('stems').select('storage_path, file_size, uploaded_by').eq('id', c.req.param('id')).single()
 
@@ -452,6 +471,10 @@ files.post('/:id/like', async (c) => {
   const userId = c.var.user.id
   const stemId = c.req.param('id')
 
+  const projectId = await projectIdForStem(stemId)
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   const { data: stem } = await supabase
     .from('stems').select('notes').eq('id', stemId).single()
   if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
@@ -476,6 +499,10 @@ files.post('/:id/like', async (c) => {
 files.post('/:id/approve', async (c) => {
   const userId = c.var.user.id
   const stemId = c.req.param('id')
+
+  const projectId = await projectIdForStem(stemId)
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: stem } = await supabase
     .from('stems').select('notes').eq('id', stemId).single()
