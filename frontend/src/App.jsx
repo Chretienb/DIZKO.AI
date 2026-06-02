@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -8,14 +8,18 @@ import logo from './assets/logo.png'
 import folderIcon from './assets/open-folder.png'
 
 // ── Extracted page components ──────────────────────────────────────────────
-import PageDashboardNew    from './pages/Dashboard.jsx'
-import PageProjectsNew     from './pages/Projects.jsx'
-import PageStudioNew       from './pages/Studio.jsx'
-import PageCollaboratorsNew from './pages/Collaborators.jsx'
-import PageLibraryNew      from './pages/Library.jsx'
-import PageAnalyticsNew    from './pages/Analytics.jsx'
-import ProjectView         from './pages/ProjectView.jsx'
-import { TermsPage, PrivacyPage, CookiesPage } from './pages/Legal.jsx'
+// Route components are lazy-loaded so each page ships as its own chunk
+// (keeps the initial bundle small — see vite build output).
+const PageDashboardNew     = lazy(() => import('./pages/Dashboard.jsx'))
+const PageProjectsNew      = lazy(() => import('./pages/Projects.jsx'))
+const PageStudioNew        = lazy(() => import('./pages/Studio.jsx'))
+const PageCollaboratorsNew = lazy(() => import('./pages/Collaborators.jsx'))
+const PageLibraryNew       = lazy(() => import('./pages/Library.jsx'))
+const PageAnalyticsNew     = lazy(() => import('./pages/Analytics.jsx'))
+const ProjectView          = lazy(() => import('./pages/ProjectView.jsx'))
+const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
+const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell from './components/NotificationBell.jsx'
 import { House, UsersThree, BookOpen, ChartBar, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
@@ -25,7 +29,7 @@ import {
   ModalKeyboardShortcuts, ModalInvite, ModalMessage, ModalViewWork,
   ModalNewTrack, ModalUpload,
 } from './components/modals.jsx'
-import PageAccount from './pages/Account.jsx'
+const PageAccount = lazy(() => import('./pages/Account.jsx'))
 
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
 export class ErrorBoundary extends React.Component {
@@ -685,6 +689,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
         <div style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
           paddingBottom: nowPlaying ? 88 : 24 }}>
+          <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
@@ -696,6 +701,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </div>
 
       </div>
