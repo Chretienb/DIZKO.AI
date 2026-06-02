@@ -9,108 +9,13 @@ import { supabase, uploadStem, setSupabaseToken } from '../lib/supabase'
 import { getToken, timeAgo, firstName } from '../lib/utils.js'
 import { collabName, collabInitials, collabEmail, collabColor } from '../lib/collab.js'
 import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.js'
+// Shared primitives + upload helpers live in ./modals/* — imported for use here
+// and re-exported below so existing `from './modals.jsx'` imports keep working.
+import { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
+import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
 
-// ─── MODAL SHELL ───────────────────────────────────────────────────────────
-export function Modal({ title, sub, onClose, children, width=520 }) {
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.25)', backdropFilter:'blur(4px)',
-      WebkitBackdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center',
-      justifyContent:'center', padding:20 }}
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={title}
-        style={{ background:'var(--surface)', borderRadius:14, width:'100%', maxWidth:width,
-        maxHeight:'92vh', overflowY:'auto',
-        border:'1px solid var(--border)', boxShadow:'0 12px 40px rgba(0,0,0,.25)',
-        position:'relative' }}>
-        {/* Header */}
-        <div style={{ padding:'14px 18px', display:'flex', alignItems:'flex-start',
-          justifyContent:'space-between', gap:12, borderBottom:'1px solid var(--surface-2)' }}>
-          <div>
-            <h2 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--t1)', letterSpacing:'-.2px' }}>{title}</h2>
-            {sub && <p style={{ margin:'3px 0 0', fontSize:12.5, color:'var(--t3)', lineHeight:1.4 }}>{sub}</p>}
-          </div>
-          <button onClick={onClose} aria-label="Close dialog"
-            style={{ width:24, height:24, borderRadius:6, flexShrink:0,
-            background:'transparent', border:'1px solid var(--border)', cursor:'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)', transition:'all .12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background='var(--surface-2)'; e.currentTarget.style.color='var(--t1)' }}
-            onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)' }}>
-            <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div style={{ padding:'18px' }}>{children}</div>
-      </div>
-    </div>
-  )
-}
-
-export function Field({ label, type='text', placeholder, value, onChange, as, hint }) {
-  const base = {
-    width:'100%', padding:'10px 13px', fontSize:13.5, borderRadius:10,
-    border:`1.5px solid ${C.border}`, outline:'none', background:C.surface2,
-    color:C.t1, fontFamily:'inherit', boxSizing:'border-box', resize:'vertical',
-    transition:'border .15s, box-shadow .15s',
-  }
-  const handlers = {
-    onFocus: e => { e.target.style.borderColor=C.coral; e.target.style.boxShadow=`0 0 0 3px ${C.coral}18` },
-    onBlur:  e => { e.target.style.borderColor=C.border; e.target.style.boxShadow='none' },
-  }
-  return (
-    <div style={{ marginBottom:14 }}>
-      {label && <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:C.t3,
-        textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>{label}</label>}
-      {as === 'textarea'
-        ? <textarea placeholder={placeholder} value={value} onChange={onChange} rows={3} style={base} {...handlers}/>
-        : <input type={type} placeholder={placeholder} value={value} onChange={onChange} style={base} {...handlers}/>}
-      {hint && <div style={{ fontSize:11, color:C.t3, marginTop:4 }}>{hint}</div>}
-    </div>
-  )
-}
-
-// Shared success screen used by several modals
-export function ModalSuccess({ title, body, onClose, accent='#22c55e' }) {
-  return (
-    <div style={{ textAlign:'center', padding:'12px 0 4px' }}>
-      <div style={{ width:60, height:60, borderRadius:'50%', background:`${accent}12`,
-        border:`2px solid ${accent}25`, display:'flex', alignItems:'center',
-        justifyContent:'center', margin:'0 auto 18px' }}>
-        <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20,6 9,17 4,12"/>
-        </svg>
-      </div>
-      <div style={{ fontSize:15, fontWeight:800, color:C.t1, marginBottom:6 }}>{title}</div>
-      {body && <p style={{ color:C.t3, fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>{body}</p>}
-      <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
-    </div>
-  )
-}
-
-// Shared pill selector
-export function PillSelect({ options, value, onChange, getColor }) {
-  return (
-    <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-      {options.map(opt => {
-        const on  = value === opt
-        const col = getColor ? getColor(opt) : C.coral
-        return (
-          <button key={opt} onClick={() => onChange(opt)} style={{
-            padding:'6px 14px', borderRadius:100, border:`1.5px solid ${on ? col : C.border}`,
-            background: on ? `${col}18` : 'transparent',
-            color: on ? col : C.t3, fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .12s',
-          }}>{opt}</button>
-        )
-      })}
-    </div>
-  )
-}
-
-// Section label used inside modals
-export function MLabel({ children }) {
-  return <div style={{ fontSize:11, fontWeight:500, color:C.t3, textTransform:'uppercase',
-    letterSpacing:'.07em', marginBottom:8 }}>{children}</div>
-}
+export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
+export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
 
 // ─── MODAL: PROJECT DETAIL ─────────────────────────────────────────────────
 export function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user }) {
@@ -1242,90 +1147,6 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-export const ROLE_PERMS = {
-  Vocalist:'vocals, harmonies', Guitarist:'guitar', Drummer:'drums, percussion',
-  Producer:'beats, demos', Engineer:'exports, finals', Mixer:'exports, finals', Collaborator:'anything',
-}
-
-export const INSTR_LIST = [
-  { id:'vocals',    label:'Vocals',     color:'#8b5cf6' },
-  { id:'guitar',    label:'Guitar',     color:'#f59e0b' },
-  { id:'drums',     label:'Drums',      color:'#ef4444' },
-  { id:'bass',      label:'Bass',       color:'#22c55e' },
-  { id:'piano',     label:'Piano',      color:'#3b82f6' },
-  { id:'synth',     label:'Synth',      color:'#ec4899' },
-  { id:'strings',   label:'Strings',    color:'#f97316' },
-  { id:'horns',     label:'Horns',      color:'#eab308' },
-  { id:'recording', label:'Recording',  color:'#6b7280' },
-  { id:'other',     label:'Other',      color:'#9ca3af' },
-]
-
-export function detectInstrument(filename) {
-  const f = filename.toLowerCase().replace(/[_\-\.]/g, ' ')
-  if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric|acapella|adlib/.test(f)) return 'vocals'
-  if (/guitar|gtr|acoustic|electric|strat|tele|riff|chord/.test(f))     return 'guitar'
-  if (/drum|kick|snare|hihat|hi hat|cymbal|perc|clap|tom|rimshot|one shot|oneshot|shot|sample|loop|pattern/.test(f)) return 'drums'
-  if (/\bbass\b|bassline|808|sub|low end/.test(f))                       return 'bass'
-  if (/beat|prod|instrumental|trap|drill|afro|type beat/.test(f))        return 'drums'
-  if (/piano|keys|keyboard|organ|clav|rhodes|melody/.test(f))           return 'piano'
-  if (/synth|pad|lead|arp|analog|wavetable|osc|pluck|chord/.test(f))    return 'synth'
-  if (/string|violin|cello|viola|orchestra|orch/.test(f))               return 'strings'
-  if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'horns'
-  return ''
-}
-
-export function InstrPicker({ value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef()
-  useEffect(() => {
-    if (!open) return
-    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-  const current = INSTR_LIST.find(i => i.id === value)
-  return (
-    <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
-      <button onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
-        style={{ height:24, padding:'0 10px', borderRadius:100, border:'none', cursor:'pointer',
-          background: current ? `${current.color}18` : 'rgba(0,0,0,.06)',
-          color: current ? current.color : '#999',
-          fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:5,
-          whiteSpace:'nowrap', transition:'all .12s' }}>
-        {current ? current.label : 'Set instrument'}
-        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
-      </button>
-      {open && (
-        <div style={{ position:'fixed', zIndex:9999,
-          background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10,
-          boxShadow:'0 8px 24px rgba(0,0,0,.5)', padding:4, minWidth:150 }}
-          ref={el => {
-            if (!el || !ref.current) return
-            const btn = ref.current.querySelector('button')
-            if (!btn) return
-            const r = btn.getBoundingClientRect()
-            el.style.top  = (r.top - el.offsetHeight - 6) + 'px'
-            el.style.left = r.left + 'px'
-          }}>
-          {INSTR_LIST.map(ins => (
-            <button key={ins.id} onClick={() => { onChange(ins.id); setOpen(false) }}
-              style={{ width:'100%', padding:'7px 10px', border:'none', borderRadius:7,
-                background: value === ins.id ? `${ins.color}12` : 'transparent',
-                color: value === ins.id ? ins.color : C.t1,
-                fontSize:12, fontWeight: value === ins.id ? 700 : 500,
-                cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
-              onMouseEnter={e => { if (value !== ins.id) e.currentTarget.style.background='rgba(var(--fg),.06)' }}
-              onMouseLeave={e => { if (value !== ins.id) e.currentTarget.style.background='transparent' }}>
-              <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>
-              {ins.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function ModalUpload({ project, folderId, onClose, user }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
