@@ -6,6 +6,8 @@ import { projects as projectsApi, files as filesApi, collaborators as collabsApi
          accessRequests, billingApi, foldersApi, cacheBust } from '../lib/api'
 import { supabase, uploadStem, setSupabaseToken } from '../lib/supabase'
 import { getToken, timeAgo, firstName } from '../lib/utils.js'
+import { collabName, collabInitials, collabEmail, collabColor } from '../lib/collab.js'
+import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.js'
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
 export function Modal({ title, sub, onClose, children, width=520 }) {
