@@ -459,7 +459,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)}
                   style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
                     background: on ? 'var(--surface-2)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s' }}
-                  onMouseEnter={e => { if (!on) e.currentTarget.style.background='#F9F9FA' }}
+                  onMouseEnter={e => { if (!on) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
                   onMouseLeave={e => { if (!on) e.currentTarget.style.background='transparent' }}>
                   <span style={{ fontSize:11.5, color: on ? '#E95A51' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 700 : 400 }}>{i + 1}</span>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -887,7 +887,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       {selVersions.map(f => (
                         <button key={f.id} onClick={() => setSelectedFile(f)}
                           style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:7, background:'var(--bg)', border:S.border, cursor:'pointer', textAlign:'left', width:'100%', fontFamily:'inherit', transition:'all .1s' }}
-                          onMouseEnter={e=>{e.currentTarget.style.background='#F0F0F4';e.currentTarget.style.borderColor='var(--t4)'}}
+                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(var(--fg),.06)';e.currentTarget.style.borderColor='var(--t4)'}}
                           onMouseLeave={e=>{e.currentTarget.style.background='var(--bg)';e.currentTarget.style.borderColor='var(--border)'}}>
                           <span style={{ fontSize:10.5, fontWeight:700, color:'var(--t3)', minWidth:20 }}>{f.vNum !== null ? `v${f.vNum}` : '—'}</span>
                           <span style={{ fontSize:11.5, fontWeight:500, color:'var(--t2)', flex:1 }}>{f.vNum !== null ? versionLabel(f.vNum) : (f.suggested_name || f.original_name)}</span>
