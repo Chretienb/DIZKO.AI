@@ -3,7 +3,10 @@ import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './index.css'
+import { initMonitoring } from './lib/monitoring.js'
 import App           from './App.jsx'
+
+initMonitoring()
 import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'

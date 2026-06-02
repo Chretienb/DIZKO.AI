@@ -40,5 +40,5 @@ jobs:
         run: bun install --frozen-lockfile
       # Self-contained tests only — auth/health/r2 are integration tests that need
       # a running server + live Supabase/R2 credentials, so they're excluded from CI.
-      - name: Unit tests (middleware + rbac)
-        run: bun test src/tests/middleware.test.ts src/tests/rbac.test.ts
+      - name: Unit tests (self-contained)
+        run: bun test src/tests/middleware.test.ts src/tests/rbac.test.ts src/tests/rbacUpload.test.ts src/tests/naming.test.ts
