@@ -113,6 +113,7 @@ bun run typecheck        # tsc --noEmit
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_SENTRY_DSN=          # optional — error monitoring (see below)
 ```
 
 **`backend/.env`** (secret — never commit):
@@ -159,9 +160,25 @@ SOUNDCLOUD_CLIENT_ID=
 SOUNDCLOUD_CLIENT_SECRET=
 LASTFM_API_KEY=
 TICKETMASTER_API_KEY=
+
+# Error monitoring (optional)
+SENTRY_DSN=
 ```
 
-`backend/.env.example` lists the same keys without values.
+`backend/.env.example` and `frontend/.env.example` list the same keys without values.
+
+### Error monitoring (Sentry) — optional
+
+Error reporting is wired but **dormant until a DSN is set**, so local dev and
+un-configured deploys are unaffected. To enable:
+
+1. Create a project at [sentry.io](https://sentry.io) and copy its DSN.
+2. Set **`VITE_SENTRY_DSN`** in the frontend env (Vercel) and **`SENTRY_DSN`** in
+   the backend env (Railway).
+
+With a DSN present, the frontend reports uncaught render errors (via the
+`ErrorBoundary`) and the backend reports unhandled request errors (via
+`app.onError`). Without it, both are no-ops.
 
 ---
 
