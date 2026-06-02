@@ -268,8 +268,9 @@ export default function PageDashboard({ openModal, user, playTrack }) {
           {selProject ? (
             <div style={{ position:'relative', flex:1, minHeight: isMobile ? 300 : 0, borderRadius:16, overflow:'hidden' }}>
               <Cover seed={selProject.id} size="full" radius={16} coverUrl={selProject.cover_url} />
-              {/* Play button */}
-              <button onClick={() => latestMix ? playTrack(latestMix) : navigate('/studio')}
+              {/* Open project */}
+              <button onClick={() => selProject && navigate(`/projects/${selProject.id}`)}
+                aria-label="Open project"
                 style={{ position:'absolute', top:16, right:16, width:48, height:48, borderRadius:'50%', border:'none', background:DK.red, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 20px rgba(233,90,81,.5)' }}>
                 <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
               </button>
