@@ -20,6 +20,8 @@ jobs:
           bun-version: latest
       - name: Install
         run: bun install --frozen-lockfile
+      - name: Theme-token guardrail
+        run: bun run lint:theme
       - name: Unit tests
         run: bun run test
       - name: Production build

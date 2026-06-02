@@ -50,7 +50,7 @@ export function InstrPicker({ value, onChange }) {
       <button onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
         style={{ height:24, padding:'0 10px', borderRadius:100, border:'none', cursor:'pointer',
           background: current ? `${current.color}18` : 'rgba(0,0,0,.06)',
-          color: current ? current.color : '#999',
+          color: current ? current.color : C.t3,
           fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:5,
           whiteSpace:'nowrap', transition:'all .12s' }}>
         {current ? current.label : 'Set instrument'}
