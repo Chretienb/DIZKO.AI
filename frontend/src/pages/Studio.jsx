@@ -761,27 +761,25 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       {loading ? <LoadingBlock/> : (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'240px 1fr 300px', gap:20, alignItems:'start' }}>
 
-          {/* ── Stems library panel — drag onto the board ── */}
-          {!isMobile && (
-            <div style={{ position:'sticky', top:165, borderRadius:14, overflow:'hidden',
-              border:`1px solid ${C.border}`, background:C.surface }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                padding:'10px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
-                <span style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Stems</span>
-                <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'1px 8px', borderRadius:100 }}>{mixerStems.length}</span>
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:1, padding:6, maxHeight:'calc(100vh - 260px)', overflowY:'auto' }}>
-                {!loadingStems && mixerStems.length === 0 && (
-                  <div style={{ fontSize:12, color:C.t3, padding:'12px 4px' }}>No stems yet — upload to begin.</div>
-                )}
-                {mixerStems.map(s => (
-                  <LibraryRow key={s.id} s={s}
-                    boardIds={boardIds} uploaders={uploaders}
-                    onAdd={addToBoard} onRemove={removeFromBoard} />
-                ))}
-              </div>
+          {/* ── Stems library panel — tap +/- (or drag on desktop) to build the board ── */}
+          <div style={{ position: isMobile ? 'static' : 'sticky', top:165, borderRadius:14, overflow:'hidden',
+            border:`1px solid ${C.border}`, background:C.surface }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'10px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Stems</span>
+              <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'1px 8px', borderRadius:100 }}>{mixerStems.length}</span>
             </div>
-          )}
+            <div style={{ display:'flex', flexDirection:'column', gap:1, padding:6, maxHeight: isMobile ? 240 : 'calc(100vh - 260px)', overflowY:'auto' }}>
+              {!loadingStems && mixerStems.length === 0 && (
+                <div style={{ fontSize:12, color:C.t3, padding:'12px 4px' }}>No stems yet — upload to begin.</div>
+              )}
+              {mixerStems.map(s => (
+                <LibraryRow key={s.id} s={s}
+                  boardIds={boardIds} uploaders={uploaders}
+                  onAdd={addToBoard} onRemove={removeFromBoard} />
+              ))}
+            </div>
+          </div>
 
           {/* ── Board panel (drop zone) ── */}
           <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${dragOver ? C.coral : C.border}`,

@@ -125,10 +125,11 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const instrument = track?.instrument || null
   const meta       = [instrument, bpm, key].filter(Boolean).join(' · ')
 
-  // Bottom offset to sit above mobile nav
-  const navH   = isMobile ? 60 : 0
+  // The bar sits flush at the bottom; the sidebar rail occupies the left edge,
+  // so offset the bar to start after it (52px mobile / 76px desktop).
+  const railW  = isMobile ? 52 : 76
   // Panel height: on mobile fill almost the full screen, on desktop a fixed sheet
-  const panelH = isMobile ? `calc(100dvh - ${72 + navH}px)` : '500px'
+  const panelH = isMobile ? `calc(100dvh - 72px)` : '500px'
 
   return (
     <>
@@ -145,8 +146,8 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
       {/* ── Expanded panel — slides up independently of the bar ── */}
       <div style={{
         position:'fixed',
-        left:0, right:0,
-        bottom: navH + 72,
+        left:railW, right:0,
+        bottom: 72,
         height: panelH,
         zIndex:1998,
         background:'#0e0e11',
@@ -260,7 +261,7 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
 
       {/* ── Bar — always fixed at bottom, never moves ── */}
       <div style={{
-        position:'fixed', left:0, right:0, bottom: navH,
+        position:'fixed', left:railW, right:0, bottom: 0,
         height:72, zIndex:2000,
         background:'var(--bg)',
         backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)',
