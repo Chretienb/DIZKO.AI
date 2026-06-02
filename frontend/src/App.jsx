@@ -687,7 +687,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         /* ── Icon-only rail — used on both desktop and mobile ── */
         <>
           {/* Nav — icon only (Home on top, no logo) */}
-          <nav style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'18px 14px 0', flexShrink:0 }}>
+          <nav style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding: isMobile ? '12px 0 0' : '18px 14px 0', flexShrink:0 }}>
             {[
               { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
               { id:'projects',      path:'/projects',      label:'Projects', Icon: MasonryIcon },
@@ -697,17 +697,18 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
             ].map(n => {
               const on = currentNav?.id === n.id
+              const sz = isMobile ? 38 : 44
               return (
                 <button key={n.id} onClick={() => navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
-                  style={{ width:44, height:44, borderRadius:12, border:'none', cursor:'pointer', flexShrink:0,
+                  style={{ width:sz, height:sz, borderRadius:11, border:'none', cursor:'pointer', flexShrink:0,
                     display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit',
                     background: on ? 'rgba(var(--fg),.1)' : 'transparent',
                     color: on ? '#fff' : 'rgba(var(--fg),.42)',
                     transition:'all .12s' }}
                   onMouseEnter={e => { if (!on) { e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.7)' } }}
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(var(--fg),.42)' } }}>
-                  <n.Icon size={23} weight={on ? 'bold' : 'regular'} />
+                  <n.Icon size={isMobile ? 20 : 23} weight={on ? 'bold' : 'regular'} />
                 </button>
               )
             })}
@@ -756,7 +757,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* ══ SIDEBAR — icon rail on both desktop and mobile ═══════════════════ */}
-      <aside style={{ width: isMobile ? 60 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
+      <aside style={{ width: isMobile ? 52 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
         <SidebarContent />
       </aside>
 
