@@ -461,7 +461,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const { toasts, add: addToast, remove: removeToast } = useToasts()
   const isMobile = useIsMobile()
   const { toggle: toggleTheme, resolvedTheme } = useTheme()
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
 
   // Billing status — fetched once on load, used in sidebar + modal
   const [billingStatus, setBillingStatus] = React.useState(null)
@@ -601,86 +600,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   ) ?? (location.pathname === '/account' ? { id:'account', label:'Account', path:'/account' } : NAV[0])
 
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
-  const TRACK_COLORS = {
-    dashboard:    '#F4937A',   // coral   — home base
-    projects:     '#22c55e',   // green   — your sessions
-    studio:       '#a78bfa',   // purple  — where you create
-    collaborators:'#38bdf8',   // sky     — your crew
-    library:      '#f59e0b',   // amber   — your vault
-    analytics:    '#f472b6',   // pink    — your stats
-  }
-
-  const sideNavBtn = (n) => {
-    const on = currentNav?.id === n.id
-    const color = TRACK_COLORS[n.id] || C.coral
-
-    // Desktop: compact icon-only column layout matching Figma
-    if (!isMobile) {
-      return (
-        <button key={n.id} onClick={() => navigate(n.path)}
-          aria-label={n.label} aria-current={on ? 'page' : undefined}
-          style={{
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            padding:'9px 4px', border:'none', cursor:'pointer', borderRadius:8,
-            gap:4, width:'100%', fontFamily:'inherit',
-            background: on ? 'rgba(var(--fg),.09)' : 'transparent',
-            color: on ? 'rgba(var(--fg),.92)' : 'rgba(var(--fg),.38)',
-            transition:'all .12s',
-          }}
-          onMouseEnter={e => {
-            if (!on) { e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.62)' }
-            ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
-          }}
-          onMouseLeave={e => { if (!on) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(var(--fg),.38)' } }}>
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-            <path d={n.icon}/>
-          </svg>
-          <span style={{ fontSize:9.5, fontWeight:500, color:'inherit', letterSpacing:'-.01em' }}>{n.label}</span>
-        </button>
-      )
-    }
-
-    // Mobile drawer: horizontal layout with colored icon square
-    return (
-      <button key={n.id} onClick={() => { navigate(n.path); if (isMobile) setDrawerOpen(false) }}
-        aria-label={`Go to ${n.label}`} aria-current={on ? 'page' : undefined}
-        style={{
-          display:'flex', alignItems:'center', gap:12, width:'100%',
-          padding:'10px 14px', border:'none', cursor:'pointer',
-          marginBottom:2, textAlign:'left', borderRadius:10,
-          fontSize:13.5, fontWeight: on ? 700 : 400,
-          color: on ? '#fff' : 'rgba(var(--fg),.35)',
-          background: on ? `${color}14` : 'transparent',
-          transition:'all .12s',
-        }}
-        onMouseEnter={e => {
-          if (!on) { e.currentTarget.style.background=`${color}08`; e.currentTarget.style.color='rgba(var(--fg),.65)' }
-          ;(NAV_PREFETCH[n.path] || []).forEach(p => prefetch(p))
-        }}
-        onMouseLeave={e => { if(!on){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(var(--fg),.35)' }}}>
-        <div style={{
-          width:30, height:30, borderRadius:8, flexShrink:0,
-          background: on ? `${color}25` : 'rgba(var(--fg),.05)',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          transition:'all .12s',
-          boxShadow: on ? `0 0 12px ${color}30` : 'none',
-        }}>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-            stroke={on ? color : 'rgba(var(--fg),.3)'}
-            strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-            <path d={n.icon}/>
-          </svg>
-        </div>
-        <span style={{ flex:1 }}>{n.label}</span>
-        {on && (
-          <div style={{ width:6, height:6, borderRadius:'50%', background:color,
-            boxShadow:`0 0 8px ${color}`, flexShrink:0 }}/>
-        )}
-      </button>
-    )
-  }
-
   const SidebarContent = () => (
     <>
       {(
