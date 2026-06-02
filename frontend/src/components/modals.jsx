@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { C, Btn, Spinner, Avatar } from './ui/index.jsx'
+import { C, Btn, Spinner, Avatar, LoadingBlock } from './ui/index.jsx'
+import { useConfirm } from '../lib/useConfirm.js'
 import { useIsMobile } from '../lib/mobile'
 import { projects as projectsApi, files as filesApi, collaborators as collabsApi,
          invitations as invitationsApi, messagesApi, auth as authApi,

@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "vitest run --config vitest.unit.config.js",
+    "test:watch": "vitest --config vitest.unit.config.js"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -34,6 +36,8 @@
     "@storybook/addon-mcp": "^0.6.0",
     "@storybook/addon-vitest": "^10.4.1",
     "@storybook/react-vite": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitest/browser-playwright": "^4.1.7",
@@ -43,6 +47,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "eslint-plugin-storybook": "^10.4.1",
     "globals": "^17.5.0",
+    "jsdom": "^29.1.1",
     "lucide-react": "^1.14.0",
     "playwright": "^1.60.0",
     "storybook": "^10.4.1",

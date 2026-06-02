@@ -112,3 +112,14 @@ export const Avatar = React.memo(function Avatar({ name, url, size = 36, color =
   }
   return fallback('flex')
 })
+
+// Centered spinner block for loading states inside panels/modals.
+export const LoadingBlock = React.memo(function LoadingBlock({ label, size = 22 }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+      justifyContent:'center', gap:12, padding:'36px 20px', color:C.t3 }}>
+      <Spinner size={size} />
+      {label && <span style={{ fontSize:12.5, fontWeight:500 }}>{label}</span>}
+    </div>
+  )
+})
