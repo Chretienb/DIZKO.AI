@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend — test + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Unit tests
+        run: bun run test
+      - name: Production build
+        run: bun run build
+
+  backend:
+    name: Backend — typecheck + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        run: bun install --frozen-lockfile
+      # Self-contained tests only — auth/health/r2 are integration tests that need
+      # a running server + live Supabase/R2 credentials, so they're excluded from CI.
+      - name: Unit tests (middleware + rbac)
+        run: bun test src/tests/middleware.test.ts src/tests/rbac.test.ts
