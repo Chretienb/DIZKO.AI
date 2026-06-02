@@ -49,8 +49,8 @@ export default function Splash({ onDone }) {
       {/* Subtle grid lines */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        backgroundImage: `linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(rgba(var(--fg),.025) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(var(--fg),.025) 1px, transparent 1px)`,
         backgroundSize: '48px 48px',
         maskImage: 'radial-gradient(ellipse 60% 60% at 50% 50%, black 0%, transparent 100%)',
         WebkitMaskImage: 'radial-gradient(ellipse 60% 60% at 50% 50%, black 0%, transparent 100%)',
@@ -80,7 +80,7 @@ export default function Splash({ onDone }) {
           }}/>
           <img src={logo} alt="Dizko.ai" style={{
             width: 96, height: 96, borderRadius: 24, objectFit: 'cover',
-            boxShadow: `0 0 0 1px rgba(255,255,255,.08), 0 20px 60px ${C.coral}35`,
+            boxShadow: `0 0 0 1px rgba(var(--fg),.08), 0 20px 60px ${C.coral}35`,
             position: 'relative', zIndex: 1,
           }}/>
         </div>
@@ -93,7 +93,7 @@ export default function Splash({ onDone }) {
               .ai
             </span>
           </div>
-          <div style={{ marginTop: 10, fontSize: 13, color: 'rgba(255,255,255,.3)', letterSpacing: '.04em', fontWeight: 500 }}>
+          <div style={{ marginTop: 10, fontSize: 13, color: 'rgba(var(--fg),.3)', letterSpacing: '.04em', fontWeight: 500 }}>
             Music collaboration, reimagined.
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function Splash({ onDone }) {
       }}>
         <div style={{
           width: 120, height: 3, borderRadius: 2,
-          background: 'rgba(255,255,255,.07)', overflow: 'hidden',
+          background: 'rgba(var(--fg),.07)', overflow: 'hidden',
         }}>
           <div style={{
             height: '100%', borderRadius: 2, background: C.grad,

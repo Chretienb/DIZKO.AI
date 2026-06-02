@@ -266,7 +266,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
           {/* Cover */}
           {selProject ? (
-            <div style={{ position:'relative', flex:1, minHeight: isMobile ? 300 : 0, borderRadius:16, overflow:'hidden' }}>
+            <div style={{ position:'relative', flex: isMobile ? 'none' : 1, aspectRatio: isMobile ? '1 / 1' : 'auto', minHeight: isMobile ? 0 : 0, borderRadius:16, overflow:'hidden' }}>
               <Cover seed={selProject.id} size="full" radius={16} coverUrl={selProject.cover_url} />
               {/* Open project */}
               <button onClick={() => selProject && navigate(`/projects/${selProject.id}`)}

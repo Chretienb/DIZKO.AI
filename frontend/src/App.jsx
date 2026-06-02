@@ -683,51 +683,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   const SidebarContent = () => (
     <>
-      {isMobile ? (
-        /* ── Mobile drawer: full-width layout ── */
-        <>
-          <div style={{ padding:'22px 16px 18px', display:'flex', alignItems:'center', gap:10,
-            cursor:'pointer', borderBottom:'1px solid rgba(var(--fg),.05)', marginBottom:8 }}
-            onClick={() => { navigate('/'); setDrawerOpen(false) }}>
-            <img src={logo} style={{ width:44, height:44, borderRadius:12, objectFit:'cover', flexShrink:0 }} alt="" />
-            <div>
-              <div style={{ fontSize:18, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px', lineHeight:1.1 }}>
-                Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
-              </div>
-              <div style={{ fontSize:9, color:'rgba(var(--fg),.2)', letterSpacing:'.1em', textTransform:'uppercase', marginTop:2 }}>Music Workspace</div>
-            </div>
-          </div>
-          <nav style={{ flex:1, padding:'4px 10px', overflowY:'auto' }}>
-            {sideNavBtn(NAV[0])}
-            {sideNavBtn(NAV[1])}
-            {sideNavBtn(NAV[2])}
-            {sideNavBtn(NAV[3])}
-            {sideNavBtn(NAV[4])}
-            {sideNavBtn(NAV[5])}
-          </nav>
-          <div style={{ padding:'8px 10px 12px', borderTop:'1px solid rgba(var(--fg),.06)' }}>
-            <button onClick={toggleTheme} style={{
-              display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px',
-              borderRadius:10, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
-              background:'transparent', color:'rgba(var(--fg),.7)', marginBottom:4 }}>
-              {resolvedTheme === 'dark' ? <Sun size={20} weight="bold"/> : <Moon size={20} weight="bold"/>}
-              <span style={{ fontSize:12.5, fontWeight:600 }}>{resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </button>
-            <button onClick={() => { navigate('/account'); setDrawerOpen(false) }} style={{
-              display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px',
-              borderRadius:10, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
-              background: location.pathname === '/account' ? 'rgba(var(--fg),.09)' : 'transparent',
-            }}>
-              <Avatar name={user?.full_name} url={user?.avatar_url} size={28} color={C.coral} border="none"/>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12, fontWeight:600, color:'rgba(var(--fg),.85)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.full_name || 'My Account'}</div>
-                <div style={{ fontSize:10, color:'rgba(var(--fg),.3)' }}>{currentPlanLabel}</div>
-              </div>
-            </button>
-          </div>
-        </>
-      ) : (
-        /* ── Desktop: icon-only rail — music-app style ── */
+      {(
+        /* ── Icon-only rail — used on both desktop and mobile ── */
         <>
           {/* Nav — icon only (Home on top, no logo) */}
           <nav style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'18px 14px 0', flexShrink:0 }}>
@@ -798,51 +755,16 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
-      {/* ══ MOBILE DRAWER ════════════════════════════════════════════════════ */}
-      {isMobile && drawerOpen && (
-        <>
-          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:200 }}
-            onClick={() => setDrawerOpen(false)} />
-          <div style={{ position:'fixed', top:0, left:0, bottom:0, width:260, background:C.sidebar,
-            zIndex:201, display:'flex', flexDirection:'column', overflowY:'auto',
-            boxShadow:'4px 0 24px rgba(0,0,0,.4)',
-            transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition:'transform .25s ease' }}>
-            <SidebarContent />
-          </div>
-        </>
-      )}
-
-      {/* ══ SIDEBAR (desktop only) ════════════════════════════════════════════ */}
-      {!isMobile && (
-        <aside style={{ width:76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
-          <SidebarContent />
-        </aside>
-      )}
+      {/* ══ SIDEBAR — icon rail on both desktop and mobile ═══════════════════ */}
+      <aside style={{ width: isMobile ? 60 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
+        <SidebarContent />
+      </aside>
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        {/* Mobile only: minimal top bar with hamburger + notification */}
-        {isMobile && (
-          <div style={{ height:44, background:C.bg, display:'flex', alignItems:'center',
-            padding:'0 12px', gap:8, flexShrink:0, zIndex:100,
-            borderBottom:'1px solid rgba(var(--fg),.05)' }}>
-            <button onClick={() => setDrawerOpen(true)}
-              style={{ width:34, height:34, borderRadius:8, background:'transparent', border:'none',
-                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.t2 }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div style={{ flex:1 }}/>
-            <NotificationBellLight user={user} />
-          </div>
-        )}
-
         <div style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
-          paddingBottom: nowPlaying ? (isMobile ? 148 : 88) : (isMobile ? 76 : 24) }}>
+          paddingBottom: nowPlaying ? 88 : 24 }}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
@@ -856,34 +778,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           </Routes>
         </div>
 
-        {/* ── Mobile bottom tab bar ──────────────────────────────────────── */}
-        {isMobile && (
-          <nav style={{ position:'fixed', bottom:0, left:0, right:0, height:60,
-            background:C.surface, borderTop:`1px solid ${C.border}`,
-            display:'flex', alignItems:'stretch', zIndex:150,
-            boxShadow:'0 -8px 24px rgba(0,0,0,.3)' }}>
-            {NAV.filter(n => ['dashboard','projects','studio','collaborators','library'].includes(n.id)).map(n => {
-              const on = currentNav?.id === n.id
-              return (
-                <button key={n.id} onClick={() => navigate(n.path)}
-                  style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-                    justifyContent:'center', gap:3, border:'none', cursor:'pointer',
-                    background:'transparent', minHeight:44, padding:'4px 2px',
-                    color: on ? C.coral : '#aaa', transition:'color .12s' }}>
-                  <svg width={20} height={20} viewBox="0 0 24 24" fill="none"
-                    stroke={on ? C.coral : '#aaa'}
-                    strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <path d={n.icon}/>
-                  </svg>
-                  <span style={{ fontSize:9.5, fontWeight: on ? 700 : 500, letterSpacing:'-.2px',
-                    color: on ? C.coral : '#aaa' }}>
-                    {n.id === 'library' ? 'Library' : n.label}
-                  </span>
-                </button>
-              )
-            })}
-          </nav>
-        )}
       </div>
 
       {/* ══ MODALS ═══════════════════════════════════════════════════════════ */}

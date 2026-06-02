@@ -28,8 +28,8 @@ const FEATURES = [
         <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
       </svg>
     ),
-    label: 'AI Mix',
-    title: 'Real-time AI mix',
+    label: 'Smart Mix',
+    title: 'Real-time Smart Mix',
     sub:   'Upload a stem — your team hears the new mix in seconds.',
   },
   {
@@ -52,8 +52,8 @@ function LaneInput({ label, value, onChange, onKeyDown, placeholder }) {
   return (
     <div style={{
       position:'relative', borderRadius:14, overflow:'hidden',
-      background: focused ? 'rgba(244,147,122,.06)' : 'rgba(255,255,255,.04)',
-      border:`1px solid ${focused ? C.coral+'50' : 'rgba(255,255,255,.08)'}`,
+      background: focused ? 'rgba(244,147,122,.06)' : 'rgba(var(--fg),.04)',
+      border:`1px solid ${focused ? C.coral+'50' : 'rgba(var(--fg),.08)'}`,
       transition:'all .18s',
     }}>
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
@@ -61,7 +61,7 @@ function LaneInput({ label, value, onChange, onKeyDown, placeholder }) {
       <div style={{ padding:'12px 18px 14px 22px' }}>
         <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em',
           textTransform:'uppercase', marginBottom:6,
-          color: focused ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>
+          color: focused ? C.coral : 'rgba(var(--fg),.28)', transition:'color .18s' }}>
           {label}
         </div>
         <input
@@ -123,10 +123,10 @@ export default function Onboarding({ onComplete, user }) {
       <button onClick={onComplete} style={{
         position:'absolute', top:28, right:32,
         background:'none', border:'none', fontSize:13, fontWeight:600,
-        color:'rgba(255,255,255,.28)', cursor:'pointer', transition:'color .15s',
+        color:'rgba(var(--fg),.28)', cursor:'pointer', transition:'color .15s',
       }}
-      onMouseEnter={e => e.currentTarget.style.color='rgba(255,255,255,.6)'}
-      onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.28)'}>
+      onMouseEnter={e => e.currentTarget.style.color='rgba(var(--fg),.6)'}
+      onMouseLeave={e => e.currentTarget.style.color='rgba(var(--fg),.28)'}>
         Skip
       </button>
 
@@ -137,7 +137,7 @@ export default function Onboarding({ onComplete, user }) {
           <div key={i} style={{
             height:4, borderRadius:4,
             width: i === step ? 28 : 10,
-            background: i <= step ? C.grad : 'rgba(255,255,255,.1)',
+            background: i <= step ? C.grad : 'rgba(var(--fg),.1)',
             transition:'all .35s cubic-bezier(.34,1.56,.64,1)',
           }}/>
         ))}
@@ -151,7 +151,7 @@ export default function Onboarding({ onComplete, user }) {
             {/* Logo */}
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:40 }}>
               <img src={logo} style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
-                boxShadow:`0 0 0 1px rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.4), 0 0 40px ${C.coral}25` }} alt=""/>
+                boxShadow:`0 0 0 1px rgba(var(--fg),.08), 0 8px 24px rgba(0,0,0,.4), 0 0 40px ${C.coral}25` }} alt=""/>
               <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>
                 Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
               </span>
@@ -172,7 +172,7 @@ export default function Onboarding({ onComplete, user }) {
                 {firstName}.
               </span>
             </h1>
-            <p style={{ margin:'0 0 36px', fontSize:15, color:'rgba(255,255,255,.38)', lineHeight:1.65 }}>
+            <p style={{ margin:'0 0 36px', fontSize:15, color:'rgba(var(--fg),.38)', lineHeight:1.65 }}>
               Here's what Dizko does for you automatically, every session.
             </p>
 
@@ -182,8 +182,8 @@ export default function Onboarding({ onComplete, user }) {
                 <div key={i} style={{
                   display:'flex', alignItems:'center', gap:14,
                   padding:'14px 18px 14px 20px', borderRadius:14,
-                  background:'rgba(255,255,255,.04)',
-                  border:'1px solid rgba(255,255,255,.07)',
+                  background:'rgba(var(--fg),.04)',
+                  border:'1px solid rgba(var(--fg),.07)',
                   position:'relative', overflow:'hidden',
                 }}>
                   <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
@@ -192,8 +192,8 @@ export default function Onboarding({ onComplete, user }) {
                   <div>
                     <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.12em',
                       textTransform:'uppercase', color:C.coral, marginBottom:3 }}>{f.label}</div>
-                    <div style={{ fontSize:13.5, fontWeight:700, color:'rgba(255,255,255,.85)', marginBottom:2 }}>{f.title}</div>
-                    <div style={{ fontSize:12, color:'rgba(255,255,255,.35)', lineHeight:1.5 }}>{f.sub}</div>
+                    <div style={{ fontSize:13.5, fontWeight:700, color:'rgba(var(--fg),.85)', marginBottom:2 }}>{f.title}</div>
+                    <div style={{ fontSize:12, color:'rgba(var(--fg),.35)', lineHeight:1.5 }}>{f.sub}</div>
                   </div>
                 </div>
               ))}
@@ -219,7 +219,7 @@ export default function Onboarding({ onComplete, user }) {
             {/* Logo */}
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:40 }}>
               <img src={logo} style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
-                boxShadow:`0 0 0 1px rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.4)` }} alt=""/>
+                boxShadow:`0 0 0 1px rgba(var(--fg),.08), 0 8px 24px rgba(0,0,0,.4)` }} alt=""/>
               <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>
                 Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
               </span>
@@ -237,7 +237,7 @@ export default function Onboarding({ onComplete, user }) {
                 working on?
               </span>
             </h1>
-            <p style={{ margin:'0 0 28px', fontSize:15, color:'rgba(255,255,255,.38)', lineHeight:1.6 }}>
+            <p style={{ margin:'0 0 28px', fontSize:15, color:'rgba(var(--fg),.38)', lineHeight:1.6 }}>
               Your project holds your stems, your mixes, and your team.
             </p>
 
@@ -258,8 +258,8 @@ export default function Onboarding({ onComplete, user }) {
                 <button key={t} onClick={() => setType(t)} style={{
                   padding:'7px 16px', borderRadius:100, border:'none', cursor:'pointer',
                   fontSize:12, fontWeight:700, transition:'all .15s',
-                  background: type === t ? C.grad : 'rgba(255,255,255,.07)',
-                  color: type === t ? '#fff' : 'rgba(255,255,255,.38)',
+                  background: type === t ? C.grad : 'rgba(var(--fg),.07)',
+                  color: type === t ? '#fff' : 'rgba(var(--fg),.38)',
                   boxShadow: type === t ? `0 4px 14px ${C.coral}30` : 'none',
                 }}>{t}</button>
               ))}
@@ -273,8 +273,8 @@ export default function Onboarding({ onComplete, user }) {
 
             <button onClick={createProject} disabled={loading} style={{
               width:'100%', padding:'15px', borderRadius:14, border:'none',
-              background: loading ? 'rgba(255,255,255,.06)' : C.grad,
-              color: loading ? 'rgba(255,255,255,.3)' : '#fff',
+              background: loading ? 'rgba(var(--fg),.06)' : C.grad,
+              color: loading ? 'rgba(var(--fg),.3)' : '#fff',
               fontSize:15, fontWeight:800, cursor: loading ? 'default' : 'pointer',
               boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
               transition:'all .2s', marginBottom:10,
@@ -283,7 +283,7 @@ export default function Onboarding({ onComplete, user }) {
             onMouseLeave={e => { e.currentTarget.style.transform='none' }}>
               {loading
                 ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)"
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(var(--fg),.4)"
                       strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
                       <path d="M12 3a9 9 0 019 9"/>
                     </svg>
@@ -294,17 +294,17 @@ export default function Onboarding({ onComplete, user }) {
 
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={() => setStep(0)} style={{ flex:1, padding:'10px',
-                background:'none', border:'1px solid rgba(255,255,255,.08)', borderRadius:10,
-                color:'rgba(255,255,255,.3)', fontSize:13, fontWeight:600, cursor:'pointer',
+                background:'none', border:'1px solid rgba(var(--fg),.08)', borderRadius:10,
+                color:'rgba(var(--fg),.3)', fontSize:13, fontWeight:600, cursor:'pointer',
                 transition:'border-color .15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='rgba(255,255,255,.2)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor='rgba(255,255,255,.08)'}>
+              onMouseEnter={e => e.currentTarget.style.borderColor='rgba(var(--fg),.2)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor='rgba(var(--fg),.08)'}>
                 ← Back
               </button>
               <button onClick={onComplete} style={{ flex:1, padding:'10px',
                 background:'none', border:'none',
-                color:'rgba(255,255,255,.2)', fontSize:13, cursor:'pointer' }}>
+                color:'rgba(var(--fg),.2)', fontSize:13, cursor:'pointer' }}>
                 Skip
               </button>
             </div>
@@ -314,7 +314,7 @@ export default function Onboarding({ onComplete, user }) {
 
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-        input::placeholder { color: rgba(255,255,255,.2) !important; }
+        input::placeholder { color: rgba(var(--fg),.2) !important; }
       `}</style>
     </div>
   )

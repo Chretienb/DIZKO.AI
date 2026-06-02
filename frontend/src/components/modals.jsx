@@ -8,40 +8,36 @@ import { supabase, uploadStem, setSupabaseToken } from '../lib/supabase'
 import { getToken, timeAgo, firstName } from '../lib/utils.js'
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
-export function Modal({ title, sub, onClose, children, width=520, accent }) {
-  const bar = accent || C.coral
+export function Modal({ title, sub, onClose, children, width=520 }) {
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(8px)',
-      WebkitBackdropFilter:'blur(8px)', zIndex:1000, display:'flex', alignItems:'center',
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.25)', backdropFilter:'blur(4px)',
+      WebkitBackdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center',
       justifyContent:'center', padding:20 }}
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label={title}
-        style={{ background:'var(--surface)', borderRadius:24, width:'100%', maxWidth:width,
+        style={{ background:'var(--surface)', borderRadius:14, width:'100%', maxWidth:width,
         maxHeight:'92vh', overflowY:'auto',
-        boxShadow:'0 40px 120px rgba(0,0,0,.5), 0 0 0 1px var(--border)',
+        border:'1px solid var(--border)', boxShadow:'0 12px 40px rgba(0,0,0,.25)',
         position:'relative' }}>
-        {/* Accent bar */}
-        <div style={{ height:3, background:`linear-gradient(90deg,${bar},${bar}60)`,
-          borderRadius:'24px 24px 0 0' }}/>
         {/* Header */}
-        <div style={{ padding:'22px 26px 18px', display:'flex', alignItems:'flex-start',
-          justifyContent:'space-between', borderBottom:'1px solid rgba(var(--fg),.07)' }}>
+        <div style={{ padding:'14px 18px', display:'flex', alignItems:'flex-start',
+          justifyContent:'space-between', gap:12, borderBottom:'1px solid var(--surface-2)' }}>
           <div>
-            <h2 style={{ margin:0, fontSize:18, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>{title}</h2>
-            {sub && <p style={{ margin:'4px 0 0', fontSize:12.5, color:'rgba(var(--fg),.35)', lineHeight:1.4 }}>{sub}</p>}
+            <h2 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--t1)', letterSpacing:'-.2px' }}>{title}</h2>
+            {sub && <p style={{ margin:'3px 0 0', fontSize:12.5, color:'var(--t3)', lineHeight:1.4 }}>{sub}</p>}
           </div>
           <button onClick={onClose} aria-label="Close dialog"
-            style={{ width:32, height:32, borderRadius:10,
-            background:'rgba(var(--fg),.07)', border:'none', cursor:'pointer', flexShrink:0, marginLeft:16,
-            display:'flex', alignItems:'center', justifyContent:'center', transition:'background .15s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.14)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(var(--fg),.07)'}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="rgba(var(--fg),.6)" strokeWidth={2.5} strokeLinecap="round">
+            style={{ width:24, height:24, borderRadius:6, flexShrink:0,
+            background:'transparent', border:'1px solid var(--border)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)', transition:'all .12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background='var(--surface-2)'; e.currentTarget.style.color='var(--t1)' }}
+            onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)' }}>
+            <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
         </div>
-        <div style={{ padding:'22px 26px 26px' }}>{children}</div>
+        <div style={{ padding:'18px' }}>{children}</div>
       </div>
     </div>
   )
@@ -60,7 +56,7 @@ export function Field({ label, type='text', placeholder, value, onChange, as, hi
   }
   return (
     <div style={{ marginBottom:14 }}>
-      {label && <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:C.t3,
+      {label && <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:C.t3,
         textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>{label}</label>}
       {as === 'textarea'
         ? <textarea placeholder={placeholder} value={value} onChange={onChange} rows={3} style={base} {...handlers}/>
@@ -109,7 +105,7 @@ export function PillSelect({ options, value, onChange, getColor }) {
 
 // Section label used inside modals
 export function MLabel({ children }) {
-  return <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase',
+  return <div style={{ fontSize:11, fontWeight:500, color:C.t3, textTransform:'uppercase',
     letterSpacing:'.07em', marginBottom:8 }}>{children}</div>
 }
 
@@ -316,14 +312,7 @@ export function ModalNewProject({ onClose, onCreated }) {
     setCoverFile(file)
     setCoverPreview(URL.createObjectURL(file))
   }
-  const types    = ['Album','EP','Single','Mixtape','Demo']
-  const statuses = ['In Progress','Review','New Takes','Draft']
-  const SC = {
-    'In Progress': { color:'#60a5fa', bg:'rgba(96,165,250,.12)',  border:'rgba(96,165,250,.28)'  },
-    'Review':      { color:'#f5c97a', bg:'rgba(245,201,122,.12)', border:'rgba(245,201,122,.28)' },
-    'New Takes':   { color:'#E8709A', bg:'rgba(232,112,154,.12)', border:'rgba(232,112,154,.28)' },
-    'Draft':       { color:C.t3,      bg:'rgba(var(--fg),.05)', border:'rgba(var(--fg),.12)' },
-  }
+  const types = ['Album','EP','Single','Mixtape','Demo']
 
   const handleTitleChange = (e) => {
     setTitle(e.target.value)
@@ -373,9 +362,9 @@ export function ModalNewProject({ onClose, onCreated }) {
           )}
         </button>
         <div style={{ minWidth:0 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:C.t2, marginBottom:2 }}>Cover image</div>
+          <div style={{ fontSize:13, fontWeight:500, color:C.t2, marginBottom:2 }}>Cover image</div>
           <button onClick={() => coverInput.current?.click()} type="button"
-            style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:12, fontWeight:600, color:C.coral }}>
+            style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:12, fontWeight:500, color:C.coral }}>
             {coverPreview ? 'Change' : 'Add a picture'} <span style={{ color:C.t3, fontWeight:500 }}>· optional</span>
           </button>
         </div>
@@ -383,36 +372,28 @@ export function ModalNewProject({ onClose, onCreated }) {
 
       <Field label="Album / Project Name" placeholder="e.g. Summer Vibes Vol. 2" value={title} onChange={handleTitleChange} />
       <Field label="First Song Name" placeholder="e.g. FIREMAN" value={songName} onChange={e => setSongName(e.target.value)} />
-      <div style={{ marginBottom:16 }}>
+      <div style={{ marginBottom:18 }}>
         <MLabel>Type</MLabel>
         <PillSelect options={types} value={type} onChange={setType} />
       </div>
-      <div style={{ marginBottom:16 }}>
-        <MLabel>Status</MLabel>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-          {statuses.map(s => {
-            const sc = SC[s]
-            const on = status === s
-            return (
-              <button key={s} onClick={() => setStatus(s)} style={{
-                height:32, padding:'0 14px', borderRadius:8,
-                border:`1px solid ${on ? sc.border : C.border}`,
-                background: on ? sc.bg : 'transparent',
-                color: on ? sc.color : C.t3,
-                fontSize:12.5, fontWeight: on ? 700 : 500,
-                cursor:'pointer', transition:'all .12s',
-              }}>{s}</button>
-            )
-          })}
-        </div>
-      </div>
       {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
         border:'1px solid rgba(239,68,68,.15)', color:'#ef4444', fontSize:12.5, marginBottom:12 }}>{err}</div>}
-      <div style={{ display:'flex', gap:8, borderTop:`1px solid ${C.border}`, paddingTop:18 }}>
-        <Btn onClick={handleCreate} style={{ flex:1 }} disabled={saving || !title.trim()}>
+      <div style={{ display:'flex', gap:8, paddingTop:4 }}>
+        <button onClick={onClose}
+          style={{ height:42, padding:'0 18px', borderRadius:10, border:'none', cursor:'pointer',
+            background:'rgba(var(--fg),.06)', color:C.t2, fontSize:13.5, fontWeight:600, fontFamily:'inherit' }}>
+          Cancel
+        </button>
+        <button onClick={handleCreate} disabled={saving || !title.trim()}
+          style={{ flex:1, height:42, borderRadius:10, border:'none',
+            cursor: saving || !title.trim() ? 'default' : 'pointer',
+            background: C.coral, color:'#fff', fontSize:13.5, fontWeight:600, fontFamily:'inherit',
+            opacity: saving || !title.trim() ? .5 : 1, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            transition:'opacity .15s' }}
+          onMouseEnter={e => { if (!(saving || !title.trim())) e.currentTarget.style.opacity='.88' }}
+          onMouseLeave={e => { if (!(saving || !title.trim())) e.currentTarget.style.opacity='1' }}>
           {saving ? <><Spinner size={13} color="#fff"/> Creating…</> : 'Create Project'}
-        </Btn>
-        <Btn onClick={onClose} variant='ghost' style={{ flex:1 }}>Cancel</Btn>
+        </button>
       </div>
     </Modal>
   )
