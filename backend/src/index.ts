@@ -1,8 +1,14 @@
 // v2
+import * as Sentry from '@sentry/node'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
+
+// Error monitoring — only active when SENTRY_DSN is set (no-op otherwise).
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV ?? 'development', tracesSampleRate: 0.1 })
+}
 
 import { rateLimit } from './middleware/rateLimit'
 import { requireAuth } from './middleware/auth'
@@ -122,6 +128,7 @@ app.notFound((c) =>
 
 app.onError((err, c) => {
   console.error('[unhandled error]', err)
+  if (process.env.SENTRY_DSN) Sentry.captureException(err)
   return c.json({ data: null, error: err.message || 'Internal server error', status: 500 }, 500)
 })
 

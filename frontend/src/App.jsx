@@ -31,7 +31,7 @@ import PageAccount from './pages/Account.jsx'
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null } }
   static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) { /* Could log to Sentry here */ }
+  componentDidCatch(error, info) { import('./lib/monitoring.js').then(m => m.reportError(error, info)).catch(() => {}) }
   render() {
     if (!this.state.error) return this.props.children
     return (
