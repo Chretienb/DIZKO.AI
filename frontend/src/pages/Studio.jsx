@@ -70,7 +70,7 @@ const LIB_COLORS = { vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#
 // A single stem in the side library — one compact line: dot · name · sender · +/-.
 // Draggable onto the board.
 function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
-  const color = LIB_COLORS[s.instrument] || '#A5A5AD'
+  const color = LIB_COLORS[s.instrument] || C.t3
   const label = LIB_LABELS[s.instrument] || s.instrument || 'Stem'
   const on  = boardIds.has(s.id)
   const up  = uploaders[s.uploaded_by]

@@ -91,7 +91,7 @@ export default function TrackItem({
             height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
             border: `1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
             background: isMuted ? '#f59e0b' : 'transparent',
-            color: isMuted ? '#fff' : '#aaa',
+            color: isMuted ? '#fff' : C.t3,
             fontSize:11, fontWeight:700, cursor:'pointer',
             transition:'all .15s', letterSpacing:'.04em',
             display:'flex', alignItems:'center', gap:5,
@@ -110,7 +110,7 @@ export default function TrackItem({
           style={{ height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
             border:`1.5px solid ${isSolo?'#6366f1':C.border}`,
             background:isSolo?'#6366f1':'transparent',
-            color:isSolo?'#fff':'#aaa',
+            color:isSolo?'#fff':C.t3,
             fontSize:11, fontWeight:700, cursor:'pointer', transition:'all .15s', letterSpacing:'.04em' }}>
           S
         </button>
@@ -189,7 +189,7 @@ export default function TrackItem({
           {/* Comments */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
               <span style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em' }}>
                 {(comments||[]).length>0 ? `${comments.length} comment${comments.length!==1?'s':''}` : 'Comments'}
               </span>

@@ -67,6 +67,14 @@ Token reference is in `src/index.css`. Brand/semantic colors (coral `#F4937A` /
 **The recurring bug** has been hardcoded hover backgrounds — always use
 `rgba(var(--fg), α)` for hovers/overlays.
 
+**Enforced in CI.** A custom lint rule (`dizko/no-legacy-theme-colors`, in
+`frontend/eslint-rules/`) denylists the old pre-tokenization neutral palette so a
+copy-pasted legacy hex fails the build. Run it locally with `npm run lint:theme`.
+It only flags those specific legacy neutrals — white-on-accent (`#fff`), brand
+coral, and semantic accents are allowed. Auth/legal/splash screens are exempt
+(they keep a fixed dark look by design); add new exempt files to
+`eslint.theme.config.js`.
+
 ---
 
 ## Frontend: calling the API
