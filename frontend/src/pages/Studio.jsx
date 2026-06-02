@@ -714,6 +714,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         paddingTop: isMobile ? 16 : 24, paddingBottom:16,
         marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
         paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>
+        <h1 style={{ margin:'0 0 16px', fontSize: isMobile ? 22 : 26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Studio</h1>
         <div style={{ borderRadius:16, overflow:'hidden', border:`1px solid ${C.border}`,
           background:C.surface, boxShadow:'0 2px 12px rgba(0,0,0,.25)' }}>
 
@@ -721,8 +722,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
             padding:'12px 16px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
             <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
-              <span style={{ fontSize:11, fontWeight:700, letterSpacing:'.24em', color:C.t3, textTransform:'uppercase', flexShrink:0 }}>Studio</span>
-              <span style={{ width:1, height:16, background:C.border, flexShrink:0 }}/>
               <ProjectPicker projects={projects} activeId={activeId} onSelect={setActiveId} />
               {!isMobile && !loading && (
                 <span style={{ fontSize:12, color:C.t3, fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}>

@@ -22,36 +22,41 @@ export default function Transport({
   const avgPct = loadKeys.length ? Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/loadKeys.length) : 0
 
   return (
-    <div style={{ background:C.surface, borderRadius:16, padding:'12px 18px', marginBottom:20, boxShadow:'0 1px 3px rgba(0,0,0,.3)', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:12 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
 
-      <button onClick={onStop} aria-label="Stop playback"
-        style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:C.t3, transition:'all .12s', flexShrink:0 }}
-        onMouseEnter={e=>{e.currentTarget.style.background='rgba(var(--fg),.07)';e.currentTarget.style.color=C.t2}}
-        onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.t3}}>
-        <IconStop size={10}/>
-      </button>
-
+      {/* Play / pause — ghost (outlined) */}
       {loadKeys.length > 0 ? (
-        <ProgressRing pct={avgPct} size={36} stroke={2} color={C.coral} bg={C.border}>
-          <span style={{ fontSize:8, fontWeight:800, color:C.t1 }}>{avgPct}%</span>
+        <ProgressRing pct={avgPct} size={34} stroke={2} color={C.coral} bg={C.border}>
+          <span style={{ fontSize:8, fontWeight:700, color:C.t1 }}>{avgPct}%</span>
         </ProgressRing>
       ) : (
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? 'Pause' : 'Play all tracks'}
-          style={{ width:38, height:38, borderRadius:'50%', border:`1px solid ${C.border}`, cursor:'pointer', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s', flexShrink:0, color:C.t1 }}
-          onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.06)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          style={{ width:34, height:34, borderRadius:'50%', border:`1.5px solid ${C.border}`, cursor:'pointer', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s', flexShrink:0, color:C.t1 }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.color=C.coral}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.t1}}>
           {playing ? <IconPause size={13} color="currentColor"/> : <IconPlay size={13} color="currentColor"/>}
         </button>
       )}
 
-      <div style={{ flex:1, display:'flex', alignItems:'center', gap:10 }}>
-        <div style={{ flex:1, height:3, borderRadius:2, background:C.border, cursor:'pointer', position:'relative', overflow:'hidden' }}
-          role="slider" aria-label="Playback position" aria-valuenow={Math.round(progress*100)} aria-valuemin={0} aria-valuemax={100}
-          onClick={e => { if (!duration) return; const r = e.currentTarget.getBoundingClientRect(); offsetRef.current = ((e.clientX-r.left)/r.width)*duration }}>
+      {/* Stop — minimal icon-only */}
+      <button onClick={onStop} aria-label="Stop playback"
+        style={{ border:'none', background:'transparent', cursor:'pointer', color:C.t3, display:'flex', alignItems:'center', padding:4, transition:'color .12s', flexShrink:0 }}
+        onMouseEnter={e=>e.currentTarget.style.color=C.t1} onMouseLeave={e=>e.currentTarget.style.color=C.t3}>
+        <IconStop size={11}/>
+      </button>
+
+      {/* Thin seek bar with thumb */}
+      <div style={{ flex:1, height:14, display:'flex', alignItems:'center', cursor:'pointer', position:'relative' }}
+        role="slider" aria-label="Playback position" aria-valuenow={Math.round(progress*100)} aria-valuemin={0} aria-valuemax={100}
+        onClick={e => { if (!duration) return; const r = e.currentTarget.getBoundingClientRect(); offsetRef.current = ((e.clientX-r.left)/r.width)*duration }}>
+        <div style={{ width:'100%', height:3, borderRadius:2, background:'rgba(var(--fg),.1)', position:'relative' }}>
           <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress*100}%`, background:C.coral, borderRadius:2, transition:'width .08s' }}/>
+          <div style={{ position:'absolute', top:'50%', left:`${progress*100}%`, transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.coral, transition:'left .08s' }}/>
         </div>
-        <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:600, color:C.t3, minWidth:36, flexShrink:0 }}>{fmt(currentTime)}</span>
-        <div aria-hidden="true" style={{ width:5, height:5, borderRadius:'50%', flexShrink:0, background:beatFlash?C.coral:'rgba(var(--fg),.15)', transition:beatFlash?'none':'all .2s' }}/>
       </div>
+
+      {/* Elapsed time */}
+      <span style={{ fontSize:11.5, fontFamily:'monospace', fontWeight:500, color:C.t3, flexShrink:0 }}>{fmt(currentTime)}</span>
     </div>
   )
 }

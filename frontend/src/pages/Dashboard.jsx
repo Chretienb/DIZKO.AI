@@ -240,6 +240,8 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         .sp-row:hover .sp-heart, .sp-row .sp-heart.on { opacity:1; }
       `}</style>
 
+      <h1 style={{ margin:'0 0 16px', fontSize: isMobile ? 22 : 26, fontWeight:700, color:DK.t1, letterSpacing:'-.7px' }}>Dashboard</h1>
+
       {/* ── WebPlayer panel ── */}
       <div style={{ background:DK.panel, borderRadius:20, border:DK.border, overflow:'hidden',
         display:'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: isMobile ? 'auto' : 'calc(100vh - 90px)' }}>
@@ -305,14 +307,20 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         {/* ══ RIGHT — Up Next ══ */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, padding: isMobile ? '0 0 14px' : '20px 0 0' }}>
           {/* Search row */}
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding: isMobile ? '14px 14px 0' : '0 20px' }}>
-            <div style={{ flex:1, display:'flex', alignItems:'center', gap:10, height:42, padding:'0 14px', borderRadius:21, background:'rgba(var(--fg),.05)', border:DK.border }}>
+          <div style={{ padding: isMobile ? '14px 14px 0' : '0 20px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9, height:40, padding:'0 13px', borderRadius:10,
+              background:'rgba(var(--fg),.04)', border:'1px solid transparent', transition:'border-color .15s, background .15s' }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor=`${DK.red}55`; e.currentTarget.style.background='rgba(var(--fg),.06)' }}
+              onBlurCapture={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='rgba(var(--fg),.04)' }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={DK.t3} strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by artists, songs or albums"
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search songs, albums, artists"
                 style={{ flex:1, border:'none', outline:'none', background:'transparent', fontSize:13, color:DK.t1, fontFamily:DK.font }}/>
-            </div>
-            <div style={{ width:42, height:42, borderRadius:'50%', background:'rgba(var(--fg),.05)', border:DK.border, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <svg width={16} height={16} viewBox="0 0 18 18" fill={DK.red}><rect x="2" y="10" width="3.5" height="6" rx="1"/><rect x="7.25" y="6" width="3.5" height="10" rx="1"/><rect x="12.5" y="2" width="3.5" height="14" rx="1"/></svg>
+              {search && (
+                <button onClick={() => setSearch('')} aria-label="Clear search"
+                  style={{ border:'none', background:'none', cursor:'pointer', color:DK.t3, display:'flex', padding:2 }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
             </div>
           </div>
 

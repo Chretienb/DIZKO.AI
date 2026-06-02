@@ -187,15 +187,14 @@ export default function PageProjects({ openModal, refreshKey, user }) {
 
         <button onClick={() => openModal('new-project', {})}
           style={{
-            height: 38, padding:'0 16px', borderRadius:10, border:'none',
-            background: C.grad, color:'#fff', fontSize:13, fontWeight:700,
+            height: 36, padding:'0 14px', borderRadius:9, border:'none',
+            background: `${C.coral}1a`, color: C.coral, fontSize:13, fontWeight:500,
             cursor:'pointer', flexShrink:0, marginTop:2,
-            boxShadow:`0 4px 14px ${C.coral}40`,
-            display:'flex', alignItems:'center', gap:6, transition:'opacity .15s',
+            display:'flex', alignItems:'center', gap:6, transition:'background .12s',
           }}
-          onMouseEnter={e => e.currentTarget.style.opacity='.88'}
-          onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round">
+          onMouseEnter={e => e.currentTarget.style.background=`${C.coral}29`}
+          onMouseLeave={e => e.currentTarget.style.background=`${C.coral}1a`}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           {!isMobile && 'New Project'}
