@@ -80,3 +80,22 @@ export interface Notification {
   read: boolean
   created_at: string
 }
+
+export interface Invitation {
+  id: string
+  project_id: string
+  projects?: { title?: string }
+  email: string
+  role: string
+  status: string
+  created_at: string
+}
+
+export interface Message {
+  id: string
+  from_user_id: string
+  to_user_id: string
+  text: string
+  read: boolean
+  created_at: string
+}

@@ -8,6 +8,8 @@
  * @typedef {import('./types').Collaborator} Collaborator
  * @typedef {import('./types').Folder} Folder
  * @typedef {import('./types').Notification} Notification
+ * @typedef {import('./types').Invitation} Invitation
+ * @typedef {import('./types').Message} Message
  */
 /**
  * @template T
@@ -262,6 +264,7 @@ export const collaborators = {
 
 // ── Invitations ───────────────────────────────────────────────────────────────
 export const invitations = {
+  /** @returns {Promise<import('./types').ApiResponse<Invitation[]>>} */
   list:    ()   => get('/invitations'),
   accept:  (id) => post(`/invitations/${id}/accept`),
   decline: (id) => del(`/invitations/${id}`),
@@ -275,6 +278,7 @@ export const analytics = {
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const notificationsApi = {
+  /** @returns {Promise<import('./types').ApiResponse<Notification[]>>} */
   list:        ()         => get('/notifications'),
   readAll:     ()         => request('PATCH', '/notifications/read-all'),
   read:        (id)       => request('PATCH', `/notifications/${id}/read`),
@@ -285,6 +289,7 @@ export const notificationsApi = {
 
 // ── Access Requests ───────────────────────────────────────────────────────────
 export const accessRequests = {
+  /** @returns {Promise<import('./types').ApiResponse<any[]>>} */
   list:    (projectId)         => get(`/access-requests?project_id=${projectId}`),
   request: (projectId, body)   => post('/access-requests', { project_id: projectId, ...body }),
   review:  (id, status)        => request('PATCH', `/access-requests/${id}`, { status }),
@@ -295,8 +300,11 @@ export const smartBounce = (projectId) => post(`/projects/${projectId}/smart-bou
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 export const messagesApi = {
+  /** @returns {Promise<import('./types').ApiResponse<Message[]>>} */
   conversation: (userId) => get(`/messages/${userId}`),
+  /** @returns {Promise<import('./types').ApiResponse<Message>>} */
   send:         (toUserId, text) => post('/messages', { to_user_id: toUserId, text }),
+  /** @returns {Promise<import('./types').ApiResponse<{ unread: number }>>} */
   unread:       () => get('/messages'),
 }
 
@@ -315,6 +323,7 @@ export const billingApi = {
 
 // ── Folders ───────────────────────────────────────────────────────────────────
 export const foldersApi = {
+  /** @returns {Promise<import('./types').ApiResponse<Folder[]>>} */
   list:     (projectId)          => get(`/folders?project_id=${projectId}`),
   create:   (projectId, name)    => post('/folders', { project_id: projectId, name }),
   rename:   (folderId, name)     => patch(`/folders/${folderId}`, { name }),
