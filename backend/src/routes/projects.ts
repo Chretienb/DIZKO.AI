@@ -10,7 +10,7 @@ import { createExportJob, getExportJob, completeExportJob, failExportJob } from 
 import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
-import { uploadToR2, getR2SignedUrl } from '../lib/r2'
+import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { execSync } from 'child_process'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -503,12 +503,14 @@ projects.get('/:id/files', async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  // Regenerate a fresh signed URL per stem from its storage_path. The stored
-  // file_url is signed at upload time and R2 signed URLs expire (7 days), so
-  // older stems would otherwise 403 on playback ("Could not load … skipped").
+  // Regenerate a fresh signed URL per stem. The stored file_url is signed at
+  // upload time and R2 signed URLs expire (7 days), so older stems would
+  // otherwise 403 on playback ("Could not load … skipped"). Prefer storage_path;
+  // fall back to deriving the key from the stale URL for legacy rows without it.
   const refreshed = await Promise.all((files ?? []).map(async (stem: Record<string, unknown>) => {
-    if (stem.storage_path) {
-      try { stem.file_url = await getR2SignedUrl(stem.storage_path as string) } catch { /* keep stored url */ }
+    const key = (stem.storage_path as string | null) || r2KeyFromUrl(stem.file_url as string | null)
+    if (key) {
+      try { stem.file_url = await getR2SignedUrl(key) } catch { /* keep stored url */ }
     }
     return stem
   }))

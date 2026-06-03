@@ -29,6 +29,19 @@ export async function getR2SignedUrl(key: string, expiresIn = 604800): Promise<s
   return getSignedUrl(r2Client, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
+/**
+ * Recover the object key from a stored R2 URL — used to refresh an expired
+ * signed URL when a stem row has no storage_path. The key is the URL path
+ * (sans leading slash, sans query string), e.g.
+ *   https://<bucket>.<acct>.r2.cloudflarestorage.com/takes/u/p/x.wav?X-Amz-…
+ *   → takes/u/p/x.wav
+ */
+export function r2KeyFromUrl(fileUrl?: string | null): string | null {
+  if (!fileUrl) return null
+  try { return decodeURIComponent(new URL(fileUrl).pathname.replace(/^\/+/, '')) || null }
+  catch { return null }
+}
+
 export interface R2Object { key: string; lastModified?: Date | undefined; size: number }
 
 // List every object under a prefix (paginated). Used by the orphan sweep.
