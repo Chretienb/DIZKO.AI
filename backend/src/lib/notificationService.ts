@@ -15,6 +15,7 @@
 
 import webpush        from 'web-push'
 import { supabase }   from './supabase'
+import { firstSeen }  from './redisStore'
 
 // ── VAPID setup ───────────────────────────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || ''
@@ -73,20 +74,12 @@ function defaultEmailHtml(title: string, body: string, actionUrl?: string): stri
 }
 
 // ── Dedup store (in-memory; good enough for single-process; use Redis in prod) ──
-const dedupStore = new Map<string, number>()
-setInterval(() => {
-  const now = Date.now()
-  for (const [k, t] of dedupStore) {
-    if (now - t > 10 * 60_000) dedupStore.delete(k)
-  }
-}, 60_000)
-
-function isDuplicate(userId: string, type: string, dedupKey: string, windowMs: number): boolean {
-  const key = `${userId}:${type}:${dedupKey}`
-  const last = dedupStore.get(key)
-  if (last && Date.now() - last < windowMs) return true
-  dedupStore.set(key, Date.now())
-  return false
+// Dedup window lives in redisStore — shared across instances when REDIS_URL is
+// set, in-process otherwise. firstSeen() returns true the first time a key is
+// seen within the window; we treat "not first" as a duplicate.
+async function isDuplicate(userId: string, type: string, dedupKey: string, windowMs: number): Promise<boolean> {
+  const key = `dedup:${userId}:${type}:${dedupKey}`
+  return !(await firstSeen(key, windowMs))
 }
 
 // ── Main fanout function ───────────────────────────────────────────────────────
@@ -107,7 +100,7 @@ export async function notify(payload: NotifPayload): Promise<void> {
       if (userId === actorId) return
 
       // Deduplication check
-      if (isDuplicate(userId, type, dedupKey, dedupWindow)) return
+      if (await isDuplicate(userId, type, dedupKey, dedupWindow)) return
 
       // Run all channels concurrently; isolate failures
       await Promise.allSettled([
