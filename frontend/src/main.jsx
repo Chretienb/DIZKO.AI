@@ -13,6 +13,7 @@ import Welcome       from './Welcome.jsx'
 import Onboarding    from './Onboarding.jsx'
 import ResetPassword from './ResetPassword.jsx'
 import { TermsPage as Terms, PrivacyPage as Privacy, CookiesPage } from './pages/Legal.jsx'
+import CookieConsent from './components/CookieConsent.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
 import { ThemeProvider } from './lib/theme.jsx'
@@ -208,6 +209,7 @@ createRoot(document.getElementById('root')).render(
       <ErrorBoundary>
         <BrowserRouter>
           <Root />
+          <CookieConsent />
         </BrowserRouter>
       </ErrorBoundary>
     </ThemeProvider>
