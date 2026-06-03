@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase.js'
 import { Avatar, Btn, Spinner, C } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
+import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
 import Transport from '../studio/Transport.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
@@ -716,6 +717,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } catch {}
   }, [boardKey, boardReady, boardIds, volumes, mutedIds, trims])
 
+  // Who else is live in this project's Studio right now
+  const presencePeers = useStudioPresence(activeId, user)
+
   const addToBoard = useCallback(id => {
     setBoardIds(prev => (prev.has(id) ? prev : new Set([...prev, id])))
   }, [])
@@ -748,7 +752,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                 </span>
               )}
             </div>
-            <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
+            <div style={{ display:'flex', gap:10, alignItems:'center', flexShrink:0 }}>
+              <PresenceBar peers={presencePeers} />
               <button onClick={() => openModal('upload', { project:activeProject })}
                 style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 12px', borderRadius:8,
                   border:'none', background:'rgba(var(--fg),.05)', color:C.t1, fontSize:13, fontWeight:500,
