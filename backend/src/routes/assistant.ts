@@ -3,6 +3,7 @@ import Anthropic       from '@anthropic-ai/sdk'
 import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { rateLimit }   from '../middleware/rateLimit'
+import { getUsersByIds } from '../lib/users'
 import { getLatestAnalysis, analyzeProject } from '../lib/aiAnalysis'
 import type { HonoVariables } from '../types'
 
@@ -87,14 +88,13 @@ assistant.post('/:projectId/chat', aiLimit, async (c) => {
 
     if (stems?.length) {
       const uploaderNames: Record<string, string> = {}
-      await Promise.all([...new Set((stems as any[]).map(s => s.uploaded_by))].map(async uid => {
-        try {
-          const { data: u } = await supabase.auth.admin.getUserById(uid)
-          uploaderNames[uid] = u?.user?.user_metadata?.full_name
-            || u?.user?.email?.split('@')[0]
-            || uid.slice(0, 8)
-        } catch { uploaderNames[uid] = uid.slice(0, 8) }
-      }))
+      const profiles = await getUsersByIds((stems as any[]).map(s => s.uploaded_by))
+      for (const uid of new Set((stems as any[]).map(s => s.uploaded_by as string))) {
+        const p = profiles.get(uid)
+        uploaderNames[uid] = p?.full_name
+          || p?.email?.split('@')[0]
+          || uid.slice(0, 8)
+      }
 
       stemsContext = (stems as any[]).map(s => {
         const n = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()

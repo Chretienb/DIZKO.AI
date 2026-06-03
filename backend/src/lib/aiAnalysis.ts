@@ -14,6 +14,7 @@
 
 import Anthropic   from '@anthropic-ai/sdk'
 import { supabase } from './supabase'
+import { getUsersByIds } from './users'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -74,17 +75,16 @@ export async function analyzeProject(
 
   if (!allStems?.length) return null
 
-  // 2. Resolve uploader names
-  const uploaderIds = [...new Set((allStems as any[]).map(s => s.uploaded_by))]
+  // 2. Resolve uploader names — one batched profile lookup, not one per stem.
+  const uploaderIds = [...new Set((allStems as any[]).map(s => s.uploaded_by as string))]
+  const profiles = await getUsersByIds(uploaderIds)
   const nameMap: Record<string, string> = {}
-  await Promise.all(uploaderIds.map(async uid => {
-    try {
-      const { data: u } = await supabase.auth.admin.getUserById(uid)
-      nameMap[uid] = u?.user?.user_metadata?.full_name
-        || u?.user?.email?.split('@')[0]
-        || uid.slice(0, 8)
-    } catch { nameMap[uid] = uid.slice(0, 8) }
-  }))
+  for (const uid of uploaderIds) {
+    const p = profiles.get(uid)
+    nameMap[uid] = p?.full_name
+      || p?.email?.split('@')[0]
+      || uid.slice(0, 8)
+  }
 
   const parseNotes = (s: any) => { try { return JSON.parse(s.notes || '{}') } catch { return {} } }
 

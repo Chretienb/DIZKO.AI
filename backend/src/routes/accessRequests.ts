@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth'
 import { sanitize }   from '../middleware/sanitize'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import { roleCanUpload } from '../lib/rbac'
+import { getUsersByIds } from '../lib/users'
 import type { HonoVariables } from '../types'
 
 const ar = new Hono<{ Variables: HonoVariables }>()
@@ -83,17 +84,16 @@ ar.get('/', async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  // Enrich with requester names
-  const enriched = await Promise.all(
-    ((data ?? []) as any[]).map(async req => {
-      const { data: u } = await supabase.auth.admin.getUserById(req.requester_id)
-      return {
-        ...req,
-        requester_name: u?.user?.user_metadata?.full_name || u?.user?.email?.split('@')[0] || '?',
-        requester_email: u?.user?.email,
-      }
-    })
-  )
+  // Enrich with requester names — one batched profile lookup, not one per row.
+  const profiles = await getUsersByIds(((data ?? []) as any[]).map(r => r.requester_id))
+  const enriched = ((data ?? []) as any[]).map(req => {
+    const p = profiles.get(req.requester_id)
+    return {
+      ...req,
+      requester_name: p?.full_name || p?.email?.split('@')[0] || '?',
+      requester_email: p?.email,
+    }
+  })
 
   return c.json({ data: enriched, error: null, status: 200 })
 })

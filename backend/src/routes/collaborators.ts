@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
 import { assertProjectAccess } from '../lib/rbac'
+import { getUsersByIds } from '../lib/users'
 import type { HonoVariables } from '../types'
 
 const collaborators = new Hono<{ Variables: HonoVariables }>()
@@ -18,61 +19,55 @@ collaborators.get('/', async (c) => {
   if (!(await assertProjectAccess(projectId, c.var.user.id)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
-  let query = supabase.from('collaborators').select('*').eq('project_id', projectId)
-
-  const { data: rows, error } = await query
+  const { data: rows, error } = await supabase
+    .from('collaborators').select('*').eq('project_id', projectId)
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  const enriched = await Promise.all(
-    (rows ?? []).map(async (row: Record<string, unknown>) => {
-      if (!row.user_id) {
-        return { ...row, user: { email: row.email, full_name: null, avatar_url: null } }
-      }
-      const { data: u } = await supabase.auth.admin.getUserById(row.user_id as string)
-      const authUser = u?.user
-      return {
-        ...row,
-        user: {
-          id:        authUser?.id,
-          email:     authUser?.email ?? row.email,
-          full_name:  authUser?.user_metadata?.full_name  ?? null,
-          avatar_url: authUser?.user_metadata?.avatar_url ?? null,
-        },
-      }
-    })
-  )
+  // The owner is shown as a synthetic entry; fetch their id up front so we can
+  // resolve every profile (collaborators + owner) in a single batched call.
+  const { data: project } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  const ownerId = (project?.owner_id as string | undefined) ?? undefined
 
-  // Prepend the project owner as a synthetic entry so the frontend always
-  // shows them in the collaborators list with the correct role badge.
-  if (projectId) {
-    const { data: project } = await supabase
-      .from('projects')
-      .select('owner_id')
-      .eq('id', projectId)
-      .single()
+  const profiles = await getUsersByIds([
+    ...(rows ?? []).map((r: Record<string, unknown>) => r.user_id as string | null),
+    ownerId,
+  ])
 
-    if (project?.owner_id) {
-      const alreadyListed = enriched.some((r: any) => r.user_id === project.owner_id)
-      if (!alreadyListed) {
-        const { data: ownerAuth } = await supabase.auth.admin.getUserById(project.owner_id)
-        const o = ownerAuth?.user
-        const ownerEntry: Record<string, unknown> = {
-          id:         `owner-${project.owner_id}`,
-          project_id: projectId,
-          user_id:    project.owner_id,
-          role:       'owner',
-          status:     'accepted',
-          _isOwner:   true,
-          user: {
-            id:         o?.id,
-            email:      o?.email ?? '',
-            full_name:  o?.user_metadata?.full_name  ?? null,
-            avatar_url: o?.user_metadata?.avatar_url ?? null,
-          },
-        }
-        enriched.unshift(ownerEntry as typeof enriched[number])
-      }
+  const enriched: Record<string, unknown>[] = (rows ?? []).map((row: Record<string, unknown>) => {
+    if (!row.user_id) {
+      return { ...row, user: { email: row.email, full_name: null, avatar_url: null } }
     }
+    const p = profiles.get(row.user_id as string)
+    return {
+      ...row,
+      user: {
+        id:         p?.id,
+        email:      p?.email ?? row.email,
+        full_name:  p?.full_name  ?? null,
+        avatar_url: p?.avatar_url ?? null,
+      },
+    }
+  })
+
+  // Prepend the project owner so the frontend always shows them with the
+  // correct role badge.
+  if (ownerId && !enriched.some((r) => r.user_id === ownerId)) {
+    const o = profiles.get(ownerId)
+    enriched.unshift({
+      id:         `owner-${ownerId}`,
+      project_id: projectId,
+      user_id:    ownerId,
+      role:       'owner',
+      status:     'accepted',
+      _isOwner:   true,
+      user: {
+        id:         o?.id,
+        email:      o?.email ?? '',
+        full_name:  o?.full_name  ?? null,
+        avatar_url: o?.avatar_url ?? null,
+      },
+    })
   }
 
   return c.json({ data: enriched, error: null, status: 200 })
@@ -121,13 +116,8 @@ collaborators.get('/all', async (c) => {
 
   const combined = [...(rows ?? []), ...ownerEntries]
 
-  // Resolve each distinct user once (avatar/name), then build deduped list
-  const userIds = [...new Set(combined.map(r => r.user_id).filter(Boolean) as string[])]
-  const userCache = new Map<string, any>()
-  await Promise.all(userIds.map(async uid => {
-    const { data: u } = await supabase.auth.admin.getUserById(uid)
-    if (u?.user) userCache.set(uid, u.user)
-  }))
+  // Resolve every distinct user once, in a single batched call.
+  const profiles = await getUsersByIds(combined.map(r => r.user_id as string | null))
 
   // Rank: owners & accepted first, pending last — so a person isn't shown by a
   // still-pending row when they're also accepted/owner elsewhere.
@@ -142,15 +132,15 @@ collaborators.get('/all', async (c) => {
     const key = (row.user_id as string) || (row.email as string) || (row.id as string)
     if (seen.has(key)) continue
     seen.add(key)
-    const au = row.user_id ? userCache.get(row.user_id as string) : null
+    const p = row.user_id ? profiles.get(row.user_id as string) : null
     out.push({
       ...row,
       projectTitle: titleMap.get(row.project_id as string) ?? null,
       user: {
-        id:         au?.id ?? null,
-        email:      au?.email ?? row.email ?? '',
-        full_name:  au?.user_metadata?.full_name  ?? null,
-        avatar_url: au?.user_metadata?.avatar_url ?? null,
+        id:         p?.id ?? null,
+        email:      p?.email ?? row.email ?? '',
+        full_name:  p?.full_name  ?? null,
+        avatar_url: p?.avatar_url ?? null,
       },
     })
   }
