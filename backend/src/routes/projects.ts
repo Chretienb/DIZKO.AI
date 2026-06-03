@@ -6,6 +6,7 @@ import { rateLimit } from '../middleware/rateLimit'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { generateStemName } from '../lib/naming'
 import { getUsersByIds } from '../lib/users'
+import { createExportJob, getExportJob, completeExportJob, failExportJob } from '../lib/exportJobs'
 import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
@@ -70,30 +71,22 @@ projects.get('/', async (c) => {
   return c.json({ data: all, error: null, status: 200 })
 })
 
-// ── GET /projects/:id/export ─────────────────────────────────────────────────
-// Defined before /:id so Hono matches /export before treating it as an id
-// ?format=ableton|logic|all (default: all)
-projects.get('/:id/export', async (c) => {
-  const projectId = c.req.param('id')
-  const userId    = c.var.user.id
-  const format    = c.req.query('format') ?? 'all'
-  // Optional: export exactly these stem ids (the Studio board selection)
-  const stemIdParam = c.req.query('stem_ids')
-  const boardIds = stemIdParam ? new Set(stemIdParam.split(',').filter(Boolean)) : null
-
-  const { data: proj } = await supabase
-    .from('projects').select('id, title, owner_id').eq('id', projectId).single()
-  if (!proj) return c.json({ error: 'Project not found' }, 404)
-
-  const { data: collabRow } = await supabase
-    .from('collaborators').select('id')
-    .eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
-
-  if ((proj as any).owner_id !== userId && !collabRow)
-    return c.json({ error: 'Access denied' }, 403)
-
+// ── Async DAW export ─────────────────────────────────────────────────────────
+// POST /projects/:id/export starts a background build and returns a job id;
+// GET /projects/:id/export/:jobId polls for the result. (Both defined before
+// /:id so Hono matches /export first.) ?format=ableton|logic|all (default: all)
+//
+// buildExport runs the heavy work — download stems → zip → upload to R2 — and
+// returns a signed download URL. It throws on any failure; the caller records
+// that on the job. boardIds = optional explicit stem selection (Studio board).
+async function buildExport(
+  projectId: string,
+  proj: { title: string; owner_id: string },
+  format: string,
+  boardIds: Set<string> | null,
+): Promise<{ url: string; filename: string }> {
   const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', projectId)
-  if (!tracks?.length) return c.json({ error: 'No tracks in this project' }, 400)
+  if (!tracks?.length) throw new Error('No tracks in this project')
 
   const trackIds = (tracks as any[]).map(t => t.id)
   // bpm/key live in stems.notes JSON — no separate columns
@@ -105,9 +98,9 @@ projects.get('/:id/export', async (c) => {
 
   if (stemsErr) {
     console.error('[export] stems query error:', stemsErr.message)
-    return c.json({ error: 'Failed to load stems: ' + stemsErr.message }, 500)
+    throw new Error('Failed to load stems: ' + stemsErr.message)
   }
-  if (!allStems?.length) return c.json({ error: 'No stems uploaded yet' }, 400)
+  if (!allStems?.length) throw new Error('No stems uploaded yet')
 
   const parseNotes = (s: any) => { try { return JSON.parse(s.notes || '{}') } catch { return {} } }
 
@@ -119,7 +112,7 @@ projects.get('/:id/export', async (c) => {
     if (parseNotes(s).parent_stem_id) return false
     return true
   })
-  if (!uploadedStems.length) return c.json({ error: 'No uploaded stems found' }, 400)
+  if (!uploadedStems.length) throw new Error('No uploaded stems found')
 
   // Latest upload per collaborator × original filename
   // (handles re-uploads: same person, same filename = new take of same part)
@@ -157,7 +150,7 @@ projects.get('/:id/export', async (c) => {
     ? uploadedStems.filter((s: any) => boardIds.has(s.id))
     : [...takeMap.values()]
   if (boardIds && latestTakes.length === 0)
-    return c.json({ error: 'No stems on the board to export' }, 400)
+    throw new Error('No stems on the board to export')
 
   // Take number = how many times this person uploaded a file with this base name
   const takeCountMap = new Map<string, number>()
@@ -242,7 +235,7 @@ projects.get('/:id/export', async (c) => {
     }
   }))
 
-  if (!exportStems.length) return c.json({ error: 'Could not download any stems' }, 500)
+  if (!exportStems.length) throw new Error('Could not download any stems')
 
   const opts: ExportOptions = {
     projectName: (proj as any).title,
@@ -253,28 +246,55 @@ projects.get('/:id/export', async (c) => {
   }
 
   const zipBuffer = await buildExportZip(opts, format)
-  const safeProjName = ((proj as any).title as string).replace(/[^a-zA-Z0-9 _-]/g, '_')
+  const safeProjName = (proj.title as string).replace(/[^a-zA-Z0-9 _-]/g, '_')
 
   // Upload the zip to R2 and hand back a short-lived signed URL. The browser
   // then downloads the (large) bytes directly from R2 — not back through the
   // API/proxy/gateway — which avoids response-streaming timeouts (502/ERR_FAILED).
   const filename = `${safeProjName}_Dizko_Export.zip`
   const key = `exports/${projectId}/${Date.now()}_${filename}`
-  try {
-    await uploadToR2(key, zipBuffer, 'application/zip')
-    const url = await getR2SignedUrl(key, 3600)   // 1-hour download link
-    return c.json({ data: { url, filename }, error: null, status: 200 })
-  } catch (e) {
-    console.error('[export] R2 upload failed:', (e as Error).message)
-    // Fallback: stream the zip directly (works locally / short exports)
-    return new Response(zipBuffer, {
-      headers: {
-        'Content-Type':        'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length':      String(zipBuffer.length),
-      },
-    })
-  }
+  await uploadToR2(key, zipBuffer, 'application/zip')
+  const url = await getR2SignedUrl(key, 3600)   // 1-hour download link
+  return { url, filename }
+}
+
+// POST /projects/:id/export — start a background export, returns { jobId }.
+projects.post('/:id/export', async (c) => {
+  const projectId = c.req.param('id')
+  const userId    = c.var.user.id
+  const format    = c.req.query('format') ?? 'all'
+  const stemIdParam = c.req.query('stem_ids')
+  const boardIds = stemIdParam ? new Set(stemIdParam.split(',').filter(Boolean)) : null
+
+  const { data: proj } = await supabase
+    .from('projects').select('id, title, owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ error: 'Project not found' }, 404)
+
+  const { data: collabRow } = await supabase
+    .from('collaborators').select('id')
+    .eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
+  if ((proj as any).owner_id !== userId && !collabRow)
+    return c.json({ error: 'Access denied' }, 403)
+
+  const job = createExportJob(userId)
+  // Build in the background; the client polls the status endpoint below.
+  buildExport(projectId, proj as { title: string; owner_id: string }, format, boardIds)
+    .then(result => completeExportJob(job.id, result))
+    .catch(e => { console.error('[export] build failed:', e.message); failExportJob(job.id, e.message) })
+
+  return c.json({ data: { jobId: job.id }, error: null, status: 202 }, 202)
+})
+
+// GET /projects/:id/export/:jobId — poll export status.
+projects.get('/:id/export/:jobId', async (c) => {
+  const job = getExportJob(c.req.param('jobId'))
+  if (!job || job.ownerId !== c.var.user.id)
+    return c.json({ error: 'Export job not found' }, 404)
+  return c.json({ data: {
+    status: job.status,
+    ...(job.url ? { url: job.url, filename: job.filename } : {}),
+    ...(job.error ? { error: job.error } : {}),
+  }, error: null, status: 200 })
 })
 
 // ── GET /projects/:id — only accessible to owner and active collaborators ──────
