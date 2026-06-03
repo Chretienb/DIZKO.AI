@@ -1376,21 +1376,23 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         </svg>
         <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:500,
           color: drag ? C.coral : 'rgba(var(--fg),.7)' }}>
-          {drag ? 'Drop to upload' : 'Drop files, a folder, or a .zip — or click to browse'}
+          {drag ? 'Drop to upload' : 'Drag & drop, or click to browse'}
         </p>
         <p style={{ margin:0, fontSize:11, color:'rgba(var(--fg),.3)' }}>
-          WAV, MP3, AIFF, FLAC, ZIP · up to {MAX_MB} MB each
+          Audio or a .zip · up to {MAX_MB} MB each
         </p>
       </div>
 
-      {/* Import a folder (separate from the click-to-browse files picker) */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:14 }}>
+      {/* Folder picker — drag-drop already takes folders; this is the click path */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:14 }}>
         <button onClick={() => folderRef.current?.click()}
-          style={{ display:'flex', alignItems:'center', gap:6, height:30, padding:'0 13px', borderRadius:8,
-            border:'1px solid rgba(var(--fg),.12)', background:'transparent', color:'rgba(var(--fg),.7)',
-            fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:0, border:'none',
+            background:'none', color:'rgba(var(--fg),.5)', fontSize:12, fontWeight:500,
+            cursor:'pointer', fontFamily:'inherit', transition:'color .12s' }}
+          onMouseEnter={e => e.currentTarget.style.color=C.coral}
+          onMouseLeave={e => e.currentTarget.style.color='rgba(var(--fg),.5)'}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-          Import a folder
+          or import a folder
         </button>
         {skipped > 0 && (
           <span style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
