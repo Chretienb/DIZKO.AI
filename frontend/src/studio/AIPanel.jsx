@@ -1,5 +1,6 @@
 import React from 'react'
 import { Spinner, C } from '../components/ui/index.jsx'
+import { buildInsightRows } from './mixInsights.js'
 
 const IconPlay = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
 const IconDl   = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -11,13 +12,52 @@ const DAW_OPTIONS = [
   { id:'logic',  label:'Logic Pro',    sub:'Logic folder + stem guide', icon:'M9 18V5l12-2v13M6 3v13.5M3 9h3m-3 4h3' },
 ]
 
+// Smart Mix v2 — "why these takes" + manual override. Shows the AI's per-part
+// best-take reasoning; each alternative take is a chip that swaps it into the
+// mix (the board), overriding the AI pick.
+function MixReasoning({ rows, onPickTake }) {
+  if (!rows.length) return null
+  return (
+    <div style={{ marginBottom:16 }}>
+      <p style={{ margin:'0 0 10px', fontSize:11, fontWeight:600, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em' }}>Why these takes</p>
+      <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
+        {rows.map(row => (
+          <div key={row.instrument}>
+            <span style={{ fontSize:12.5, fontWeight:700, color:C.t1, textTransform:'capitalize' }}>{row.instrument}</span>
+            {row.reason && <p style={{ margin:'4px 0 7px', fontSize:12.5, color:C.t2, lineHeight:1.55 }}>{row.reason}</p>}
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop: row.reason ? 0 : 6 }}>
+              {row.takes.map(t => (
+                <button key={t.id}
+                  onClick={() => !t.onBoard && onPickTake(row.instrument, t.id)}
+                  aria-pressed={t.onBoard}
+                  title={t.onBoard ? 'In the mix' : 'Use this take instead'}
+                  style={{ display:'flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:600,
+                    padding:'5px 11px', borderRadius:100, cursor:t.onBoard?'default':'pointer',
+                    border:`1.5px solid ${t.onBoard ? C.coral : C.border}`,
+                    background:t.onBoard ? `${C.coral}1a` : 'transparent',
+                    color:t.onBoard ? C.coral : C.t2, transition:'all .15s' }}>
+                  {t.isBest && <span aria-hidden="true" title="AI pick" style={{ color:t.onBoard ? C.coral : '#f5c97a' }}>★</span>}
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ height:1, background:C.border, margin:'16px 0 0' }}/>
+    </div>
+  )
+}
+
 export default function AIPanel({
   aiAnalysis, smartMixUrl, smartMixInfo,
   smartMixing, mixerStems,
+  allStems, boardIds, onPickTake,
   onGenerateMix, onPlayMix,
   openModal, activeProject,
   activeId, dawExporting, onExportDAW,
 }) {
+  const insightRows = buildInsightRows(aiAnalysis?.version_insights, allStems, boardIds)
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
@@ -72,6 +112,8 @@ export default function AIPanel({
               <div style={{ height:1, background:C.border, margin:'16px 0' }}/>
             </>
           )}
+
+          <MixReasoning rows={insightRows} onPickTake={onPickTake} />
 
           {smartMixUrl ? (
             <div style={{ display:'flex', gap:8 }}>
