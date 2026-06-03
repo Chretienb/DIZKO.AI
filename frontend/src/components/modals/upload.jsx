@@ -8,6 +8,72 @@ export const ROLE_PERMS = {
   Producer:'beats, demos', Engineer:'exports, finals', Mixer:'exports, finals', Collaborator:'anything',
 }
 
+// ── Bulk import helpers (folders + zips) ─────────────────────────────────────
+export const AUDIO_EXTS = ['wav','mp3','aif','aiff','flac','ogg','m4a','aac','mp4','wma','opus']
+
+const extOf      = name => (name || '').split('.').pop()?.toLowerCase() || ''
+export const isAudioName = name => AUDIO_EXTS.includes(extOf(name))
+const baseName   = path => (path || '').split('/').pop() || path
+// Skip OS/zip cruft so a dropped folder or messy zip doesn't queue junk.
+const isJunk     = path => path.startsWith('__MACOSX/') || baseName(path).startsWith('.') || baseName(path) === 'Thumbs.db'
+
+const MIME = { wav:'audio/wav', mp3:'audio/mpeg', flac:'audio/flac', ogg:'audio/ogg',
+  m4a:'audio/mp4', mp4:'audio/mp4', aac:'audio/aac', aif:'audio/aiff', aiff:'audio/aiff',
+  opus:'audio/opus', wma:'audio/x-ms-wma' }
+const mimeFor = name => MIME[extOf(name)] || 'application/octet-stream'
+
+/** Extract the audio entries from a .zip File into File objects. */
+export async function audioFilesFromZip(zipFile) {
+  const { unzip } = await import('fflate')
+  const buf = new Uint8Array(await zipFile.arrayBuffer())
+  const entries = await new Promise((resolve, reject) =>
+    unzip(buf, (err, data) => err ? reject(err) : resolve(data)))
+  const out = []
+  for (const [path, bytes] of Object.entries(entries)) {
+    if (isJunk(path) || !isAudioName(path) || !bytes.length) continue
+    out.push(new File([bytes], baseName(path), { type: mimeFor(path) }))
+  }
+  return out
+}
+
+/** Recursively read a webkit FileSystemEntry (file or directory) → File[]. */
+function readEntry(entry) {
+  return new Promise(resolve => {
+    if (entry.isFile) { entry.file(f => resolve([f]), () => resolve([])); return }
+    if (!entry.isDirectory) { resolve([]); return }
+    const reader = entry.createReader()
+    const acc = []
+    const readBatch = () => reader.readEntries(async batch => {
+      if (!batch.length) resolve((await Promise.all(acc.map(readEntry))).flat())
+      else { acc.push(...batch); readBatch() }
+    }, () => resolve([]))
+    readBatch()
+  })
+}
+
+/** All File objects from a drop, walking any dropped folders. */
+export async function filesFromDataTransfer(dt) {
+  const entries = dt.items ? [...dt.items].map(it => it.webkitGetAsEntry?.()).filter(Boolean) : []
+  if (entries.length) return (await Promise.all(entries.map(readEntry))).flat()
+  return [...(dt.files || [])]
+}
+
+/** Expand any zips and keep only audio. Returns the files + how many were skipped. */
+export async function collectAudioFiles(list) {
+  const out = []
+  let skipped = 0
+  for (const f of Array.from(list || [])) {
+    if (extOf(f.name) === 'zip') {
+      out.push(...await audioFilesFromZip(f).catch(() => []))
+    } else if (isAudioName(f.name)) {
+      out.push(f)
+    } else {
+      skipped++
+    }
+  }
+  return { files: out, skipped }
+}
+
 export const INSTR_LIST = [
   { id:'vocals',    label:'Vocals',     color:'#8b5cf6' },
   { id:'guitar',    label:'Guitar',     color:'#f59e0b' },
