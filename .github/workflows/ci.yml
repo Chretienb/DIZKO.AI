@@ -43,4 +43,4 @@ jobs:
       # Self-contained tests only — auth/health/r2 are integration tests that need
       # a running server + live Supabase/R2 credentials, so they're excluded from CI.
       - name: Unit tests (self-contained)
-        run: bun test src/tests/middleware.test.ts src/tests/rbac.test.ts src/tests/rbacUpload.test.ts src/tests/naming.test.ts src/tests/users.test.ts src/tests/r2Cleanup.test.ts src/tests/exportJobs.test.ts src/tests/redisStore.test.ts src/tests/emailTemplates.test.ts src/tests/smoke.test.ts
+        run: bun test src/tests/middleware.test.ts src/tests/rbac.test.ts src/tests/rbacUpload.test.ts src/tests/naming.test.ts src/tests/users.test.ts src/tests/r2Cleanup.test.ts src/tests/exportJobs.test.ts src/tests/redisStore.test.ts src/tests/emailTemplates.test.ts src/tests/smoke.test.ts src/tests/r2Key.test.ts

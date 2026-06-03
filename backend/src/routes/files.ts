@@ -1,6 +1,6 @@
 import { Hono }         from 'hono'
 import { supabase }     from '../lib/supabase'
-import { uploadToR2, deleteFromR2, getR2SignedUrl } from '../lib/r2'
+import { uploadToR2, deleteFromR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
@@ -465,7 +465,8 @@ files.get('/', async (c) => {
 
   const enriched = await Promise.all(
     (data as any[]).map(async (stem) => {
-      if (stem?.storage_path) stem.file_url = await getR2SignedUrl(stem.storage_path)
+      const key = stem?.storage_path || r2KeyFromUrl(stem?.file_url)
+      if (key) stem.file_url = await getR2SignedUrl(key)
       return stem
     })
   )
