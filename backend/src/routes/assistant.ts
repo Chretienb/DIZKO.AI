@@ -2,11 +2,16 @@ import { Hono }       from 'hono'
 import Anthropic       from '@anthropic-ai/sdk'
 import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
+import { rateLimit }   from '../middleware/rateLimit'
 import { getLatestAnalysis, analyzeProject } from '../lib/aiAnalysis'
 import type { HonoVariables } from '../types'
 
 const assistant = new Hono<{ Variables: HonoVariables }>()
 assistant.use('*', requireAuth)
+
+// Per-user cap on Claude-backed endpoints (cost control + abuse protection).
+// Mounted after requireAuth so the window keys on the user id, not a shared IP.
+const aiLimit = rateLimit({ max: 20, windowMs: 60_000, keyBy: 'user' })
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -31,7 +36,7 @@ assistant.get('/:projectId/analysis', async (c) => {
 })
 
 // ── POST /assistant/:projectId/analyze — force a new analysis ────────────────
-assistant.post('/:projectId/analyze', async (c) => {
+assistant.post('/:projectId/analyze', aiLimit, async (c) => {
   const projectId = c.req.param('projectId')
   const userId    = c.var.user.id
 
@@ -46,7 +51,7 @@ assistant.post('/:projectId/analyze', async (c) => {
   return c.json({ data: analysis })
 })
 
-assistant.post('/:projectId/chat', async (c) => {
+assistant.post('/:projectId/chat', aiLimit, async (c) => {
   const projectId = c.req.param('projectId')
   const userId    = c.var.user.id
 

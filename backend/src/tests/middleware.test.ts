@@ -119,4 +119,32 @@ describe('rateLimit middleware', () => {
     expect(res.status).toBe(429)
     expect(json.error).toContain('Too many requests')
   })
+
+  it("keyBy:'user' limits per user, not per IP", async () => {
+    const app = new Hono()
+    // Simulate requireAuth: stash a user before the limiter runs.
+    const asUser = (id: string) => async (c: any, next: any) => { c.set('user', { id }); await next() }
+    app.get('/u/:id', async (c, next) => asUser(c.req.param('id'))(c, next),
+      rateLimit({ max: 2, windowMs: 60_000, keyBy: 'user' }), (c) => c.json({ ok: true }))
+
+    // Same IP for everyone — only the user id should matter.
+    const ip = { 'x-forwarded-for': '203.0.113.7' }
+    expect((await app.request('/u/alice', {}, ip)).status).toBe(200)
+    expect((await app.request('/u/alice', {}, ip)).status).toBe(200)
+    expect((await app.request('/u/alice', {}, ip)).status).toBe(429) // alice over limit
+
+    // bob shares the IP but has his own window
+    expect((await app.request('/u/bob', {}, ip)).status).toBe(200)
+    expect((await app.request('/u/bob', {}, ip)).status).toBe(200)
+    expect((await app.request('/u/bob', {}, ip)).status).toBe(429)
+  })
+
+  it("keyBy:'user' falls back to IP when unauthenticated", async () => {
+    const app = new Hono()
+    app.get('/anon', rateLimit({ max: 1, windowMs: 60_000, keyBy: 'user' }), (c) => c.json({ ok: true }))
+
+    const ip = { 'x-forwarded-for': '198.51.100.4' }
+    expect((await app.request('/anon', {}, ip)).status).toBe(200)
+    expect((await app.request('/anon', {}, ip)).status).toBe(429)
+  })
 })

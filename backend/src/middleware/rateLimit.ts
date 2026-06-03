@@ -6,19 +6,25 @@ interface Window {
 }
 
 /**
- * Fixed-window rate limiter keyed by IP + scope.
+ * Fixed-window rate limiter keyed by IP (or authenticated user) + scope.
  *
  * Bug that was here before: a single module-level Map was shared across
  * every rateLimit() call, so loginLimit(max=10) and globalLimit(max=300)
  * were counting from the same pool. After 10 normal API requests the
  * login endpoint would 429 every subsequent login attempt.
  *
- * Fix: each rateLimit() call gets its own Map instance. The key is just
- * the IP so windows are per-IP per-limiter — no cross-contamination.
+ * Fix: each rateLimit() call gets its own Map instance. The key is the IP
+ * (default) so windows are per-IP per-limiter — no cross-contamination.
+ *
+ * `keyBy: 'user'` keys on the authenticated user id instead (falling back to
+ * IP for unauthenticated requests). Use it for expensive per-account
+ * endpoints (AI / Replicate) so cost is capped per user, not per shared NAT
+ * IP. Such a limiter must be mounted AFTER requireAuth so `c.var.user` is set.
  */
-export function rateLimit(options?: { max?: number; windowMs?: number }) {
+export function rateLimit(options?: { max?: number; windowMs?: number; keyBy?: 'ip' | 'user' }) {
   const max      = options?.max      ?? 100
   const windowMs = options?.windowMs ?? 60_000
+  const keyBy    = options?.keyBy    ?? 'ip'
 
   // Each middleware instance owns its own store — isolated from other limiters
   const store = new Map<string, Window>()
@@ -40,11 +46,17 @@ export function rateLimit(options?: { max?: number; windowMs?: number }) {
       c.req.header('x-real-ip') ??
       'unknown'
 
+    // Per-user limiters charge the authenticated account; fall back to IP.
+    const userId = keyBy === 'user'
+      ? (c.get('user') as { id?: string } | undefined)?.id
+      : undefined
+    const key = userId ? `u:${userId}` : `ip:${ip}`
+
     const now = Date.now()
-    const win = store.get(ip)
+    const win = store.get(key)
 
     if (!win || now > win.resetAt) {
-      store.set(ip, { count: 1, resetAt: now + windowMs })
+      store.set(key, { count: 1, resetAt: now + windowMs })
     } else {
       win.count++
       if (win.count > max) {
@@ -57,7 +69,7 @@ export function rateLimit(options?: { max?: number; windowMs?: number }) {
     }
 
     c.header('X-RateLimit-Limit',     String(max))
-    c.header('X-RateLimit-Remaining', String(Math.max(0, max - (store.get(ip)?.count ?? 1))))
+    c.header('X-RateLimit-Remaining', String(Math.max(0, max - (store.get(key)?.count ?? 1))))
 
     await next()
   })

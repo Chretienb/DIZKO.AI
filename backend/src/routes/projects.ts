@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
+import { rateLimit } from '../middleware/rateLimit'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { generateStemName } from '../lib/naming'
 import { buildExportZip } from '../lib/dawExport'
@@ -17,6 +18,11 @@ import type { HonoVariables } from '../types'
 const projects = new Hono<{ Variables: HonoVariables }>()
 
 projects.use('*', requireAuth)
+
+// Per-user cap on uploads — each audio upload fans out to AI naming and an
+// automatic Replicate stem-separation, so this guards real cost. Keyed by user
+// (mounted after requireAuth).
+const uploadLimit = rateLimit({ max: 60, windowMs: 60_000, keyBy: 'user' })
 
 // ── GET /projects ─────────────────────────────────────────────────────────────
 // List all projects the authenticated user owns or collaborates on
@@ -485,7 +491,7 @@ projects.get('/:id/files', async (c) => {
 
 // ── POST /projects/:id/files ──────────────────────────────────────────────────
 // Record file metadata AFTER the client has uploaded the file to Supabase Storage
-projects.post('/:id/files', sanitize, async (c) => {
+projects.post('/:id/files', uploadLimit, sanitize, async (c) => {
   const projectId = c.req.param('id')
   const user = c.var.user
   const {
