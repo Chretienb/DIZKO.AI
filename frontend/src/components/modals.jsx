@@ -12,7 +12,7 @@ import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.
 // Shared primitives + upload helpers live in ./modals/* — imported for use here
 // and re-exported below so existing `from './modals.jsx'` imports keep working.
 import { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
-import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
+import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFiles, filesFromDataTransfer } from './modals/upload.jsx'
 
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
@@ -1157,7 +1157,12 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const [requesting,    setRequesting]    = useState(null)
   const [requestSent,   setRequestSent]   = useState(new Set())
   const [myRole,        setMyRole]        = useState(null)  // user's role on the selected project
+  const [skipped,       setSkipped]       = useState(0)     // non-audio files dropped during import
   const inputRef = useRef()
+  const folderRef = useRef()
+
+  // <input webkitdirectory> isn't a standard React prop — set it on the element.
+  useEffect(() => { folderRef.current?.setAttribute('webkitdirectory', '') }, [])
 
   // Fetch user's role on the selected project
   useEffect(() => {
@@ -1187,21 +1192,21 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     if (token) setSupabaseToken(token)
   }, [])
 
-  const MAX_MB = 50
-  const addFiles = raw => {
-    const AUDIO = ['wav','mp3','aif','aiff','flac','ogg','m4a','aac','mp4','wma','opus','zip']
-    const items = Array.from(raw).map(f => {
-      const ext     = f.name.split('.').pop().toLowerCase()
-      const tooBig  = f.size > MAX_MB * 1048576
-      const badType = !AUDIO.includes(ext)
+  const MAX_MB = 200
+  // Accepts loose files, multi-select, dropped folders, and .zip archives —
+  // zips are extracted and folders walked, then filtered to audio (see
+  // collectAudioFiles). Non-audio is skipped silently with a count.
+  const addFiles = async raw => {
+    const { files, skipped } = await collectAudioFiles(raw)
+    if (skipped) setSkipped(s => s + skipped)
+    const items = files.map(f => {
+      const tooBig = f.size > MAX_MB * 1048576
       return {
         file:       f,
         instrument: detectInstrument(f.name),
-        status:     tooBig || badType ? 'error' : 'queued',
+        status:     tooBig ? 'error' : 'queued',
         progress:   0,
-        error:      tooBig  ? `File too large (${(f.size/1048576).toFixed(0)} MB) — free plan limit is ${MAX_MB} MB`
-                  : badType ? `Unsupported format (.${ext})`
-                  : null,
+        error:      tooBig ? `File too large (${(f.size/1048576).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
         url: null,
       }
     })
@@ -1353,27 +1358,45 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       <div
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
-        onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
+        onDrop={async e => { e.preventDefault(); setDrag(false); addFiles(await filesFromDataTransfer(e.dataTransfer)) }}
         onClick={() => inputRef.current.click()}
         style={{
-          borderRadius:14, padding:'34px 20px', textAlign:'center', cursor:'pointer',
-          marginBottom:14, transition:'all .15s',
+          borderRadius:14, padding:'30px 20px', textAlign:'center', cursor:'pointer',
+          marginBottom:10, transition:'all .15s',
           background: drag ? `${C.coral}08` : 'rgba(var(--fg),.03)',
           border: `1.5px dashed ${drag ? C.coral : 'rgba(var(--fg),.1)'}`,
         }}>
         <input ref={inputRef} type="file" multiple
           accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
+        <input ref={folderRef} type="file" multiple
+          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
         <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={drag ? C.coral : 'rgba(var(--fg),.3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:8 }}>
           <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
         </svg>
         <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:500,
           color: drag ? C.coral : 'rgba(var(--fg),.7)' }}>
-          {drag ? 'Drop to upload' : 'Drop files or click to browse'}
+          {drag ? 'Drop to upload' : 'Drop files, a folder, or a .zip — or click to browse'}
         </p>
         <p style={{ margin:0, fontSize:11, color:'rgba(var(--fg),.3)' }}>
-          WAV, MP3, AIFF, FLAC · 50 MB max
+          WAV, MP3, AIFF, FLAC, ZIP · up to {MAX_MB} MB each
         </p>
+      </div>
+
+      {/* Import a folder (separate from the click-to-browse files picker) */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:14 }}>
+        <button onClick={() => folderRef.current?.click()}
+          style={{ display:'flex', alignItems:'center', gap:6, height:30, padding:'0 13px', borderRadius:8,
+            border:'1px solid rgba(var(--fg),.12)', background:'transparent', color:'rgba(var(--fg),.7)',
+            fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Import a folder
+        </button>
+        {skipped > 0 && (
+          <span style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
+            {skipped} non-audio file{skipped !== 1 ? 's' : ''} skipped
+          </span>
+        )}
       </div>
 
       {/* Queue */}
