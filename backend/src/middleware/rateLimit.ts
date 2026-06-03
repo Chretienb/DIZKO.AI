@@ -1,20 +1,18 @@
 import { createMiddleware } from 'hono/factory'
+import { rateHit } from '../lib/redisStore'
 
-interface Window {
-  count: number
-  resetAt: number
-}
+// Each rateLimit() call gets a unique namespace so limiters never share a pool
+// (loginLimit and the global limiter must count independently).
+let _seq = 0
 
 /**
  * Fixed-window rate limiter keyed by IP (or authenticated user) + scope.
  *
- * Bug that was here before: a single module-level Map was shared across
- * every rateLimit() call, so loginLimit(max=10) and globalLimit(max=300)
- * were counting from the same pool. After 10 normal API requests the
- * login endpoint would 429 every subsequent login attempt.
- *
- * Fix: each rateLimit() call gets its own Map instance. The key is the IP
- * (default) so windows are per-IP per-limiter — no cross-contamination.
+ * Windows live in redisStore — shared across instances when REDIS_URL is set,
+ * in-process otherwise (identical to the previous behavior). Keys are
+ * namespaced per limiter instance (`rl:<n>:…`) so there's no cross-contamination
+ * (the bug this once had, where one shared map made the global limiter starve
+ * the login limiter).
  *
  * `keyBy: 'user'` keys on the authenticated user id instead (falling back to
  * IP for unauthenticated requests). Use it for expensive per-account
@@ -25,20 +23,7 @@ export function rateLimit(options?: { max?: number; windowMs?: number; keyBy?: '
   const max      = options?.max      ?? 100
   const windowMs = options?.windowMs ?? 60_000
   const keyBy    = options?.keyBy    ?? 'ip'
-
-  // Each middleware instance owns its own store — isolated from other limiters
-  const store = new Map<string, Window>()
-
-  // Purge expired entries every 5 minutes (memory hygiene)
-  const cleanup = setInterval(() => {
-    const now = Date.now()
-    for (const [key, win] of store.entries()) {
-      if (now > win.resetAt) store.delete(key)
-    }
-  }, 5 * 60_000)
-
-  // Don't prevent process from exiting
-  if (cleanup.unref) cleanup.unref()
+  const ns       = `rl:${_seq++}`
 
   return createMiddleware(async (c, next) => {
     const ip  =
@@ -50,26 +35,20 @@ export function rateLimit(options?: { max?: number; windowMs?: number; keyBy?: '
     const userId = keyBy === 'user'
       ? (c.get('user') as { id?: string } | undefined)?.id
       : undefined
-    const key = userId ? `u:${userId}` : `ip:${ip}`
+    const subject = userId ? `u:${userId}` : `ip:${ip}`
 
-    const now = Date.now()
-    const win = store.get(key)
+    const { count, resetAt } = await rateHit(`${ns}:${subject}`, windowMs)
 
-    if (!win || now > win.resetAt) {
-      store.set(key, { count: 1, resetAt: now + windowMs })
-    } else {
-      win.count++
-      if (win.count > max) {
-        const retryAfter = Math.ceil((win.resetAt - now) / 1000)
-        c.header('Retry-After', String(retryAfter))
-        c.header('X-RateLimit-Limit',     String(max))
-        c.header('X-RateLimit-Remaining', '0')
-        return c.json({ data: null, error: 'Too many requests — please wait a moment', status: 429 }, 429)
-      }
+    if (count > max) {
+      const retryAfter = Math.ceil((resetAt - Date.now()) / 1000)
+      c.header('Retry-After', String(Math.max(0, retryAfter)))
+      c.header('X-RateLimit-Limit',     String(max))
+      c.header('X-RateLimit-Remaining', '0')
+      return c.json({ data: null, error: 'Too many requests — please wait a moment', status: 429 }, 429)
     }
 
     c.header('X-RateLimit-Limit',     String(max))
-    c.header('X-RateLimit-Remaining', String(Math.max(0, max - (store.get(key)?.count ?? 1))))
+    c.header('X-RateLimit-Remaining', String(Math.max(0, max - count)))
 
     await next()
   })

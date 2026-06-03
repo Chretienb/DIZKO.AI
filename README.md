@@ -163,6 +163,10 @@ TICKETMASTER_API_KEY=
 
 # Error monitoring (optional)
 SENTRY_DSN=
+
+# Scaling (optional) — shares rate-limit/JWT/dedup state across instances.
+# Leave blank to run in-memory (single instance).
+REDIS_URL=
 ```
 
 `backend/.env.example` and `frontend/.env.example` list the same keys without values.

@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { createHash } from 'crypto'
+import { kvGet, kvSet } from './redisStore'
 
 const supabaseUrl = process.env.SUPABASE_URL
 // Support both naming conventions
@@ -22,31 +24,26 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // ── JWT cache ─────────────────────────────────────────────────────────────────
 // Supabase tokens expire in 1 hour. Cache verified results for 5 minutes to
 // avoid one round-trip to the Auth API on every authenticated request.
-interface CacheEntry { user: ReturnType<typeof supabase.auth.getUser> extends Promise<infer T> ? T extends { data: { user: infer U } } ? U : never : never; exp: number }
-const _jwtCache = new Map<string, CacheEntry>()
+// Backed by redisStore: shared across instances when REDIS_URL is set,
+// in-process otherwise. The key is a hash of the token (never store raw JWTs).
+type CachedUser = Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']
 const JWT_CACHE_TTL = 5 * 60_000 // 5 minutes
-
-// Purge expired entries every 10 minutes
-setInterval(() => {
-  const now = Date.now()
-  for (const [k, v] of _jwtCache) if (now > v.exp) _jwtCache.delete(k)
-}, 10 * 60_000).unref()
+const jwtKey = (jwt: string) => `jwt:${createHash('sha256').update(jwt).digest('hex')}`
 
 /**
  * Verify a Supabase JWT and return the authenticated user.
- * Results are cached in-process for 5 minutes to eliminate per-request
- * round-trips to the Supabase Auth API (~150–200 ms each).
- * Throws if the token is invalid or expired.
+ * Results are cached for 5 minutes to eliminate per-request round-trips to the
+ * Supabase Auth API (~150–200 ms each). Throws if the token is invalid.
  */
 export async function verifyToken(jwt: string) {
-  const now = Date.now()
-  const hit  = _jwtCache.get(jwt)
-  if (hit && now < hit.exp) return hit.user
+  const key    = jwtKey(jwt)
+  const cached = await kvGet<{ user: CachedUser }>(key)
+  if (cached) return cached.user
 
   const { data, error } = await supabase.auth.getUser(jwt)
   if (error || !data?.user) throw new Error('Invalid or expired token')
 
-  _jwtCache.set(jwt, { user: data.user, exp: now + JWT_CACHE_TTL })
+  await kvSet(key, { user: data.user }, JWT_CACHE_TTL)
   return data.user
 }
 
