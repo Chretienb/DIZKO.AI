@@ -161,6 +161,35 @@ function featureRow(num: string, title: string, desc: string, last = false): str
   </tr>`
 }
 
+// ── Generic transactional notification ───────────────────────────────────────
+// Branded shell for every emailed notification that doesn't have a bespoke
+// template (upload, stems-ready, access requests, …). Keeps the look consistent
+// with the welcome/invite/mix emails instead of the old bare dark box.
+export function notificationEmail(opts: {
+  title:      string
+  body:       string
+  actionUrl?: string | undefined
+  eyebrow?:   string | undefined   // small uppercase label above the title
+  accent?:    string | undefined   // eyebrow + accent color (defaults to coral)
+  cta?:       string | undefined   // button label
+}): string {
+  const link = opts.actionUrl
+    ? (opts.actionUrl.startsWith('http') ? opts.actionUrl : `${APP_URL}${opts.actionUrl}`)
+    : APP_URL
+  const accent  = opts.accent ?? CORAL
+  const eyebrow = opts.eyebrow
+    ? `<p style="margin:0 0 6px;font-family:${FONT};font-size:12px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:0.08em;">${opts.eyebrow}</p>`
+    : ''
+  const body = `
+    ${eyebrow}
+    <h1 style="margin:0 0 14px;font-family:${FONT};font-size:23px;font-weight:900;color:${DARK};letter-spacing:-0.5px;line-height:1.2;">${opts.title}</h1>
+    <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;color:#555;line-height:1.7;">${opts.body}</p>
+    <div style="text-align:center;">
+      ${ctaBtn(opts.cta ?? 'Open Dizko &rarr;', link)}
+    </div>`
+  return shell(body, false)
+}
+
 // ── Welcome ───────────────────────────────────────────────────────────────────
 export function welcomeEmail(opts: {
   name:    string
