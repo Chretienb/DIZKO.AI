@@ -921,6 +921,18 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             aiAnalysis={aiAnalysis}
             smartMixUrl={smartMixUrl} smartMixInfo={smartMixInfo}
             smartMixing={smartMixing} mixerStems={boardStems}
+            allStems={mixerStems} boardIds={boardIds}
+            onPickTake={(instrument, stemId) => {
+              // Manual override: swap this part's take on the board (drives the
+              // mix + export). Remove other takes of the same instrument first.
+              const instr = (instrument || '').toLowerCase()
+              setBoardIds(prev => {
+                const next = new Set(prev)
+                for (const s of mixerStems) if ((s.instrument || '').toLowerCase() === instr) next.delete(s.id)
+                next.add(stemId)
+                return next
+              })
+            }}
             onGenerateMix={async () => {
               if (!activeId || smartMixing) return
               setSmartMixing(true)
