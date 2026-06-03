@@ -502,7 +502,18 @@ projects.get('/:id/files', async (c) => {
     .order('created_at', { ascending: false })
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
-  return c.json({ data: files, error: null, status: 200 })
+
+  // Regenerate a fresh signed URL per stem from its storage_path. The stored
+  // file_url is signed at upload time and R2 signed URLs expire (7 days), so
+  // older stems would otherwise 403 on playback ("Could not load … skipped").
+  const refreshed = await Promise.all((files ?? []).map(async (stem: Record<string, unknown>) => {
+    if (stem.storage_path) {
+      try { stem.file_url = await getR2SignedUrl(stem.storage_path as string) } catch { /* keep stored url */ }
+    }
+    return stem
+  }))
+
+  return c.json({ data: refreshed, error: null, status: 200 })
 })
 
 // ── POST /projects/:id/files ──────────────────────────────────────────────────
