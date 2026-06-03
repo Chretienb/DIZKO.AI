@@ -24,7 +24,6 @@ import NotificationBell from './components/NotificationBell.jsx'
 import { House, UsersThree, BookOpen, ChartBar, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
-import GettingStarted from './components/GettingStarted.jsx'
 import {
   ModalProject, ModalNewProject, ModalAccountSettings, ModalBilling,
   ModalKeyboardShortcuts, ModalInvite, ModalMessage, ModalViewWork,
@@ -560,11 +559,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   }, [])
 
   const CHECKLIST = [
-    { label: 'Create your first project', cta: 'New project', action: () => openModal('new-project', {}) },
-    { label: 'Upload your first stem',    cta: 'Upload',      action: () => openModal('upload', {}) },
-    { label: 'Invite a collaborator',     cta: 'Invite',      action: () => openModal('invite', {}) },
+    { label: 'Create your first project', action: () => openModal('new-project', {}) },
+    { label: 'Upload your first stem',    action: () => openModal('upload', {}) },
+    { label: 'Invite a collaborator',     action: () => openModal('invite', {}) },
   ]
-  const dismissChecklist = () => { localStorage.setItem('dizko_checklist_done', '1'); setChecklistVisible(false) }
 
   // Global keyboard shortcuts — declared here so navigate + openModal are both in scope
   React.useEffect(() => {
@@ -694,9 +692,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
         <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
           paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
-          {checklistVisible && location.pathname === '/' && (
-            <GettingStarted steps={CHECKLIST} done={checklistDone} onDismiss={dismissChecklist} />
-          )}
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
