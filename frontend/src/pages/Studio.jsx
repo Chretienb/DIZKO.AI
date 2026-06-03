@@ -536,23 +536,35 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       // Export exactly the stems on the board (the user's chosen working set)
       const ids = [...boardIds].join(',')
       const qs  = `format=${format}${ids ? `&stem_ids=${encodeURIComponent(ids)}` : ''}`
-      const res = await fetch(`/api/projects/${activeId}/export?${qs}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
-      if (!res.ok) { const j = await res.json().catch(()=>({})); addToast(j.error||'Export failed', 'error'); return }
       const proj = projects.find(p => p.id === activeId)
       const fallbackName = `${(proj?.title||'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`
-      const ct = res.headers.get('content-type') || ''
-      const a = document.createElement('a')
-      if (ct.includes('application/json')) {
-        // New flow: zip lives on R2, download it directly
-        const j = await res.json()
-        a.href = j.data?.url; a.download = j.data?.filename || fallbackName
-      } else {
-        // Fallback: zip streamed in the response body
-        const blob = await res.blob()
-        a.href = URL.createObjectURL(blob); a.download = fallbackName
+      const auth = { Authorization:`Bearer ${getToken()}` }
+
+      // Start an async export job — the heavy build runs server-side so the
+      // request can't time out on large projects.
+      const startRes  = await fetch(`/api/projects/${activeId}/export?${qs}`, { method:'POST', headers:auth })
+      const startJson = await startRes.json().catch(()=>({}))
+      if (!startRes.ok || !startJson.data?.jobId) { addToast(startJson.error||'Export failed', 'error'); return }
+      const jobId = startJson.data.jobId
+
+      // Poll for completion (build → zip → R2 upload), up to ~3 minutes.
+      const deadline = Date.now() + 3*60*1000
+      let result = null
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 1500))
+        const pollRes  = await fetch(`/api/projects/${activeId}/export/${jobId}`, { headers:auth })
+        const pollJson = await pollRes.json().catch(()=>({}))
+        const st = pollJson.data?.status
+        if (st === 'done')  { result = pollJson.data; break }
+        if (st === 'error') { addToast(pollJson.data?.error || 'Export failed', 'error'); return }
+        // 'pending' → keep polling
       }
+      if (!result?.url) { addToast('Export timed out — try again', 'error'); return }
+
+      // Zip lives on R2 — download it directly.
+      const a = document.createElement('a')
+      a.href = result.url; a.download = result.filename || fallbackName
       a.click()
-      if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href)
       addToast('Export ready — check your downloads', 'success')
     } catch (e) { addToast('Export failed: '+e.message, 'error') } finally { setDawExporting(false) }
   }

@@ -108,17 +108,23 @@ manually via `POST /projects/:id/smart-bounce`.
 
 ## 4. Export pipeline (DAW export)
 
-`GET /projects/:id/export?format=…&stem_ids=…`
+**Async, job-based.** `POST /projects/:id/export?format=…&stem_ids=…` starts a
+background build and returns `{ jobId }`; the client polls
+`GET /projects/:id/export/:jobId` until `status` is `done` (with `url` + `filename`)
+or `error`.
 
 - If `stem_ids` is provided (the Studio board selection), exports **exactly those**
   stems; otherwise it auto-selects the latest/best take per part (using Claude's
   analysis when available).
-- Downloads each stem from R2, builds a zip (`lib/dawExport.ts` — includes an Ableton
-  `.als` session, per-stem mix params, and session notes).
-- **The zip is uploaded to R2 and the response is a short-lived signed URL**, not the
-  zip bytes. This was deliberate: streaming a large zip back through the Vercel proxy /
-  gateway hit response timeouts (502 / `ERR_FAILED`). Handing back a URL lets the
-  browser download directly from R2. Falls back to streaming if the R2 upload fails.
+- The background build (`buildExport`) downloads each stem from R2 and builds a zip
+  (`lib/dawExport.ts` — includes an Ableton `.als` session, per-stem mix params, and
+  session notes).
+- **The zip is uploaded to R2 and the job's result is a short-lived signed URL**, not
+  the zip bytes — the browser downloads directly from R2. Decoupling the build from
+  the request (the job runs past the response) is why large exports no longer hit the
+  120s / proxy timeouts (502 / `ERR_FAILED`) that the old synchronous `GET` could.
+- The job registry (`lib/exportJobs.ts`) is in-memory — single-instance for now;
+  moving it to Redis is the multi-instance story (#14).
 
 ---
 
