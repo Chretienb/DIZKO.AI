@@ -1,0 +1,34 @@
+import React, { useState } from 'react'
+import { hasConsented, setConsent } from '../lib/cookieConsent.js'
+
+/**
+ * One-time cookie notice. Dizko only uses an essential auth cookie, so this is
+ * an acknowledgement (not a category-gating consent manager). Shown until the
+ * user accepts; the choice persists in localStorage.
+ */
+export default function CookieConsent() {
+  const [show, setShow] = useState(() => !hasConsented())
+  if (!show) return null
+
+  const accept = () => { setConsent('accepted'); setShow(false) }
+
+  return (
+    <div role="dialog" aria-label="Cookie notice" aria-live="polite"
+      style={{ position:'fixed', left:16, right:16, bottom:16, zIndex:2000,
+        maxWidth:520, margin:'0 auto', display:'flex', alignItems:'center', gap:14,
+        flexWrap:'wrap', justifyContent:'center',
+        background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14,
+        padding:'14px 18px', boxShadow:'0 8px 30px rgba(0,0,0,.25)' }}>
+      <p style={{ margin:0, flex:'1 1 240px', fontSize:13, lineHeight:1.6, color:'var(--t2)' }}>
+        We use an essential cookie to keep you signed in and run the app — no tracking or ads.
+        See our <a href="/cookies" style={{ color:'var(--brand)', fontWeight:600, textDecoration:'none' }}>Cookie Policy</a>.
+      </p>
+      <button onClick={accept} aria-label="Accept and dismiss cookie notice"
+        style={{ flexShrink:0, height:36, padding:'0 20px', borderRadius:9, border:'none',
+          background:'var(--brand)', color:'#fff', fontSize:13, fontWeight:700,
+          cursor:'pointer', fontFamily:'inherit' }}>
+        Got it
+      </button>
+    </div>
+  )
+}
