@@ -681,6 +681,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
+      {/* Keyboard skip link — first focusable element, jumps past the nav rail */}
+      <a href="#main-content" className="sr-only sr-only-focusable">Skip to main content</a>
+
       {/* ══ SIDEBAR — icon rail on both desktop and mobile ═══════════════════ */}
       <aside style={{ width: isMobile ? 52 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
         <SidebarContent />
@@ -689,8 +692,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
-        <div style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
-          paddingBottom: nowPlaying ? 88 : 24 }}>
+        <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
+          paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
           {checklistVisible && location.pathname === '/' && (
             <GettingStarted steps={CHECKLIST} done={checklistDone} onDismiss={dismissChecklist} />
           )}
@@ -707,7 +710,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
-        </div>
+        </main>
 
       </div>
 

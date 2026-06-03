@@ -150,7 +150,7 @@ export default function Onboarding({ onComplete, user }) {
           <>
             {/* Logo */}
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:40 }}>
-              <img src={logo} style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
+              <img src={logo} alt="Dizko" style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
                 boxShadow:`0 0 0 1px rgba(var(--fg),.08), 0 8px 24px rgba(0,0,0,.4), 0 0 40px ${C.coral}25` }} alt=""/>
               <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>
                 Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
@@ -218,7 +218,7 @@ export default function Onboarding({ onComplete, user }) {
           <>
             {/* Logo */}
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:40 }}>
-              <img src={logo} style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
+              <img src={logo} alt="Dizko" style={{ width:52, height:52, borderRadius:16, objectFit:'cover',
                 boxShadow:`0 0 0 1px rgba(var(--fg),.08), 0 8px 24px rgba(0,0,0,.4)` }} alt=""/>
               <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>
                 Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
