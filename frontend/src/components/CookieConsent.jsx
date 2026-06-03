@@ -24,9 +24,11 @@ export default function CookieConsent() {
         <a href="/cookies" style={{ color:'var(--brand)', fontWeight:600, textDecoration:'none' }}>Learn more</a>
       </p>
       <button onClick={accept} aria-label="Accept and dismiss cookie notice"
-        style={{ flexShrink:0, height:36, padding:'0 20px', borderRadius:9, border:'none',
-          background:'var(--brand)', color:'#fff', fontSize:13, fontWeight:700,
-          cursor:'pointer', fontFamily:'inherit' }}>
+        style={{ flexShrink:0, height:34, padding:'0 18px', borderRadius:100, border:'none',
+          background:'var(--t1)', color:'var(--surface)', fontSize:12.5, fontWeight:600,
+          letterSpacing:'-.1px', cursor:'pointer', fontFamily:'inherit', transition:'opacity .15s' }}
+        onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
+        onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
         Got it
       </button>
     </div>
