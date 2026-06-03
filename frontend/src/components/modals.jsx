@@ -1161,7 +1161,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const inputRef = useRef()
   const folderRef = useRef()
 
-  // <input webkitdirectory> isn't a standard React prop — set it on the element.
+  // "Choose folder" needs webkitdirectory, which isn't a standard React prop.
   useEffect(() => { folderRef.current?.setAttribute('webkitdirectory', '') }, [])
 
   // Fetch user's role on the selected project
@@ -1354,14 +1354,13 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       )}
 
 
-      {/* Drop zone */}
+      {/* Drop zone — drag in files/folders/zip, or use the pick buttons */}
       <div
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={async e => { e.preventDefault(); setDrag(false); addFiles(await filesFromDataTransfer(e.dataTransfer)) }}
-        onClick={() => inputRef.current.click()}
         style={{
-          borderRadius:14, padding:'30px 20px', textAlign:'center', cursor:'pointer',
+          borderRadius:14, padding:'28px 20px', textAlign:'center',
           marginBottom:10, transition:'all .15s',
           background: drag ? `${C.coral}08` : 'rgba(var(--fg),.03)',
           border: `1.5px dashed ${drag ? C.coral : 'rgba(var(--fg),.1)'}`,
@@ -1374,30 +1373,32 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={drag ? C.coral : 'rgba(var(--fg),.3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:8 }}>
           <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
         </svg>
-        <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:500,
+        <p style={{ margin:'0 0 12px', fontSize:14, fontWeight:500,
           color: drag ? C.coral : 'rgba(var(--fg),.7)' }}>
-          {drag ? 'Drop to upload' : 'Drop files, a folder, or a .zip — or click to browse'}
+          {drag ? 'Drop to upload' : 'Drag & drop files, a folder, or a .zip'}
         </p>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:10 }}>
+          {[['Choose files', () => inputRef.current?.click()], ['Choose folder', () => folderRef.current?.click()]].map(([label, onClick]) => (
+            <button key={label} onClick={onClick}
+              style={{ height:32, padding:'0 16px', borderRadius:8, border:`1px solid ${C.coral}`,
+                background:'transparent', color:C.coral, fontSize:12.5, fontWeight:600,
+                cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
+              onMouseEnter={e => e.currentTarget.style.background=`${C.coral}12`}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              {label}
+            </button>
+          ))}
+        </div>
         <p style={{ margin:0, fontSize:11, color:'rgba(var(--fg),.3)' }}>
-          WAV, MP3, AIFF, FLAC, ZIP · up to {MAX_MB} MB each
+          WAV, MP3, FLAC, ZIP · up to {MAX_MB} MB each
         </p>
       </div>
 
-      {/* Import a folder (separate from the click-to-browse files picker) */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:14 }}>
-        <button onClick={() => folderRef.current?.click()}
-          style={{ display:'flex', alignItems:'center', gap:6, height:30, padding:'0 13px', borderRadius:8,
-            border:'1px solid rgba(var(--fg),.12)', background:'transparent', color:'rgba(var(--fg),.7)',
-            fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-          Import a folder
-        </button>
-        {skipped > 0 && (
-          <span style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
-            {skipped} non-audio file{skipped !== 1 ? 's' : ''} skipped
-          </span>
-        )}
-      </div>
+      {skipped > 0 && (
+        <p style={{ margin:'0 0 14px', textAlign:'center', fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
+          {skipped} non-audio file{skipped !== 1 ? 's' : ''} skipped
+        </p>
+      )}
 
       {/* Queue */}
       {queue.length > 0 && (
