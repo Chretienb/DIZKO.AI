@@ -5,6 +5,7 @@ import { sanitize } from '../middleware/sanitize'
 import { rateLimit } from '../middleware/rateLimit'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { generateStemName } from '../lib/naming'
+import { getUsersByIds } from '../lib/users'
 import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
@@ -175,24 +176,19 @@ projects.get('/:id/export', async (c) => {
   // Also add owner — they won't have a collaborators row
   emailByUser.set((proj as any).owner_id, null)
 
-  // Pre-resolve display name for every unique uploader in one pass
+  // Pre-resolve display name for every unique uploader in one batched call.
   const uploaderIds = [...new Set(latestTakes.map((s: any) => s.uploaded_by as string))]
+  const profiles    = await getUsersByIds(uploaderIds)
   const nameByUser  = new Map<string, string>()
-  await Promise.all(uploaderIds.map(async (uid) => {
-    try {
-      const { data: au } = await supabase.auth.admin.getUserById(uid)
-      const fullName = au?.user?.user_metadata?.full_name as string | undefined
-      const email    = au?.user?.email ?? emailByUser.get(uid) ?? ''
-      // full_name → email prefix → uid prefix
-      const resolved = fullName?.trim()
-        || (email ? email.split('@')[0] : '')
-        || uid.slice(0, 8)
-      nameByUser.set(uid, resolved)
-    } catch {
-      const email = emailByUser.get(uid) ?? ''
-      nameByUser.set(uid, email ? (email.split('@')[0] ?? uid.slice(0, 8)) : uid.slice(0, 8))
-    }
-  }))
+  for (const uid of uploaderIds) {
+    const p        = profiles.get(uid)
+    const email    = p?.email ?? emailByUser.get(uid) ?? ''
+    // full_name → email prefix → uid prefix
+    const resolved = p?.full_name?.trim()
+      || (email ? email.split('@')[0] : '')
+      || uid.slice(0, 8)
+    nameByUser.set(uid, resolved)
+  }
 
   // BPM and key from stems.notes JSON (set by audio analysis pipeline)
   let projectBpm = 120
@@ -634,26 +630,24 @@ projects.get('/:id/collaborators', async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  // Enrich each collaborator row with the user's name/email via admin API
-  const enriched = await Promise.all(
-    (rows ?? []).map(async (row: Record<string, unknown>) => {
-      if (!row.user_id) {
-        // Pending invite — show email only
-        return { ...row, user: { email: row.email, full_name: null, avatar_url: null } }
-      }
-      const { data: u } = await supabase.auth.admin.getUserById(row.user_id as string)
-      const authUser = u?.user
-      return {
-        ...row,
-        user: {
-          id:        authUser?.id,
-          email:     authUser?.email ?? row.email,
-          full_name:  authUser?.user_metadata?.full_name  ?? null,
-          avatar_url: authUser?.user_metadata?.avatar_url ?? null,
-        },
-      }
-    })
-  )
+  // Enrich each collaborator row with the user's name/email — one batched lookup.
+  const profiles = await getUsersByIds((rows ?? []).map((r: Record<string, unknown>) => r.user_id as string | null))
+  const enriched = (rows ?? []).map((row: Record<string, unknown>) => {
+    if (!row.user_id) {
+      // Pending invite — show email only
+      return { ...row, user: { email: row.email, full_name: null, avatar_url: null } }
+    }
+    const p = profiles.get(row.user_id as string)
+    return {
+      ...row,
+      user: {
+        id:         p?.id,
+        email:      p?.email ?? row.email,
+        full_name:  p?.full_name  ?? null,
+        avatar_url: p?.avatar_url ?? null,
+      },
+    }
+  })
 
   return c.json({ data: enriched, error: null, status: 200 })
 })
