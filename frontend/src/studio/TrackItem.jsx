@@ -72,13 +72,19 @@ export default function TrackItem({
           </div>
         </div>
 
-        {/* Volume */}
+        {/* Volume — slider + live % readout; double-click resets to 100% */}
         {!isMobile && (
           <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:8, flexShrink:0 }}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
             <input type="range" min={0} max={1} step={0.01} value={volume} aria-label={`Volume for ${stemLabel}`}
               onChange={e=>onVolumeChange(s.id, parseFloat(e.target.value))}
+              onDoubleClick={()=>onVolumeChange(s.id, 1)}
+              title="Double-click to reset to 100%"
               style={{ width:56, accentColor:'#333', cursor:'pointer', opacity:isMuted?.3:1 }}/>
+            <span aria-hidden="true" style={{ width:30, textAlign:'right', fontSize:10, fontWeight:700,
+              color:C.t3, fontVariantNumeric:'tabular-nums', opacity:isMuted?.4:1 }}>
+              {Math.round((volume ?? 1) * 100)}%
+            </span>
           </div>
         )}
 

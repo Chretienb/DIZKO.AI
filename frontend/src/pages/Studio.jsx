@@ -5,6 +5,7 @@ import { projects as projectsApi, files as filesApi, smartBounce as smartBounceA
 import { supabase } from '../lib/supabase.js'
 import { Avatar, Btn, Spinner, C } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
+import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import Transport from '../studio/Transport.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
@@ -685,29 +686,35 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // ── Board layout persistence (per user + project) ────────────────────────────
   const boardKey = activeId && user?.id ? `studio_board:${user.id}:${activeId}` : null
 
-  // Load saved layout when project/stems change. First visit → pre-fill with the
-  // latest take of each instrument (sensible default, then the user tweaks).
+  // Load saved layout + per-stem mix settings when project/stems change. First
+  // visit → pre-fill the board with the latest take of each instrument (sensible
+  // default, then the user tweaks).
   useEffect(() => {
     if (!boardKey || loadingStems) return
     setBoardReady(false)
-    let ids
-    try {
-      const raw = localStorage.getItem(boardKey)
-      if (raw) ids = new Set(JSON.parse(raw))
-    } catch {}
-    if (!ids) ids = new Set([...takeMap.values()].map(s => s.id))
-    // Drop any ids that no longer exist as mixer stems
     const valid = new Set(mixerStems.map(s => s.id))
-    setBoardIds(new Set([...ids].filter(id => valid.has(id))))
+    const saved = parseBoard(localStorage.getItem(boardKey), valid)
+
+    setBoardIds(saved
+      ? new Set(saved.board)
+      : new Set([...takeMap.values()].map(s => s.id).filter(id => valid.has(id))))
+    // Restore volume / mute / trim (empty on first visit or a legacy layout).
+    setVolumes(saved?.volumes ?? {})
+    setMutedIds(new Set(saved?.muted ?? []))
+    setTrims(saved?.trims ?? {})
     setBoardReady(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardKey, loadingStems])
 
-  // Persist on every board change (once the saved layout has loaded)
+  // Persist board + per-stem settings on any change (once the layout has loaded).
   useEffect(() => {
     if (!boardKey || !boardReady) return
-    try { localStorage.setItem(boardKey, JSON.stringify([...boardIds])) } catch {}
-  }, [boardKey, boardReady, boardIds])
+    try {
+      localStorage.setItem(boardKey, serializeBoard({
+        board: [...boardIds], volumes, muted: [...mutedIds], trims,
+      }))
+    } catch {}
+  }, [boardKey, boardReady, boardIds, volumes, mutedIds, trims])
 
   const addToBoard = useCallback(id => {
     setBoardIds(prev => (prev.has(id) ? prev : new Set([...prev, id])))
