@@ -101,6 +101,24 @@ bun test src/tests/      # run the test suite
 bun run typecheck        # tsc --noEmit
 ```
 
+### Smoke test (critical path)
+
+`backend/src/scripts/smoke.ts` checks a live deployment's upload → mix → export
+path. Tiered so the default is side-effect-free:
+
+```bash
+cd backend
+SMOKE_BASE_URL=https://app.dizko.ai/api bun run smoke          # health + auth gating
+SMOKE_TOKEN=<jwt> SMOKE_BASE_URL=… bun run smoke               # + authed read checks
+SMOKE_TOKEN=<jwt> SMOKE_BASE_URL=… bun run smoke -- --full     # + full mutating path
+```
+
+`--full` creates a throwaway project, uploads a tiny WAV, runs a smart-bounce,
+starts + polls an export, then deletes the project. It triggers AI naming +
+Replicate stem separation, so it **costs money and writes data** — run it
+deliberately, not on every deploy. Exits non-zero on any failure (usable as a
+deploy gate).
+
 > **Note:** `bun --watch` occasionally fails to register newly-added routes.
 > If a new endpoint 404s in dev, restart the backend.
 
