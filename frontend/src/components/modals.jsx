@@ -1159,10 +1159,6 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const [myRole,        setMyRole]        = useState(null)  // user's role on the selected project
   const [skipped,       setSkipped]       = useState(0)     // non-audio files dropped during import
   const inputRef = useRef()
-  const folderRef = useRef()
-
-  // <input webkitdirectory> isn't a standard React prop — set it on the element.
-  useEffect(() => { folderRef.current?.setAttribute('webkitdirectory', '') }, [])
 
   // Fetch user's role on the selected project
   useEffect(() => {
@@ -1369,8 +1365,6 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         <input ref={inputRef} type="file" multiple
           accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
-        <input ref={folderRef} type="file" multiple
-          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
         <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={drag ? C.coral : 'rgba(var(--fg),.3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:8 }}>
           <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
         </svg>
@@ -1379,27 +1373,15 @@ export function ModalUpload({ project, folderId, onClose, user }) {
           {drag ? 'Drop to upload' : 'Drag & drop, or click to browse'}
         </p>
         <p style={{ margin:0, fontSize:11, color:'rgba(var(--fg),.3)' }}>
-          Audio or a .zip · up to {MAX_MB} MB each
+          Drop files, folders, or a .zip · up to {MAX_MB} MB each
         </p>
       </div>
 
-      {/* Folder picker — drag-drop already takes folders; this is the click path */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:14 }}>
-        <button onClick={() => folderRef.current?.click()}
-          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:0, border:'none',
-            background:'none', color:'rgba(var(--fg),.5)', fontSize:12, fontWeight:500,
-            cursor:'pointer', fontFamily:'inherit', transition:'color .12s' }}
-          onMouseEnter={e => e.currentTarget.style.color=C.coral}
-          onMouseLeave={e => e.currentTarget.style.color='rgba(var(--fg),.5)'}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-          or import a folder
-        </button>
-        {skipped > 0 && (
-          <span style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
-            {skipped} non-audio file{skipped !== 1 ? 's' : ''} skipped
-          </span>
-        )}
-      </div>
+      {skipped > 0 && (
+        <p style={{ margin:'0 0 14px', textAlign:'center', fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
+          {skipped} non-audio file{skipped !== 1 ? 's' : ''} skipped
+        </p>
+      )}
 
       {/* Queue */}
       {queue.length > 0 && (
