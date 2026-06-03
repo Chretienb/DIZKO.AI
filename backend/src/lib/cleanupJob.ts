@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { deleteR2Prefix } from './r2'
+import { runOrphanedObjectCleanup } from './r2Cleanup'
 
 const GRACE_DAYS = 30
 const INTERVAL_MS = 24 * 60 * 60 * 1000 // run once per day
@@ -51,14 +52,20 @@ export async function runCanceledUserCleanup(): Promise<void> {
   }
 }
 
+// Run every maintenance task once, swallowing errors so one failure doesn't
+// skip the others.
+function runAll(): void {
+  runCanceledUserCleanup().catch(e => console.error('[cleanup] canceled-user run error:', e.message))
+  runOrphanedObjectCleanup().catch(e => console.error('[r2-cleanup] run error:', e.message))
+}
+
 export function startCleanupJob(): void {
   // Run once at startup then every 24 hours
-  runCanceledUserCleanup().catch(e => console.error('[cleanup] startup run error:', e.message))
+  runAll()
 
-  const timer = setInterval(() => {
-    runCanceledUserCleanup().catch(e => console.error('[cleanup] interval error:', e.message))
-  }, INTERVAL_MS)
+  const timer = setInterval(runAll, INTERVAL_MS)
 
   if (timer.unref) timer.unref()
-  console.log('  Cleanup job: every 24h — 30-day grace period for canceled users')
+  const mode = process.env.R2_CLEANUP_ENABLED === 'true' ? 'delete' : 'dry-run'
+  console.log(`  Cleanup job: every 24h — canceled-user purge + R2 orphan sweep (${mode})`)
 }

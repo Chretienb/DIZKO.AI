@@ -29,6 +29,26 @@ export async function getR2SignedUrl(key: string, expiresIn = 604800): Promise<s
   return getSignedUrl(r2Client, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
+export interface R2Object { key: string; lastModified?: Date | undefined; size: number }
+
+// List every object under a prefix (paginated). Used by the orphan sweep.
+export async function listR2Objects(prefix: string): Promise<R2Object[]> {
+  const out: R2Object[] = []
+  let token: string | undefined
+
+  do {
+    const list = await r2Client.send(new ListObjectsV2Command({
+      Bucket: BUCKET, Prefix: prefix, ContinuationToken: token,
+    }))
+    for (const o of list.Contents ?? []) {
+      if (o.Key) out.push({ key: o.Key, lastModified: o.LastModified, size: o.Size ?? 0 })
+    }
+    token = list.IsTruncated ? list.NextContinuationToken : undefined
+  } while (token)
+
+  return out
+}
+
 // Delete all objects under a prefix (e.g. all files for a user)
 export async function deleteR2Prefix(prefix: string): Promise<number> {
   let deleted = 0
