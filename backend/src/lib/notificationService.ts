@@ -16,6 +16,7 @@
 import webpush        from 'web-push'
 import { supabase }   from './supabase'
 import { firstSeen }  from './redisStore'
+import { notificationEmail } from './emailTemplates'
 
 // ── VAPID setup ───────────────────────────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || ''
@@ -60,17 +61,22 @@ const EMAIL_BY_DEFAULT: Record<string, boolean> = {
   stems_ready: true,
 }
 
-// Minimal branded HTML for auto-generated emails (when no custom template given).
-function defaultEmailHtml(title: string, body: string, actionUrl?: string): string {
-  const base = process.env.FRONTEND_ORIGIN || 'https://dizko.ai'
-  const link = actionUrl ? (actionUrl.startsWith('http') ? actionUrl : `${base}${actionUrl}`) : base
-  return `<!DOCTYPE html><html><body style="margin:0;background:#0e0e11;font-family:-apple-system,Segoe UI,sans-serif;padding:32px">
-    <div style="max-width:440px;margin:0 auto;background:#16161e;border-radius:16px;padding:28px;color:#f1f1f3">
-      <div style="font-size:18px;font-weight:800;margin-bottom:8px">${title}</div>
-      <div style="font-size:14px;line-height:1.6;color:#b8b8c4;margin-bottom:22px">${body}</div>
-      <a href="${link}" style="display:inline-block;background:#F4937A;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 22px;border-radius:10px">Open Dizko</a>
-      <div style="font-size:11px;color:#6b6b78;margin-top:24px">You're receiving this because you're part of a Dizko project.</div>
-    </div></body></html>`
+// Per-type presentation for the branded notification email (eyebrow label,
+// accent color, CTA). Types without an entry fall back to a neutral coral card.
+const EMAIL_STYLE: Record<string, { eyebrow: string; accent: string; cta?: string }> = {
+  upload:         { eyebrow: 'New upload',  accent: '#F4937A', cta: 'Open the session &rarr;' },
+  mix_ready:      { eyebrow: 'Mix updated', accent: '#16a34a', cta: 'Listen now &rarr;' },
+  stems_ready:    { eyebrow: 'Stems ready', accent: '#16a34a', cta: 'Open the session &rarr;' },
+  invite:         { eyebrow: 'Invitation',  accent: '#F4937A', cta: 'View invite &rarr;' },
+  message:        { eyebrow: 'New message', accent: '#F4937A', cta: 'Reply &rarr;' },
+  access_request: { eyebrow: 'Access request', accent: '#F4937A', cta: 'Review request &rarr;' },
+  access_granted: { eyebrow: 'Access granted', accent: '#16a34a', cta: 'Open the project &rarr;' },
+}
+
+// Branded HTML for an auto-generated notification email (when no custom template
+// is supplied). Shares the welcome/invite/mix shell so every type looks the same.
+function brandedEmailHtml(type: string, title: string, body: string, actionUrl?: string): string {
+  return notificationEmail({ title, body, actionUrl, ...(EMAIL_STYLE[type] ?? {}) })
 }
 
 // ── Dedup store (in-memory; good enough for single-process; use Redis in prod) ──
@@ -92,7 +98,7 @@ export async function notify(payload: NotifPayload): Promise<void> {
 
   // Email if the caller opted in OR this is a high-value type that emails by default.
   const sendMail = payload.email ?? (EMAIL_BY_DEFAULT[type] ?? false)
-  const html     = emailHtml ?? defaultEmailHtml(title, body, actionUrl)
+  const html     = emailHtml ?? brandedEmailHtml(type, title, body, actionUrl)
 
   await Promise.all(
     recipientIds.map(async (userId) => {
