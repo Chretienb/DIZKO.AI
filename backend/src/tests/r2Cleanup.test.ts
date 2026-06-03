@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'bun:test'
-import { findOrphans } from '../lib/r2Cleanup'
+import { describe, it, expect, mock } from 'bun:test'
+
+// r2Cleanup.ts imports ../lib/supabase, whose module init throws when
+// SUPABASE_URL / SERVICE_KEY are unset (as in CI). Stub it before import — this
+// suite only exercises the pure findOrphans core, which never touches it.
+mock.module('../lib/supabase', () => ({ supabase: {} }))
+
+const { findOrphans } = await import('../lib/r2Cleanup')
 import type { R2Object } from '../lib/r2'
 
 // findOrphans is the pure decision core of the R2 orphan sweep: an object is an
