@@ -2,6 +2,7 @@ import { Hono }         from 'hono'
 import { supabase }     from '../lib/supabase'
 import { uploadToR2, deleteFromR2, getR2SignedUrl } from '../lib/r2'
 import { requireAuth }  from '../middleware/auth'
+import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { runSmartBounce } from '../lib/smartBounce'
@@ -14,6 +15,12 @@ import type { HonoVariables } from '../types'
 
 const files = new Hono<{ Variables: HonoVariables }>()
 files.use('*', requireAuth)
+
+// Per-user caps on the cost-bearing endpoints (mounted after requireAuth, so
+// the window keys on user id). Uploads fan out to AI naming + audio analysis;
+// stem separation calls Replicate (the most expensive op).
+const uploadLimit    = rateLimit({ max: 60, windowMs: 60_000, keyBy: 'user' })
+const replicateLimit = rateLimit({ max: 8,  windowMs: 60_000, keyBy: 'user' })
 
 const MAX_FILE_BYTES = 500 * 1024 * 1024 // 500 MB hard server limit
 
@@ -47,7 +54,7 @@ function detectInstrument(filename: string): string {
 // ── POST /files/upload ─────────────────────────────────────────────────────────
 // Accepts any audio file, saves it to the session, analyzes BPM/key,
 // then triggers a Smart Mix update. Stem separation is NOT automatic.
-files.post('/upload', async (c) => {
+files.post('/upload', uploadLimit, async (c) => {
   const user = c.var.user
 
   let formData: FormData
@@ -282,7 +289,7 @@ async function buildSuggestedName(
 // ── POST /files/:id/separate-stems ────────────────────────────────────────────
 // User-triggered stem separation via Replicate's hosted Demucs GPU.
 // Passes the file's public URL directly — no local download needed.
-files.post('/:id/separate-stems', async (c) => {
+files.post('/:id/separate-stems', replicateLimit, async (c) => {
   const user   = c.var.user
   const takeId = c.req.param('id')
 
