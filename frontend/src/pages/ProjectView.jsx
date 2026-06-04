@@ -194,7 +194,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
   const selVNum = selectedFile ? parseVersionNum(selectedFile.original_name || selectedFile.suggested_name) : null
   const versionLabel = (n) => n === 4 ? 'Final take' : n === 3 ? 'Pre-mix' : n === 2 ? 'Studio' : n === 1 ? 'Early draft' : 'Version'
-  const playerNotes  = playerFile ? parseNotes(playerFile) : {}
 
   // Cover upload hooks — declared before any early return (Rules of Hooks)
   const coverInput = useRef(null)
@@ -502,42 +501,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
         </div>
 
-        {/* Audio Player */}
-        {playerFile && (
-          <div style={{ background:'var(--surface)', borderBottom:S.border, padding: isMobile ? '12px 16px' : '14px 24px', display:'flex', alignItems:'center', gap:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-              <button style={{ width:30, height:30, borderRadius:'50%', border:S.border, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)' }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="19,20 9,12 19,4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
-              </button>
-              <button onClick={() => { setIsPlaying(!isPlaying); playTrack(playerFile, parentFiles) }}
-                style={{ width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer', background:'#E95A51', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 4px 12px rgba(233,90,81,.35)', transition:'opacity .1s' }}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                {isPlaying
-                  ? <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  : <svg width={12} height={12} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>}
-              </button>
-              <button style={{ width:30, height:30, borderRadius:'50%', border:S.border, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)' }}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="5,4 15,12 5,20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-              </button>
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {project?.title} — {playerFile.suggested_name || playerFile.original_name || 'Untitled'}
-              </div>
-              <div style={{ fontSize:11, color:'var(--t3)', marginBottom:8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {playerFile.original_name || playerFile.suggested_name}
-              </div>
-              <div style={{ position:'relative', height:4, borderRadius:2, background:'var(--border)', cursor:'pointer' }}>
-                <div style={{ height:'100%', borderRadius:2, width:'38%', background:'#E95A51' }}/>
-                <div style={{ position:'absolute', top:'50%', left:'38%', transform:'translate(-50%,-50%)', width:12, height:12, borderRadius:'50%', background:'#E95A51', boxShadow:'0 0 6px rgba(233,90,81,.5)' }}/>
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
-                <span style={{ fontSize:10.5, color:'var(--t4)' }}>1:28</span>
-                <span style={{ fontSize:10.5, color:'var(--t4)' }}>{fmtDur(playerNotes.duration) || '3:58'}</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* The inline player here was a non-functional mockup (hard-coded 38%
+            progress + "1:28"). Removed — playback runs through the bottom
+            MiniPlayer via playTrack(), which is the real, working player. */}
 
         {/* Stem Sections */}
         <div style={{ padding: isMobile ? '16px' : '16px 24px', display:'flex', flexDirection:'column', gap:18 }}>
