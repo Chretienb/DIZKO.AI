@@ -336,6 +336,13 @@ export const foldersApi = {
   moveFile: (stemId, folderId)   => patch('/folders/move-file', { stem_id: stemId, folder_id: folderId }),
 }
 
+// ── Stem comments ─────────────────────────────────────────────────────────────
+export const stemCommentsApi = {
+  // request() directly (not cached get) so new comments show immediately.
+  list: (stemId)       => request('GET', `/stem-comments/${stemId}`),
+  add:  (stemId, body) => post(`/stem-comments/${stemId}`, body),
+}
+
 // ── YouTube Analytics ─────────────────────────────────────────────────────────
 export const youtubeApi = {
   connect:    () => get('/youtube/connect'),
