@@ -11,6 +11,7 @@ import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
+import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import { execSync } from 'child_process'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -279,6 +280,11 @@ projects.post('/:id/export', async (c) => {
   if ((proj as any).owner_id !== userId && !collabRow)
     return c.json({ error: 'Access denied' }, 403)
 
+  // Output is gated: exporting the master requires a subscription. The owner
+  // qualifies (they created it); a free collaborator can't walk off with it.
+  const ent = await getCreatorEntitlement(userId)
+  if (!ent.entitled) return c.json(subscriptionRequired('export'), 402)
+
   const job = createExportJob(userId)
   // Build in the background; the client polls the status endpoint below.
   buildExport(projectId, proj as { title: string; owner_id: string }, format, boardIds)
@@ -362,6 +368,11 @@ projects.post('/', sanitize, async (c) => {
   if (!title) {
     return c.json({ data: null, error: 'title is required', status: 400 }, 400)
   }
+
+  // Owner-pays: creating your own project requires an active subscription.
+  // Invitees collaborate free, but can't spin up their own projects for free.
+  const ent = await getCreatorEntitlement(c.var.user.id)
+  if (!ent.entitled) return c.json(subscriptionRequired('create a project'), 402)
 
   const { data, error } = await supabase
     .from('projects')
@@ -697,6 +708,18 @@ projects.post('/:id/collaborators', sanitize, async (c) => {
   if (!email) {
     return c.json({ data: null, error: 'email is required', status: 400 }, 400)
   }
+
+  // Only the project owner may add collaborators — otherwise anyone could add
+  // themselves (as 'active') to any project.
+  const { data: ownerProj } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  if (!ownerProj) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+  if ((ownerProj as any).owner_id !== user.id)
+    return c.json({ data: null, error: 'Only the project owner can add collaborators', status: 403 }, 403)
+
+  // Owner-pays: building a team requires an active subscription.
+  const ent = await getCreatorEntitlement(user.id)
+  if (!ent.entitled) return c.json(subscriptionRequired('invite collaborators'), 402)
 
   const { data: existingUsers } = await supabase
     .from('users')
