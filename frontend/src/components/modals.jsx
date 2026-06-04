@@ -1236,10 +1236,22 @@ export function ModalUpload({ project, folderId, onClose, user }) {
           analysis = await analyzeFile(updated[i].file)
         } catch {}
 
-        const uploadRes = await filesApi.upload(updated[i].file, selProj.id, {
-          instrument: updated[i].instrument || undefined,
-          ...(analysis ? { analysis: JSON.stringify(analysis) } : {}),
-        })
+        // Retry transient network failures — a single dropped request shouldn't
+        // permanently fail a stem ("NetworkError when attempting to fetch resource").
+        const isRetryable = (m='') => /NetworkError|Failed to fetch|fetch|timeout|network|HTTP 5\d\d/i.test(m)
+        let uploadRes
+        for (let attempt = 1; ; attempt++) {
+          try {
+            uploadRes = await filesApi.upload(updated[i].file, selProj.id, {
+              instrument: updated[i].instrument || undefined,
+              ...(analysis ? { analysis: JSON.stringify(analysis) } : {}),
+            })
+            break
+          } catch (e) {
+            if (attempt >= 3 || !isRetryable(e?.message)) throw e
+            await new Promise(r => setTimeout(r, 500 * attempt))   // backoff, then retry
+          }
+        }
         // Assign stem to the selected song folder (await so folder_id is set before reload)
         if (folderId && uploadRes?.data?.id) {
           await foldersApi.moveFile(uploadRes.data.id, folderId).catch(() => {})
