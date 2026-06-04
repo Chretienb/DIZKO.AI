@@ -72,16 +72,20 @@ export const Spinner = React.memo(function Spinner({ size = 20, color }) {
   )
 })
 
-export const Btn = React.memo(function Btn({ children, onClick, style={}, variant='primary' }) {
-  const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', transition:'opacity .15s', ...style }
+export const Btn = React.memo(function Btn({ children, onClick, style={}, variant='primary', disabled=false }) {
+  const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, transition:'opacity .15s', ...style }
   const vars = {
     primary: { background:C.grad, color:'#fff', boxShadow:`0 4px 14px ${C.coral}40` },
     ghost:   { background:'rgba(0,0,0,.05)', color:'#444' },
     danger:  { background:'rgba(239,68,68,.1)', color:'#ef4444' },
   }
-  return <button onClick={onClick} style={{ ...base, ...vars[variant] }}
-    onMouseEnter={e => e.currentTarget.style.opacity='.88'}
-    onMouseLeave={e => e.currentTarget.style.opacity='1'}>{children}</button>
+  // Honor `disabled` — previously ignored, so disabled buttons stayed clickable.
+  return <button onClick={onClick} disabled={disabled}
+    style={{ ...base, ...vars[variant],
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? .5 : (base.opacity ?? 1) }}
+    onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity='.88' }}
+    onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity='1' }}>{children}</button>
 })
 
 export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
