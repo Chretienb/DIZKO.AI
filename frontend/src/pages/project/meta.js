@@ -6,11 +6,13 @@ export function fmtDur(secs) {
   if (!secs) return null
   return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`
 }
+// Decimal units (1 MB = 1,000,000 bytes) to match what macOS/Windows report,
+// so a file the OS calls 31.6 MB isn't shown as 30.1 — the bytes are unchanged.
 export function fmtSize(b) {
   if (!b) return null
-  if (b >= 1_073_741_824) return `${(b / 1_073_741_824).toFixed(1)} GB`
-  if (b >= 1_048_576)     return `${(b / 1_048_576).toFixed(1)} MB`
-  if (b >= 1024)          return `${(b / 1024).toFixed(0)} KB`
+  if (b >= 1_000_000_000) return `${(b / 1_000_000_000).toFixed(1)} GB`
+  if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(1)} MB`
+  if (b >= 1000)          return `${(b / 1000).toFixed(0)} KB`
   return `${b} B`
 }
 export function parseNotes(f) {
