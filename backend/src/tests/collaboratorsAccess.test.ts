@@ -34,7 +34,9 @@ mock.module('../lib/supabase', () => ({
     },
   },
 }))
-mock.module('../lib/users', () => ({ getUsersByIds: async () => new Map() }))
+// NOTE: deliberately do NOT mock ../lib/users — the PATCH route never calls it,
+// and bun's mock.module is process-global, so a stub here would leak into
+// users.test.ts when the whole suite runs in one process.
 
 const collaborators = (await import('../routes/collaborators')).default
 
