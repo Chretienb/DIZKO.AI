@@ -668,7 +668,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
       {/* ══ RIGHT PANEL ══════════════════════════════════════════════════════ */}
       {!isMobile && (
-        <div style={{ width:210, background:'var(--surface)', borderLeft:S.border, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
+        <div style={{ width:256, background:'var(--surface)', borderLeft:S.border, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
 
           {/* Selected Stem */}
           <div style={{ borderBottom:S.border }}>
@@ -693,18 +693,24 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     Auto-analyzed
                   </span>
                 </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
                   {[
                     { label:'Format',      val: selExt },
                     { label:'Sample rate', val: selectedFile.instrument === 'vocals' ? '48kHz' : '44.1kHz' },
                     { label:'Bit depth',   val: '24-bit' },
                     ...(selNotes.duration ? [{ label:'Duration', val: fmtDur(selNotes.duration) }] : []),
                     ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
-                    ...(selectedFile.original_name ? [{ label:'Source file', val: selectedFile.original_name }] : []),
-                  ].map(row => (
-                    <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                    ...(selectedFile.original_name ? [{ label:'Source file', val: selectedFile.original_name, stack:true }] : []),
+                  ].map(row => row.stack ? (
+                    // Long values (file paths) get their own line so they don't squish.
+                    <div key={row.label} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                      <span style={{ fontSize:11, color:'var(--t3)' }}>{row.label}</span>
+                      <span title={row.val} style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', wordBreak:'break-word' }}>{row.val}</span>
+                    </div>
+                  ) : (
+                    <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
                       <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>{row.label}</span>
-                      <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', wordBreak:'break-all' }}>{row.val}</span>
+                      <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right' }}>{row.val}</span>
                     </div>
                   ))}
                 </div>
@@ -778,30 +784,30 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
                 const isPending = collab.status === 'pending'
+                const showApproval = isOwner && isPending
+                const showMessage  = !isSelf && !isPending
+                const showRemove   = isOwner && !isOwnerEntry && !isSelf && !isPending
+                const hasActions   = showApproval || showMessage || showRemove
+                const aBtn = { flex:1, height:26, borderRadius:7, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }
                 return (
-                  <div key={collab.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
+                  <div key={collab.id} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'11px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
                     <div style={{ width:30, height:30, borderRadius:'50%', background:`${clr}15`, border:`1.5px solid ${clr}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
-                      {isPending
-                        ? <span style={{ fontSize:9.5, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.1)', border:'1px solid rgba(234,159,30,.22)', padding:'1px 6px', borderRadius:20 }}>Wants to join</span>
-                        : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 6px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
-                    </div>
-                    <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                      {isOwner && isPending ? (
-                        <>
-                          <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:24, padding:'0 9px', borderRadius:6, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:10.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
-                          <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Decline</button>
-                        </>
-                      ) : (
-                        <>
-                          {!isSelf && !isPending && (
-                            <button onClick={() => setMsgCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:S.border, background:'transparent', color:'var(--t3)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>
-                          )}
-                          {isOwner && !isOwnerEntry && !isSelf && (
-                            <button onClick={() => setRemCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Remove</button>
-                          )}
-                        </>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
+                      <div style={{ marginTop:4 }}>
+                        {isPending
+                          ? <span style={{ fontSize:9.5, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.1)', border:'1px solid rgba(234,159,30,.22)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
+                          : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                      </div>
+                      {hasActions && (
+                        <div style={{ display:'flex', gap:6, marginTop:9 }}>
+                          {showApproval && <>
+                            <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', fontWeight:800, opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                            <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Decline</button>
+                          </>}
+                          {showMessage && <button onClick={() => setMsgCollab(collab)} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t2)' }}>Message</button>}
+                          {showRemove  && <button onClick={() => setRemCollab(collab)} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Remove</button>}
+                        </div>
                       )}
                     </div>
                   </div>
