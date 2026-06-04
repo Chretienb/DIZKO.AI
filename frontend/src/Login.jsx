@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import logo   from './assets/logo.png'
 import studio from './assets/studio2.png'
-import { auth, setToken, setRefreshToken } from './lib/api'
+import { auth, setToken, setRefreshToken, publicApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
 
@@ -93,8 +93,10 @@ export default function Login({ onLogin }) {
   const params      = new URLSearchParams(window.location.search)
   const inviteEmail = params.get('email') || ''
   const isInvite    = params.get('invite') === '1'
+  // Arrived from a collab-invite link (?join=1) → default to signup; intent stored in localStorage.
+  const isJoin      = params.get('join') === '1'
 
-  const [tab, setTab]              = useState(isInvite ? 'signup' : 'signin')
+  const [tab, setTab]              = useState(isInvite || isJoin ? 'signup' : 'signin')
   const [name, setName]            = useState('')
   const [email, setEmail]          = useState(inviteEmail)
   const [password, setPass]        = useState('')
@@ -125,6 +127,11 @@ export default function Login({ onLogin }) {
         : await auth.login(email, password)
       setToken(res.data.session.access_token)
       setRefreshToken(res.data.session.refresh_token)
+      // Fire a queued collab-join request (set when they scanned a public pitch link).
+      try {
+        const joinId = localStorage.getItem('dizko_join_intent')
+        if (joinId) { localStorage.removeItem('dizko_join_intent'); await publicApi.requestJoin(joinId) }
+      } catch {}
       const fullName = res.data.user?.user_metadata?.full_name ?? ''
       onLogin(fullName, isNewUser, { ...res.data.user, avatar_url: res.data.user?.user_metadata?.avatar_url })
     } catch (err) {

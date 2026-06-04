@@ -9,9 +9,10 @@ export default [
   {
     ignores: [
       'dist',
-      // Auth / legal / splash screens keep a fixed dark look by design.
+      // Auth / legal / splash / public-share screens keep a fixed dark look by design.
       'src/Login.jsx', 'src/Onboarding.jsx', 'src/Welcome.jsx', 'src/Splash.jsx',
       'src/Terms.jsx', 'src/Privacy.jsx', 'src/ResetPassword.jsx', 'src/pages/Legal.jsx',
+      'src/PublicPitch.jsx',
       'src/stories/**', '**/*.stories.{js,jsx}', 'eslint-rules/**',
     ],
   },

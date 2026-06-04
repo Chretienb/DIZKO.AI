@@ -14,6 +14,7 @@ import Onboarding    from './Onboarding.jsx'
 import ResetPassword from './ResetPassword.jsx'
 import { TermsPage as Terms, PrivacyPage as Privacy, CookiesPage } from './pages/Legal.jsx'
 import CookieConsent from './components/CookieConsent.jsx'
+import PublicPitch from './PublicPitch.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
 import { ThemeProvider } from './lib/theme.jsx'
@@ -183,6 +184,7 @@ function Root() {
       <Route path="/privacy"        element={<Privacy />} />
       <Route path="/terms"          element={<Terms />} />
       <Route path="/cookies"        element={<CookiesPage />} />
+      <Route path="/p/:id"          element={<PublicPitch />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />

@@ -3,27 +3,39 @@ import QRCode from 'qrcode'
 import { toPng } from 'html-to-image'
 import ShareCard from './ShareCard.jsx'
 import { deriveHandle, cardDate, cardFilename } from './shareCardData.js'
+import { projects } from '../../lib/api'
 
 const SITE = 'https://dizko.ai'
 
 export default function ShareCardModal({ project, user, onClose }) {
-  const [headline, setHeadline] = useState('make this with me ✶')
-  const [role, setRole]         = useState('')
-  const [qr, setQr]             = useState(null)
-  const [busy, setBusy]         = useState(false)
-  const [err, setErr]           = useState(null)
+  const [headline, setHeadline]  = useState('make this with me ✶')
+  const [role, setRole]          = useState('')
+  const [qr, setQr]              = useState(null)
+  const [busy, setBusy]          = useState(false)
+  const [err, setErr]            = useState(null)
+  const [isPublic, setIsPublic]  = useState(!!project?.is_public)
+  const [toggling, setToggling]  = useState(false)
   const cardRef = useRef(null)
 
   const handle = deriveHandle(user)
-  // v1: QR + URL point at the site. Once the public pitch page + handles ship,
-  // swap this for the project's public deep link.
-  const url    = SITE
+  // QR holds the real deep link to the public pitch page; the card prints the short
+  // brand URL. The link only resolves while the project is public (toggle below).
+  const qrUrl = `${SITE}/p/${project?.id}`
 
   // Build the QR once.
   useEffect(() => {
-    QRCode.toDataURL(url, { margin: 1, width: 180, color: { dark: '#0b0b10', light: '#00000000' } })
+    QRCode.toDataURL(qrUrl, { margin: 1, width: 180, color: { dark: '#0b0b10', light: '#00000000' } })
       .then(setQr).catch(() => setQr(null))
-  }, [url])
+  }, [qrUrl])
+
+  // Flip the project's public flag so the scanned link actually resolves.
+  const togglePublic = async () => {
+    const next = !isPublic
+    setIsPublic(next); setToggling(true); setErr(null)
+    try { await projects.update(project.id, { is_public: next }) }
+    catch (e) { setIsPublic(!next); setErr('Could not update sharing. Try again.') }
+    setToggling(false)
+  }
 
   // Render the card node to a 1080×1920 PNG (360×640 @ pixelRatio 3).
   const render = async () => {
@@ -90,7 +102,7 @@ export default function ShareCardModal({ project, user, onClose }) {
                 headline={headline}
                 role={role.trim() || undefined}
                 handle={handle}
-                url={url.replace('https://', '')}
+                url="dizko.ai"
                 qrDataUrl={qr}
                 date={cardDate()} />
             </div>
@@ -106,6 +118,22 @@ export default function ShareCardModal({ project, user, onClose }) {
               <label style={{ display:'block', fontSize:11.5, fontWeight:600, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>Looking for (optional)</label>
               <input value={role} maxLength={22} onChange={e => setRole(e.target.value)} placeholder="🎤 vocals" style={field} />
             </div>
+
+            {/* Public link toggle — the QR only works while this is on. */}
+            <button onClick={togglePublic} disabled={toggling}
+              style={{ display:'flex', alignItems:'center', gap:10, textAlign:'left', padding:'10px 12px', borderRadius:10,
+                border:`1.5px solid ${isPublic ? '#E95A51' : 'var(--border)'}`, background:'var(--surface-2)', cursor: toggling?'default':'pointer', fontFamily:'inherit' }}>
+              <span style={{ width:34, height:20, borderRadius:999, flexShrink:0, position:'relative', transition:'background .15s',
+                background: isPublic ? '#E95A51' : 'var(--border)' }}>
+                <span style={{ position:'absolute', top:2, left: isPublic?16:2, width:16, height:16, borderRadius:999, background:'#fff', transition:'left .15s' }} />
+              </span>
+              <span>
+                <span style={{ display:'block', fontSize:12.5, fontWeight:700, color:'var(--t1)' }}>Anyone with the link can request to join</span>
+                <span style={{ display:'block', fontSize:11, color:'var(--t3)', marginTop:1 }}>
+                  {isPublic ? 'Link is live — you approve each request.' : 'Turn on so the QR code works.'}
+                </span>
+              </span>
+            </button>
 
             {err && <div style={{ fontSize:12, color:'#ef4444' }}>{err}</div>}
 
