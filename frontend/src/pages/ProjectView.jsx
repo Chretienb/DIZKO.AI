@@ -438,17 +438,17 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             {/* Action buttons */}
             <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, paddingTop:4 }}>
               <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })}
-                style={{ height:36, padding:'0 14px', borderRadius:9, border:S.border, background:'var(--surface)', color:'var(--t1)', fontSize:13, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s' }}
-                onMouseEnter={e=>e.currentTarget.style.background='var(--bg)'}
-                onMouseLeave={e=>e.currentTarget.style.background='var(--surface)'}>
-                <svg width={12} height={12} viewBox="0 0 13 13" fill="none"><path d="M6.5 8.5V1.5m-3 2.5L6.5 1l3 3" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/><path d="M1.5 10v1.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V10" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/></svg>
+                style={{ height:36, padding:'0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
+                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
                 Upload
               </button>
               <button onClick={() => setShareOpen(true)} title="Make a share card"
-                style={{ height:36, padding:'0 14px', borderRadius:9, border:S.border, background:'var(--surface)', color:'var(--t1)', fontSize:13, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s' }}
-                onMouseEnter={e=>e.currentTarget.style.background='var(--bg)'}
-                onMouseLeave={e=>e.currentTarget.style.background='var(--surface)'}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+                style={{ height:36, padding:'0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
+                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
                 Share
               </button>
               <button onClick={() => navigate('/studio')}

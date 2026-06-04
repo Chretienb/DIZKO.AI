@@ -1322,7 +1322,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const queued = queue.filter(f => f.status === 'queued').length
 
   return (
-    <Modal title="Upload Files" sub={selProj?.title || undefined} onClose={onClose}>
+    <Modal title="Upload stems" sub={selProj?.title || undefined} onClose={onClose}>
 
       {/* Song indicator — shows which song files will land in */}
       {folderId && selProj && (
@@ -1366,44 +1366,50 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       )}
 
 
-      {/* Drop zone — drag in files/folders/zip, or use the pick buttons */}
+      {/* Drop zone — one clickable surface (click = choose files); folders & zips
+          drag in, or use the quiet "import a folder" link. */}
       <div
+        onClick={() => inputRef.current?.click()}
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={async e => { e.preventDefault(); setDrag(false); addFiles(await filesFromDataTransfer(e.dataTransfer)) }}
         style={{
-          borderRadius:14, padding:'28px 20px', textAlign:'center',
+          borderRadius:16, padding:'36px 24px', textAlign:'center', cursor:'pointer',
           marginBottom:10, transition:'all .15s',
-          background: drag ? `${C.coral}08` : 'rgba(var(--fg),.03)',
-          border: `1.5px dashed ${drag ? C.coral : 'rgba(var(--fg),.1)'}`,
-        }}>
+          background: drag ? `${C.coral}0f` : 'rgba(var(--fg),.025)',
+          border: `1.5px dashed ${drag ? C.coral : 'rgba(var(--fg),.12)'}`,
+        }}
+        onMouseEnter={e => { if (!drag) e.currentTarget.style.borderColor = 'rgba(var(--fg),.22)' }}
+        onMouseLeave={e => { if (!drag) e.currentTarget.style.borderColor = 'rgba(var(--fg),.12)' }}>
         <input ref={inputRef} type="file" multiple
           accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
         <input ref={folderRef} type="file" multiple
           style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
-        <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={drag ? C.coral : 'rgba(var(--fg),.3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom:8 }}>
-          <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-        </svg>
-        <p style={{ margin:'0 0 12px', fontSize:14, fontWeight:500,
-          color: drag ? C.coral : 'rgba(var(--fg),.7)' }}>
-          {drag ? 'Drop to upload' : 'Drag & drop files, a folder, or a .zip'}
-        </p>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:10 }}>
-          {[['Choose files', () => inputRef.current?.click()], ['Choose folder', () => folderRef.current?.click()]].map(([label, onClick]) => (
-            <button key={label} onClick={onClick}
-              style={{ height:32, padding:'0 16px', borderRadius:8, border:`1px solid ${C.coral}`,
-                background:'transparent', color:C.coral, fontSize:12.5, fontWeight:600,
-                cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
-              onMouseEnter={e => e.currentTarget.style.background=`${C.coral}12`}
-              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-              {label}
-            </button>
-          ))}
+        <div style={{ width:50, height:50, borderRadius:15, margin:'0 auto 14px',
+          display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s',
+          background: drag ? `${C.coral}1f` : 'rgba(var(--fg),.05)' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={drag ? C.coral : 'rgba(var(--fg),.45)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+          </svg>
         </div>
-        <p style={{ margin:0, fontSize:11, color:'rgba(var(--fg),.3)' }}>
-          WAV, MP3, FLAC, ZIP · up to {MAX_MB} MB each
+        <p style={{ margin:'0 0 5px', fontSize:14.5, fontWeight:700,
+          color: drag ? C.coral : 'rgba(var(--fg),.85)' }}>
+          {drag ? 'Drop to upload' : 'Drop files here, or click to browse'}
         </p>
+        <p style={{ margin:'0 0 14px', fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
+          Folders &amp; .zip welcome · WAV, MP3, FLAC · up to {MAX_MB} MB each
+        </p>
+        <button onClick={e => { e.stopPropagation(); folderRef.current?.click() }}
+          style={{ display:'inline-flex', alignItems:'center', gap:6, height:34, padding:'0 14px',
+            borderRadius:10, border:'1px solid rgba(var(--fg),.14)', background:'var(--surface)',
+            color:'rgba(var(--fg),.8)', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+            transition:'border-color .12s' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = C.coral}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(var(--fg),.14)'}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          Import a folder
+        </button>
       </div>
 
       {skipped > 0 && (

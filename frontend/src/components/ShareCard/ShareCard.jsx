@@ -37,7 +37,7 @@ const ShareCard = React.forwardRef(function ShareCard(
           <div>
             <div className="dz-at">{handle}</div>
             <div className="dz-url">{url}</div>
-            <div className="dz-scan">▸ SCAN TO JUMP IN</div>
+            <div className="dz-scan"><span className="dz-dot" />Scan to join</div>
           </div>
           {qrDataUrl && <div className="dz-qr"><img src={qrDataUrl} alt="QR" /></div>}
         </div>
