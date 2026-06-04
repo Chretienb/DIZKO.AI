@@ -1,0 +1,53 @@
+/* Faded Polaroid / indie share card — Dizko brand. Rendered to PNG via
+   html-to-image, so overlays use real divs (not ::before/::after) for reliable
+   capture. Base size 360×640; exported at higher pixelRatio for crispness. */
+.dz-card{
+  --coral:#f4937a; --coral-strong:#e95a51; --pink:#f28fb8;
+  --bg:#0b0b10; --t1:#f1f1f3; --t3:rgba(255,255,255,.5); --paper:#f5f1ea;
+  position:relative; width:360px; height:640px; border-radius:16px; overflow:hidden;
+  color:var(--t1); font-family:'Inter',-apple-system,sans-serif;
+  background:
+    radial-gradient(80% 55% at 50% 8%, rgba(244,147,122,.16), transparent 60%),
+    radial-gradient(70% 50% at 80% 100%, rgba(242,143,184,.12), transparent 55%),
+    var(--bg);
+}
+.dz-grain{position:absolute; inset:0; pointer-events:none; opacity:.06;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+
+.dz-pad{position:relative; z-index:2; height:100%; display:flex; flex-direction:column; align-items:center; padding:26px 24px}
+.dz-brand{font-weight:800; font-size:17px; letter-spacing:-.4px; text-align:center}
+.dz-brand b{color:var(--coral)}
+.dz-sub{font-size:10px; letter-spacing:.28em; color:var(--t3); text-align:center; margin-top:5px; text-transform:uppercase}
+
+.dz-polawrap{flex:1; display:flex; align-items:center; justify-content:center; width:100%}
+.dz-pola{position:relative; width:248px; background:var(--paper); padding:13px 13px 0; border-radius:3px;
+  transform:rotate(-2.6deg); box-shadow:0 18px 40px rgba(0,0,0,.5), 0 2px 0 rgba(0,0,0,.2)}
+.dz-tape{position:absolute; top:-16px; left:50%; transform:translateX(-50%) rotate(-3deg);
+  width:104px; height:30px; background:linear-gradient(135deg,#f4937a,#f28fb8); opacity:.8; border-radius:1px;
+  box-shadow:0 4px 10px rgba(0,0,0,.25)}
+
+.dz-photo{position:relative; width:100%; height:222px; border-radius:2px; overflow:hidden;
+  background:linear-gradient(150deg,#b06a7e,#7e6aa0 60%,#caa07e)}
+.dz-photo img{width:100%; height:100%; object-fit:cover; display:block;
+  filter:saturate(.82) contrast(.92) brightness(1.04)}
+.dz-photo .dz-lab{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:10px; letter-spacing:.22em; color:rgba(255,255,255,.5); text-transform:uppercase}
+.dz-wash{position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(0deg, rgba(20,16,22,.30), transparent 50%),
+             radial-gradient(60% 60% at 85% 10%, rgba(244,147,122,.45), transparent 60%)}
+
+.dz-caption{font-family:'Caveat',cursive; font-weight:700; color:#2a2620; text-align:center;
+  font-size:27px; line-height:1; padding:13px 6px 6px; word-break:break-word}
+.dz-capmeta{display:flex; align-items:center; justify-content:space-between; padding:0 4px 12px}
+.dz-date{font-size:9px; font-weight:600; letter-spacing:.1em; color:#b3aa9c}
+.dz-pill{font-size:9.5px; font-weight:800; letter-spacing:.04em; color:#fff;
+  background:var(--coral-strong); padding:3px 9px; border-radius:100px}
+
+.dz-foot{width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding-top:18px; border-top:1px solid rgba(255,255,255,.08)}
+.dz-at{font-weight:800; font-size:16px; letter-spacing:-.2px}
+.dz-url{font-size:10.5px; color:var(--t3); margin-top:2px}
+.dz-scan{font-size:9.5px; font-weight:700; letter-spacing:.06em; color:var(--coral); margin-top:7px}
+.dz-qr{width:60px; height:60px; flex-shrink:0; padding:5px; background:#fff; border-radius:8px;
+  transform:rotate(3deg); box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.dz-qr img{width:100%; height:100%; display:block; image-rendering:pixelated}
