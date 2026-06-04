@@ -43,11 +43,14 @@ projects.get('/', async (c) => {
     return c.json({ data: null, error: ownedErr.message, status: 500 }, 500)
   }
 
-  // 2. Projects the user collaborates on (but doesn't own)
+  // 2. Projects the user collaborates on (but doesn't own).
+  //    Only ACTIVE memberships — a pending join request must not surface the
+  //    project (or its metadata) until the owner approves it.
   const { data: collabRows, error: collabErr } = await supabase
     .from('collaborators')
     .select('project_id')
     .eq('user_id', userId)
+    .eq('status', 'active')
 
   let collabProjects: unknown[] = []
   if (!collabErr && collabRows && collabRows.length > 0) {

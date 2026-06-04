@@ -150,12 +150,36 @@ collaborators.get('/all', async (c) => {
 
 // ── PATCH /collaborators/:id ──────────────────────────────────────────────────
 collaborators.patch('/:id', sanitize, async (c) => {
+  const requesterId = c.var.user.id
+  const collabId    = c.req.param('id')
   const { role, status } = c.var.body as { role?: string; status?: string }
+
+  // Validate the status transition — never let a caller invent arbitrary states
+  // (e.g. self-approving to a privileged value).
+  if (status !== undefined && !['active', 'pending'].includes(status))
+    return c.json({ data: null, error: 'Invalid status', status: 400 }, 400)
+
+  // Only the project owner may change a collaborator's role or status. Without
+  // this, a pending collaborator could PATCH their own row to 'active' and gain
+  // full access — a privilege escalation.
+  const { data: collab, error: fetchErr } = await supabase
+    .from('collaborators').select('project_id').eq('id', collabId).single()
+  if (fetchErr || !collab) return c.json({ data: null, error: 'Collaborator not found', status: 404 }, 404)
+
+  const { data: project } = await supabase
+    .from('projects').select('owner_id').eq('id', (collab as any).project_id).single()
+  if (!project) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+  if ((project as any).owner_id !== requesterId)
+    return c.json({ data: null, error: 'Only the project owner can change collaborators', status: 403 }, 403)
+
+  const updates: Record<string, unknown> = {}
+  if (role   !== undefined) updates.role   = role
+  if (status !== undefined) updates.status = status
 
   const { data, error } = await supabase
     .from('collaborators')
-    .update({ role, status })
-    .eq('id', c.req.param('id'))
+    .update(updates)
+    .eq('id', collabId)
     .select()
     .single()
 
