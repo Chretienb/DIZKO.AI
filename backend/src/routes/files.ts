@@ -422,7 +422,9 @@ files.patch('/:id', sanitize, async (c) => {
   if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
-  updates.updated_at = new Date().toISOString()
+  // Don't set updated_at — the stems table may not have that column (a DB
+  // trigger handles it where present). Setting it unconditionally made every
+  // rename/tag PATCH 500, which the client swallowed → edits never saved.
   const { data, error } = await supabase
     .from('stems').update(updates).eq('id', c.req.param('id')).select().single()
 
