@@ -5,6 +5,7 @@ import { projects as projectsApi, files as filesApi, foldersApi, collaborators a
 import { Spinner } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
+import { InstrPicker } from '../components/modals/upload.jsx'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
@@ -118,6 +119,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     if (!title || title === project?.title) return
     setProject(prev => ({ ...prev, title }))   // optimistic
     try { await projectsApi.update(projectId, { title }) } catch {}
+  }
+
+  const setInstrument = async (stemId, instrument) => {
+    setFiles(prev => prev.map(f => f.id === stemId ? { ...f, instrument } : f))
+    try { await filesApi.update(stemId, { instrument }) } catch {}
   }
 
   const renameFile = async (stemId, name) => {
@@ -571,9 +577,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           {fmtLine && <div style={{ fontSize:11, color:'var(--t4)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fmtLine}</div>}
                         </div>
                         <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0 }}>
-                          <span style={{ display:'inline-block', padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, color:badge.color, background:badge.bg, border:`1px solid ${badge.border}`, whiteSpace:'nowrap', minWidth:76, textAlign:'center' }}>
-                            {badge.label}
-                          </span>
+                          {(!f.instrument || ['recording','other','demo'].includes(f.instrument)) ? (
+                            // Untagged stem — let the user add a tag instead of a meaningless "Recording".
+                            <InstrPicker value="" onChange={instr => setInstrument(f.id, instr)} />
+                          ) : (
+                            <span style={{ display:'inline-block', padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, color:badge.color, background:badge.bg, border:`1px solid ${badge.border}`, whiteSpace:'nowrap', minWidth:76, textAlign:'center' }}>
+                              {badge.label}
+                            </span>
+                          )}
                         </div>
                         <button onClick={e=>{ e.stopPropagation(); setPlayerFile(f); setIsPlaying(true); playTrack(f, parentFiles) }}
                           style={{ width:28, height:28, borderRadius:'50%', border:'none', cursor:'pointer', background:'#E95A51', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, opacity:0, transition:'opacity .15s, transform .15s' }}
