@@ -499,6 +499,15 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const stop = () => { stopAll(); clearInterval(beatTimerRef.current); setBeatFlash(false); offsetRef.current = 0; setCurrentTime(0) }
 
+  // Seek to a position (seconds). playAll reads offsetRef as its start point, so
+  // we set it and — if currently playing — restart from there.
+  const seek = (sec) => {
+    const target = Math.max(0, duration ? Math.min(sec, duration) : sec)
+    offsetRef.current = target
+    setCurrentTime(target)
+    if (playing) playAll()
+  }
+
   const toggleMute = id => {
     setMutedIds(prev => {
       const n = new Set(prev), willMute = !n.has(id)
@@ -769,7 +778,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             <Transport
               playing={playing} loadingPct={loadingPct}
               onStop={stop} onPlay={playAll} onPause={pause}
-              currentTime={currentTime} duration={duration} offsetRef={offsetRef}
+              currentTime={currentTime} duration={duration} onSeek={seek}
               bpm={bpm} onBpmChange={handleBpmChange}
               metronomeOn={metronomeOn}
               onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
@@ -899,7 +908,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={(stem) => playTrack(stem, boardStems)} onToggleExpand={handleToggleExpand}
-                  onSeek={sec => { offsetRef.current = sec; setCurrentTime(sec) }}
+                  onSeek={seek}
                   onDelete={deleteStem}
                   onVolumeChange={(id, v) => { setVolumes(prev=>({...prev,[id]:v})); if(gainRefs.current[id]&&!mutedIds.has(id)) gainRefs.current[id].gain.value=v }}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}

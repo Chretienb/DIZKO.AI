@@ -10,7 +10,7 @@ const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')
 
 export default function Transport({
   playing, loadingPct, onStop, onPlay, onPause,
-  currentTime, duration, offsetRef,
+  currentTime, duration, onSeek,
   bpm, onBpmChange,
   metronomeOn, onToggleMetronome,
   beatFlash, detectingBpm, onDetectBpm,
@@ -18,6 +18,29 @@ export default function Transport({
 }) {
   const isMobile = React.useContext(MobileCtx)
   const progress = duration > 0 ? currentTime / duration : 0
+
+  // Scrub: click to seek, or drag the thumb. Preview locally while dragging and
+  // commit on release so we don't restart audio on every mouse move.
+  const barRef = React.useRef(null)
+  const [dragFrac, setDragFrac] = React.useState(null)
+  const fracAt = e => {
+    const r = barRef.current.getBoundingClientRect()
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+  }
+  const startScrub = e => {
+    if (!duration) return
+    e.preventDefault()
+    setDragFrac(fracAt(e))
+    const move = ev => setDragFrac(fracAt(ev))
+    const up   = ev => {
+      document.removeEventListener('mousemove', move)
+      document.removeEventListener('mouseup', up)
+      const f = fracAt(ev); setDragFrac(null); onSeek?.(f * duration)
+    }
+    document.addEventListener('mousemove', move)
+    document.addEventListener('mouseup', up)
+  }
+  const shown = dragFrac != null ? dragFrac : progress
   const loadKeys = Object.keys(loadingPct)
   const avgPct = loadKeys.length ? Math.round(Object.values(loadingPct).reduce((a,b)=>a+b,0)/loadKeys.length) : 0
 
@@ -45,13 +68,13 @@ export default function Transport({
         <IconStop size={11}/>
       </button>
 
-      {/* Thin seek bar with thumb */}
-      <div style={{ flex:1, height:14, display:'flex', alignItems:'center', cursor:'pointer', position:'relative' }}
-        role="slider" aria-label="Playback position" aria-valuenow={Math.round(progress*100)} aria-valuemin={0} aria-valuemax={100}
-        onClick={e => { if (!duration) return; const r = e.currentTarget.getBoundingClientRect(); offsetRef.current = ((e.clientX-r.left)/r.width)*duration }}>
+      {/* Thin seek bar with thumb — click to seek, drag to scrub */}
+      <div ref={barRef} style={{ flex:1, height:14, display:'flex', alignItems:'center', cursor: duration ? 'pointer' : 'default', position:'relative' }}
+        role="slider" aria-label="Playback position" aria-valuenow={Math.round(shown*100)} aria-valuemin={0} aria-valuemax={100}
+        onMouseDown={startScrub}>
         <div style={{ width:'100%', height:3, borderRadius:2, background:'rgba(var(--fg),.1)', position:'relative' }}>
-          <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${progress*100}%`, background:C.coral, borderRadius:2, transition:'width .08s' }}/>
-          <div style={{ position:'absolute', top:'50%', left:`${progress*100}%`, transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.coral, transition:'left .08s' }}/>
+          <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${shown*100}%`, background:C.coral, borderRadius:2, transition: dragFrac!=null ? 'none' : 'width .08s' }}/>
+          <div style={{ position:'absolute', top:'50%', left:`${shown*100}%`, transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.coral, transition: dragFrac!=null ? 'none' : 'left .08s' }}/>
         </div>
       </div>
 
