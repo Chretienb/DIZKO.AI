@@ -336,6 +336,14 @@ export const foldersApi = {
   moveFile: (stemId, folderId)   => patch('/folders/move-file', { stem_id: stemId, folder_id: folderId }),
 }
 
+// ── Public collaboration-invite pages (#78) ──────────────────────────────────
+export const publicApi = {
+  // Unauthenticated pitch read — plain fetch (no auth/refresh/redirect).
+  pitch: async (id) => { const r = await fetch(`${BASE}/p/${id}`); return r.json() },
+  // Request to join — auth required (request() = cookie auth + refresh).
+  requestJoin: (id, note) => request('POST', `/p/${id}/request`, note ? { note } : {}),
+}
+
 // ── Stem comments ─────────────────────────────────────────────────────────────
 export const stemCommentsApi = {
   // request() directly (not cached get) so new comments show immediately.
