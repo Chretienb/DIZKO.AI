@@ -81,8 +81,10 @@ collaborators.get('/all', async (c) => {
   // Projects the user owns or collaborates on
   const { data: owned } = await supabase
     .from('projects').select('id, title').eq('owner_id', userId)
+  // Only ACTIVE memberships expose a project's crew — a pending join request
+  // must not let the requester see who's already on the project.
   const { data: memberRows } = await supabase
-    .from('collaborators').select('project_id').eq('user_id', userId)
+    .from('collaborators').select('project_id').eq('user_id', userId).eq('status', 'active')
 
   const ownedMap = new Map((owned ?? []).map(p => [p.id, p.title]))
   const projectIds = new Set<string>([

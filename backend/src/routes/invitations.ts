@@ -22,18 +22,23 @@ invitations.get('/', async (c) => {
 
   const email = profile?.email ?? ''
 
-  // Pending invites addressed to this user's email OR user_id
+  // Pending invites addressed to this user's email OR user_id. Only genuine
+  // owner-issued invites (invited_by set) — a self-initiated join request
+  // (invited_by null, created from the public pitch page) must NOT appear here
+  // as something the requester can accept; the owner approves those.
   const { data: byEmail } = await supabase
     .from('collaborators')
     .select('*, projects(id, title)')
     .eq('email', email)
     .eq('status', 'pending')
+    .not('invited_by', 'is', null)
 
   const { data: byUserId } = await supabase
     .from('collaborators')
     .select('*, projects(id, title)')
     .eq('user_id', user.id)
     .eq('status', 'pending')
+    .not('invited_by', 'is', null)
 
   // Merge and deduplicate
   const seen = new Set<string>()
@@ -67,6 +72,12 @@ invitations.post('/:id/accept', async (c) => {
 
   if (findErr || !invite) {
     return c.json({ data: null, error: 'Invitation not found', status: 404 }, 404)
+  }
+
+  // A join request (invited_by null) is approved by the OWNER, not self-accepted
+  // by the requester — accepting your own request would bypass approval.
+  if (!(invite as any).invited_by) {
+    return c.json({ data: null, error: 'This is a join request — the project owner approves it', status: 403 }, 403)
   }
 
   const { data, error } = await supabase
