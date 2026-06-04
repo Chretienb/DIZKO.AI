@@ -540,25 +540,23 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const qs  = `format=${format}${ids ? `&stem_ids=${encodeURIComponent(ids)}` : ''}`
       const proj = projects.find(p => p.id === activeId)
       const fallbackName = `${(proj?.title||'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`
-      const auth = { Authorization:`Bearer ${getToken()}` }
 
-      // Start an async export job — the heavy build runs server-side so the
-      // request can't time out on large projects.
-      const startRes  = await fetch(`/api/projects/${activeId}/export?${qs}`, { method:'POST', headers:auth })
-      const startJson = await startRes.json().catch(()=>({}))
-      if (!startRes.ok || !startJson.data?.jobId) { addToast(startJson.error||'Export failed', 'error'); return }
-      const jobId = startJson.data.jobId
+      // Start the async export job via the API client (cookie auth + automatic
+      // token refresh on 401 — the old raw fetch used a stale localStorage token
+      // and 401'd with "Invalid or expired token").
+      const start = await projectsApi.startExport(activeId, qs)
+      const jobId = start.data?.jobId
+      if (!jobId) { addToast(start.error || 'Export failed', 'error'); return }
 
       // Poll for completion (build → zip → R2 upload), up to ~3 minutes.
       const deadline = Date.now() + 3*60*1000
       let result = null
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 1500))
-        const pollRes  = await fetch(`/api/projects/${activeId}/export/${jobId}`, { headers:auth })
-        const pollJson = await pollRes.json().catch(()=>({}))
-        const st = pollJson.data?.status
-        if (st === 'done')  { result = pollJson.data; break }
-        if (st === 'error') { addToast(pollJson.data?.error || 'Export failed', 'error'); return }
+        const poll = await projectsApi.exportStatus(activeId, jobId)
+        const st = poll.data?.status
+        if (st === 'done')  { result = poll.data; break }
+        if (st === 'error') { addToast(poll.data?.error || 'Export failed', 'error'); return }
         // 'pending' → keep polling
       }
       if (!result?.url) { addToast('Export timed out — try again', 'error'); return }

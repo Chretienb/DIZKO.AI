@@ -192,6 +192,11 @@ export const projects = {
   /** @returns {Promise<import('./types').ApiResponse<Project>>} */
   update: (id, body) => patch(`/projects/${id}`, body),
   delete: (id)       => del(`/projects/${id}`),
+  // Async DAW export — go through request() so we get cookie auth + 401 refresh
+  // (the old raw fetch used a stale localStorage token → "Invalid or expired token").
+  startExport:  (id, qs)    => post(`/projects/${id}/export${qs ? `?${qs}` : ''}`),
+  // request() directly (not get()) so the poll never serves a cached "pending".
+  exportStatus: (id, jobId) => request('GET', `/projects/${id}/export/${jobId}`),
   uploadCover: (id, file) => {
     const token = getToken()
     const form  = new FormData()
