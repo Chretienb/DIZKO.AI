@@ -587,17 +587,16 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
       <div style={{ padding:'0 2px' }}>
 
         {/* Header */}
-        <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,rgba(244,147,122,.15),rgba(242,143,184,.15))',
-            border:'1px solid rgba(244,147,122,.25)', borderRadius:100, padding:'5px 14px', marginBottom:14 }}>
-            <div style={{ width:6, height:6, borderRadius:'50%', background:C.coral }} />
-            <span style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.06em' }}>FREE FOR 2 MONTHS</span>
+        <div style={{ textAlign:'center', marginBottom:24 }}>
+          <div style={{ width:54, height:54, borderRadius:16, margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center',
+            background:'linear-gradient(135deg,#f4937a,#f28fb8)', boxShadow:'0 8px 24px rgba(233,90,81,.35)' }}>
+            <svg width={25} height={25} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12z"/></svg>
           </div>
-          <div style={{ fontSize:24, fontWeight:900, color:C.t1, letterSpacing:'-1px', lineHeight:1.15, marginBottom:6 }}>
+          <div style={{ fontSize:22, fontWeight:900, color:C.t1, letterSpacing:'-.7px', lineHeight:1.15, marginBottom:7 }}>
             Start your free trial
           </div>
-          <div style={{ fontSize:13, color:C.t3 }}>
-            No charge until month 3 · Cancel anytime
+          <div style={{ fontSize:13, color:C.t3, lineHeight:1.55 }}>
+            Create projects, invite your crew &amp; export.<br/>Free for 2 months — no charge until month 3.
           </div>
         </div>
 
@@ -608,10 +607,10 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
             return (
               <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
                 display:'flex', alignItems:'center', justifyContent:'space-between',
-                padding:'14px 16px', borderRadius:14, cursor:'pointer', textAlign:'left',
-                border: on ? `2px solid ${C.coral}` : `1.5px solid ${C.border}`,
-                background: on ? `linear-gradient(135deg,${C.coral}0d,rgba(242,143,184,.07))` : C.surface2,
-                transition:'all .15s', outline:'none',
+                padding:'13px 15px', borderRadius:13, cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                border: `1.5px solid ${on ? C.coral : C.border}`,
+                background: on ? `${C.coral}0f` : C.surface2,
+                transition:'all .12s', outline:'none',
               }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   {/* Radio dot */}
@@ -650,18 +649,19 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
         {/* CTA */}
         <button onClick={handleCheckout} disabled={acting} style={{
-          width:'100%', padding:'14px', borderRadius:12, border:'none', cursor: acting ? 'default' : 'pointer',
-          background: acting ? 'rgba(var(--fg),.1)' : C.grad, color:'#fff', fontSize:14, fontWeight:800,
-          letterSpacing:'-.2px', marginBottom:10, transition:'opacity .15s', opacity: acting ? .7 : 1,
+          width:'100%', height:50, borderRadius:13, border:'none', cursor: acting ? 'default' : 'pointer',
+          background: 'linear-gradient(135deg,#f4937a,#f28fb8)', color:'#fff', fontSize:15, fontWeight:800,
+          fontFamily:'inherit', letterSpacing:'-.2px', marginBottom:10, transition:'opacity .15s',
+          boxShadow:'0 8px 24px rgba(233,90,81,.35)', opacity: acting ? .6 : 1,
         }}>
-          {acting ? 'Opening Stripe…' : `Start Free Trial — ${selected.label} Plan`}
+          {acting ? 'Opening Stripe…' : `Start free trial — ${selected.label}`}
         </button>
-        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginBottom:14 }}>
-          $0 today · Billed ${selected.price}/mo starting month 3 · Cancel before then, pay nothing
+        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginBottom:12 }}>
+          $0 today · ${selected.price}/mo from month 3 · Cancel anytime
         </div>
-        <button onClick={onClose} style={{ width:'100%', padding:'11px', borderRadius:12,
-          border:`1.5px solid ${C.border}`, background:'transparent', color:C.t3,
-          fontSize:13, fontWeight:600, cursor:'pointer', transition:'color .15s' }}
+        <button onClick={onClose} style={{ width:'100%', height:42, borderRadius:12,
+          border:'none', background:'transparent', color:C.t3,
+          fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'color .15s' }}
           onMouseEnter={e => e.currentTarget.style.color=C.t2}
           onMouseLeave={e => e.currentTarget.style.color=C.t3}>
           Maybe later
