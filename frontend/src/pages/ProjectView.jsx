@@ -134,20 +134,24 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }
 
   const setInstrument = async (stemId, instrument) => {
-    setFiles(prev => prev.map(f => f.id === stemId ? { ...f, instrument } : f))
-    try { await filesApi.update(stemId, { instrument }) } catch {}
+    const prev = files.find(f => f.id === stemId)?.instrument
+    setFiles(fs => fs.map(f => f.id === stemId ? { ...f, instrument } : f))
+    try { await filesApi.update(stemId, { instrument }) }
+    catch (e) { setFiles(fs => fs.map(f => f.id === stemId ? { ...f, instrument: prev } : f)); addToast?.(`Couldn't tag: ${e.message}`, 'error') }
   }
 
   const renameFile = async (stemId, name) => {
+    const prevName = files.find(f => f.id === stemId)?.suggested_name
     setFiles(prev => prev.map(f => f.id === stemId ? {...f, suggested_name: name} : f))
     setRenamingId(null)
     try {
-      await fetch(`/api/files/${stemId}`, {
-        method:'PATCH', credentials:'include',
-        headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${getToken()}` },
-        body: JSON.stringify({ suggested_name: name }),
-      })
-    } catch {}
+      // filesApi.update → cookie auth + token refresh; throws on failure (the old
+      // raw fetch swallowed errors, so a failed save still looked successful).
+      await filesApi.update(stemId, { suggested_name: name })
+    } catch (e) {
+      setFiles(prev => prev.map(f => f.id === stemId ? {...f, suggested_name: prevName} : f))  // revert
+      addToast?.(`Couldn't rename: ${e.message}`, 'error')
+    }
   }
 
   const updateStatus = async (newStatus) => {
