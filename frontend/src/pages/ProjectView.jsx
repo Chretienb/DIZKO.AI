@@ -39,6 +39,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [statusOpen,         setStatusOpen]         = useState(false)
   const [msgCollab, setMsgCollab] = useState(null)
   const [remCollab, setRemCollab] = useState(null)
+  const [reviewingId, setReviewingId] = useState(null)
 
   const loadAll = useCallback(async () => {
     if (!projectId) return
@@ -161,6 +162,23 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     setProject(prev => ({ ...prev, status: newStatus }))
     setStatusOpen(false)
     try { await projectsApi.update(projectId, { status: newStatus }) } catch {}
+  }
+
+  // Owner approves/declines a pending join request (a pending collaborator row).
+  const reviewJoin = async (collab, approve) => {
+    setReviewingId(collab.id)
+    try {
+      if (approve) {
+        await collabsApi.update(collab.id, { status: 'active' })
+        setCollabs(prev => prev.map(c => c.id === collab.id ? { ...c, status: 'active' } : c))
+      } else {
+        await collabsApi.remove(collab.id)
+        setCollabs(prev => prev.filter(c => c.id !== collab.id))
+      }
+    } catch (e) {
+      addToast?.(`Couldn't ${approve ? 'approve' : 'decline'}: ${e.message}`, 'error')
+    }
+    setReviewingId(null)
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -624,14 +642,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
+                const isPending = collab.status === 'pending'
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
                     <div style={{ width:32, height:32, borderRadius:'50%', background:`${clr}18`, border:`1.5px solid ${clr}35`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
-                      <span style={{ fontSize:10, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.12)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.25)':'rgba(165,165,173,.2)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>
+                      {isPending
+                        ? <span style={{ fontSize:10, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.12)', border:'1px solid rgba(234,159,30,.25)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
+                        : <span style={{ fontSize:10, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.12)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.25)':'rgba(165,165,173,.2)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                     </div>
-                    {!isSelf && <button onClick={() => setMsgCollab(collab)} style={{ height:26, padding:'0 10px', borderRadius:7, border:S.border, background:'transparent', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>}
+                    {isOwner && isPending ? (
+                      <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                        <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 11px', borderRadius:7, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:11.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                        <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:11.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Decline</button>
+                      </div>
+                    ) : (!isSelf && !isPending && <button onClick={() => setMsgCollab(collab)} style={{ height:26, padding:'0 10px', borderRadius:7, border:S.border, background:'transparent', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>)}
                   </div>
                 )
               })}
@@ -751,19 +777,31 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
+                const isPending = collab.status === 'pending'
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
                     <div style={{ width:30, height:30, borderRadius:'50%', background:`${clr}15`, border:`1.5px solid ${clr}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
-                      <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 6px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>
+                      {isPending
+                        ? <span style={{ fontSize:9.5, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.1)', border:'1px solid rgba(234,159,30,.22)', padding:'1px 6px', borderRadius:20 }}>Wants to join</span>
+                        : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 6px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                     </div>
                     <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                      {!isSelf && (
-                        <button onClick={() => setMsgCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:S.border, background:'transparent', color:'var(--t3)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>
-                      )}
-                      {isOwner && !isOwnerEntry && !isSelf && (
-                        <button onClick={() => setRemCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Remove</button>
+                      {isOwner && isPending ? (
+                        <>
+                          <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:24, padding:'0 9px', borderRadius:6, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:10.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                          <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Decline</button>
+                        </>
+                      ) : (
+                        <>
+                          {!isSelf && !isPending && (
+                            <button onClick={() => setMsgCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:S.border, background:'transparent', color:'var(--t3)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>
+                          )}
+                          {isOwner && !isOwnerEntry && !isSelf && (
+                            <button onClick={() => setRemCollab(collab)} style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Remove</button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
