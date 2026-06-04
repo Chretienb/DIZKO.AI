@@ -5,7 +5,9 @@ import ShareCard from './ShareCard.jsx'
 import { deriveHandle, cardDate, cardFilename } from './shareCardData.js'
 import { projects } from '../../lib/api'
 
-const SITE = 'https://dizko.ai'
+// The product app (where the /p/:id pitch route lives) is app.dizko.ai;
+// dizko.ai is the marketing site, so the QR must deep-link into the app.
+const APP_SITE = 'https://app.dizko.ai'
 
 export default function ShareCardModal({ project, user, onClose }) {
   const [headline, setHeadline]  = useState('make this with me ✶')
@@ -20,7 +22,7 @@ export default function ShareCardModal({ project, user, onClose }) {
   const handle = deriveHandle(user)
   // QR holds the real deep link to the public pitch page; the card prints the short
   // brand URL. The link only resolves while the project is public (toggle below).
-  const qrUrl = `${SITE}/p/${project?.id}`
+  const qrUrl = `${APP_SITE}/p/${project?.id}`
 
   // Build the QR once.
   useEffect(() => {
