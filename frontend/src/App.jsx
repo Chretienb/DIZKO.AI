@@ -522,7 +522,11 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     setPlaylist(list.length > 0 ? list : [file])
   }, [])
 
-  const GATED_MODALS = ['new-project', 'upload', 'invite']
+  // Owner-pays: creating projects and inviting are paid (owner) actions, but
+  // UPLOADING is contributing — free collaborators must be able to add their
+  // stems to projects they're a member of. (Backend gates create/invite/export;
+  // upload only requires active membership.)
+  const GATED_MODALS = ['new-project', 'invite']
   const openModal = (type, data) => {
     if (GATED_MODALS.includes(type) && !hasAccess) {
       setModal({ type: 'billing', data: {} })
