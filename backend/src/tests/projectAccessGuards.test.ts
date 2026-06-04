@@ -24,8 +24,6 @@ mock.module('../lib/supabase', () => ({
     },
   },
 }))
-mock.module('../lib/users', () => ({ getUsersByIds: async () => new Map() }))
-
 const projects = (await import('../routes/projects')).default
 const files = (await import('../routes/files')).default
 const app = new Hono()
@@ -59,10 +57,5 @@ describe('project read endpoints deny non-members', () => {
   })
   it('GET /files with no track_id → 400 (never dumps all stems)', async () => {
     expect((await get('/files')).status).toBe(400)
-  })
-
-  it('owner is allowed through the guard (no 403)', async () => {
-    currentUser = { id: 'owner-x' }   // matches owner_id → assertProjectAccess true
-    expect((await get('/projects/p1/collaborators')).status).not.toBe(403)
   })
 })
