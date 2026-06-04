@@ -1504,12 +1504,17 @@ export function ModalUpload({ project, folderId, onClose, user }) {
           </Btn>
         ) : queue.length > 0 ? (
           <>
-            <Btn onClick={startUpload} style={{ flex:1 }}
-              disabled={!selProj?.id || queued === 0}>
-              {!selProj?.id ? 'Select a project first'
-                : queued === 0 ? 'No valid files'
-                : `Upload ${queued} file${queued > 1 ? 's' : ''} →`}
-            </Btn>
+            {queued > 0 ? (
+              <Btn onClick={startUpload} style={{ flex:1 }} disabled={!selProj?.id}>
+                {!selProj?.id ? 'Select a project first'
+                  : `Upload ${queued} file${queued > 1 ? 's' : ''} →`}
+              </Btn>
+            ) : (
+              // Nothing left to upload — everything's done or errored out.
+              <Btn onClick={onClose} style={{ flex:1 }}>
+                {doneCount > 0 ? `Done${errorCount ? ` · ${errorCount} failed` : ''}` : 'Close'}
+              </Btn>
+            )}
             <Btn onClick={() => setQueue([])} variant="ghost">Clear</Btn>
           </>
         ) : (
