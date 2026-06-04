@@ -17,6 +17,7 @@ import { supabase, subscribeToFileEvents } from './lib/supabase'
 
 import authRoutes from './routes/auth'
 import projectRoutes from './routes/projects'
+import publicShareRoutes from './routes/publicShare'
 import collaboratorRoutes from './routes/collaborators'
 import invitationRoutes from './routes/invitations'
 import fileRoutes from './routes/files'
@@ -82,6 +83,7 @@ app.get('/health', (c) =>
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+app.route('/p', publicShareRoutes)   // public collaboration-invite pages (GET is unauthenticated)
 app.route('/auth', authRoutes)
 app.route('/projects', projectRoutes)
 app.route('/collaborators', collaboratorRoutes)
