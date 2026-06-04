@@ -61,6 +61,21 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     audioRef.current.currentTime = ((e.clientX - r.left) / r.width) * duration
   }
 
+  // Click + drag scrub (HTML <audio> seeking is cheap — set currentTime live).
+  const scrub = e => {
+    if (!audioRef.current || !duration) return
+    const bar = e.currentTarget
+    const setFromX = clientX => {
+      const r = bar.getBoundingClientRect()
+      audioRef.current.currentTime = Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * duration
+    }
+    setFromX(e.clientX)
+    const move = ev => setFromX(ev.clientX)
+    const up   = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
+    document.addEventListener('mousemove', move)
+    document.addEventListener('mouseup', up)
+  }
+
   const idx     = playlist.findIndex(f => f.id === track?.id)
   const hasPrev = idx > 0
   const hasNext = idx >= 0 && idx < playlist.length - 1
@@ -268,11 +283,22 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
         borderTop:'1px solid rgba(var(--fg),.07)',
         display:'flex', flexDirection:'column',
       }}>
-        {/* Progress / loading line */}
-        <div style={{ height:2, background:'rgba(var(--fg),.06)', flexShrink:0, overflow:'hidden' }}>
-          {loading
-            ? <div style={{ height:'100%', background:C.coral, width:'35%', animation:'mp-load 1s ease-in-out infinite alternate', borderRadius:2 }}/>
-            : <div style={{ height:'100%', background:C.coral, width:`${progress}%`, transition:'width .1s linear' }}/>}
+        {/* Scrub bar — click or drag to seek without expanding (YouTube-style) */}
+        <div onMouseDown={!loading ? scrub : undefined}
+          role="slider" aria-label="Seek" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}
+          style={{ height:9, marginTop:-3, display:'flex', alignItems:'center', flexShrink:0,
+            cursor: (!loading && duration) ? 'pointer' : 'default' }}>
+          <div style={{ position:'relative', height:3, width:'100%', background:'rgba(var(--fg),.08)' }}>
+            {loading
+              ? <div style={{ height:'100%', background:C.coral, width:'35%', animation:'mp-load 1s ease-in-out infinite alternate', borderRadius:2 }}/>
+              : <>
+                  <div style={{ height:'100%', background:C.coral, width:`${progress}%`, transition:'width .1s linear' }}/>
+                  {duration > 0 && (
+                    <div style={{ position:'absolute', top:'50%', left:`${progress}%`, transform:'translate(-50%,-50%)',
+                      width:9, height:9, borderRadius:'50%', background:C.coral, transition:'left .1s linear' }}/>
+                  )}
+                </>}
+          </div>
         </div>
 
         <div style={{ flex:1, display:'flex', alignItems:'center', padding:'0 14px 0 10px', gap:0 }}>
