@@ -379,7 +379,7 @@ projects.post('/', sanitize, async (c) => {
 
 // ── PATCH /projects/:id ───────────────────────────────────────────────────────
 projects.patch('/:id', sanitize, async (c) => {
-  const allowed = ['title', 'type', 'notes', 'status', 'release_date', 'cover_url'] as const
+  const allowed = ['title', 'type', 'notes', 'status', 'release_date', 'cover_url', 'is_public'] as const
   const body = c.var.body as Record<string, unknown>
   const updates: Record<string, unknown> = {}
 
