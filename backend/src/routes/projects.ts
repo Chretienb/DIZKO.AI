@@ -12,6 +12,7 @@ import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
+import { assertProjectAccess } from '../lib/rbac'
 import { execSync } from 'child_process'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -330,6 +331,8 @@ projects.get('/:id', async (c) => {
 // ── GET /projects/:id/stem-history — all takes grouped by uploader×instrument ─
 projects.get('/:id/stem-history', async (c) => {
   const projectId = c.req.param('projectId') || c.req.param('id')
+  if (!(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
   const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', projectId)
   if (!tracks?.length) return c.json({ data: {} })
 
@@ -495,6 +498,11 @@ projects.delete('/:id', async (c) => {
 projects.get('/:id/files', async (c) => {
   const projectId = c.req.param('id')
 
+  // Only the owner or an active collaborator may read a project's stems — this
+  // returns fresh signed audio URLs, so a missing check leaks the actual files.
+  if (!(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   // Fetch track IDs for this project first, then all stems
   const { data: tracks, error: trackErr } = await supabase
     .from('tracks')
@@ -565,6 +573,10 @@ projects.post('/:id/files', uploadLimit, sanitize, async (c) => {
       400
     )
   }
+
+  // Only the owner or an active collaborator may add stems to a project.
+  if (!(await assertProjectAccess(projectId, user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   // Resolve track — create a default track for this project if none given
   let resolvedTrackId = track_id
@@ -670,6 +682,9 @@ projects.post('/:id/files', uploadLimit, sanitize, async (c) => {
 
 // ── GET /projects/:id/collaborators ───────────────────────────────────────────
 projects.get('/:id/collaborators', async (c) => {
+  if (!(await assertProjectAccess(c.req.param('id'), c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
   const { data: rows, error } = await supabase
     .from('collaborators')
     .select('*')
