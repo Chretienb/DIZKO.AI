@@ -93,7 +93,7 @@ export default function AIPanel({
               {/* Missing instruments */}
               {aiAnalysis.missing?.length>0 && (
                 <div style={{ marginBottom:16 }}>
-                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:600, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em' }}>Add to the session</p>
+                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:600, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em' }}>Add to the project</p>
                   <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                     {aiAnalysis.missing.slice(0,5).map(m=>(
                       <button key={m} onClick={()=>openModal('upload',{project:activeProject})}

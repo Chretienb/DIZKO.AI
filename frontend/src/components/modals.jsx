@@ -1290,7 +1290,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   }
 
   if (allDone) return (
-    <Modal title="Added to session" sub={`${doneCount} file${doneCount > 1 ? 's' : ''} sent to Dizko.Ai`} onClose={onClose}>
+    <Modal title="Added to project" sub={`${doneCount} file${doneCount > 1 ? 's' : ''} sent to Dizko.Ai`} onClose={onClose}>
       <div style={{ textAlign:'center', padding:'12px 0 4px' }}>
         <div style={{ width:60, height:60, borderRadius:'50%', background:`${C.coral}12`,
           border:`2px solid ${C.coral}22`, display:'flex', alignItems:'center',
@@ -1326,7 +1326,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       {/* Session picker */}
       {!project && (
         <div style={{ marginBottom:18 }}>
-          <p style={{ margin:'0 0 10px', fontSize:11.5, color:'rgba(var(--fg),.3)' }}>Choose a session</p>
+          <p style={{ margin:'0 0 10px', fontSize:11.5, color:'rgba(var(--fg),.3)' }}>Choose a project</p>
           <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
             {projects.map(p => {
               const sel = selProj?.id === p.id

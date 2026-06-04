@@ -864,7 +864,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round"><path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/></svg>
                 </div>
                 <div style={{ fontSize:16, fontWeight:700, color:C.t1, marginBottom:6 }}>No tracks yet</div>
-                <div style={{ fontSize:13, color:C.t3, marginBottom:22 }}>Upload audio to start your session</div>
+                <div style={{ fontSize:13, color:C.t3, marginBottom:22 }}>Upload audio to start your project</div>
                 <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
               </div>
             )}
