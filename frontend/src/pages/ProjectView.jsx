@@ -24,6 +24,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [loading,      setLoading]      = useState(true)
   const [selectedFile, setSelectedFile] = useState(null)
   const [renamingId,   setRenamingId]   = useState(null)
+  const [renamingProject, setRenamingProject] = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [isPlaying,    setIsPlaying]    = useState(false)
   const [selectedFolderId,   setSelectedFolderId]   = useState(null)
@@ -109,6 +110,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         setFiles(prev => prev.map(f => !f.folder_id ? { ...f, folder_id: newFolder.id } : f))
       }
     } catch {}
+  }
+
+  const renameProject = async (raw) => {
+    const title = (raw || '').trim()
+    setRenamingProject(false)
+    if (!title || title === project?.title) return
+    setProject(prev => ({ ...prev, title }))   // optimistic
+    try { await projectsApi.update(projectId, { title }) } catch {}
   }
 
   const renameFile = async (stemId, name) => {
@@ -386,9 +395,20 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   </div>
                 ))}
               </button>
-              <h1 style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05, overflow:'hidden', textOverflow:'ellipsis' }}>
-                {project?.title}
-              </h1>
+              {renamingProject ? (
+                <input autoFocus defaultValue={project?.title}
+                  onBlur={e => renameProject(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') renameProject(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
+                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px',
+                    textTransform:'uppercase', lineHeight:1.05, fontFamily:'inherit', minWidth:0, flex:1,
+                    background:'var(--surface)', border:'1.5px solid #E95A51', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
+              ) : (
+                <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
+                  title={isOwner ? 'Double-click to rename' : undefined}
+                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05, overflow:'hidden', textOverflow:'ellipsis', cursor: isOwner ? 'text' : 'default' }}>
+                  {project?.title}
+                </h1>
+              )}
               <div style={{ width:9, height:9, borderRadius:'50%', background:ltDot(status), flexShrink:0, marginTop:4 }}/>
             </div>
             {/* Action buttons */}
