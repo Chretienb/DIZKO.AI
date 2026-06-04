@@ -7,6 +7,7 @@ import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
 import StemComments from './project/StemComments.jsx'
+import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
@@ -27,6 +28,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [renamingId,   setRenamingId]   = useState(null)
   const [renamingProject, setRenamingProject] = useState(false)
+  const [shareOpen,    setShareOpen]    = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [isPlaying,    setIsPlaying]    = useState(false)
   const [selectedFolderId,   setSelectedFolderId]   = useState(null)
@@ -442,6 +444,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <svg width={12} height={12} viewBox="0 0 13 13" fill="none"><path d="M6.5 8.5V1.5m-3 2.5L6.5 1l3 3" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/><path d="M1.5 10v1.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V10" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/></svg>
                 Upload
               </button>
+              <button onClick={() => setShareOpen(true)} title="Make a share card"
+                style={{ height:36, padding:'0 14px', borderRadius:9, border:S.border, background:'var(--surface)', color:'var(--t1)', fontSize:13, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='var(--bg)'}
+                onMouseLeave={e=>e.currentTarget.style.background='var(--surface)'}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+                Share
+              </button>
               <button onClick={() => navigate('/studio')}
                 style={{ height:36, padding:'0 14px', borderRadius:9, border:'none', background:'#E95A51', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'opacity .1s' }}
                 onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
@@ -850,6 +859,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
       {msgCollab && <MessageModal collab={msgCollab} onClose={() => setMsgCollab(null)} onSend={async (c,t) => { try { await messagesApi.send(c.user_id, t) } catch {} }}/>}
       {remCollab && <RemoveModal  collab={remCollab}  onClose={() => setRemCollab(null)}  onConfirm={async () => { setCollabs(p => p.filter(c => c.id !== remCollab.id)); try { await collabsApi.remove(remCollab.id) } catch { loadAll() } }}/>}
+      {shareOpen && <ShareCardModal project={project} user={user} onClose={() => setShareOpen(false)} />}
     </div>
   )
 }
