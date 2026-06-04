@@ -460,8 +460,15 @@ files.delete('/:id', async (c) => {
 // ── GET /files (query by track) ────────────────────────────────────────────────
 files.get('/', async (c) => {
   const trackId = c.req.query('track_id')
-  let query = supabase.from('stems').select('*').order('created_at', { ascending: false })
-  if (trackId) query = query.eq('track_id', trackId)
+  // Must scope to a track in a project the caller can access — never dump stems
+  // across the whole table, and never a track from a project you're not on.
+  if (!trackId) return c.json({ data: null, error: 'track_id is required', status: 400 }, 400)
+  const { data: track } = await supabase.from('tracks').select('project_id').eq('id', trackId).single()
+  const projectId = (track as any)?.project_id
+  if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  const query = supabase.from('stems').select('*').eq('track_id', trackId).order('created_at', { ascending: false })
   const { data, error } = await query
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 

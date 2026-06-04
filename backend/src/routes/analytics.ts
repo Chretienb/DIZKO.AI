@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
+import { assertProjectAccess } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const analytics = new Hono<{ Variables: HonoVariables }>()
@@ -51,6 +52,9 @@ analytics.get('/overview', async (c) => {
 // ── GET /analytics/projects/:id ───────────────────────────────────────────────
 analytics.get('/projects/:id', async (c) => {
   const projectId = c.req.param('id')
+
+  if (!(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: tracks } = await supabase
     .from('tracks')
