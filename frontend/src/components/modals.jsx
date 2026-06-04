@@ -711,7 +711,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
       {(() => {
         const usedB  = billingStatus?.storage_used_bytes  ?? 0
         const limB   = billingStatus?.storage_limit_bytes ?? 1
-        const fmt    = n => n >= 1_073_741_824 ? `${(n/1_073_741_824).toFixed(1)} GB` : n >= 1_048_576 ? `${(n/1_048_576).toFixed(0)} MB` : `${(n/1024).toFixed(0)} KB`
+        const fmt    = n => n >= 1_000_000_000 ? `${(n/1_000_000_000).toFixed(1)} GB` : n >= 1_000_000 ? `${(n/1_000_000).toFixed(0)} MB` : `${(n/1000).toFixed(0)} KB`
         const barW   = usedB > 0 ? Math.max(1, storagePct) : 0
         return (
           <div style={{ padding:'12px 14px', background:C.surface2, borderRadius:10, border:`1px solid ${C.border}`, marginBottom:18 }}>
@@ -1200,13 +1200,13 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     const { files, skipped } = await collectAudioFiles(raw)
     if (skipped) setSkipped(s => s + skipped)
     const items = files.map(f => {
-      const tooBig = f.size > MAX_MB * 1048576
+      const tooBig = f.size > MAX_MB * 1_000_000
       return {
         file:       f,
         instrument: detectInstrument(f.name),
         status:     tooBig ? 'error' : 'queued',
         progress:   0,
-        error:      tooBig ? `File too large (${(f.size/1048576).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
+        error:      tooBig ? `File too large (${(f.size/1_000_000).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
         url: null,
       }
     })
@@ -1406,7 +1406,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
           overflow:'hidden' }}>
           {queue.map((item, i) => {
             const ext = item.file.name.split('.').pop().toUpperCase()
-            const mb  = (item.file.size / 1048576).toFixed(1)
+            const mb  = (item.file.size / 1_000_000).toFixed(1)
             const col = typeColor(ext)
             return (
               <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px',

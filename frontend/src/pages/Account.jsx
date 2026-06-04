@@ -46,9 +46,9 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
   const usedBytes  = billingStatus?.storage_used_bytes  ?? 0
   const limitBytes = billingStatus?.storage_limit_bytes ?? 1
   function fmtBytes(b) {
-    if (b >= 1_073_741_824) return `${(b / 1_073_741_824).toFixed(1)} GB`
-    if (b >= 1_048_576)     return `${(b / 1_048_576).toFixed(1)} MB`
-    if (b >= 1024)          return `${(b / 1024).toFixed(0)} KB`
+    if (b >= 1_000_000_000) return `${(b / 1_000_000_000).toFixed(1)} GB`
+    if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(1)} MB`
+    if (b >= 1000)          return `${(b / 1000).toFixed(0)} KB`
     return `${b} B`
   }
   const barWidth = usedBytes > 0 ? Math.max(1, storage) : 0
