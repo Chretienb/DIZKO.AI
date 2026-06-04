@@ -6,6 +6,7 @@ import { Spinner } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
+import StemComments from './project/StemComments.jsx'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
@@ -761,6 +762,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               })}
             </div>
           )}
+
+          {/* Comments for the selected stem — under collaborators (Angel #73) */}
+          <StemComments stemId={selectedFile?.id} collabs={collabs} user={user} />
         </div>
       )}
 
