@@ -575,7 +575,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.borderColor='var(--t4)' }}
                         onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.borderColor = isFinals ? '#C8E8A0' : 'var(--border)' }}>
-                        <div style={{ width:36, height:36, borderRadius:7, background: isFinals ? '#C4E4A0' : '#E8E8EC', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <div style={{ width:36, height:36, borderRadius:7, background: isFinals ? '#C4E4A0' : 'rgba(var(--fg),.08)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={isFinals ? '#4D8A20' : 'var(--t3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
                           </svg>
