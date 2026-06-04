@@ -113,12 +113,24 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     } catch {}
   }
 
-  const renameProject = async (raw) => {
-    const title = (raw || '').trim()
+  // The middle header shows the current SONG when you're in one (the album is
+  // already shown above the library), else the project/album title.
+  const currentFolder = folders.find(f => f.id === selectedFolderId)
+  const headerTitle = selectedFolderId ? (currentFolder?.name || '') : (project?.title || '')
+
+  const renameHeader = async (raw) => {
+    const name = (raw || '').trim()
     setRenamingProject(false)
-    if (!title || title === project?.title) return
-    setProject(prev => ({ ...prev, title }))   // optimistic
-    try { await projectsApi.update(projectId, { title }) } catch {}
+    if (!name) return
+    if (selectedFolderId) {                                  // rename the song (folder)
+      if (name === currentFolder?.name) return
+      setFolders(prev => prev.map(f => f.id === selectedFolderId ? { ...f, name } : f))
+      try { await foldersApi.rename(selectedFolderId, name) } catch {}
+    } else {                                                 // rename the project/album
+      if (name === project?.title) return
+      setProject(prev => ({ ...prev, title: name }))
+      try { await projectsApi.update(projectId, { title: name }) } catch {}
+    }
   }
 
   const setInstrument = async (stemId, instrument) => {
@@ -346,7 +358,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
               {(project?.title || 'Album').toUpperCase()}
             </button>
-            <span style={{ fontSize:15, fontWeight:800, color:'var(--t1)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.4px' }}>{project?.title}</span>
+            <span style={{ fontSize:15, fontWeight:800, color:'var(--t1)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.4px' }}>{headerTitle}</span>
           </div>
         )}
 
@@ -402,9 +414,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 ))}
               </button>
               {renamingProject ? (
-                <input autoFocus defaultValue={project?.title}
-                  onBlur={e => renameProject(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') renameProject(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
+                <input autoFocus defaultValue={headerTitle}
+                  onBlur={e => renameHeader(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') renameHeader(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
                   style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px',
                     textTransform:'uppercase', lineHeight:1.05, fontFamily:'inherit', minWidth:0, flex:1,
                     background:'var(--surface)', border:'1.5px solid #E95A51', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
@@ -412,7 +424,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
                   title={isOwner ? 'Double-click to rename' : undefined}
                   style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05, overflow:'hidden', textOverflow:'ellipsis', cursor: isOwner ? 'text' : 'default' }}>
-                  {project?.title}
+                  {headerTitle}
                 </h1>
               )}
               <div style={{ width:9, height:9, borderRadius:'50%', background:ltDot(status), flexShrink:0, marginTop:4 }}/>
