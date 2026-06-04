@@ -105,7 +105,7 @@ function NewProjectCard({ onClick }) {
       </div>
       <div>
         <div style={{ fontSize:14, fontWeight:700, color:C.t2, marginBottom:3 }}>New Project</div>
-        <div style={{ fontSize:12, color:C.t3, fontWeight:500 }}>Start a fresh session</div>
+        <div style={{ fontSize:12, color:C.t3, fontWeight:500 }}>Start a fresh project</div>
       </div>
     </button>
   )
@@ -237,7 +237,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
             No projects yet
           </div>
           <div style={{ fontSize:13, color:C.t3, marginBottom:24 }}>
-            Create your first session to get started.
+            Create your first project to get started.
           </div>
           <button onClick={() => openModal('new-project', {})}
             style={{ height:40, padding:'0 22px', borderRadius:10, border:'none',

@@ -216,7 +216,7 @@ const NAV = [
   // Home — clean house
   { id:'dashboard',     path:'/',               label:'Dashboard',    icon:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10' },
   // Sessions — folder with music note inside
-  { id:'projects',      path:'/projects',       label:'Sessions',     icon:'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4' },
+  { id:'projects',      path:'/projects',       label:'Projects',     icon:'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4' },
   // Studio — mixer fader sliders (unique, unmistakably audio)
   { id:'studio',        path:'/studio',         label:'Studio',       icon:'M4 21V14M4 10V3M12 21V12M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' },
   // Crew — headphones (music-specific, not generic people icon)
