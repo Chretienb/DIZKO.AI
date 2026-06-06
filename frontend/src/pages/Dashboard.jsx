@@ -341,6 +341,19 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
           {/* List */}
           {rightList}
+
+          {/* New Project — themed CTA pinned to the bottom of the column */}
+          <div style={{ marginTop:'auto', padding: isMobile ? '12px 14px 4px' : '14px 20px 4px' }}>
+            <button onClick={() => openModal('new-project', {})} aria-label="Create a new project"
+              style={{ width:'100%', height:52, display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+                borderRadius:14, border:DK.border, background:'rgba(var(--fg),.05)', color:DK.t1,
+                fontSize:14.5, fontWeight:800, cursor:'pointer', fontFamily:DK.font, transition:'background .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(var(--fg),.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(var(--fg),.05)' }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={DK.red} strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Project
+            </button>
+          </div>
         </div>
       </div>
     </div>
