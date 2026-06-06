@@ -5,6 +5,7 @@ import { getToken, timeAgo } from '../lib/utils.js'
 import Waveform from './Waveform.jsx'
 
 const IconPlay  = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
+const IconPause = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
 const IconTrash = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
 const IconDown  = ({size=13,rotate=false}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" style={{transform:rotate?'rotate(180deg)':'none',transition:'transform .2s'}}><polyline points="6,9 12,15 18,9"/></svg>
 
@@ -16,15 +17,24 @@ export default function TrackItem({
   isMuted, isSolo, isExpanded, isDeleting, loadPct, volume,
   uploader, uploaderName, takes,
   comments, commentDraft, postingComment,
-  currentTime, duration, isPlaying, analyserNode, storedPeaks,
+  currentTime, duration, isPlaying, previewPlaying, analyserNode, storedPeaks,
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
-  onRemoveFromBoard,
+  onRemoveFromBoard, onAddCommentAt, onReply,
   gainRef,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const commentCount = (comments||[]).filter(c => !c.resolved).length
   const stemLabel = STEM_LABELS[s.instrument] || s.instrument || 'Track'
+
+  // Per-stem key + tempo, detected during analysis (stored on the stem's notes).
+  const stemMeta = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
+  const stemBpm  = stemMeta.bpm ? Math.round(stemMeta.bpm) : null
+  const stemKey  = stemMeta.key || null
+  // Fall back to the analyzed length so comment markers + timeline show even
+  // before the stem is played (playback only sets `duration` once it starts).
+  const storedDur  = stemMeta.audio_features?.duration || 0
+  const wfDuration = duration > 0 ? duration : storedDur
 
   return (
     <div style={{
@@ -66,6 +76,17 @@ export default function TrackItem({
             <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:color, padding:'2px 8px', borderRadius:6, textTransform:'capitalize', letterSpacing:'.02em' }}>
               {stemLabel}
             </span>
+            {/* Per-stem tempo + key */}
+            {stemBpm && (
+              <span style={{ fontSize:10, fontWeight:700, color, background:`${color}14`, padding:'2px 7px', borderRadius:6, letterSpacing:'.02em', fontVariantNumeric:'tabular-nums' }}>
+                {stemBpm} BPM
+              </span>
+            )}
+            {stemKey && (
+              <span style={{ fontSize:10, fontWeight:700, color, background:`${color}14`, padding:'2px 7px', borderRadius:6, letterSpacing:'.02em' }}>
+                {stemKey}
+              </span>
+            )}
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
             <span style={{ fontSize:11.5, fontWeight:500, color:C.t2 }}>{uploaderName}</span>
             {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(var(--fg),.07)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
@@ -124,10 +145,10 @@ export default function TrackItem({
         {/* Secondary actions */}
         <div style={{ display:'flex', gap:4, flexShrink:0 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
-          <button onClick={()=>onPlay(s)} aria-label={`Preview ${stemLabel}`}
-            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`, background:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color, transition:'all .12s' }}
-            onMouseEnter={e=>e.currentTarget.style.background=`${color}25`} onMouseLeave={e=>e.currentTarget.style.background=`${color}10`}>
-            <IconPlay size={9} color={color}/>
+          <button onClick={()=>onPlay(s)} aria-label={`${previewPlaying?'Pause':'Play'} ${stemLabel}`} aria-pressed={!!previewPlaying}
+            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`, background: previewPlaying?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color, transition:'all .12s' }}
+            onMouseEnter={e=>e.currentTarget.style.background=`${color}25`} onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
+            {previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
           </button>
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
@@ -159,14 +180,31 @@ export default function TrackItem({
             url={s.file_url}
             color={color}
             currentTime={currentTime}
-            duration={duration}
+            duration={wfDuration}
             isPlaying={isPlaying}
             analyserNode={analyserNode}
             storedPeaks={storedPeaks}
             muted={isMuted}
             height={44}
             onSeek={onSeek ? (sec) => onSeek(sec) : undefined}
+            comments={comments || []}
+            onMarkerClick={onSeek ? (sec) => onSeek(sec) : undefined}
+            onAddCommentAt={onAddCommentAt}
           />
+          {/* Timeline ruler — aligned to this waveform (uses analyzed length so it
+              shows before playback too) */}
+          {wfDuration > 0 && (
+            <div aria-hidden="true" style={{ position:'relative', height:13, marginTop:3 }}>
+              {[0, 0.25, 0.5, 0.75, 1].map(f => (
+                <span key={f} style={{ position:'absolute', left:`${f*100}%`,
+                  transform: f===0 ? 'none' : f===1 ? 'translateX(-100%)' : 'translateX(-50%)',
+                  fontSize:9, fontWeight:600, color:C.t3, opacity:.7, fontVariantNumeric:'tabular-nums',
+                  whiteSpace:'nowrap' }}>
+                  {fmt(wfDuration * f)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -205,29 +243,8 @@ export default function TrackItem({
           {(comments||[]).length===0 ? (
             <div style={{ fontSize:12.5, color:C.t3, marginBottom:14, padding:'10px 0', textAlign:'center' }}>No comments yet — be the first</div>
           ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
-              {comments.map(cm=>(
-                <div key={cm.id} style={{ display:'flex', gap:10 }}>
-                  <div aria-hidden="true" style={{ width:30, height:30, borderRadius:'50%', background:`${color}15`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color }}>{(cm.user_name||'?').charAt(0).toUpperCase()}</div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
-                      <span style={{ fontSize:12, fontWeight:700, color:C.t1 }}>{cm.user_name||'Someone'}</span>
-                      {cm.timestamp_sec>0&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(var(--fg),.07)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>}
-                    </div>
-                    <div style={{ fontSize:13, color:C.t2, lineHeight:1.55, marginBottom:6 }}>{cm.text}</div>
-                    <button
-                      onClick={e=>{ e.stopPropagation(); onLikeComment(s.id, cm.id, cm.liked_by_me) }}
-                      aria-label={cm.liked_by_me ? 'Unlike comment' : 'Like comment'}
-                      aria-pressed={!!cm.liked_by_me}
-                      style={{ display:'flex', alignItems:'center', gap:4, background:'none', border:'none', cursor:'pointer', padding:0, transition:'transform .1s' }}
-                      onMouseEnter={e=>e.currentTarget.style.transform='scale(1.1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-                      <svg width={12} height={12} viewBox="0 0 24 24" fill={cm.liked_by_me?'#ef4444':'none'} stroke={cm.liked_by_me?'#ef4444':'#ccc'} strokeWidth={2} strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-                      {cm.likes>0&&<span style={{ fontSize:10, color:cm.liked_by_me?'#ef4444':'#bbb', fontWeight:600 }}>{cm.likes}</span>}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CommentThread comments={comments} color={color} stemId={s.id}
+              onSeek={onSeek} onLikeComment={onLikeComment} onReply={onReply} />
           )}
 
           <div style={{ display:'flex', gap:8 }}>
@@ -247,6 +264,100 @@ export default function TrackItem({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Threaded comment feed (Instagram-style: like + reply, one level deep) ──────
+function CommentThread({ comments, color, stemId, onSeek, onLikeComment, onReply }) {
+  const [replyTo,     setReplyTo]     = React.useState(null)   // top-level parent id being replied to
+  const [replyText,   setReplyText]   = React.useState('')
+  const [openReplies, setOpenReplies] = React.useState({})     // parentId → showing replies?
+
+  const top = comments.filter(c => !c.parent_id)
+  const byParent = {}
+  for (const c of comments) if (c.parent_id) (byParent[c.parent_id] = byParent[c.parent_id] || []).push(c)
+
+  const startReply = (parentId, mention) => {
+    setReplyTo(parentId)
+    setReplyText(mention ? `@${mention} ` : '')
+    setOpenReplies(o => ({ ...o, [parentId]: true }))
+  }
+  const submitReply = (parentId) => {
+    const t = replyText.trim()
+    if (t && onReply) onReply(stemId, parentId, t)
+    setReplyText(''); setReplyTo(null)
+  }
+
+  const Heart = ({ liked }) => (
+    <svg width={12} height={12} viewBox="0 0 24 24" fill={liked?'#ef4444':'none'} stroke={liked?'#ef4444':'#999'} strokeWidth={2} strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+  )
+
+  const row = (cm, isReply) => (
+    <div key={cm.id} style={{ display:'flex', gap:9, marginLeft: isReply ? 38 : 0 }}>
+      <Avatar name={cm.user_name} url={cm.avatar_url} size={isReply?24:30} color={color} border="none"/>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3, flexWrap:'wrap' }}>
+          <span style={{ fontSize:12, fontWeight:700, color:C.t1 }}>{cm.user_name||'Someone'}</span>
+          {cm.timestamp_sec>0 && (
+            onSeek
+              ? <button type="button" onClick={e=>{ e.stopPropagation(); onSeek(cm.timestamp_sec) }} title="Jump to this moment"
+                  style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, fontWeight:700, color, background:`${color}14`, padding:'1px 7px', borderRadius:100, border:'none', cursor:'pointer', fontFamily:'inherit' }}>
+                  <IconPlay size={7} color={color}/>{fmt(cm.timestamp_sec)}
+                </button>
+              : <span style={{ fontSize:10.5, color:C.t3, background:'rgba(var(--fg),.07)', padding:'1px 6px', borderRadius:4 }}>{fmt(cm.timestamp_sec)}</span>
+          )}
+        </div>
+        <div style={{ fontSize:13, color:C.t2, lineHeight:1.5, marginBottom:5, wordBreak:'break-word' }}>{cm.text}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          {cm.created_at && <span style={{ fontSize:10.5, color:C.t3 }}>{timeAgo(cm.created_at)}</span>}
+          {cm.likes>0 && <span style={{ fontSize:10.5, color:C.t3, fontWeight:600 }}>{cm.likes} like{cm.likes!==1?'s':''}</span>}
+          <button onClick={e=>{ e.stopPropagation(); startReply(isReply ? cm.parent_id : cm.id, isReply ? cm.user_name : null) }}
+            style={{ fontSize:10.5, fontWeight:700, color:C.t3, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>
+            Reply
+          </button>
+        </div>
+      </div>
+      <button onClick={e=>{ e.stopPropagation(); onLikeComment(stemId, cm.id, cm.liked_by_me) }}
+        aria-label={cm.liked_by_me ? 'Unlike comment' : 'Like comment'} aria-pressed={!!cm.liked_by_me}
+        style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 0 0', alignSelf:'flex-start', transition:'transform .1s' }}
+        onMouseEnter={e=>e.currentTarget.style.transform='scale(1.15)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+        <Heart liked={cm.liked_by_me}/>
+      </button>
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:14 }}>
+      {top.map(cm => {
+        const replies = byParent[cm.id] || []
+        const open = openReplies[cm.id]
+        return (
+          <div key={cm.id} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {row(cm, false)}
+            {replies.length > 0 && (
+              <button onClick={()=>setOpenReplies(o=>({ ...o, [cm.id]: !o[cm.id] }))}
+                style={{ marginLeft:38, fontSize:10.5, fontWeight:700, color:C.t3, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, fontFamily:'inherit', display:'flex', alignItems:'center', gap:6 }}>
+                <span aria-hidden="true" style={{ width:18, height:1, background:C.border, display:'inline-block' }}/>
+                {open ? 'Hide replies' : `View ${replies.length} repl${replies.length!==1?'ies':'y'}`}
+              </button>
+            )}
+            {open && replies.map(r => row(r, true))}
+            {replyTo === cm.id && (
+              <div style={{ display:'flex', gap:6, marginLeft:38 }}>
+                <input autoFocus value={replyText} onChange={e=>setReplyText(e.target.value)}
+                  onKeyDown={e=>{ if(e.key==='Enter') submitReply(cm.id); if(e.key==='Escape'){ setReplyTo(null); setReplyText('') } }}
+                  placeholder="Reply…"
+                  style={{ flex:1, height:30, padding:'0 11px', borderRadius:9, border:`1px solid ${C.border}`, background:C.surface2, color:C.t1, fontSize:12.5, fontFamily:'inherit', outline:'none' }}/>
+                <button onClick={()=>submitReply(cm.id)} disabled={!replyText.trim()}
+                  style={{ height:30, padding:'0 12px', borderRadius:9, border:'none', cursor: replyText.trim()?'pointer':'default', background: replyText.trim()?color:'rgba(var(--fg),.07)', color: replyText.trim()?'#fff':C.t3, fontSize:12, fontWeight:700, fontFamily:'inherit' }}>
+                  Post
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

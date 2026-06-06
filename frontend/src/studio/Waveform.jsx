@@ -6,6 +6,9 @@ const pending = new Map()   // url → Promise
 // Waveform components listen for this event to re-check the cache after seeding
 const PEAKS_EVENT = 'dizko:peaks_ready'
 
+// mm:ss for marker tooltips
+const fmtTime = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
+
 // ── Seed from an already-decoded AudioBuffer (called from Studio after playback decode) ──
 // Reuses the buffer Studio already decoded — no extra R2 fetch needed.
 export function seedPeaksFromBuffer(url, audioBuffer) {
@@ -97,11 +100,18 @@ export default function Waveform({
   muted        = false,
   height       = 44,
   onSeek,
+  comments     = [],
+  onMarkerClick,
+  onAddCommentAt,
 }) {
   const canvasRef = useRef(null)
   const rafRef    = useRef(null)
   const peaksRef  = useRef(null)
   const [ready, setReady] = useState(false)
+  // Click-to-comment: { sec } of the last clicked spot, and the inline composer.
+  const [pick, setPick]           = useState(null)
+  const [composing, setComposing] = useState(false)
+  const [draft, setDraft]         = useState('')
 
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0
 
@@ -173,9 +183,17 @@ export default function Waveform({
   }, [ready, isPlaying, color, muted, progress])
 
   const handleClick = e => {
-    if (!onSeek || !duration) return
+    if (!duration) return
     const r = e.currentTarget.getBoundingClientRect()
-    onSeek(((e.clientX - r.left) / r.width) * duration)
+    const sec = Math.max(0, Math.min(duration, ((e.clientX - r.left) / r.width) * duration))
+    if (onSeek) onSeek(sec)                              // fast-forward there, keep playing
+    if (onAddCommentAt) { setPick({ sec }); setComposing(false); setDraft('') }
+  }
+
+  const sendComment = () => {
+    const t = draft.trim()
+    if (t && pick && onAddCommentAt) onAddCommentAt(pick.sec, t)
+    setComposing(false); setPick(null); setDraft('')
   }
 
   return (
@@ -191,13 +209,85 @@ export default function Waveform({
         </div>
       )}
       <canvas ref={canvasRef} style={{ width:'100%', height, display: ready ? 'block' : 'none' }}/>
-      {/* Playhead */}
-      {ready && !isPlaying && progress > 0 && progress < 1 && (
+      {/* Playhead — shown while playing AND paused so the sweep is clearly visible
+          across every stem in sync (not just the transport bar up top). */}
+      {ready && progress > 0 && progress < 1 && (
         <div style={{ position:'absolute', top:0, bottom:0, left:`${progress*100}%`,
           width:2, background:'#fff', borderRadius:1,
-          boxShadow:'0 0 4px rgba(var(--fg),.7)',
-          transform:'translateX(-50%)', pointerEvents:'none' }}/>
+          boxShadow:'0 0 6px rgba(255,255,255,.9)',
+          transform:'translateX(-50%)', pointerEvents:'none', zIndex:2 }}>
+          <span style={{ position:'absolute', top:-3, left:'50%', transform:'translateX(-50%)',
+            width:7, height:7, borderRadius:'50%', background:'#fff',
+            boxShadow:'0 0 6px rgba(255,255,255,.9)' }}/>
+        </div>
       )}
+
+      {/* Comment markers — avatars pinned at the second each comment was left.
+          Needs a known duration (set on first playback) to map seconds → x%. */}
+      {onMarkerClick && duration > 0 && comments
+        .filter(c => c?.timestamp_sec > 0 && !c.resolved)
+        .map(c => {
+          const left = Math.min(99, Math.max(0, (c.timestamp_sec / duration) * 100))
+          return (
+            <button key={c.id} type="button"
+              title={`${c.user_name || 'Someone'} · ${fmtTime(c.timestamp_sec)}\n${c.text || ''}`}
+              onClick={e => { e.stopPropagation(); onMarkerClick(c.timestamp_sec) }}
+              style={{ position:'absolute', top:-8, left:`${left}%`, transform:'translateX(-50%)',
+                width:18, height:18, padding:0, border:'none', background:'transparent',
+                cursor:'pointer', zIndex:3, lineHeight:0 }}>
+              {/* pin stem down to the bars */}
+              <span style={{ position:'absolute', top:17, left:'50%', transform:'translateX(-50%)',
+                width:1.5, height:height - 8, background:`${color}`, opacity:.5, pointerEvents:'none' }}/>
+              <span style={{ display:'block', width:18, height:18, borderRadius:'50%', overflow:'hidden',
+                border:`2px solid ${color}`, boxShadow:'0 1px 4px rgba(0,0,0,.45)', background:color, position:'relative' }}>
+                {c.avatar_url
+                  ? <img src={c.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+                  : <span style={{ display:'flex', width:'100%', height:'100%', alignItems:'center',
+                      justifyContent:'center', fontSize:9, fontWeight:800, color:'#fff' }}>
+                      {(c.user_name || '?').charAt(0).toUpperCase()}
+                    </span>}
+              </span>
+            </button>
+          )
+        })}
+
+      {/* Click-to-comment — a small bubble appears where you clicked; tap it to
+          drop a comment pinned at that second. */}
+      {onAddCommentAt && duration > 0 && pick && (() => {
+        const left = Math.min(98, Math.max(2, (pick.sec / duration) * 100))
+        return (
+          <div style={{ position:'absolute', top:-11, left:`${left}%`, transform:'translateX(-50%)', zIndex:4 }}
+            onClick={e => e.stopPropagation()}>
+            {!composing ? (
+              <button type="button" title={`Comment at ${fmtTime(pick.sec)}`}
+                onClick={e => { e.stopPropagation(); setComposing(true) }}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center',
+                  width:20, height:20, borderRadius:'50% 50% 50% 2px', border:'none',
+                  background:color, cursor:'pointer', boxShadow:'0 1px 5px rgba(0,0,0,.5)', padding:0 }}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+              </button>
+            ) : (
+              <div style={{ display:'flex', alignItems:'center', gap:5, padding:5, borderRadius:10,
+                background:'var(--surface)', border:'1px solid var(--border)',
+                boxShadow:'0 6px 20px rgba(0,0,0,.5)' }}>
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') sendComment(); if (e.key === 'Escape') { setComposing(false); setPick(null) } }}
+                  placeholder={`Comment at ${fmtTime(pick.sec)}…`}
+                  style={{ width:160, height:26, padding:'0 9px', borderRadius:7, border:'1px solid var(--border)',
+                    background:'var(--bg)', color:'var(--t1)', fontSize:12, fontFamily:'inherit', outline:'none' }}/>
+                <button type="button" onClick={sendComment} disabled={!draft.trim()}
+                  style={{ height:26, padding:'0 10px', borderRadius:7, border:'none', cursor: draft.trim() ? 'pointer' : 'default',
+                    background: draft.trim() ? color : 'var(--surface-2)', color: draft.trim() ? '#fff' : 'var(--t3)',
+                    fontSize:11.5, fontWeight:700, fontFamily:'inherit' }}>
+                  Send
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { getToken } from '../lib/utils.js'
 export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const audioRef               = useRef(null)
   const dragRef                = useRef(null)
+  const pendingSeekRef         = useRef(null)   // seek requested before audio metadata is ready
   const [playing,  setPlaying] = useState(false)
   const [progress, setProgress]= useState(0)
   const [duration, setDuration]= useState(0)
@@ -42,7 +43,15 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     audioRef.current = a
     a.volume = vol
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
-    a.onloadedmetadata = () => setDuration(a.duration)
+    a.onloadedmetadata = () => {
+      setDuration(a.duration)
+      // Apply a seek that arrived before this track finished loading (e.g. the
+      // user clicked partway along a stem's waveform to start it from there).
+      if (pendingSeekRef.current != null) {
+        a.currentTime = Math.max(0, Math.min(a.duration, pendingSeekRef.current))
+        pendingSeekRef.current = null
+      }
+    }
     a.oncanplay        = () => setLoading(false)
     a.onended          = () => { setPlaying(false); goNext() }
     const p = a.play(); setPlaying(true)
@@ -104,6 +113,51 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     window.addEventListener('dizko:playback', handler)
     return () => window.removeEventListener('dizko:playback', handler)
   }, [playing])
+
+  // ── Broadcast playback position to the Studio board ───────────────────────
+  // The board's per-stem waveform sweeps its own playhead off this, so only the
+  // stem actually playing in the MiniPlayer moves (not every stem at once).
+  const broadcast = (over = {}) => {
+    const a = audioRef.current
+    window.dispatchEvent(new CustomEvent('dizko:player_state', { detail: {
+      id:          track?.id ?? null,
+      fileUrl:     track?.file_url ?? null,
+      currentTime: a?.currentTime ?? 0,
+      duration:    a?.duration || 0,
+      playing:     false,
+      ...over,
+    } }))
+  }
+
+  useEffect(() => {
+    if (!playing) { broadcast({ playing: false }); return }
+    let raf
+    const tick = () => { broadcast({ playing: true }); raf = requestAnimationFrame(tick) }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, track?.id])
+
+  // Seek requested from a board waveform. Apply now if the audio is ready,
+  // otherwise stash it for this track's onloadedmetadata.
+  useEffect(() => {
+    const onSeek = e => {
+      const t = e.detail?.time
+      if (typeof t !== 'number') return
+      const a = audioRef.current
+      if (a && a.duration) a.currentTime = Math.max(0, Math.min(a.duration, t))
+      else pendingSeekRef.current = t
+    }
+    window.addEventListener('dizko:player_seek', onSeek)
+    return () => window.removeEventListener('dizko:player_seek', onSeek)
+  }, [])
+
+  // Clear the board playhead when the player closes/unmounts.
+  useEffect(() => () => {
+    window.dispatchEvent(new CustomEvent('dizko:player_state', {
+      detail: { id: null, fileUrl: null, currentTime: 0, duration: 0, playing: false },
+    }))
+  }, [])
 
   // Drag-to-expand: track pointer delta on the handle
   const dragState = useRef({ active:false, startY:0, startExpanded:false })

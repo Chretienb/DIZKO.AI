@@ -223,6 +223,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [playing,       setPlaying]      = useState(false)
   const [currentTime,   setCurrentTime]  = useState(0)
   const [duration,      setDuration]     = useState(0)
+  // Live state of the single stem playing in the bottom MiniPlayer, so its board
+  // waveform (and only its) sweeps a playhead. Fed by 'dizko:player_state'.
+  const [preview,       setPreview]      = useState({ id:null, currentTime:0, duration:0, playing:false })
   const [soloId,        setSoloId]       = useState(null)
   const [mutedIds,      setMutedIds]     = useState(new Set())
   const [loadingPct,    setLoadingPct]   = useState({})
@@ -296,6 +299,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }, [activeId])
 
   useEffect(() => () => { stopAll(); cancelAnimationFrame(rafRef.current) }, [])
+
+  // Track the MiniPlayer's live position so the matching board stem can sweep.
+  useEffect(() => {
+    const onState = e => setPreview(e.detail || { id:null, currentTime:0, duration:0, playing:false })
+    window.addEventListener('dizko:player_state', onState)
+    return () => window.removeEventListener('dizko:player_state', onState)
+  }, [])
 
   useEffect(() => {
     if (!activeId) return
@@ -620,6 +630,29 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } catch {} finally { setPostingComment(null) }
   }, [commentDraft, activeId])
 
+  // Post a comment with explicit text + timestamp — used by the click-to-comment
+  // bubble on the waveform (doesn't go through the expanded panel's draft).
+  const postCommentAt = useCallback(async (stemId, text, timestampSec) => {
+    const body = (text || '').trim()
+    if (!body || !activeId) return
+    try {
+      const res = await fetch(`/api/stem-comments/${stemId}`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${getToken()}` }, body:JSON.stringify({ text: body, timestamp_sec: timestampSec, project_id: activeId }) })
+      const j = await res.json().catch(()=>({}))
+      if (j.data) setStemComments(prev => ({ ...prev, [stemId]: [...(prev[stemId]||[]), j.data] }))
+    } catch {}
+  }, [activeId])
+
+  // Post a reply to a comment (Instagram-style thread, one level deep).
+  const postReply = useCallback(async (stemId, parentId, text) => {
+    const body = (text || '').trim()
+    if (!body || !activeId || !parentId) return
+    try {
+      const res = await fetch(`/api/stem-comments/${stemId}`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${getToken()}` }, body:JSON.stringify({ text: body, parent_id: parentId, timestamp_sec: 0, project_id: activeId }) })
+      const j = await res.json().catch(()=>({}))
+      if (j.data) setStemComments(prev => ({ ...prev, [stemId]: [...(prev[stemId]||[]), j.data] }))
+    } catch {}
+  }, [activeId])
+
   const loadHistory = async projectId => {
     try {
       const res = await fetch(`/api/projects/${projectId}/stem-history`, { headers:{ Authorization:`Bearer ${getToken()}` } })
@@ -736,6 +769,44 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   // Board = chosen subset of mixer stems, in library order
   const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
+
+  // Load comments for every board stem so their waveform markers show without
+  // needing to expand each one first. Guarded so each stem is fetched once.
+  useEffect(() => {
+    boardStems.forEach(s => { if (stemComments[s.id] === undefined) loadComments(s.id) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardStems])
+
+  // Is this stem the one currently loaded in the MiniPlayer (single-stem preview)?
+  const isPreviewing = s => preview.id === s.id && (preview.playing || preview.currentTime > 0)
+
+  // Per-stem play/pause: if this stem is already in the MiniPlayer, toggle it;
+  // otherwise load + play it. Drives the ▶/⏸ button on each track.
+  const handleStemPlay = useCallback((stem) => {
+    if (preview.id === stem.id) {
+      window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
+    } else {
+      playTrack(stem, boardStems)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.id, boardStems, playTrack])
+
+  // Scrub/seek on a stem's waveform. Routes to whichever clock owns that stem so
+  // only the stem you touched moves:
+  //  • it's the active single-stem preview → seek the MiniPlayer
+  //  • the synced "Play all" transport is running → global seek (all move, intended)
+  //  • idle → start previewing THIS stem from the clicked position
+  const handleStemSeek = useCallback((stem, sec) => {
+    if (preview.id === stem.id && (preview.playing || preview.currentTime > 0)) {
+      window.dispatchEvent(new CustomEvent('dizko:player_seek', { detail:{ time: sec } }))
+    } else if (playing) {
+      seek(sec)
+    } else {
+      playTrack(stem, boardStems)
+      window.dispatchEvent(new CustomEvent('dizko:player_seek', { detail:{ time: sec } }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, playing, boardStems, playTrack])
 
   return (
     <>
@@ -892,6 +963,14 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
               const hKey       = `${s.uploaded_by}::${s.instrument||'recording'}`
 
+              // Per-stem playback clock: the single-stem MiniPlayer preview drives
+              // only its own waveform; otherwise the synced "Play all" transport does.
+              const previewing = isPreviewing(s)
+              const pbTime     = previewing ? preview.currentTime : currentTime
+              const pbDur      = previewing ? preview.duration    : duration
+              const pbPlaying  = previewing ? preview.playing     : playing
+              const stemPlaying = previewing && preview.playing   // this stem playing in the MiniPlayer
+
               return (
                 <TrackItem key={s.id}
                   stem={s} index={i} color={color}
@@ -902,18 +981,20 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   takes={stemHistory[hKey]}
                   comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
                   postingComment={postingComment}
-                  currentTime={currentTime} duration={duration}
-                  isPlaying={playing}
+                  currentTime={pbTime} duration={pbDur}
+                  isPlaying={pbPlaying} previewPlaying={stemPlaying}
                   analyserNode={analyserRefs.current[s.id] || null}
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
-                  onPlay={(stem) => playTrack(stem, boardStems)} onToggleExpand={handleToggleExpand}
-                  onSeek={seek}
+                  onPlay={handleStemPlay} onToggleExpand={handleToggleExpand}
+                  onSeek={(sec) => handleStemSeek(s, sec)}
                   onDelete={deleteStem}
                   onVolumeChange={(id, v) => { setVolumes(prev=>({...prev,[id]:v})); if(gainRefs.current[id]&&!mutedIds.has(id)) gainRefs.current[id].gain.value=v }}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
                   onPostComment={postComment}
                   onLikeComment={likeComment}
+                  onReply={postReply}
+                  onAddCommentAt={(sec, text) => postCommentAt(s.id, text, sec)}
                   onRemoveFromBoard={removeFromBoard}
                   gainRef={gainRefs.current[s.id]}
                 />

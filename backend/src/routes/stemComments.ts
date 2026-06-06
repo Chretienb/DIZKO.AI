@@ -20,6 +20,7 @@ stemComments.get('/:stemId', async (c) => {
     .from('stem_comments').select('*')
     .eq('stem_id', c.req.param('stemId'))
     .order('timestamp_sec', { ascending: true })
+    .order('created_at',    { ascending: true })
   if (error) return c.json({ error: error.message }, 500)
 
   if (!comments?.length) return c.json({ data: [] })
@@ -65,15 +66,23 @@ stemComments.post('/:stemId', sanitize, async (c) => {
     avatarUrl = u?.user?.user_metadata?.avatar_url || null
   } catch {}
 
-  const { data, error } = await supabase.from('stem_comments').insert({
+  // Replies attach to a parent comment (one level deep) and carry no timestamp.
+  // Only set parent_id when it's actually a reply, so top-level comments don't
+  // reference the column at all (keeps working if the migration isn't applied yet).
+  const parentId = typeof body.parent_id === 'string' ? body.parent_id : null
+
+  const insertRow: Record<string, unknown> = {
     stem_id:       c.req.param('stemId'),
     project_id:    projectId,
     user_id:       userId,
     user_name:     userName,
     avatar_url:    avatarUrl,
-    timestamp_sec: typeof body.timestamp_sec === 'number' ? body.timestamp_sec : 0,
+    timestamp_sec: parentId ? 0 : (typeof body.timestamp_sec === 'number' ? body.timestamp_sec : 0),
     text,
-  }).select().single()
+  }
+  if (parentId) insertRow.parent_id = parentId
+
+  const { data, error } = await supabase.from('stem_comments').insert(insertRow).select().single()
 
   if (error) return c.json({ error: error.message }, 500)
   return c.json({ data }, 201)
