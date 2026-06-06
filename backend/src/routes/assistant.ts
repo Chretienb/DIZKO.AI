@@ -32,7 +32,8 @@ assistant.get('/:projectId/analysis', async (c) => {
   if ((proj as any).owner_id !== userId && !collabRow)
     return c.json({ error: 'Access denied' }, 403)
 
-  const analysis = await getLatestAnalysis(projectId)
+  const folderId = c.req.query('folder_id') || null
+  const analysis = await getLatestAnalysis(projectId, folderId)
   return c.json({ data: analysis })
 })
 
@@ -48,7 +49,8 @@ assistant.post('/:projectId/analyze', aiLimit, async (c) => {
   if ((proj as any).owner_id !== userId)
     return c.json({ error: 'Only the owner can trigger analysis' }, 403)
 
-  const analysis = await analyzeProject(projectId, userId)
+  const folderId = c.req.query('folder_id') || null
+  const analysis = await analyzeProject(projectId, userId, folderId)
   return c.json({ data: analysis })
 })
 

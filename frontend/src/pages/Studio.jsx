@@ -370,10 +370,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     pitchCacheRef.current.clear()
     transposedUrlCacheRef.current.forEach(u => URL.revokeObjectURL(u))
     transposedUrlCacheRef.current.clear()
-    fetchAiAnalysis(activeId)
     loadHistory(activeId)
     foldersApi.list(activeId).then(r => setSongs(r.data || [])).catch(() => setSongs([]))
   }, [activeId])
+
+  // Fetch AI analysis scoped to the selected song (falls back to album-wide).
+  useEffect(() => {
+    if (!activeId) return
+    const fid = (songId !== 'all' && songId !== 'unsorted') ? songId : null
+    fetchAiAnalysis(activeId, fid)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, songId])
 
   // Default to the last-used song for this album (or its first song).
   useEffect(() => {
@@ -704,12 +711,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } catch (e) { addToast('Export failed: '+e.message, 'error') } finally { setDawExporting(false) }
   }
 
-  const fetchAiAnalysis = async projectId => {
+  const fetchAiAnalysis = async (projectId, folderId = null) => {
     if (!projectId) return
     try {
-      const res = await fetch(`/api/assistant/${projectId}/analysis`, { headers:{ Authorization:`Bearer ${getToken()}` } })
+      const qs = folderId ? `?folder_id=${folderId}` : ''
+      const res = await fetch(`/api/assistant/${projectId}/analysis${qs}`, { headers:{ Authorization:`Bearer ${getToken()}` } })
       const j = await res.json().catch(()=>({}))
-      if (j.data) setAiAnalysis(j.data)
+      setAiAnalysis(j.data || null)
     } catch {}
   }
 
@@ -1252,8 +1260,16 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             onGenerateMix={async () => {
               if (!activeId || smartMixing) return
               setSmartMixing(true)
-              try { const r = await smartBounceApi(activeId); setSmartMixUrl(r.data?.bounce_url); setSmartMixInfo({ contributors:r.data?.contributors||[], stem_count:r.data?.stem_count }) }
-              catch {}
+              const fid = (songId !== 'all' && songId !== 'unsorted') ? songId : null
+              // Mix exactly the stems on the board, excluding muted ones.
+              const boardMixIds = boardStems.filter(s => !mutedIds.has(s.id)).map(s => s.id)
+              try {
+                const r = await smartBounceApi(activeId, fid, boardMixIds)
+                setSmartMixUrl(r.data?.bounce_url)
+                setSmartMixInfo({ contributors:r.data?.contributors||[], stem_count:r.data?.stem_count })
+                // The bounce route refreshes this song's analysis — pull it in (give it a beat).
+                setTimeout(() => fetchAiAnalysis(activeId, fid), 1200)
+              } catch {}
               setSmartMixing(false)
             }}
             onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}

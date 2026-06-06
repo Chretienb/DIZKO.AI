@@ -42,17 +42,18 @@ function latestTakes(stems: any[]): any[] {
   return [...map.values()]
 }
 
-export async function runSmartBounce(projectId: string, triggeredBy: string): Promise<SmartBounceResult | null> {
-  // 1. Fetch all stems for the project
+export async function runSmartBounce(projectId: string, triggeredBy: string, folderId: string | null = null, boardStemIds: string[] | null = null): Promise<SmartBounceResult | null> {
+  // 1. Fetch all stems for the project (or just the chosen song when folderId set)
   const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', projectId)
   if (!tracks?.length) return null
   const trackIds = tracks.map((t: any) => t.id)
 
-  const { data: stems, error } = await supabase
+  let stemQuery = supabase
     .from('stems')
     .select('id, instrument, uploaded_by, suggested_name, file_url, storage_path, created_at, file_size')
     .in('track_id', trackIds)
-    .order('created_at', { ascending: false })
+  if (folderId) stemQuery = stemQuery.eq('folder_id', folderId)
+  const { data: stems, error } = await stemQuery.order('created_at', { ascending: false })
 
   if (error || !stems?.length) return null
 
@@ -62,16 +63,21 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
   for (const old of oldBounces) {
     if (old.storage_path) await deleteFromR2(old.storage_path).catch(() => {})
     if (old.file_size && old.uploaded_by) {
-      await supabase.rpc('decrement_storage', { user_id: old.uploaded_by, bytes: old.file_size }).catch(() => {})
+      try { await supabase.rpc('decrement_storage', { user_id: old.uploaded_by, bytes: old.file_size }) } catch {}
     }
   }
   if (oldBounces.length > 0) {
     await supabase.from('stems').delete().in('id', oldBounces.map((s: any) => s.id))
   }
 
-  const takes = latestTakes(stems)
+  // Board-driven: when the client sends the board's stem ids (manual Generate Mix),
+  // mix exactly those (already de-muted client-side). Otherwise (auto-bounce on
+  // upload) fall back to picking the latest/best take of each instrument.
+  const takes = Array.isArray(boardStemIds)
+    ? (stems as any[]).filter(s => boardStemIds.includes(s.id) && s.instrument !== 'smart_bounce')
+    : latestTakes(stems)
   if (takes.length < 1) {
-    console.log(`[smartBounce] no takes yet — skipping`)
+    console.log(`[smartBounce] no stems to mix — skipping`)
     return null
   }
 
@@ -126,7 +132,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
       notes: JSON.stringify({ project_id: projectId, contributors: [contributors[0]?.instrument], stem_count: 1, auto: true }),
       uploaded_by: triggeredBy,
     })
-    await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }).catch(() => {})
+    try { await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }) } catch {}
     return { bounce_url: bounceUrl, storage_path: storagePath, contributors: contributors.filter(Boolean), stem_count: 1 }
   }
 
@@ -225,7 +231,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string): Pr
     }),
     uploaded_by:    triggeredBy,
   }).select().single()
-  await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }).catch(() => {})
+  try { await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }) } catch {}
 
   console.log(`[smartBounce] done — ${validFiles.length} stems → ${bounceUrl}`)
 

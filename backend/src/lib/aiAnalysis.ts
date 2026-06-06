@@ -55,6 +55,7 @@ export interface ProjectAnalysis {
 export async function analyzeProject(
   projectId:  string,
   triggeredBy: string,
+  folderId: string | null = null,   // scope to one song (folder) when provided
 ): Promise<ProjectAnalysis | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null
 
@@ -67,11 +68,12 @@ export async function analyzeProject(
   if (!tracks?.length) return null
   const trackIds = (tracks as any[]).map(t => t.id)
 
-  const { data: allStems } = await supabase
+  let stemQuery = supabase
     .from('stems')
     .select('id, original_name, instrument, uploaded_by, created_at, notes')
     .in('track_id', trackIds)
-    .order('created_at', { ascending: true })
+  if (folderId) stemQuery = stemQuery.eq('folder_id', folderId)   // just this song's stems
+  const { data: allStems } = await stemQuery.order('created_at', { ascending: true })
 
   if (!allStems?.length) return null
 
@@ -200,13 +202,14 @@ Version insights: only when same instrument has 2+ takes from same uploader.`
     return null
   }
 
-  // 5. Always INSERT — getLatestAnalysis orders by created_at desc so newest wins
+  // 5. Always INSERT — getLatestAnalysis orders by created_at desc so newest wins.
+  // Tag with the song (folder) it analyzed so the right one is fetched back.
   await supabase.from('notifications').insert({
     project_id: projectId,
     user_id:    triggeredBy,
     type:       'ai_analysis',
     message:    analysis.brief,
-    metadata:   analysis,
+    metadata:   { ...analysis, folder_id: folderId ?? null },
   })
 
   console.log(`[aiAnalysis] ${(proj as any).title}: ${analysis.brief}`)
@@ -215,16 +218,25 @@ Version insights: only when same instrument has 2+ takes from same uploader.`
 
 // ── Fetch latest analysis for a project ──────────────────────────────────────
 
-export async function getLatestAnalysis(projectId: string): Promise<ProjectAnalysis | null> {
+export async function getLatestAnalysis(
+  projectId: string,
+  folderId: string | null = null,   // prefer this song's analysis when set
+): Promise<ProjectAnalysis | null> {
   const { data } = await supabase
     .from('notifications')
     .select('metadata, created_at')
     .eq('project_id', projectId)
     .eq('type', 'ai_analysis')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
+    .limit(10)
 
-  if (!data?.metadata) return null
-  return data.metadata as ProjectAnalysis
+  const rows = (data ?? []).map((d: any) => d.metadata).filter(Boolean) as any[]
+  if (!rows.length) return null
+  // Prefer the latest analysis for this song; otherwise fall back to the latest
+  // project-wide one (no folder), and finally to the most recent of any.
+  if (folderId) {
+    const songMatch = rows.find(m => m.folder_id === folderId)
+    if (songMatch) return songMatch as ProjectAnalysis
+  }
+  return (rows.find(m => !m.folder_id) ?? rows[0]) as ProjectAnalysis
 }

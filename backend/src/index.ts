@@ -34,6 +34,7 @@ import youtubeRoutes          from './routes/youtube'
 import billingRoutes          from './routes/billing'
 import { startCleanupJob }   from './lib/cleanupJob'
 import { runSmartBounce }    from './lib/smartBounce'
+import { analyzeProject }    from './lib/aiAnalysis'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 import { mixReadyEmail }               from './lib/emailTemplates'
 
@@ -208,8 +209,14 @@ subscribeToFileEvents(async (payload) => {
 app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
   const projectId = c.req.param('id')
   const user      = c.var.user as { id: string }
-  const result    = await runSmartBounce(projectId, user.id)
+  const folderId  = c.req.query('folder_id') || null   // scope to one song when set
+  // Board-driven mix: client sends the exact stems on the board (minus muted).
+  const body      = await c.req.json().catch(() => ({} as any))
+  const stemIds   = Array.isArray(body?.stem_ids) ? (body.stem_ids as string[]) : null
+  const result    = await runSmartBounce(projectId, user.id, folderId, stemIds)
   if (!result) return c.json({ data: null, error: 'Not enough stems to mix', status: 400 }, 400)
+  // Refresh the AI analysis for this song so feedback reflects what was just mixed.
+  analyzeProject(projectId, user.id, folderId).catch(() => null)
   return c.json({ data: result, error: null, status: 200 })
 })
 

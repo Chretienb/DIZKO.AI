@@ -301,7 +301,7 @@ export const accessRequests = {
 }
 
 // ── Smart Bounce ──────────────────────────────────────────────────────────────
-export const smartBounce = (projectId) => post(`/projects/${projectId}/smart-bounce`, {})
+export const smartBounce = (projectId, folderId, stemIds) => post(`/projects/${projectId}/smart-bounce${folderId ? `?folder_id=${folderId}` : ''}`, stemIds ? { stem_ids: stemIds } : {})
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 export const messagesApi = {
