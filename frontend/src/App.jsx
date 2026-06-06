@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children
     return (
       <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-        background:'var(--bg)', color:'var(--t1)', fontFamily:'-apple-system,sans-serif', flexDirection:'column', gap:16 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter',-apple-system,sans-serif", flexDirection:'column', gap:16 }}>
         <div style={{ fontSize:32 }}>
           <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.5} strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -680,7 +680,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   return (
     <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
-      fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
+      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* Keyboard skip link — first focusable element, jumps past the nav rail */}

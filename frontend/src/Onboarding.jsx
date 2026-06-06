@@ -108,7 +108,7 @@ export default function Onboarding({ onComplete, user }) {
       position:'fixed', inset:0, zIndex:9999,
       background:'#0a0a0f',
       display:'flex', alignItems:'center', justifyContent:'center',
-      fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
+      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased',
     }}>
       {/* Ambient glows — identical to login page */}

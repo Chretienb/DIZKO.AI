@@ -173,7 +173,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div style={{ height:'100vh', display:'flex', overflow:'hidden',
-      fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
+      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased' }}>
 
       {/* ══ LEFT — studio photo ══ */}

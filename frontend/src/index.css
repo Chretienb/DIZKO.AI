@@ -141,7 +141,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; padding: 0;
   background: var(--outer); color: var(--t1);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; }
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
 body { background-color: var(--outer) !important;
   transition: background-color .2s ease, color .2s ease; }
 

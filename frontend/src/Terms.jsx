@@ -22,7 +22,7 @@ export default function Terms() {
   const updated = 'May 18, 2026'
 
   return (
-    <div style={{ fontFamily:"-apple-system,BlinkMacSystemFont,'Inter','Helvetica Neue',sans-serif",
+    <div style={{ fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
       WebkitFontSmoothing:'antialiased', background:'#fafafa', minHeight:'100vh',
       overflowY:'auto', height:'auto' }}>
 
