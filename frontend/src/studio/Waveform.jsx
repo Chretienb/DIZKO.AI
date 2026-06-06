@@ -107,11 +107,25 @@ export default function Waveform({
   const canvasRef = useRef(null)
   const rafRef    = useRef(null)
   const peaksRef  = useRef(null)
+  const pickRef   = useRef(null)
   const [ready, setReady] = useState(false)
   // Click-to-comment: { sec } of the last clicked spot, and the inline composer.
   const [pick, setPick]           = useState(null)
   const [composing, setComposing] = useState(false)
   const [draft, setDraft]         = useState('')
+
+  // Dismiss the comment bubble/composer when clicking anywhere outside it.
+  // (Attached on a delay so the click that opened it doesn't immediately close it.)
+  useEffect(() => {
+    if (!pick) return
+    const onDown = e => {
+      if (pickRef.current && !pickRef.current.contains(e.target)) {
+        setPick(null); setComposing(false); setDraft('')
+      }
+    }
+    const id = setTimeout(() => document.addEventListener('mousedown', onDown), 0)
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onDown) }
+  }, [pick])
 
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0
 
@@ -210,7 +224,8 @@ export default function Waveform({
       )}
       <canvas ref={canvasRef} style={{ width:'100%', height, display: ready ? 'block' : 'none' }}/>
       {/* Playhead — shown while playing AND paused so the sweep is clearly visible
-          across every stem in sync (not just the transport bar up top). */}
+          across every stem in sync (not just the transport bar up top). A live
+          time readout rides along so you can read the exact position as it goes. */}
       {ready && progress > 0 && progress < 1 && (
         <div style={{ position:'absolute', top:0, bottom:0, left:`${progress*100}%`,
           width:2, background:'#fff', borderRadius:1,
@@ -219,6 +234,11 @@ export default function Waveform({
           <span style={{ position:'absolute', top:-3, left:'50%', transform:'translateX(-50%)',
             width:7, height:7, borderRadius:'50%', background:'#fff',
             boxShadow:'0 0 6px rgba(255,255,255,.9)' }}/>
+          <span style={{ position:'absolute', bottom:-15, left:'50%', transform:'translateX(-50%)',
+            fontSize:9, fontWeight:800, color:'#fff', background:'rgba(0,0,0,.72)',
+            padding:'1px 5px', borderRadius:4, whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>
+            {fmtTime(currentTime)}
+          </span>
         </div>
       )}
 
@@ -256,7 +276,7 @@ export default function Waveform({
       {onAddCommentAt && duration > 0 && pick && (() => {
         const left = Math.min(98, Math.max(2, (pick.sec / duration) * 100))
         return (
-          <div style={{ position:'absolute', top:-11, left:`${left}%`, transform:'translateX(-50%)', zIndex:4 }}
+          <div ref={pickRef} style={{ position:'absolute', top:-11, left:`${left}%`, transform:'translateX(-50%)', zIndex:4 }}
             onClick={e => e.stopPropagation()}>
             {!composing ? (
               <button type="button" title={`Comment at ${fmtTime(pick.sec)}`}
