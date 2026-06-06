@@ -48,7 +48,7 @@ export default function AIPanel({
   allStems, boardIds, onPickTake,
   onGenerateMix, onPlayMix,
   openModal, activeProject,
-  activeId, dawExporting, onExportDAW,
+  activeId, dawExporting, onExportDAW, exportScope,
 }) {
   const insightRows = buildInsightRows(aiAnalysis?.version_insights, allStems, boardIds)
   return (
@@ -135,16 +135,22 @@ export default function AIPanel({
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
           <div aria-hidden="true" style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center' }}><IconDl size={14}/></div>
           <span style={{ fontSize:14, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>Export</span>
+          {exportScope && (
+            <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:C.coral, background:`${C.coral}14`, padding:'3px 9px', borderRadius:100, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {exportScope}
+            </span>
+          )}
         </div>
         <button onClick={()=>onExportDAW('all')} disabled={dawExporting||!activeId}
           aria-label="Export project for your DAW"
           style={{ width:'100%', height:48, display:'flex', alignItems:'center', justifyContent:'center', gap:10,
             borderRadius:12, border:'none', background:C.grad, color:'#fff', fontSize:14, fontWeight:800,
             cursor:(dawExporting||!activeId)?'default':'pointer', opacity:(dawExporting||!activeId)?.6:1, transition:'opacity .12s' }}>
-          {dawExporting ? <><Spinner size={15} color="#fff"/> Exporting…</> : <><IconDl size={15}/> Export for DAW</>}
+          {dawExporting ? <><Spinner size={15} color="#fff"/> Exporting…</> : <><IconDl size={15}/> Export {exportScope || 'for DAW'}</>}
         </button>
         <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginTop:8, lineHeight:1.4 }}>
-          One download — Ableton <strong style={{color:C.t2}}>.als</strong> + Logic guide + universal stems
+          {exportScope ? <>Exports <strong style={{color:C.t2}}>{exportScope}</strong> — </> : null}
+          Ableton <strong style={{color:C.t2}}>.als</strong> + Logic guide + universal stems
         </div>
       </div>
     </div>

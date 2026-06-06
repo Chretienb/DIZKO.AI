@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi } from '../lib/api.js'
+import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi, foldersApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Btn, Spinner, C } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
@@ -219,10 +219,94 @@ function ProjectPicker({ projects, activeId, onSelect }) {
   )
 }
 
+// ── Song selector — pick a song within the album. Tabs when few songs, a
+// searchable dropdown when many. Options carry a per-song stem count. ──────────
+function SongSelector({ options, value, onSelect, isMobile }) {
+  const [open, setOpen] = React.useState(false)
+  const [rect, setRect] = React.useState(null)
+  const btnRef = React.useRef(null)
+  const popRef = React.useRef(null)
+  const active = options.find(o => o.id === value) || options[0]
+
+  const place = React.useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setRect({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 240) })
+  }, [])
+  React.useEffect(() => {
+    if (!open) return
+    place()
+    const onDoc = e => { if (btnRef.current?.contains(e.target) || popRef.current?.contains(e.target)) return; setOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc); document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', place); window.addEventListener('scroll', place, true)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
+  }, [open, place])
+
+  if (!options.length) return null
+
+  // Few songs on desktop → one-tap pills.
+  const songCount = options.filter(o => o.id !== 'all' && o.id !== 'unsorted').length
+  if (!isMobile && songCount > 0 && songCount <= 4) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
+        {options.map(o => {
+          const on = o.id === value
+          return (
+            <button key={o.id} onClick={() => onSelect(o.id)} title={o.label}
+              style={{ height:30, padding:'0 11px', borderRadius:8, border:`1px solid ${on ? C.coral+'55' : C.border}`,
+                background: on ? `${C.coral}16` : 'transparent', color: on ? C.coral : C.t2,
+                fontSize:12.5, fontWeight: on ? 700 : 500, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', maxWidth:160 }}>
+              <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{o.label}</span>
+              {o.count != null && <span style={{ fontSize:10.5, opacity:.7 }}>{o.count}</span>}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Many songs → searchable-style dropdown.
+  return (
+    <>
+      <button ref={btnRef} onClick={() => setOpen(o => !o)}
+        style={{ display:'flex', alignItems:'center', gap:7, height:34, padding:'0 11px', borderRadius:9,
+          background:C.surface, border:`1px solid ${open ? C.coral+'55' : C.border}`, cursor:'pointer', maxWidth:220, fontFamily:'inherit' }}>
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span style={{ fontSize:13, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{active?.label || 'All songs'}</span>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0, transform:open?'rotate(180deg)':'none', transition:'transform .15s' }}><polyline points="6,9 12,15 18,9"/></svg>
+      </button>
+      {open && rect && createPortal(
+        <div ref={popRef} style={{ position:'fixed', top:rect.top, left:rect.left, zIndex:4000, width:Math.max(rect.width, 240),
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden', boxShadow:'0 16px 48px rgba(0,0,0,.45)' }}>
+          <div style={{ maxHeight:320, overflowY:'auto', padding:6 }}>
+            {options.map(o => {
+              const on = o.id === value
+              return (
+                <button key={o.id} onClick={() => { onSelect(o.id); setOpen(false) }}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 9px', borderRadius:8, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                    background: on ? `${C.coral}14` : 'transparent' }}
+                  onMouseEnter={e => { if(!on) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
+                  onMouseLeave={e => { if(!on) e.currentTarget.style.background='transparent' }}>
+                  <span style={{ flex:1, minWidth:0, fontSize:13, fontWeight: on ? 700 : 400, color: on ? C.coral : C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.label}</span>
+                  {o.count != null && <span style={{ fontSize:11, color:C.t3, fontWeight:600 }}>{o.count}</span>}
+                  {on && <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={3} strokeLinecap="round" style={{ flexShrink:0 }}><polyline points="20,6 9,17 4,12"/></svg>}
+                </button>
+              )
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [projects,      setProjects]     = useState([])
   const [activeId,      setActiveId]     = useState(null)
+  const [songs,         setSongs]        = useState([])        // folders = songs within the album
+  const [songId,        setSongId]       = useState('all')     // selected song id, or 'all' / 'unsorted'
   const isMobile = React.useContext(MobileCtx)
   const [aiAnalysis,    setAiAnalysis]   = useState(null)
   const [stems,         setStems]        = useState([])
@@ -282,12 +366,25 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setAiAnalysis(null)
     setStemComments({})
     setStemHistory({})
+    setSongs([])
     pitchCacheRef.current.clear()
     transposedUrlCacheRef.current.forEach(u => URL.revokeObjectURL(u))
     transposedUrlCacheRef.current.clear()
     fetchAiAnalysis(activeId)
     loadHistory(activeId)
+    foldersApi.list(activeId).then(r => setSongs(r.data || [])).catch(() => setSongs([]))
   }, [activeId])
+
+  // Default to the last-used song for this album (or its first song).
+  useEffect(() => {
+    if (!activeId) return
+    const saved = sessionStorage.getItem(`dizko_song:${activeId}`)
+    if (saved && (saved === 'all' || saved === 'unsorted' || songs.some(s => s.id === saved))) { setSongId(saved); return }
+    setSongId(songs.length > 0 ? songs[0].id : 'all')
+  }, [activeId, songs])
+
+  // Remember the chosen song per album.
+  useEffect(() => { if (activeId) sessionStorage.setItem(`dizko_song:${activeId}`, songId) }, [activeId, songId])
 
   useEffect(() => {
     if (!activeId) return
@@ -572,7 +669,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const ids = [...boardIds].join(',')
       const qs  = `format=${format}${ids ? `&stem_ids=${encodeURIComponent(ids)}` : ''}`
       const proj = projects.find(p => p.id === activeId)
-      const fallbackName = `${(proj?.title||'Project').replace(/[^a-zA-Z0-9 _-]/g,'_')}_Dizko_Export.zip`
+      // Name the download for the song being exported (or "All Songs").
+      const songLabel = songId === 'all' ? 'All Songs'
+        : songId === 'unsorted' ? 'Unsorted'
+        : (songs.find(s => s.id === songId)?.name || 'Song')
+      const safe = s => (s||'').replace(/[^a-zA-Z0-9 _-]/g,'').trim().replace(/\s+/g,'_')
+      const exportFileName = `${safe(proj?.title)||'Project'}_${safe(songLabel)||'Export'}_Dizko_Export.zip`
 
       // Start the async export job via the API client (cookie auth + automatic
       // token refresh on 401 — the old raw fetch used a stale localStorage token
@@ -594,11 +696,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       }
       if (!result?.url) { addToast('Export timed out — try again', 'error'); return }
 
-      // Zip lives on R2 — download it directly.
+      // Zip lives on R2 — download it directly, named for the song.
       const a = document.createElement('a')
-      a.href = result.url; a.download = result.filename || fallbackName
+      a.href = result.url; a.download = exportFileName
       a.click()
-      addToast('Export ready — check your downloads', 'success')
+      addToast(<><strong style={{color:'#fff'}}>{songLabel}</strong> exported — check your downloads</>, { type:'success' })
     } catch (e) { addToast('Export failed: '+e.message, 'error') } finally { setDawExporting(false) }
   }
 
@@ -731,27 +833,47 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const activeProject = projects.find(p => p.id === activeId)
 
-  const mixerStems = useMemo(() => stems.filter(s => {
+  // Stems scoped to the selected song (folder). 'all' = every stem in the album,
+  // 'unsorted' = stems not yet placed in a song.
+  const visibleStems = useMemo(() => {
+    if (songId === 'all') return stems
+    if (songId === 'unsorted') return stems.filter(s => !s.folder_id)
+    return stems.filter(s => s.folder_id === songId)
+  }, [stems, songId])
+
+  // Song options for the picker — name + per-song stem count. Built from all
+  // stems so the counts are stable regardless of which song is open.
+  const songOptions = useMemo(() => {
+    const isMix = s => s.instrument && s.instrument !== 'original' && s.instrument !== 'smart_bounce' && !parsedNotes(s).parent_stem_id
+    const countFor = fid => stems.filter(s => isMix(s) && (fid === null ? !s.folder_id : s.folder_id === fid)).length
+    const opts = [{ id:'all', label:'All songs', count: stems.filter(isMix).length }]
+    for (const f of songs) opts.push({ id: f.id, label: f.name || 'Untitled song', count: countFor(f.id) })
+    const unsorted = countFor(null)
+    if (unsorted > 0) opts.push({ id:'unsorted', label:'Unsorted', count: unsorted })
+    return opts
+  }, [songs, stems])
+
+  const mixerStems = useMemo(() => visibleStems.filter(s => {
     if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') return false
     const n = parsedNotes(s); return !n.parent_stem_id
   // Master (the engineer's final mix) pinned to the top — of the library and the
   // board. Stable sort keeps every other stem in its existing order.
-  }).sort((a, b) => (b.instrument === 'master' ? 1 : 0) - (a.instrument === 'master' ? 1 : 0)), [stems])
+  }).sort((a, b) => (b.instrument === 'master' ? 1 : 0) - (a.instrument === 'master' ? 1 : 0)), [visibleStems])
 
   const takeMap = useMemo(() => {
     const m = new Map()
-    for (const s of stems) {
+    for (const s of visibleStems) {
       const sn = parsedNotes(s)
       if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce' || sn.parent_stem_id) continue
       const key = `${s.uploaded_by}::${s.instrument}`, ex = m.get(key)
       if (!ex || new Date(s.created_at) > new Date(ex.created_at)) m.set(key, s)
     }
     return m
-  }, [stems])
+  }, [visibleStems])
 
 
-  // ── Board layout persistence (per user + project) ────────────────────────────
-  const boardKey = activeId && user?.id ? `studio_board:${user.id}:${activeId}` : null
+  // ── Board layout persistence (per user + project + song) ─────────────────────
+  const boardKey = activeId && user?.id ? `studio_board:${user.id}:${activeId}:${songId}` : null
 
   // Load saved layout + per-stem mix settings when project/stems change. First
   // visit → pre-fill the board with the latest take of each instrument (sensible
@@ -922,8 +1044,14 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           {/* Title strip */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
             padding:'12px 16px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0, flexWrap:'wrap' }}>
               <ProjectPicker projects={projects} activeId={activeId} onSelect={setActiveId} />
+              {songs.length > 0 && (
+                <>
+                  <svg aria-hidden="true" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink:0 }}><polyline points="9,18 15,12 9,6"/></svg>
+                  <SongSelector options={songOptions} value={songId} onSelect={setSongId} isMobile={isMobile} />
+                </>
+              )}
               {!isMobile && !loading && (
                 <span style={{ fontSize:12, color:C.t3, fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}>
                   <span style={{ color:C.coral, fontWeight:700 }}>{boardStems.length}</span> / {mixerStems.length} on board
@@ -1131,6 +1259,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
             openModal={openModal} activeProject={activeProject}
             activeId={activeId} dawExporting={dawExporting} onExportDAW={exportToDAW}
+            exportScope={songOptions.find(o => o.id === songId)?.label || 'All Songs'}
           />
           </div>
         </div>
