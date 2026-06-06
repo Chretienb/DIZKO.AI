@@ -97,7 +97,7 @@ async function buildExport(
   // bpm/key live in stems.notes JSON — no separate columns
   const { data: allStems, error: stemsErr } = await supabase
     .from('stems')
-    .select('id, original_name, instrument, uploaded_by, suggested_name, file_url, created_at, notes')
+    .select('id, original_name, instrument, uploaded_by, suggested_name, file_url, storage_path, created_at, notes')
     .in('track_id', trackIds)
     .order('created_at', { ascending: false })
 
@@ -223,8 +223,12 @@ async function buildExport(
       // Producer format: ClaudeName_Instrument_92BPM_Fm.wav
       const filename   = `${claudeBase}_${instrLabel}_${bpmTag}BPM_${keyTag}.wav`
 
-      const res = await fetch(s.file_url)
-      if (!res.ok) return
+      // Stored signed URLs expire (R2, ~7 days) — refresh before downloading so
+      // older stems don't 403 and get silently dropped from the export.
+      const r2Key    = (s.storage_path as string | null) || r2KeyFromUrl(s.file_url)
+      const fetchUrl = r2Key ? await getR2SignedUrl(r2Key).catch(() => s.file_url) : s.file_url
+      const res = await fetch(fetchUrl)
+      if (!res.ok) { console.error(`[export] skip "${filename}" — ${res.status} ${res.statusText}`); return }
       const buffer = Buffer.from(await res.arrayBuffer())
 
       let durationSec = 30

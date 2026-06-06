@@ -10,10 +10,11 @@
 
 export function serializeBoard(/** @type {BoardState} */ state) {
   return JSON.stringify({
-    board:   state.board ?? [],
-    volumes: state.volumes ?? {},
-    muted:   state.muted ?? [],
-    trims:   state.trims ?? {},
+    board:      state.board ?? [],
+    volumes:    state.volumes ?? {},
+    muted:      state.muted ?? [],
+    trims:      state.trims ?? {},
+    transposes: state.transposes ?? {},
   })
 }
 
@@ -36,14 +37,15 @@ export function parseBoard(raw, validIds) {
   // Old format: a bare array of board ids, no per-stem settings.
   if (Array.isArray(saved)) {
     const board = saved.filter(id => validIds.has(id))
-    return { board, volumes: {}, muted: [], trims: {} }
+    return { board, volumes: {}, muted: [], trims: {}, transposes: {} }
   }
   if (!saved || typeof saved !== 'object') return null
 
   return {
-    board:   Array.isArray(saved.board) ? saved.board.filter(id => validIds.has(id)) : [],
-    volumes: pickValid(saved.volumes, validIds),
-    muted:   Array.isArray(saved.muted) ? saved.muted.filter(id => validIds.has(id)) : [],
-    trims:   pickValid(saved.trims, validIds),
+    board:      Array.isArray(saved.board) ? saved.board.filter(id => validIds.has(id)) : [],
+    volumes:    pickValid(saved.volumes, validIds),
+    muted:      Array.isArray(saved.muted) ? saved.muted.filter(id => validIds.has(id)) : [],
+    trims:      pickValid(saved.trims, validIds),
+    transposes: pickValid(saved.transposes, validIds),
   }
 }

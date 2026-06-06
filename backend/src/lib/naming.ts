@@ -1,12 +1,14 @@
 /**
- * AI-powered (or heuristic) stem naming.
+ * Stem naming — pure heuristics, no AI.
  *
- * Priority:
- *  1. Claude Haiku — if ANTHROPIC_API_KEY is set
- *  2. Smart heuristics — always available, always fast
+ * The StemName comes straight from the instrument the user picks (mapped to a
+ * clean label) or, failing that, the cleaned-up filename. The AI is reserved for
+ * the Smart Mix, not naming.
  */
 
 const INSTRUMENT_MAP: Record<string, string> = {
+  // Master (final mixed/mastered bounce)
+  master: 'Master',
   // Vocals
   voc: 'Vocals', vocal: 'Vocals', vocals: 'Vocals', vox: 'Vocals', singing: 'Vocals', voice: 'Vocals',
   // Drums / percussion
@@ -22,7 +24,8 @@ const INSTRUMENT_MAP: Record<string, string> = {
   lead: 'Lead', melody: 'Melody', arp: 'Arp', hook: 'Hook',
   // Other
   fx: 'FX', atmo: 'Atmosphere', ambient: 'Ambient', loop: 'Loop', sample: 'Sample',
-  horn: 'Horns', brass: 'Brass', string: 'Strings', strings: 'Strings',
+  horn: 'Horns', horns: 'Horns', brass: 'Brass', string: 'Strings', strings: 'Strings',
+  recording: 'Recording', other: 'Other',
 }
 
 /** Remove the file extension */
@@ -73,63 +76,17 @@ export function heuristicName(
   return projectTitle ? `${projectTitle} — Track` : 'Audio Track'
 }
 
-/** Call Claude Haiku to generate a creative track name */
-async function aiName(
-  originalName: string,
-  instrument?: string,
-  projectTitle?: string,
-  mimeType?: string,
-  audioContext?: string,
-): Promise<string | null> {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return null
-
-  const prompt = [
-    'You are a music producer assistant. Suggest one short, creative track name for this audio file.',
-    `Filename: "${originalName}"`,
-    instrument    ? `Instrument: ${instrument}`            : null,
-    projectTitle  ? `Project: "${projectTitle}"`           : null,
-    mimeType      ? `Type: ${mimeType}`                    : null,
-    // Real audio features from Essentia — Claude now knows what the audio actually sounds like
-    audioContext  ? `Audio analysis: ${audioContext}`      : null,
-    'Rules: max 40 characters · title case · no quotes · use the audio analysis to inform the vibe · reply with ONLY the name, nothing else.',
-  ].filter(Boolean).join('\n')
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         key,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 30,
-        messages:   [{ role: 'user', content: prompt }],
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json() as { content: { type: string; text: string }[] }
-    const name = data?.content?.[0]?.text?.trim()
-    return name && name.length > 1 ? name : null
-  } catch {
-    return null
-  }
-}
-
 /**
- * Main entry point.
- * Returns an AI-generated name if possible, otherwise a smart heuristic name.
+ * Main entry point — the StemName label, derived purely from the chosen
+ * instrument (or the filename). No AI; the model is reserved for the Smart Mix.
+ * Kept async so existing call sites (`await … .catch(…)`) stay unchanged.
  */
 export async function generateStemName(opts: {
   originalName: string
   instrument?: string
   projectTitle?: string
-  mimeType?: string
-  audioContext?: string  // real Essentia features e.g. "bright/airy tone, high energy, loudness -8 dB"
+  mimeType?: string      // accepted for back-compat, unused
+  audioContext?: string  // accepted for back-compat, unused
 }): Promise<string> {
-  const { originalName, instrument, projectTitle, mimeType, audioContext } = opts
-  const ai = await aiName(originalName, instrument, projectTitle, mimeType, audioContext)
-  return ai ?? heuristicName(originalName, instrument, projectTitle)
+  return heuristicName(opts.originalName, opts.instrument, opts.projectTitle)
 }

@@ -1,7 +1,7 @@
 import React from 'react'
 import { MobileCtx } from '../lib/mobile.js'
 import { Avatar, Spinner, C } from '../components/ui/index.jsx'
-import { getToken, timeAgo } from '../lib/utils.js'
+import { timeAgo } from '../lib/utils.js'
 import Waveform from './Waveform.jsx'
 
 const IconPlay  = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
@@ -9,19 +9,19 @@ const IconPause = ({size=12,color='currentColor'}) => <svg width={size} height={
 const IconTrash = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
 const IconDown  = ({size=13,rotate=false}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" style={{transform:rotate?'rotate(180deg)':'none',transition:'transform .2s'}}><polyline points="6,9 12,15 18,9"/></svg>
 
-const STEM_LABELS = { vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', original:'Original' }
+const STEM_LABELS = { master:'Master', vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', original:'Original' }
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
 export default function TrackItem({
   stem: s, index: i, color,
   isMuted, isSolo, isExpanded, isDeleting, loadPct, volume,
+  transpose = 0, onTransposeChange, transposeApplying,
   uploader, uploaderName, takes,
   comments, commentDraft, postingComment,
-  currentTime, duration, isPlaying, previewPlaying, analyserNode, storedPeaks,
+  currentTime, duration, isPlaying, previewPlaying, storedPeaks,
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
   onRemoveFromBoard, onAddCommentAt, onReply,
-  gainRef,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const commentCount = (comments||[]).filter(c => !c.resolved).length
@@ -31,10 +31,21 @@ export default function TrackItem({
   const stemMeta = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
   const stemBpm  = stemMeta.bpm ? Math.round(stemMeta.bpm) : null
   const stemKey  = stemMeta.key || null
-  // Fall back to the analyzed length so comment markers + timeline show even
-  // before the stem is played (playback only sets `duration` once it starts).
-  const storedDur  = stemMeta.audio_features?.duration || 0
-  const wfDuration = duration > 0 ? duration : storedDur
+  // Comment markers + timeline need a length even before playback. Prefer the
+  // analyzed length; otherwise load just the audio metadata (no full decode) so
+  // the markers/profiles show without having to press play first.
+  const storedDur = stemMeta.audio_features?.duration || 0
+  const [metaDur, setMetaDur] = React.useState(0)
+  React.useEffect(() => {
+    if (duration > 0 || storedDur > 0 || !s.file_url) return
+    const a = new Audio()
+    a.preload = 'metadata'
+    const onMeta = () => { if (isFinite(a.duration) && a.duration > 0) setMetaDur(a.duration) }
+    a.addEventListener('loadedmetadata', onMeta)
+    a.src = s.file_url
+    return () => { a.removeEventListener('loadedmetadata', onMeta); a.src = '' }
+  }, [s.file_url, duration, storedDur])
+  const wfDuration = duration > 0 ? duration : (storedDur || metaDur)
 
   return (
     <div style={{
@@ -72,8 +83,9 @@ export default function TrackItem({
             {s.suggested_name || s.original_name || `Track ${i+1}`}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-            {/* Instrument chip — text label, not just color */}
-            <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:color, padding:'2px 8px', borderRadius:6, textTransform:'capitalize', letterSpacing:'.02em' }}>
+            {/* Instrument chip — text label, not just color (★ for the Master) */}
+            <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:color, padding:'2px 8px', borderRadius:6, textTransform:'capitalize', letterSpacing:'.02em', display:'inline-flex', alignItems:'center', gap:3 }}>
+              {s.instrument === 'master' && <span aria-hidden="true">★</span>}
               {stemLabel}
             </span>
             {/* Per-stem tempo + key */}
@@ -92,6 +104,27 @@ export default function TrackItem({
             {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(var(--fg),.07)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
           </div>
         </div>
+
+        {/* Transpose — semitone stepper (pitch only, tempo/length unchanged).
+            Hidden for drums where pitch has no musical meaning. */}
+        {!isMobile && onTransposeChange && s.instrument !== 'drums' && (
+          <div onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}
+            title="Transpose (semitones) — pitch only, tempo unchanged. Double-click value to reset."
+            style={{ display:'flex', alignItems:'center', gap:1, marginRight:8, flexShrink:0,
+              border:`1px solid ${transpose?color+'66':C.border}`, borderRadius:8,
+              padding:'2px 2px', background: transpose?`${color}12`:'transparent' }}>
+            <span aria-hidden="true" style={{ fontSize:11, color: transpose?color:C.t3, padding:'0 2px', fontWeight:700 }}>♪</span>
+            <button onClick={()=>onTransposeChange(s.id, transpose-1)} disabled={transpose<=-12} aria-label={`Transpose ${stemLabel} down`}
+              style={{ width:18, height:18, borderRadius:5, border:'none', cursor: transpose<=-12?'default':'pointer', background:'rgba(var(--fg),.07)', color:C.t2, fontSize:13, fontWeight:800, lineHeight:1, fontFamily:'inherit', opacity:transpose<=-12?.4:1 }}>−</button>
+            <span onDoubleClick={()=>onTransposeChange(s.id, 0)}
+              title={transposeApplying ? 'Applying…' : undefined}
+              style={{ minWidth:24, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10.5, fontWeight:800, color: transpose?color:C.t3, fontVariantNumeric:'tabular-nums', cursor:'pointer', userSelect:'none' }}>
+              {transposeApplying ? <Spinner size={10} color={color}/> : (transpose>0?`+${transpose}`:transpose)}
+            </span>
+            <button onClick={()=>onTransposeChange(s.id, transpose+1)} disabled={transpose>=12} aria-label={`Transpose ${stemLabel} up`}
+              style={{ width:18, height:18, borderRadius:5, border:'none', cursor: transpose>=12?'default':'pointer', background:'rgba(var(--fg),.07)', color:C.t2, fontSize:13, fontWeight:800, lineHeight:1, fontFamily:'inherit', opacity:transpose>=12?.4:1 }}>+</button>
+          </div>
+        )}
 
         {/* Volume — slider + live % readout; double-click resets to 100% */}
         {!isMobile && (
@@ -153,7 +186,7 @@ export default function TrackItem({
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%', background:color, color:'#fff', fontSize:7, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}` }}>{commentCount}</span>}
+            {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-6, right:-6, minWidth:18, height:18, padding:'0 4px', borderRadius:9, background:color, color:'#fff', fontSize:11, fontWeight:800, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}`, fontVariantNumeric:'tabular-nums' }}>{commentCount}</span>}
           </button>
           <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
@@ -182,7 +215,6 @@ export default function TrackItem({
             currentTime={currentTime}
             duration={wfDuration}
             isPlaying={isPlaying}
-            analyserNode={analyserNode}
             storedPeaks={storedPeaks}
             muted={isMuted}
             height={44}

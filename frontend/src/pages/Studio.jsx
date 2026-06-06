@@ -3,14 +3,15 @@ import { createPortal } from 'react-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
-import { Avatar, Btn, Spinner, C } from '../components/ui/index.jsx'
+import { Btn, Spinner, C } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
 import Transport from '../studio/Transport.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
-import { preloadPeaks, seedPeaksFromBuffer } from '../studio/Waveform.jsx'
+import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
+import { pitchShiftBuffer, audioBufferToWavBlob } from '../studio/pitchShift.js'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -66,14 +67,15 @@ function LoadingBlock() {
 }
 
 // ── Stems library ─────────────────────────────────────────────────────────────
-const LIB_LABELS = { vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', guitar:'Guitar', keys:'Keys', synth:'Synth', harmony:'Harmony' }
-const LIB_COLORS = { vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#F5C97A', guitar:'#EA9F1E', keys:'#7E77D0', synth:'#7E77D0', harmony:'#E8709A' }
+const LIB_LABELS = { master:'Master', vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', guitar:'Guitar', keys:'Keys', synth:'Synth', harmony:'Harmony' }
+const LIB_COLORS = { master:'#E8B84B', vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#F5C97A', guitar:'#EA9F1E', keys:'#7E77D0', synth:'#7E77D0', harmony:'#E8709A' }
 
 // A single stem in the side library — one compact line: dot · name · sender · +/-.
 // Draggable onto the board.
 function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
   const color = LIB_COLORS[s.instrument] || C.t3
   const label = LIB_LABELS[s.instrument] || s.instrument || 'Stem'
+  const isMaster = s.instrument === 'master'
   const on  = boardIds.has(s.id)
   const up  = uploaders[s.uploaded_by]
   const who = up?.full_name?.split(' ')[0] || up?.email?.split('@')[0] || ''
@@ -81,12 +83,18 @@ function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
   return (
     <div draggable
       onDragStart={e => { e.dataTransfer.setData('text/stem-id', s.id); e.dataTransfer.effectAllowed = 'copy' }}
-      title="Drag onto the board"
-      style={{ display:'flex', alignItems:'center', gap:9, padding:'6px 8px', borderRadius:8, cursor:'grab',
-        background: on ? `${color}12` : 'transparent' }}>
-      <span style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>
-      <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'baseline', gap:6 }}>
-        <span style={{ fontSize:12.5, fontWeight:400, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+      title={isMaster ? 'Master — the final mixed version. Drag onto the board.' : 'Drag onto the board'}
+      style={{ display:'flex', alignItems:'center', gap:9, cursor:'grab', borderRadius: isMaster ? 11 : 8,
+        padding: isMaster ? '11px 10px' : '6px 8px',
+        background: isMaster ? `${color}14` : on ? `${color}12` : 'transparent',
+        border: isMaster ? `1px solid ${color}55` : '1px solid transparent',
+        marginBottom: isMaster ? 4 : 0 }}>
+      {isMaster
+        ? <span aria-hidden="true" style={{ fontSize:14, color, flexShrink:0, lineHeight:1 }}>★</span>
+        : <span style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>}
+      <div style={{ flex:1, minWidth:0, display:'flex', flexDirection: isMaster ? 'column' : 'row', alignItems: isMaster ? 'flex-start' : 'baseline', gap: isMaster ? 1 : 6 }}>
+        {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase', color }}>Master</span>}
+        <span style={{ fontSize: isMaster ? 14 : 12.5, fontWeight: isMaster ? 800 : 400, color: isMaster ? color : C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%' }}>
           {s.suggested_name || s.original_name || label}
         </span>
         {who && <span style={{ fontSize:11, fontWeight:400, color:C.t3, flexShrink:0 }}>· {who}</span>}
@@ -249,7 +257,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const parsedNotes = f => { try { return JSON.parse(f.notes || '{}') } catch { return {} } }
   const defaultColors = [C.coral, '#22c55e', C.amber, '#8b5cf6', '#3b82f6', C.pink]
-  const stemColors = { vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
+  const stemColors = { master:'#E8B84B', vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
   const trackColor = (s, i) => stemColors[s.instrument] || stemColors[parsedNotes(s).stem_type] || defaultColors[i % 6]
 
   useEffect(() => {
@@ -274,6 +282,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setAiAnalysis(null)
     setStemComments({})
     setStemHistory({})
+    pitchCacheRef.current.clear()
+    transposedUrlCacheRef.current.forEach(u => URL.revokeObjectURL(u))
+    transposedUrlCacheRef.current.clear()
     fetchAiAnalysis(activeId)
     loadHistory(activeId)
   }, [activeId])
@@ -285,7 +296,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     stopAll()
     const proj = projects.find(p => p.id === activeId)
     if (proj?.bpm) { const b = parseInt(proj.bpm); setBpm(b); bpmRef.current = b }
-    setBounceUrl(null); setBounceTime(0); setBounceDur(0); setBouncePlaying(false)
     filesApi.list(activeId)
       .then(r => {
         const list = r.data || []
@@ -433,8 +443,20 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         // Decode on a dedicated context so the playback context stays clean
         const audio = await decodeCtx.decodeAudioData(buf.slice(0))
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        seedPeaksFromBuffer(s.file_url, audio)
+        seedPeaksFromBuffer(s.file_url, audio)   // peaks always from the original (unshifted) audio
         console.log(`[studio] ✓ decoded: ${label}`)
+
+        // Per-stem transpose: play a pitch-shifted copy (same length → stays in sync).
+        const semis = Math.round(transposesRef.current[s.id] || 0)
+        if (semis) {
+          const key = `${s.id}:${semis}`
+          let shifted = pitchCacheRef.current.get(key)
+          if (!shifted) {
+            shifted = await pitchShiftBuffer(audio, semis)   // runs in a Web Worker
+            pitchCacheRef.current.set(key, shifted)
+          }
+          return { s, audio: shifted }
+        }
         return { s, audio }
       } catch (e) {
         console.error(`[studio] ✗ failed: ${label} —`, e?.message)
@@ -540,14 +562,6 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     })
   }
 
-  const [bouncing,       setBouncing]       = useState(false)
-  const [bounceProgress, setBounceProgress] = useState(0)
-  const [bounceUrl,      setBounceUrl]      = useState(null)
-  const [bouncePlaying,  setBouncePlaying]  = useState(false)
-  const [bounceTime,     setBounceTime]     = useState(0)
-  const [bounceDur,      setBounceDur]      = useState(0)
-  const [savingBounce,   setSavingBounce]   = useState(false)
-  const bouncePlayerRef = useRef(null)
   const [dawExporting,  setDawExporting]   = useState(false)
 
   const exportToDAW = async format => {
@@ -598,7 +612,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const [volumes,       setVolumes]       = useState({})
+  useEffect(() => { volumesRef.current = volumes }, [volumes])
   const [trims,         setTrims]         = useState({})
+  const [transposes,    setTransposes]    = useState({})       // stemId → semitones (−12..+12)
+  const [transposing,   setTransposing]   = useState(null)      // stemId currently rendering a pitch shift (shows a spinner)
+  const transposesRef = useRef({})                              // latest transposes for playAll (avoids stale closure)
+  const pitchCacheRef = useRef(new Map())                       // `${stemId}:${semis}` → pitch-shifted AudioBuffer
+  const transposedUrlCacheRef = useRef(new Map())               // `${stemId}:${semis}` → object URL of pitched WAV (for preview)
+  const lastTransposeChangeRef = useRef(null)                   // stemId of the last USER transpose change (null for project loads)
+  const transposeTimerRef = useRef(null)                        // debounce so rapid +/- clicks render once
+  const volumesRef = useRef({})                                 // latest per-stem volumes (for the single-stem preview)
+  useEffect(() => { transposesRef.current = transposes }, [transposes])
   const [boardIds,      setBoardIds]      = useState(new Set())   // stems placed on the board (persisted per user+project)
   const [boardReady,    setBoardReady]    = useState(false)       // saved layout loaded for this project?
   const [dragOver,      setDragOver]      = useState(false)       // drop-zone highlight
@@ -710,7 +734,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const mixerStems = useMemo(() => stems.filter(s => {
     if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') return false
     const n = parsedNotes(s); return !n.parent_stem_id
-  }), [stems])
+  // Master (the engineer's final mix) pinned to the top — of the library and the
+  // board. Stable sort keeps every other stem in its existing order.
+  }).sort((a, b) => (b.instrument === 'master' ? 1 : 0) - (a.instrument === 'master' ? 1 : 0)), [stems])
 
   const takeMap = useMemo(() => {
     const m = new Map()
@@ -739,10 +765,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setBoardIds(saved
       ? new Set(saved.board)
       : new Set([...takeMap.values()].map(s => s.id).filter(id => valid.has(id))))
-    // Restore volume / mute / trim (empty on first visit or a legacy layout).
+    // Restore volume / mute / trim / transpose (empty on first visit or a legacy layout).
     setVolumes(saved?.volumes ?? {})
     setMutedIds(new Set(saved?.muted ?? []))
     setTrims(saved?.trims ?? {})
+    setTransposes(saved?.transposes ?? {})
     setBoardReady(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardKey, loadingStems])
@@ -752,13 +779,33 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (!boardKey || !boardReady) return
     try {
       localStorage.setItem(boardKey, serializeBoard({
-        board: [...boardIds], volumes, muted: [...mutedIds], trims,
+        board: [...boardIds], volumes, muted: [...mutedIds], trims, transposes,
       }))
     } catch {}
-  }, [boardKey, boardReady, boardIds, volumes, mutedIds, trims])
+  }, [boardKey, boardReady, boardIds, volumes, mutedIds, trims, transposes])
 
   // Who else is live in this project's Studio right now
   const presencePeers = useStudioPresence(activeId, user)
+
+  // Per-stem volume. Drives the multitrack gain node AND, if this stem is the
+  // one in the single-stem preview, the MiniPlayer's volume.
+  const changeVolume = useCallback((id, v) => {
+    setVolumes(prev => ({ ...prev, [id]: v }))
+    if (gainRefs.current[id] && !mutedIds.has(id)) gainRefs.current[id].gain.value = v
+    if (preview.id === id) window.dispatchEvent(new CustomEvent('dizko:player_volume', { detail:{ volume: v } }))
+  }, [mutedIds, preview.id])
+
+  // Per-stem transpose (semitones, clamped −12..+12). 0 removes the override.
+  const changeTranspose = useCallback((stemId, semis) => {
+    const v = Math.max(-12, Math.min(12, Math.round(semis || 0)))
+    lastTransposeChangeRef.current = stemId   // flag this as a user change (not a project load)
+    setTransposes(prev => {
+      const next = { ...prev }
+      if (v === 0) delete next[stemId]; else next[stemId] = v
+      transposesRef.current = next            // keep playback ref in sync immediately
+      return next
+    })
+  }, [])
 
   const addToBoard = useCallback(id => {
     setBoardIds(prev => (prev.has(id) ? prev : new Set([...prev, id])))
@@ -780,16 +827,45 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // Is this stem the one currently loaded in the MiniPlayer (single-stem preview)?
   const isPreviewing = s => preview.id === s.id && (preview.playing || preview.currentTime > 0)
 
+  // Play a stem in the single-stem preview, pitch-shifted if it has a transpose.
+  // The shifted audio is rendered + encoded to a WAV once per (stem, semitones)
+  // and cached as an object URL, so the MiniPlayer plays the transposed sound.
+  const previewStem = useCallback(async (stem) => {
+    // Start the MiniPlayer at this stem's saved volume (it persists otherwise).
+    const applyVol = () => {
+      const v = volumesRef.current[stem.id] ?? 1
+      setTimeout(() => window.dispatchEvent(new CustomEvent('dizko:player_volume', { detail:{ volume: v } })), 0)
+    }
+    const semis = Math.round(transposesRef.current[stem.id] || 0)
+    if (!semis) { playTrack(stem, boardStems); applyVol(); return }
+    const key = `${stem.id}:${semis}`
+    let url = transposedUrlCacheRef.current.get(key)
+    if (!url) {
+      setTransposing(stem.id)
+      try {
+        const buf = await fetchAudioCached(stem.file_url)
+        const rc  = new (window.AudioContext || window.webkitAudioContext)()
+        const audio = await rc.decodeAudioData(buf.slice(0))
+        rc.close().catch(() => {})
+        const shifted = await pitchShiftBuffer(audio, semis)   // off the main thread
+        url = URL.createObjectURL(audioBufferToWavBlob(shifted))
+        transposedUrlCacheRef.current.set(key, url)
+      } catch { setTransposing(null); playTrack(stem, boardStems); applyVol(); return }
+      setTransposing(null)
+    }
+    playTrack({ ...stem, file_url: url }, boardStems)
+    applyVol()
+  }, [boardStems, playTrack])
+
   // Per-stem play/pause: if this stem is already in the MiniPlayer, toggle it;
-  // otherwise load + play it. Drives the ▶/⏸ button on each track.
+  // otherwise load + play it (pitch-shifted if transposed). Drives the ▶/⏸ button.
   const handleStemPlay = useCallback((stem) => {
     if (preview.id === stem.id) {
       window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
     } else {
-      playTrack(stem, boardStems)
+      previewStem(stem)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview.id, boardStems, playTrack])
+  }, [preview.id, previewStem])
 
   // Scrub/seek on a stem's waveform. Routes to whichever clock owns that stem so
   // only the stem you touched moves:
@@ -802,11 +878,35 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     } else if (playing) {
       seek(sec)
     } else {
-      playTrack(stem, boardStems)
+      previewStem(stem)
       window.dispatchEvent(new CustomEvent('dizko:player_seek', { detail:{ time: sec } }))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview, playing, boardStems, playTrack])
+  }, [preview, playing, previewStem])
+
+  // When the USER changes a transpose mid-playback, re-render (debounced) so the
+  // new pitch is heard from the current spot. Guarded by lastTransposeChangeRef so
+  // a project load (which also sets `transposes`) never re-triggers playback —
+  // that was switching to a stem from the previous project.
+  useEffect(() => {
+    const changed = lastTransposeChangeRef.current
+    lastTransposeChangeRef.current = null
+    if (!changed) return                                   // skip programmatic loads
+    clearTimeout(transposeTimerRef.current)
+    transposeTimerRef.current = setTimeout(() => {
+      if (playing) { playAll(); return }                   // multitrack: restart the mix
+      // preview: only re-render if the stem you changed is the one playing
+      if (preview.id === changed && preview.playing) {
+        const stem = boardStems.find(s => s.id === changed)
+        if (stem) {
+          const at = preview.currentTime
+          previewStem(stem).then(() => setTimeout(() =>
+            window.dispatchEvent(new CustomEvent('dizko:player_seek', { detail:{ time: at } })), 0))
+        }
+      }
+    }, 350)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transposes])
 
   return (
     <>
@@ -977,26 +1077,26 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   isMuted={mutedIds.has(s.id)} isSolo={soloId===s.id}
                   isExpanded={expandedId===s.id} isDeleting={deletingId===s.id}
                   loadPct={loadingPct[s.id]} volume={getVolume(s.id)}
+                  transpose={transposes[s.id] || 0} onTransposeChange={changeTranspose}
+                  transposeApplying={transposing === s.id}
                   uploader={uploader} uploaderName={uploaderName}
                   takes={stemHistory[hKey]}
                   comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
                   postingComment={postingComment}
                   currentTime={pbTime} duration={pbDur}
                   isPlaying={pbPlaying} previewPlaying={stemPlaying}
-                  analyserNode={analyserRefs.current[s.id] || null}
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={handleStemPlay} onToggleExpand={handleToggleExpand}
                   onSeek={(sec) => handleStemSeek(s, sec)}
                   onDelete={deleteStem}
-                  onVolumeChange={(id, v) => { setVolumes(prev=>({...prev,[id]:v})); if(gainRefs.current[id]&&!mutedIds.has(id)) gainRefs.current[id].gain.value=v }}
+                  onVolumeChange={changeVolume}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
                   onPostComment={postComment}
                   onLikeComment={likeComment}
                   onReply={postReply}
                   onAddCommentAt={(sec, text) => postCommentAt(s.id, text, sec)}
                   onRemoveFromBoard={removeFromBoard}
-                  gainRef={gainRefs.current[s.id]}
                 />
               )
             })}

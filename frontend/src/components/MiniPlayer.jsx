@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { C } from './ui/index.jsx'
 import { useIsMobile } from '../lib/mobile'
 import { getToken } from '../lib/utils.js'
@@ -8,7 +8,6 @@ import { getToken } from '../lib/utils.js'
 // playlist with prev/next, like, approve, seek, and volume.
 export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const audioRef               = useRef(null)
-  const dragRef                = useRef(null)
   const pendingSeekRef         = useRef(null)   // seek requested before audio metadata is ready
   const [playing,  setPlaying] = useState(false)
   const [progress, setProgress]= useState(0)
@@ -150,6 +149,18 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     }
     window.addEventListener('dizko:player_seek', onSeek)
     return () => window.removeEventListener('dizko:player_seek', onSeek)
+  }, [])
+
+  // Volume set from the board's per-stem slider (single-stem preview).
+  useEffect(() => {
+    const onVol = e => {
+      const v = e.detail?.volume
+      if (typeof v !== 'number') return
+      setVol(v)
+      if (audioRef.current) audioRef.current.volume = v
+    }
+    window.addEventListener('dizko:player_volume', onVol)
+    return () => window.removeEventListener('dizko:player_volume', onVol)
   }, [])
 
   // Clear the board playhead when the player closes/unmounts.

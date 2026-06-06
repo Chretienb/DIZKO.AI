@@ -1,16 +1,9 @@
-import React from 'react'
 import { Spinner, C } from '../components/ui/index.jsx'
 import { buildInsightRows } from './mixInsights.js'
 
 const IconPlay = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
 const IconDl   = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 const IconMix  = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-
-const DAW_OPTIONS = [
-  { id:'all',    label:'All DAWs',     sub:'Ableton + Logic + Universal', icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
-  { id:'ableton',label:'Ableton Live', sub:'.als session + embedded stems', icon:'M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z' },
-  { id:'logic',  label:'Logic Pro',    sub:'Logic folder + stem guide', icon:'M9 18V5l12-2v13M6 3v13.5M3 9h3m-3 4h3' },
-]
 
 // Smart Mix v2 — "why these takes" + manual override. Shows the AI's per-part
 // best-take reasoning; each alternative take is a chip that swaps it into the
@@ -51,7 +44,7 @@ function MixReasoning({ rows, onPickTake }) {
 
 export default function AIPanel({
   aiAnalysis, smartMixUrl, smartMixInfo,
-  smartMixing, mixerStems,
+  smartMixing,
   allStems, boardIds, onPickTake,
   onGenerateMix, onPlayMix,
   openModal, activeProject,
@@ -143,22 +136,15 @@ export default function AIPanel({
           <div aria-hidden="true" style={{ width:32, height:32, borderRadius:10, background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center' }}><IconDl size={14}/></div>
           <span style={{ fontSize:14, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>Export</span>
         </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-          {DAW_OPTIONS.map(opt=>(
-            <button key={opt.id} onClick={()=>onExportDAW(opt.id)} disabled={dawExporting||!activeId}
-              aria-label={`Export for ${opt.label}`}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:12, border:`1px solid ${C.border}`, background:'rgba(var(--fg),.03)', cursor:dawExporting||!activeId?'default':'pointer', textAlign:'left', transition:'background .12s' }}
-              onMouseEnter={e=>{if(!dawExporting)e.currentTarget.style.background='rgba(var(--fg),.07)'}} onMouseLeave={e=>e.currentTarget.style.background='rgba(var(--fg),.03)'}>
-              <div aria-hidden="true" style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:`${C.coral}10`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={opt.icon}/></svg>
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12.5, fontWeight:700, color:C.t1 }}>{opt.label}</div>
-                <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>{opt.sub}</div>
-              </div>
-              {dawExporting&&<Spinner size={11} color={C.coral}/>}
-            </button>
-          ))}
+        <button onClick={()=>onExportDAW('all')} disabled={dawExporting||!activeId}
+          aria-label="Export project for your DAW"
+          style={{ width:'100%', height:48, display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+            borderRadius:12, border:'none', background:C.grad, color:'#fff', fontSize:14, fontWeight:800,
+            cursor:(dawExporting||!activeId)?'default':'pointer', opacity:(dawExporting||!activeId)?.6:1, transition:'opacity .12s' }}>
+          {dawExporting ? <><Spinner size={15} color="#fff"/> Exporting…</> : <><IconDl size={15}/> Export for DAW</>}
+        </button>
+        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginTop:8, lineHeight:1.4 }}>
+          One download — Ableton <strong style={{color:C.t2}}>.als</strong> + Logic guide + universal stems
         </div>
       </div>
     </div>

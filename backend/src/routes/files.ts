@@ -9,6 +9,7 @@ import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { generateStemName } from '../lib/naming'
+import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
@@ -199,13 +200,19 @@ files.post('/upload', uploadLimit, async (c) => {
         key = key ?? fallback.key
       }
 
-      // Get project title for better Claude naming
-      const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
+      // Project title (the "song") + owner (the "artist") for structured naming.
+      const { data: proj } = await supabase.from('projects').select('title, owner_id').eq('id', projectId).single()
       const projectTitle = (proj as any)?.title ?? undefined
+      const ownerId = (proj as any)?.owner_id as string | undefined
+      let artist: string | undefined
+      if (ownerId) {
+        const owner = (await getUsersByIds([ownerId]).catch(() => null))?.get(ownerId)
+        artist = owner?.full_name || owner?.email?.split('@')[0] || undefined
+      }
 
-      // Build name — pass full Essentia analysis so Claude writes better names
+      // Build name — Artist_Song_Key_BPM_StemName
       const suggestedName = await buildSuggestedName(
-        file.name, instrument, bpm, key, projectTitle, essentiaAnalysis
+        file.name, instrument, bpm, key, projectTitle, artist
       )
 
       // Extract 512 waveform peaks from WAV buffer — stored so frontend renders
@@ -251,39 +258,40 @@ files.post('/upload', uploadLimit, async (c) => {
   }, 201)
 })
 
-// Producer-standard display name: "Midnight Bass · 92 BPM · F# minor"
+// Structured, organized name following the studio convention:
+//   Artist_Song_Key_BPM_StemName   (e.g. "JaneDoe_MidnightDrive_F#min_92_LeadVocals")
+// Missing pieces (no artist/key/bpm yet) are simply omitted — no empty segments.
 async function buildSuggestedName(
   original: string,
   instrument: string,
   bpm: number | null,
   key: string | null,
   projectTitle?: string,
-  audioFeatures?: { brightness?: number; danceability?: number; loudness?: number; duration?: number } | null,
+  artist?: string,
 ): Promise<string> {
-  // Build audio context string for Claude using real Essentia features
-  const featureHints: string[] = []
-  if (audioFeatures?.brightness != null) {
-    featureHints.push(audioFeatures.brightness > 0.6 ? 'bright/airy tone' : audioFeatures.brightness < 0.3 ? 'dark/heavy tone' : 'balanced tone')
-  }
-  if (audioFeatures?.danceability != null) {
-    featureHints.push(audioFeatures.danceability > 2 ? 'high energy' : audioFeatures.danceability > 1 ? 'moderate energy' : 'low energy')
-  }
-  if (audioFeatures?.loudness != null) {
-    featureHints.push(`loudness ${audioFeatures.loudness} dB`)
-  }
-
-  const creativeName = await generateStemName({
+  // StemName is the clean instrument label (no AI), falling back to the filename.
+  const stemRaw = await generateStemName({
     originalName: original,
-    ...(instrument              ? { instrument }              : {}),
-    ...(projectTitle            ? { projectTitle }            : {}),
-    ...(featureHints.length > 0 ? { audioContext: featureHints.join(', ') } : {}),
+    ...(instrument   ? { instrument }   : {}),
+    ...(projectTitle ? { projectTitle } : {}),
   }).catch(() => null)
+  const stemName = stemRaw ?? original.replace(/\.[^.]+$/, '')
 
-  const base = creativeName ?? original.replace(/\.[^.]+$/, '')
-  const parts = [base]
-  if (bpm) parts.push(`${Math.round(bpm)} BPM`)
-  if (key)  parts.push(key)
-  return parts.join(' · ')
+  // PascalCase-ish, filename-safe segment (keep # for sharp keys, strip the rest).
+  const seg = (s?: string | null) => (s ?? '').replace(/[^A-Za-z0-9#]+/g, '')
+  // Compact key: "F# minor" → "F#min", "C major" → "Cmaj".
+  const fmtKey = (k?: string | null) =>
+    (k ?? '').replace(/\bmajor\b/i, 'maj').replace(/\bminor\b/i, 'min').replace(/[^A-Za-z0-9#]+/g, '')
+
+  const parts = [
+    seg(artist),
+    seg(projectTitle),
+    fmtKey(key),
+    bpm ? String(Math.round(bpm)) : '',
+    seg(stemName),
+  ].filter(Boolean)
+
+  return parts.join('_')
 }
 
 // ── POST /files/:id/separate-stems ────────────────────────────────────────────

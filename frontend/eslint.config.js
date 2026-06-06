@@ -23,6 +23,9 @@ export default defineConfig([globalIgnores(['dist']), {
   },
   rules: {
     'dizko/no-legacy-theme-colors': 'error',
+    // Empty `catch {}` is an intentional house pattern for best-effort calls
+    // (analytics, optional fetches) that must never throw to the user.
+    'no-empty': ['error', { allowEmptyCatch: true }],
   },
 }, {
   // Auth / legal / splash screens keep their fixed dark cinematic look by

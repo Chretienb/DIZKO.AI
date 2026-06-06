@@ -75,6 +75,7 @@ export async function collectAudioFiles(list) {
 }
 
 export const INSTR_LIST = [
+  { id:'master',    label:'Master',     color:'#E8B84B', desc:'Final mixed/mastered version' },
   { id:'vocals',    label:'Vocals',     color:'#8b5cf6' },
   { id:'guitar',    label:'Guitar',     color:'#f59e0b' },
   { id:'drums',     label:'Drums',      color:'#ef4444' },
@@ -89,6 +90,7 @@ export const INSTR_LIST = [
 
 export function detectInstrument(filename) {
   const f = filename.toLowerCase().replace(/[_\-\.]/g, ' ')
+  if (/\bmaster\b|mastered|mixdown|final mix|final master|\bfinal\b|\bmstr\b/.test(f)) return 'master'
   if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric|acapella|adlib/.test(f)) return 'vocals'
   if (/guitar|gtr|acoustic|electric|strat|tele|riff|chord/.test(f))     return 'guitar'
   if (/drum|kick|snare|hihat|hi hat|cymbal|perc|clap|tom|rimshot|one shot|oneshot|shot|sample|loop|pattern/.test(f)) return 'drums'
@@ -134,19 +136,27 @@ export function InstrPicker({ value, onChange }) {
             el.style.top  = (r.top - el.offsetHeight - 6) + 'px'
             el.style.left = r.left + 'px'
           }}>
-          {INSTR_LIST.map(ins => (
+          {INSTR_LIST.map(ins => {
+            const isMaster = ins.id === 'master'
+            const selected = value === ins.id
+            return (
             <button key={ins.id} onClick={() => { onChange(ins.id); setOpen(false) }}
-              style={{ width:'100%', padding:'7px 10px', border:'none', borderRadius:7,
-                background: value === ins.id ? `${ins.color}12` : 'transparent',
-                color: value === ins.id ? ins.color : C.t1,
-                fontSize:12, fontWeight: value === ins.id ? 700 : 500,
+              style={{ width:'100%', padding: isMaster ? '10px 10px' : '7px 10px', border:'none',
+                borderRadius:7, marginBottom: isMaster ? 4 : 0,
+                borderBottom: isMaster ? `1px solid ${C.border}` : 'none',
+                background: selected ? `${ins.color}12` : isMaster ? `${ins.color}10` : 'transparent',
+                color: selected || isMaster ? ins.color : C.t1,
+                fontSize: isMaster ? 14 : 12, fontWeight: selected || isMaster ? 800 : 500,
                 cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
-              onMouseEnter={e => { if (value !== ins.id) e.currentTarget.style.background='rgba(var(--fg),.06)' }}
-              onMouseLeave={e => { if (value !== ins.id) e.currentTarget.style.background='transparent' }}>
-              <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>
-              {ins.label}
+              onMouseEnter={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}1c` : 'rgba(var(--fg),.06)' }}
+              onMouseLeave={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}10` : 'transparent' }}>
+              {isMaster
+                ? <span aria-hidden="true" style={{ fontSize:13, lineHeight:1 }}>★</span>
+                : <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>}
+              <span style={{ flex:1 }}>{ins.label}</span>
+              {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.06em', textTransform:'uppercase', opacity:.8 }}>Final</span>}
             </button>
-          ))}
+          )})}
         </div>
       )}
     </div>
