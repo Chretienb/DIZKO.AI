@@ -2,7 +2,7 @@
 
 **Dizko.ai is an AI-native workspace for collaborative music production.** Artists,
 producers, and their crews upload stems, let AI organize and analyze them,
-generate mixes, and invite collaborators — all in the browser, no DAW required.
+render an instant reference bounce, and invite collaborators — all in the browser.
 
 Product app: **app.dizko.ai** · Marketing: **dizko.ai**
 
@@ -22,7 +22,10 @@ Product app: **app.dizko.ai** · Marketing: **dizko.ai**
 - **Auto-analysis** — every stem is analyzed on upload for **BPM, musical key,
   format, sample rate, bit depth**, and **detected labels** (genre / instrument
   tags), shown on an "Auto-analyzed" panel.
-- **Smart Mix** — generate an AI mix of a song's stems into a single bounce.
+- **Smart Mix** — combine the latest take from each collaborator/instrument into a
+  single reference bounce (optionally leveled with AI-suggested volume/pan/EQ,
+  mastered to ~-14 LUFS). A quick reference to hear the song together — not a
+  finished mix.
 - **Stem separation** — split a full track back into its component stems.
 
 ## 3. The Studio
@@ -86,7 +89,7 @@ Product app: **app.dizko.ai** · Marketing: **dizko.ai**
 ### At a glance
 | Pillar | What it means for the user |
 |---|---|
-| **AI-native** | Upload raw files; get named, analyzed, mix-ready stems automatically. |
+| **AI-native** | Upload raw files; get named, analyzed stems + an instant reference bounce automatically. |
 | **Stem-centric** | Organized around the parts of a song, not just "files." |
 | **Built for crews** | Roles, approvals, per-stem feedback, versions, presence. |
 | **Viral invites** | A QR share card turns a story post into new collaborators. |

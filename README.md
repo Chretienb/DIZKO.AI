@@ -1,8 +1,9 @@
 # Dizko.ai
 
 **The creative hub for musicians.** Dizko is a collaborative, AI-assisted music
-workspace: upload stems, let AI analyze and auto-mix them, collaborate with a crew
-in real time, and export a session-ready project for any DAW.
+workspace: upload stems, let AI analyze and tag them and render an instant reference
+bounce, collaborate with a crew in real time, and export a session-ready project for
+any DAW.
 
 Live: **https://dizko.ai** (app at `app.dizko.ai`)
 
@@ -14,8 +15,10 @@ Live: **https://dizko.ai** (app at `app.dizko.ai`)
   each with songs (folders) and audio stems.
 - **AI analysis.** Every upload is analyzed (BPM, key, waveform peaks) and named by
   Claude; the AI also flags mix conflicts and picks best takes.
-- **Smart Mix.** A balanced auto-mix is regenerated server-side whenever a
-  collaborator uploads a new take.
+- **Smart Mix.** A combined reference bounce of everyone's latest takes is
+  regenerated server-side whenever a collaborator uploads a new take — the latest
+  take per (collaborator × instrument), optionally leveled with AI-suggested
+  volume/pan/EQ, mastered to ~-14 LUFS. It's a quick reference, not a finished mix.
 - **Studio.** A DAW-style multitrack player (Web Audio API) — drag stems onto a
   board, solo/mute, view waveforms, and export.
 - **Collaboration.** Invite a crew, roles/permissions, comments on stems, direct

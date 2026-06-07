@@ -218,7 +218,7 @@ export default function Login({ onLogin }) {
             </h1>
             <p style={{ margin:0, fontSize:15, color:'rgba(var(--fg),.82)', lineHeight:1.65, maxWidth:340,
               textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
-              Stems organized, BPM conflicts caught, AI mixing done — all automatically. Your team just plays.
+              Stems organized, BPM &amp; key tagged, an instant reference bounce — all automatically. Your team just plays.
             </p>
           </div>
 
