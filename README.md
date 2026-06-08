@@ -213,6 +213,14 @@ Trace sampling defaults to **1.0** (everything) for early/low-traffic use — di
 it down later with `VITE_SENTRY_TRACES_RATE` / `SENTRY_TRACES_RATE` (0..1).
 Without a DSN, all of the above are no-ops.
 
+**Readable production stack traces (source maps).** The frontend uploads source
+maps to Sentry at build time via `@sentry/vite-plugin`, but only when
+**`SENTRY_AUTH_TOKEN`** is set — without it the build is unchanged and no maps
+are emitted. To enable: create an org auth token (Sentry → Settings → Auth
+Tokens, scope `project:releases`), set `SENTRY_AUTH_TOKEN` in the frontend build
+env (Vercel) and optionally `frontend/.env` for local prod builds. Maps are
+uploaded then deleted from `dist`, so they're never served publicly.
+
 ---
 
 ## Database
