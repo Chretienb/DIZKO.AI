@@ -313,6 +313,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [loading,       setLoading]      = useState(true)
   const [loadingStems,  setLoadingStems] = useState(true)
   const [playing,       setPlaying]      = useState(false)
+  const playingRef      = useRef(false)   // mirrors `playing` for use inside callbacks
   const [currentTime,   setCurrentTime]  = useState(0)
   const [duration,      setDuration]     = useState(0)
   // Live state of the single stem playing in the bottom MiniPlayer, so its board
@@ -413,6 +414,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }, [activeId])
 
   useEffect(() => () => { stopAll(); cancelAnimationFrame(rafRef.current) }, [])
+
+  // Keep playingRef in sync so callbacks (previewStem) can read board state.
+  useEffect(() => { playingRef.current = playing }, [playing])
 
   // Track the MiniPlayer's live position so the matching board stem can sweep.
   useEffect(() => {
@@ -528,6 +532,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const playAll = async () => {
+    // Single source of truth: the board transport and the bottom MiniPlayer must
+    // never sound at once (the board already contains every stem). Silence the
+    // single-stem preview before the mix rolls.
+    window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'pause' } }))
     stopAll(); gainRefs.current = {}; analyserRefs.current = {}
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctxRef.current = ctx
@@ -961,6 +969,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // The shifted audio is rendered + encoded to a WAV once per (stem, semitones)
   // and cached as an object URL, so the MiniPlayer plays the transposed sound.
   const previewStem = useCallback(async (stem) => {
+    // Single source of truth: stop the board transport before a single-stem
+    // preview takes over, so the two engines can never play on top of each other.
+    if (playingRef.current) pause()
     // Start the MiniPlayer at this stem's saved volume (it persists otherwise).
     const applyVol = () => {
       const v = volumesRef.current[stem.id] ?? 1

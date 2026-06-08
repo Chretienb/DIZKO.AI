@@ -104,6 +104,7 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
       const a = audioRef.current; if (!a) return
       const { action } = e.detail
       if (action==='toggle')   toggle()
+      if (action==='pause')    { a.pause(); setPlaying(false) }
       if (action==='seekBack') a.currentTime = Math.max(0, a.currentTime-5)
       if (action==='seekFwd')  a.currentTime = Math.min(a.duration||0, a.currentTime+5)
       if (action==='volUp')    { a.volume=Math.min(1,a.volume+0.1); setVol(a.volume) }
