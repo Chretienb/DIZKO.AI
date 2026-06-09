@@ -1512,10 +1512,20 @@ export function ModalUpload({ project, folderId, onClose, user }) {
                       <InstrPicker value={item.instrument} onChange={instr => setItemInstrument(i, instr)} />
                     )}
                     {item.detecting && (
-                      <span style={{ fontSize:10.5, fontWeight:600, color:C.coral }}>🎧 detecting…</span>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10.5, fontWeight:600, color:C.coral }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l2.3 7.2L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/>
+                        </svg>
+                        auto naming…
+                      </span>
                     )}
                     {item.instrumentDetected && !item.instrumentUserSet && (
-                      <span style={{ fontSize:10, color:'rgba(var(--fg),.4)' }}>· auto-detected</span>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:'rgba(var(--fg),.4)' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l2.3 7.2L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/>
+                        </svg>
+                        auto-named
+                      </span>
                     )}
                     {item.status === 'done' && item.instrument && (() => {
                       const ins = INSTR_LIST.find(x => x.id === item.instrument)
