@@ -9,6 +9,7 @@ import { runSmartBounce } from '../lib/smartBounce'
 import { analyzeProject } from '../lib/aiAnalysis'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { generateStemName } from '../lib/naming'
+import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
@@ -210,9 +211,24 @@ files.post('/upload', uploadLimit, async (c) => {
         artist = owner?.full_name || owner?.email?.split('@')[0] || undefined
       }
 
+      // Content-based instrument fallback: if the user didn't pick an instrument,
+      // ask the CLAP worker what it actually is from the audio. No-op until the
+      // worker is configured (CLAP_SERVICE_URL). Overrides the filename guess only
+      // when confident, and persists it so naming + Smart Mix use the real label.
+      let resolvedInstrument = instrument
+      if (!instrumentHint) {
+        const tagged = await classifyInstrument(fileUrl).catch(() => null)
+        if (tagged && tagged.confidence >= 0.30) {
+          resolvedInstrument = tagged.instrument
+          const { error: instErr } = await supabase.from('stems').update({ instrument: tagged.instrument }).eq('id', takeId)
+          if (instErr) console.warn('[clap] instrument update failed:', instErr.message)
+          console.log(`[clap] ${file.name} → ${tagged.instrument} (${tagged.confidence})`)
+        }
+      }
+
       // Build name — Artist_Song_Key_BPM_StemName
       const suggestedName = await buildSuggestedName(
-        file.name, instrument, bpm, key, projectTitle, artist
+        file.name, resolvedInstrument, bpm, key, projectTitle, artist
       )
 
       // Extract 512 waveform peaks from WAV buffer — stored so frontend renders

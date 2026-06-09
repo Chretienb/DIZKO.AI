@@ -1203,7 +1203,8 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       const tooBig = f.size > MAX_MB * 1_000_000
       return {
         file:       f,
-        instrument: detectInstrument(f.name),
+        instrument: detectInstrument(f.name),   // filename guess — shown as a suggestion only
+        instrumentUserSet: false,                // true only once the user actively picks
         status:     tooBig ? 'error' : 'queued',
         progress:   0,
         error:      tooBig ? `File too large (${(f.size/1_000_000).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
@@ -1214,7 +1215,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   }
 
   const setItemInstrument = (idx, instr) =>
-    setQueue(q => q.map((item, i) => i === idx ? { ...item, instrument: instr } : item))
+    setQueue(q => q.map((item, i) => i === idx ? { ...item, instrument: instr, instrumentUserSet: true } : item))
 
   const removeFile = idx => setQueue(q => q.filter((_,i) => i !== idx))
 
@@ -1243,7 +1244,11 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         for (let attempt = 1; ; attempt++) {
           try {
             uploadRes = await filesApi.upload(updated[i].file, selProj.id, {
-              instrument: updated[i].instrument || undefined,
+              // Only send a user-CONFIRMED instrument. If they left the filename
+              // guess untouched, send nothing so the backend's PANNs tagger names
+              // it from the audio — a lying filename ("bass.wav" that's a drum)
+              // shouldn't win over what the audio actually is.
+              instrument: updated[i].instrumentUserSet ? updated[i].instrument : undefined,
               ...(analysis ? { analysis: JSON.stringify(analysis) } : {}),
             })
             break

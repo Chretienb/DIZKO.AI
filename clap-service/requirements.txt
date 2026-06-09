@@ -1,0 +1,9 @@
+# CPU-only torch keeps the image small (no CUDA) — Railway runs CPU.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2
+transformers==4.44.2
+librosa==0.10.2
+soundfile==0.12.1
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+requests==2.32.3
