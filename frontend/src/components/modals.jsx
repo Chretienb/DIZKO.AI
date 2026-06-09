@@ -1495,12 +1495,14 @@ export function ModalUpload({ project, folderId, onClose, user }) {
                 background: item.status === 'error' ? 'rgba(239,68,68,.06)'
                   : item.status === 'blocked' ? 'rgba(245,158,11,.06)' : 'transparent' }}>
                 <button type="button" onClick={() => togglePlay(item)}
-                  title={playingId === item.id ? 'Pause' : 'Play preview'}
-                  style={{ width:32, height:32, borderRadius:9, background:`${col}20`, flexShrink:0,
+                  title={playingId === item.id ? 'Pause' : `Play ${item.file.name}`}
+                  style={{ width:34, height:34, borderRadius:'50%', background:`${col}22`, flexShrink:0,
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize: playingId === item.id ? 13 : 8, fontWeight:800, color:col, marginTop:1,
-                    border:`1px solid ${col}30`, cursor:'pointer', padding:0 }}>
-                  {playingId === item.id ? '⏸' : ext}
+                    color:col, marginTop:1, lineHeight:0,
+                    border:`1px solid ${col}55`, cursor:'pointer', padding:0 }}>
+                  {playingId === item.id
+                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill={col}><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                    : <svg width="13" height="13" viewBox="0 0 24 24" fill={col}><path d="M8 5v14l11-7z"/></svg>}
                 </button>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12.5, fontWeight:600, color:'rgba(var(--fg),.85)',
