@@ -31,12 +31,40 @@ import {
 } from './components/modals.jsx'
 const PageAccount = lazy(() => import('./pages/Account.jsx'))
 
+// A lazily-loaded chunk failed to fetch — almost always because a new deploy
+// changed the chunk hashes under an already-open tab (not a real app error).
+export const isChunkLoadError = (e) =>
+  /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i.test(e?.message || '')
+
+// Reload once to pick up the new build. Guarded so a genuinely-broken chunk
+// can't spin into a reload loop.
+export function reloadForNewBuild() {
+  const KEY = 'chunk-reload-at'
+  if (Date.now() - Number(sessionStorage.getItem(KEY) || 0) > 10_000) {
+    sessionStorage.setItem(KEY, String(Date.now()))
+    window.location.reload()
+    return true
+  }
+  return false
+}
+
 // ── Error Boundary — prevents white screen from any uncaught render error ─────
 export class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null } }
-  static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) { import('./lib/monitoring.js').then(m => m.reportError(error, info)).catch(() => {}) }
+  constructor(props) { super(props); this.state = { error: null, reloading: false } }
+  static getDerivedStateFromError(error) { return { error, reloading: isChunkLoadError(error) } }
+  componentDidCatch(error, info) {
+    // Stale chunk after a deploy → reload once instead of showing an error.
+    if (isChunkLoadError(error) && reloadForNewBuild()) return
+    import('./lib/monitoring.js').then(m => m.reportError(error, info)).catch(() => {})
+  }
   render() {
+    // Don't flash the error screen for a stale-chunk reload — show a quiet notice.
+    if (this.state.reloading) return (
+      <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+        background:'var(--bg)', color:'var(--t3)', fontFamily:"'Inter',-apple-system,sans-serif", fontSize:14 }}>
+        Updating to the latest version…
+      </div>
+    )
     if (!this.state.error) return this.props.children
     return (
       <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',

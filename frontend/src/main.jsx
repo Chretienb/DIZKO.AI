@@ -5,8 +5,13 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import './index.css'
 import { initMonitoring } from './lib/monitoring.js'
 import App           from './App.jsx'
+import { reloadForNewBuild } from './App.jsx'
 
 initMonitoring()
+
+// After a deploy, Vite chunk hashes change; an open tab can fail to lazy-load an
+// old chunk. Vite fires this — reload once to grab the new build (vs. erroring).
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadForNewBuild() })
 import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
