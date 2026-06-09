@@ -1173,6 +1173,29 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const inputRef = useRef()
   const folderRef = useRef()
 
+  // ── Audio preview — play queued files before upload (local object URLs) ──────
+  const [playingId, setPlayingId] = useState(null)
+  const audioRef    = useRef(null)
+  const urlCacheRef = useRef(new Map())          // item.id → objectURL
+  const objectUrl = (item) => {
+    let u = urlCacheRef.current.get(item.id)
+    if (!u) { u = URL.createObjectURL(item.file); urlCacheRef.current.set(item.id, u) }
+    return u
+  }
+  const togglePlay = (item) => {
+    const a = audioRef.current
+    if (!a) return
+    if (playingId === item.id) { a.pause(); setPlayingId(null); return }
+    a.src = objectUrl(item)
+    a.play().catch(() => {})
+    setPlayingId(item.id)
+  }
+  // Free object URLs when the modal closes.
+  useEffect(() => () => {
+    urlCacheRef.current.forEach(u => URL.revokeObjectURL(u))
+    urlCacheRef.current.clear()
+  }, [])
+
   // "Choose folder" needs webkitdirectory, which isn't a standard React prop.
   useEffect(() => { folderRef.current?.setAttribute('webkitdirectory', '') }, [])
 
@@ -1461,6 +1484,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       {queue.length > 0 && (
         <div style={{ marginBottom:12, borderRadius:12, border:'1px solid rgba(var(--fg),.07)',
           overflow:'hidden' }}>
+          <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
           {queue.map((item, i) => {
             const ext = item.file.name.split('.').pop().toUpperCase()
             const mb  = (item.file.size / 1_000_000).toFixed(1)
@@ -1470,10 +1494,14 @@ export function ModalUpload({ project, folderId, onClose, user }) {
                 borderBottom: i < queue.length-1 ? '1px solid rgba(var(--fg),.05)' : 'none',
                 background: item.status === 'error' ? 'rgba(239,68,68,.06)'
                   : item.status === 'blocked' ? 'rgba(245,158,11,.06)' : 'transparent' }}>
-                <div style={{ width:32, height:32, borderRadius:9, background:`${col}20`, flexShrink:0,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:8, fontWeight:800, color:col, marginTop:1,
-                  border:`1px solid ${col}30` }}>{ext}</div>
+                <button type="button" onClick={() => togglePlay(item)}
+                  title={playingId === item.id ? 'Pause' : 'Play preview'}
+                  style={{ width:32, height:32, borderRadius:9, background:`${col}20`, flexShrink:0,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize: playingId === item.id ? 13 : 8, fontWeight:800, color:col, marginTop:1,
+                    border:`1px solid ${col}30`, cursor:'pointer', padding:0 }}>
+                  {playingId === item.id ? '⏸' : ext}
+                </button>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12.5, fontWeight:600, color:'rgba(var(--fg),.85)',
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.file.name}</div>
