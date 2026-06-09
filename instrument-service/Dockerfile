@@ -14,12 +14,15 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# panns_inference reads this AudioSet label CSV AT IMPORT — without it the app
-# crashes on boot (FileNotFoundError). Pre-download it so import succeeds.
-# (The model checkpoint itself still downloads lazily on first inference.)
+# panns_inference reads these at import / model-init and does NOT reliably
+# auto-download them in a fresh container → boot crash. Pre-bake both:
+#   - class_labels_indices.csv (read at import)
+#   - Cnn14_mAP=0.431.pth      (the ~312 MB model checkpoint, torch.load'd at init)
 RUN mkdir -p /root/panns_data \
   && curl -fSL -o /root/panns_data/class_labels_indices.csv \
-     http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv
+     http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv \
+  && curl -fSL -o "/root/panns_data/Cnn14_mAP=0.431.pth" \
+     "https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth?download=1"
 
 COPY . .
 
