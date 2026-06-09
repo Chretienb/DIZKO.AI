@@ -249,6 +249,23 @@ export const files = {
       return json
     })
   },
+
+  // Classify a file's instrument from its AUDIO (PANNs worker) BEFORE upload, so
+  // the modal can show the real instrument instead of the filename guess.
+  // Returns { instrument, confidence } | null (null = worker off/unsure; never throws).
+  detect: (file) => {
+    const token = getToken()
+    const form  = new FormData()
+    form.append('file', file)
+    return fetch(`${BASE}/files/detect`, {
+      method:  'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body:    form,
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      return res.ok ? (json.data ?? null) : null
+    }).catch(() => null)
+  },
 }
 
 // ── Collaborators ─────────────────────────────────────────────────────────────
