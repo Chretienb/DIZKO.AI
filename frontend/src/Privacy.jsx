@@ -60,7 +60,7 @@ export default function Privacy() {
       <div style={{ maxWidth:860, margin:'0 auto', padding:'60px 24px' }}>
 
         <Section title="1. Introduction">
-          <P>Welcome to Dizko.ai ("Company," "we," "our," or "us"). Dizko.ai is a music collaboration platform that helps artists, producers, and their teams organize audio stems, detect BPM conflicts, generate AI mixes, and distribute their music.</P>
+          <P>Welcome to Dizko.ai ("Company," "we," "our," or "us"). Dizko.ai is a music collaboration platform that helps artists, producers, and their teams organize audio stems, detect BPM conflicts, generate reference bounces, and distribute their music.</P>
           <P>This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform at dizko.ai and any related services (collectively, the "Service"). Please read this policy carefully. If you disagree with its terms, please discontinue use of the Service.</P>
         </Section>
 
