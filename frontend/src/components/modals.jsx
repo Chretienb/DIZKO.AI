@@ -17,6 +17,20 @@ import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFile
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
 
+// PANNs worker returns clean labels; the upload picker uses lowercase ids and a
+// coarser taxonomy. Map the worker's fine labels onto the closest picker id so
+// the detected instrument actually displays (and matches a manual pick).
+const DETECTED_TO_ID = {
+  Kick:'drums', Snare:'drums', 'Hi-Hat':'drums', Cymbal:'drums', Percussion:'drums', Drums:'drums',
+  Bass:'bass',
+  'Acoustic Guitar':'guitar', Guitar:'guitar',
+  Piano:'piano', Keys:'piano', Organ:'piano',
+  Synth:'synth', Pad:'synth',
+  Strings:'strings',
+  Brass:'horns',
+  Vocals:'vocals',
+}
+
 // ─── MODAL: PROJECT DETAIL ─────────────────────────────────────────────────
 export function ModalProject({ project, onClose, openModal, playTrack, nowPlaying, user }) {
   const [files,      setFiles]      = useState([])
@@ -1225,8 +1239,11 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         setQueue(q => q.map(item => {
           if (item.id !== it.id) return item
           const useIt = tag && tag.confidence >= 0.30 && !item.instrumentUserSet
-          return { ...item, detecting: false,
-            ...(useIt ? { instrument: tag.instrument, instrumentDetected: true } : {}) }
+          if (!useIt) return { ...item, detecting: false }
+          // Worker returns clean labels ("Kick","Acoustic Guitar"); map to the
+          // picker's lowercase id ("drums","guitar") so it displays + matches.
+          const id = DETECTED_TO_ID[tag.instrument] || tag.instrument.toLowerCase()
+          return { ...item, detecting: false, instrument: id, instrumentDetected: true }
         }))
       })
     }
