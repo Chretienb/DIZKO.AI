@@ -53,6 +53,41 @@ function detectInstrument(filename: string): string {
 
 // BPM + key analysis now handled by pure TypeScript audioAnalysis.ts
 
+const detectLimit = rateLimit({ max: 120, windowMs: 60_000, keyBy: 'user' })
+
+// ── POST /files/detect ─────────────────────────────────────────────────────────
+// Classify a stem's instrument from its AUDIO *before* upload, so the upload
+// modal can show the real instrument (not the filename guess). Stages the file
+// to a temp R2 path, asks the PANNs worker, then deletes the temp object.
+// Returns { instrument, confidence } — or null data if the worker is off/unsure
+// (frontend keeps its filename guess in that case).
+files.post('/detect', detectLimit, async (c) => {
+  const user = c.var.user
+
+  let formData: FormData
+  try { formData = await c.req.formData() } catch {
+    return c.json({ data: null, error: 'Expected multipart/form-data', status: 400 }, 400)
+  }
+  const file = formData.get('file') as File | null
+  if (!file) return c.json({ data: null, error: 'file is required', status: 400 }, 400)
+  if (file.size > MAX_FILE_BYTES) return c.json({ data: null, error: 'File too large', status: 413 }, 413)
+
+  const contentType = resolveContentType(file.name, file.type)
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const tmpPath = `tmp-detect/${user.id}/${Date.now()}_${file.name}`
+
+  try {
+    await uploadToR2(tmpPath, buffer, contentType)
+    const url = await getR2SignedUrl(tmpPath)
+    const tag = await classifyInstrument(url)   // { instrument, confidence } | null
+    return c.json({ data: tag, error: null, status: 200 }, 200)
+  } catch (e) {
+    return c.json({ data: null, error: (e as Error).message, status: 500 }, 500)
+  } finally {
+    deleteFromR2(tmpPath).catch(() => {})       // never leave temp objects around
+  }
+})
+
 // ── POST /files/upload ─────────────────────────────────────────────────────────
 // Accepts any audio file, saves it to the session, analyzes BPM/key,
 // then triggers a Smart Mix update. Stem separation is NOT automatic.

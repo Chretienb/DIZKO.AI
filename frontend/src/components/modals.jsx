@@ -1202,9 +1202,12 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     const items = files.map(f => {
       const tooBig = f.size > MAX_MB * 1_000_000
       return {
+        id:         (crypto.randomUUID?.() ?? String(Math.random())),
         file:       f,
-        instrument: detectInstrument(f.name),   // filename guess — shown as a suggestion only
-        instrumentUserSet: false,                // true only once the user actively picks
+        instrument: detectInstrument(f.name),   // filename guess — shown until PANNs replies
+        instrumentUserSet:  false,               // true once the user actively picks
+        instrumentDetected: false,               // true once PANNs (audio) sets it
+        detecting:  !tooBig,                     // show "Detecting…" until the worker answers
         status:     tooBig ? 'error' : 'queued',
         progress:   0,
         error:      tooBig ? `File too large (${(f.size/1_000_000).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
@@ -1212,6 +1215,21 @@ export function ModalUpload({ project, folderId, onClose, user }) {
       }
     })
     setQueue(q => [...q, ...items])
+
+    // Identify the instrument from the AUDIO (PANNs worker) so the modal shows
+    // the real one, not the filename guess. Async — updates each row when it
+    // returns. Skips if the user already picked, or detection is unsure/off.
+    for (const it of items) {
+      if (it.status === 'error') continue
+      filesApi.detect(it.file).then(tag => {
+        setQueue(q => q.map(item => {
+          if (item.id !== it.id) return item
+          const useIt = tag && tag.confidence >= 0.30 && !item.instrumentUserSet
+          return { ...item, detecting: false,
+            ...(useIt ? { instrument: tag.instrument, instrumentDetected: true } : {}) }
+        }))
+      })
+    }
   }
 
   const setItemInstrument = (idx, instr) =>
@@ -1244,11 +1262,12 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         for (let attempt = 1; ; attempt++) {
           try {
             uploadRes = await filesApi.upload(updated[i].file, selProj.id, {
-              // Only send a user-CONFIRMED instrument. If they left the filename
-              // guess untouched, send nothing so the backend's PANNs tagger names
-              // it from the audio — a lying filename ("bass.wav" that's a drum)
-              // shouldn't win over what the audio actually is.
-              instrument: updated[i].instrumentUserSet ? updated[i].instrument : undefined,
+              // Send the instrument only if it's REAL — either the user picked it
+              // or PANNs detected it from the audio (shown in the modal). If it's
+              // still just the filename guess, send nothing so the backend tags it
+              // from the audio (a lying "bass.wav" drum shouldn't win).
+              instrument: (updated[i].instrumentUserSet || updated[i].instrumentDetected)
+                ? updated[i].instrument : undefined,
               ...(analysis ? { analysis: JSON.stringify(analysis) } : {}),
             })
             break
@@ -1446,6 +1465,12 @@ export function ModalUpload({ project, folderId, onClose, user }) {
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:5, flexWrap:'wrap' }}>
                     {(item.status === 'queued' || item.status === 'error') && (
                       <InstrPicker value={item.instrument} onChange={instr => setItemInstrument(i, instr)} />
+                    )}
+                    {item.detecting && (
+                      <span style={{ fontSize:10.5, fontWeight:600, color:C.coral }}>🎧 detecting…</span>
+                    )}
+                    {item.instrumentDetected && !item.instrumentUserSet && (
+                      <span style={{ fontSize:10, color:'rgba(var(--fg),.4)' }}>· auto-detected</span>
                     )}
                     {item.status === 'done' && item.instrument && (() => {
                       const ins = INSTR_LIST.find(x => x.id === item.instrument)
