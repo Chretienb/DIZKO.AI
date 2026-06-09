@@ -1,12 +1,13 @@
-// Content-based instrument detection — calls the CLAP worker (Python/Railway)
-// to identify a stem's instrument from the AUDIO, not the filename. Used as a
-// fallback when the user didn't pick an instrument and the filename is useless.
+// Content-based instrument detection — calls the instrument-tagger worker
+// (PANNs/Cnn14 on Railway, see /instrument-service) to identify a stem's
+// instrument from the AUDIO, not the filename. Used as a fallback when the user
+// didn't pick an instrument and the filename is useless.
 //
-// Dormant until CLAP_SERVICE_URL is set, so local dev and un-configured deploys
-// are unaffected (returns null → callers keep their existing heuristic).
+// Dormant until INSTRUMENT_SERVICE_URL is set, so local dev and un-configured
+// deploys are unaffected (returns null → callers keep their existing heuristic).
 
-const CLAP_URL   = process.env.CLAP_SERVICE_URL
-const CLAP_TOKEN = process.env.CLAP_AUTH_TOKEN
+const CLAP_URL   = process.env.INSTRUMENT_SERVICE_URL
+const CLAP_TOKEN = process.env.INSTRUMENT_AUTH_TOKEN
 
 export interface InstrumentTag { instrument: string; confidence: number }
 
