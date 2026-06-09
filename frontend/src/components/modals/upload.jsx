@@ -75,17 +75,32 @@ export async function collectAudioFiles(list) {
 }
 
 export const INSTR_LIST = [
-  { id:'master',    label:'Master',     color:'#E8B84B', desc:'Final mixed/mastered version' },
-  { id:'vocals',    label:'Vocals',     color:'#8b5cf6' },
-  { id:'guitar',    label:'Guitar',     color:'#f59e0b' },
-  { id:'drums',     label:'Drums',      color:'#ef4444' },
-  { id:'bass',      label:'Bass',       color:'#22c55e' },
-  { id:'piano',     label:'Piano',      color:'#3b82f6' },
-  { id:'synth',     label:'Synth',      color:'#ec4899' },
-  { id:'strings',   label:'Strings',    color:'#f97316' },
-  { id:'horns',     label:'Horns',      color:'#eab308' },
-  { id:'recording', label:'Recording',  color:'#6b7280' },
-  { id:'other',     label:'Other',      color:'#9ca3af' },
+  { id:'master',    label:'Master',          color:'#E8B84B', desc:'Final mixed/mastered version' },
+  { id:'vocals',    label:'Vocals',          color:'#8b5cf6' },
+  // Drum kit (fine-grained)
+  { id:'drums',     label:'Drums',           color:'#ef4444' },
+  { id:'kick',      label:'Kick',            color:'#dc2626' },
+  { id:'snare',     label:'Snare',           color:'#f87171' },
+  { id:'hihat',     label:'Hi-Hat',          color:'#fb7185' },
+  { id:'cymbal',    label:'Cymbal',          color:'#fda4af' },
+  { id:'percussion',label:'Percussion',      color:'#f43f5e' },
+  // Bass
+  { id:'bass',      label:'Bass',            color:'#22c55e' },
+  // Guitars
+  { id:'guitar',    label:'Guitar',          color:'#f59e0b' },
+  { id:'acoustic',  label:'Acoustic Guitar', color:'#d97706' },
+  // Keys
+  { id:'piano',     label:'Piano',           color:'#3b82f6' },
+  { id:'keys',      label:'Keys',            color:'#60a5fa' },
+  { id:'organ',     label:'Organ',           color:'#2563eb' },
+  { id:'synth',     label:'Synth',           color:'#ec4899' },
+  { id:'pad',       label:'Pad',             color:'#f0abfc' },
+  // Orchestral / wind
+  { id:'strings',   label:'Strings',         color:'#f97316' },
+  { id:'brass',     label:'Brass',           color:'#eab308' },
+  { id:'wind',      label:'Wind',            color:'#facc15' },
+  { id:'recording', label:'Recording',       color:'#6b7280' },
+  { id:'other',     label:'Other',           color:'#9ca3af' },
 ]
 
 export function detectInstrument(filename) {

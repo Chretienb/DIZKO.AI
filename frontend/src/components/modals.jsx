@@ -17,17 +17,15 @@ import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFile
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
 
-// PANNs worker returns clean labels; the upload picker uses lowercase ids and a
-// coarser taxonomy. Map the worker's fine labels onto the closest picker id so
-// the detected instrument actually displays (and matches a manual pick).
+// PANNs worker returns clean labels ("Hi-Hat","Acoustic Guitar"); map them to
+// the picker's lowercase ids. Now 1:1 with the fine-grained INSTR_LIST.
 const DETECTED_TO_ID = {
-  Kick:'drums', Snare:'drums', 'Hi-Hat':'drums', Cymbal:'drums', Percussion:'drums', Drums:'drums',
+  Kick:'kick', Snare:'snare', 'Hi-Hat':'hihat', Cymbal:'cymbal', Percussion:'percussion', Drums:'drums',
   Bass:'bass',
-  'Acoustic Guitar':'guitar', Guitar:'guitar',
-  Piano:'piano', Keys:'piano', Organ:'piano',
-  Synth:'synth', Pad:'synth',
-  Strings:'strings',
-  Brass:'horns',
+  'Acoustic Guitar':'acoustic', Guitar:'guitar',
+  Piano:'piano', Keys:'keys', Organ:'organ',
+  Synth:'synth', Pad:'pad',
+  Strings:'strings', Brass:'brass', Wind:'wind',
   Vocals:'vocals',
 }
 
