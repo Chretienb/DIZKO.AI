@@ -6,12 +6,20 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # ffmpeg — librosa needs it to decode mp3/m4a (WAV/FLAC work without it).
+# curl — to pre-fetch the panns label file below.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg \
+  && apt-get install -y --no-install-recommends ffmpeg curl \
   && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# panns_inference reads this AudioSet label CSV AT IMPORT — without it the app
+# crashes on boot (FileNotFoundError). Pre-download it so import succeeds.
+# (The model checkpoint itself still downloads lazily on first inference.)
+RUN mkdir -p /root/panns_data \
+  && curl -fSL -o /root/panns_data/class_labels_indices.csv \
+     http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv
 
 COPY . .
 
