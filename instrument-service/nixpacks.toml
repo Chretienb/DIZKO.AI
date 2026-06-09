@@ -1,0 +1,4 @@
+# Railway builds this worker with Nixpacks (Python detected from requirements.txt).
+# ffmpeg is needed so librosa can decode mp3/m4a (WAV/FLAC work without it).
+[phases.setup]
+aptPkgs = ["ffmpeg"]
