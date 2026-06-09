@@ -194,16 +194,35 @@ REDIS_URL=
 
 ### Error monitoring (Sentry) — optional
 
-Error reporting is wired but **dormant until a DSN is set**, so local dev and
-un-configured deploys are unaffected. To enable:
+Error + performance monitoring is wired but **dormant until a DSN is set**, so
+local dev and un-configured deploys are unaffected. To enable:
 
-1. Create a project at [sentry.io](https://sentry.io) and copy its DSN.
-2. Set **`VITE_SENTRY_DSN`** in the frontend env (Vercel) and **`SENTRY_DSN`** in
-   the backend env (Railway).
+1. Create **two** Sentry projects — one **React** (`dizko-frontend`) and one
+   **Node** (`dizko-backend`) — so client and server issues stay separate. Copy
+   each project's DSN.
+2. Set **`VITE_SENTRY_DSN`** (frontend DSN) in the frontend env (Vercel) and
+   **`SENTRY_DSN`** (backend DSN) in the backend env (Railway).
 
-With a DSN present, the frontend reports uncaught render errors (via the
-`ErrorBoundary`) and the backend reports unhandled request errors (via
-`app.onError`). Without it, both are no-ops.
+With a DSN present:
+- **Frontend** captures uncaught errors + unhandled promise rejections (auto),
+  React render crashes (via the `ErrorBoundary`), and **performance traces**
+  (page loads, navigations, fetch/XHR timing) via `browserTracingIntegration`.
+- **Backend** captures unhandled request errors (via `app.onError`) plus
+  uncaught exceptions + unhandled rejections (auto).
+- Traces are propagated from the frontend to `/api`, so a slow request links the
+  client and server sides of the same trace.
+
+Trace sampling defaults to **1.0** (everything) for early/low-traffic use — dial
+it down later with `VITE_SENTRY_TRACES_RATE` / `SENTRY_TRACES_RATE` (0..1).
+Without a DSN, all of the above are no-ops.
+
+**Readable production stack traces (source maps).** The frontend uploads source
+maps to Sentry at build time via `@sentry/vite-plugin`, but only when
+**`SENTRY_AUTH_TOKEN`** is set — without it the build is unchanged and no maps
+are emitted. To enable: create an org auth token (Sentry → Settings → Auth
+Tokens, scope `project:releases`), set `SENTRY_AUTH_TOKEN` in the frontend build
+env (Vercel) and optionally `frontend/.env` for local prod builds. Maps are
+uploaded then deleted from `dist`, so they're never served publicly.
 
 ---
 

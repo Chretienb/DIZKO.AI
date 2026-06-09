@@ -6,8 +6,16 @@ import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
 
 // Error monitoring — only active when SENTRY_DSN is set (no-op otherwise).
+// Init runs before the route imports below so request errors are captured.
+// The Node SDK also auto-captures uncaught exceptions + unhandled rejections.
 if (process.env.SENTRY_DSN) {
-  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV ?? 'development', tracesSampleRate: 0.1 })
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? 'development',
+    release: process.env.SENTRY_RELEASE || undefined,
+    // Default to full sampling (low traffic, early-stage) — dial down via env.
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_RATE ?? 1.0),
+  })
 }
 
 import { rateLimit } from './middleware/rateLimit'

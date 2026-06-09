@@ -9,8 +9,15 @@ export function initMonitoring() {
   Sentry.init({
     dsn: DSN,
     environment: import.meta.env.MODE,
-    tracesSampleRate: 0.1,
-    // Don't capture noisy/expected errors
+    release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
+    // Performance tracing — browserTracingIntegration is what actually makes
+    // tracesSampleRate do anything (page loads, navigations, fetch/XHR timing).
+    integrations: [Sentry.browserTracingIntegration()],
+    // Default to full sampling (low traffic, early-stage) — dial down via env.
+    tracesSampleRate: Number(import.meta.env.VITE_SENTRY_TRACES_RATE ?? 1.0),
+    // Link a frontend trace to its backend trace by propagating headers to the API.
+    tracePropagationTargets: ['localhost', '/api', /https:\/\/app\.dizko\.ai\/api/],
+    // Browser SDK already auto-captures uncaught errors + unhandled rejections.
     ignoreErrors: ['Session expired. Please log in again.'],
   })
 }
