@@ -43,8 +43,8 @@ import billingRoutes          from './routes/billing'
 import { startCleanupJob }   from './lib/cleanupJob'
 import { runSmartBounce }    from './lib/smartBounce'
 import { analyzeProject }    from './lib/aiAnalysis'
+import { scheduleSmartMix }  from './lib/mixScheduler'
 import { notify, getProjectMemberIds } from './lib/notificationService'
-import { mixReadyEmail }               from './lib/emailTemplates'
 
 import type { HonoVariables } from './types'
 
@@ -183,34 +183,9 @@ subscribeToFileEvents(async (payload) => {
     })
   }).catch(() => null)
 
-  // Auto-mix
-  runSmartBounce(projectId, stem.uploaded_by).then(result => {
-    if (!result) return
-    // Notify all members the mix is ready
-    getProjectMemberIds(projectId).then(memberIds => {
-      notify({
-        type:         'mix_ready',
-        recipientIds: memberIds,
-        title:        'Session mix updated',
-        body:         `${result.stem_count} parts mixed — hear the latest version`,
-        actorId:      stem.uploaded_by,
-        projectId,
-        actionUrl:    '/',
-        dedupKey:     `mix:${projectId}`,
-        dedupWindow:  3 * 60_000,
-        email:        true,
-        ...(() => {
-          const tpl = mixReadyEmail({
-            recipientName: '',
-            projectTitle:  projectId,   // will be enriched by notificationService via userId lookup
-            stemCount:     result.stem_count,
-            listenUrl:     process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
-          })
-          return { emailSubject: tpl.subject, emailHtml: tpl.html }
-        })(),
-      }).catch(() => null)
-    }).catch(() => null)
-  }).catch(e => console.error('[smartBounce] error:', e.message))
+  // Auto-mix — debounced so a burst of uploads (e.g. a folder drop) produces
+  // ONE mix + mix-ready notification after the batch settles, not one per file.
+  scheduleSmartMix(projectId, stem.uploaded_by)
 })
 
 // ── POST /projects/:id/smart-bounce — manual trigger ─────────────────────────

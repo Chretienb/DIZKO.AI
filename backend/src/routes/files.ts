@@ -5,8 +5,7 @@ import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
-import { runSmartBounce } from '../lib/smartBounce'
-import { analyzeProject } from '../lib/aiAnalysis'
+import { scheduleSmartMix } from '../lib/mixScheduler'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { generateStemName } from '../lib/naming'
 import { classifyInstrument } from '../lib/instrumentTagging'
@@ -283,15 +282,9 @@ files.post('/upload', uploadLimit, async (c) => {
 
       console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
 
-      // AI analysis — runs first so mix params are ready for Smart Mix
-      await analyzeProject(projectId, user.id).catch(e =>
-        console.error('[upload] AI analysis error:', e.message)
-      )
-
-      // Trigger Smart Mix (now uses AI mix params from analysis above)
-      await runSmartBounce(projectId, user.id).catch(e =>
-        console.error('[upload] smart bounce error:', e.message)
-      )
+      // Debounced AI analysis + Smart Mix — collapses a folder of uploads into
+      // ONE mix after the batch settles (was per-file → 75× on a 75-file drop).
+      scheduleSmartMix(projectId, user.id)
     } catch (e) {
       console.error('[upload] background analysis error:', (e as Error).message)
     }
