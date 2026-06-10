@@ -23,7 +23,7 @@ from panns_inference import AudioTagging, labels as AUDIOSET_LABELS
 
 AUTH_TOKEN  = os.environ.get("INSTRUMENT_AUTH_TOKEN")     # shared secret the backend sends
 SR          = 32_000                                     # PANNs Cnn14 expects 32 kHz mono
-MAX_SECONDS = float(os.environ.get("MAX_SECONDS", "20"))
+MAX_SECONDS = float(os.environ.get("MAX_SECONDS", "10"))   # 10s is plenty to ID an instrument; faster under load
 
 # AudioSet class keyword -> Dizko clean label (matches backend INSTRUMENT_MAP).
 # Order matters: most specific first ("bass drum" before "drum", "electric
