@@ -225,29 +225,41 @@ export const files = {
   delete:        (id)        => del(`/files/${id}`),
   separateStems: (id)        => post(`/files/${id}/separate-stems`, {}),
 
-  // Upload audio to the session. AI analyzes BPM/key and updates the Smart Mix.
-  // Returns 201 immediately. Stem separation is separate and user-triggered.
-  upload: (file, projectId, { artistName, trackNumber, takeNumber, instrument, analysis } = {}) => {
+  // Upload audio to a project, DIRECT to R2 to avoid the browser→backend→R2
+  // double hop that timed out on big multi-stem drops:
+  //   1) /files/upload-url — backend runs access checks, returns a presigned PUT
+  //   2) PUT the bytes straight to R2 (no backend in the data path)
+  //   3) /files/register — tiny JSON; creates the stem row + kicks AI analysis
+  // Returns the register response ({ data: { id, ... } }) so callers are unchanged.
+  upload: async (file, projectId, { instrument, analysis } = {}) => {
     const token = getToken()
-    const form  = new FormData()
-    form.append('file',         file)
-    form.append('project_id',   projectId)
-    if (artistName)   form.append('artist_name',  artistName)
-    if (trackNumber)  form.append('track_number', String(trackNumber))
-    if (takeNumber)   form.append('take_number',  String(takeNumber))
-    if (instrument)   form.append('instrument',   instrument)
-    if (analysis)     form.append('analysis',     analysis)
-
-    return fetch(`${BASE}/files/upload`, {
-      method:  'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body:    form,
-    }).then(async res => {
+    const authH = token ? { Authorization: `Bearer ${token}` } : {}
+    const readErr = async res => {
       const json = await res.json().catch(() => ({}))
       if (res.status === 401) { setToken(null); window.location.href = '/login' }
-      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      // Preserve the role/storage block payload so the modal can show "Request access".
+      if (!res.ok) throw new Error(json.needs_request ? JSON.stringify(json) : (json.error || `HTTP ${res.status}`))
       return json
-    })
+    }
+
+    // 1) presigned PUT URL (also gates on storage + role)
+    const presign = await fetch(`${BASE}/files/upload-url`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...authH },
+      body: JSON.stringify({ file_name: file.name, content_type: file.type || '', file_size: file.size, project_id: projectId, instrument }),
+    }).then(readErr)
+    const { url, storage_path, content_type } = presign.data
+
+    // 2) bytes straight to R2 — Content-Type must match what was signed
+    const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': content_type }, body: file })
+    if (!put.ok) throw new Error(`Storage upload failed (HTTP ${put.status})`)
+
+    // 3) register the stem (metadata only)
+    return fetch(`${BASE}/files/register`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...authH },
+      body: JSON.stringify({ storage_path, project_id: projectId, file_name: file.name, file_size: file.size, content_type, instrument, analysis }),
+    }).then(readErr)
   },
 
   // Classify a file's instrument from its AUDIO (PANNs worker) BEFORE upload, so

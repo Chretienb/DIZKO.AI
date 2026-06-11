@@ -29,6 +29,14 @@ export async function getR2SignedUrl(key: string, expiresIn = 604800): Promise<s
   return getSignedUrl(r2Client, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
+// Presigned PUT URL so the BROWSER can upload straight to R2 (no browser→backend
+// →R2 double hop, which timed out on big multi-stem drops). ContentType must
+// match the header the browser sends on the PUT, or the signature is rejected.
+// Requires the R2 bucket to allow CORS PUT from the app origin.
+export async function getR2PresignedPutUrl(key: string, contentType: string, expiresIn = 3600): Promise<string> {
+  return getSignedUrl(r2Client, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }), { expiresIn })
+}
+
 /**
  * Recover the object key from a stored R2 URL — used to refresh an expired
  * signed URL when a stem row has no storage_path. The key is the URL path
