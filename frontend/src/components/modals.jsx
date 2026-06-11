@@ -1234,6 +1234,15 @@ export function ModalUpload({ project, folderId, onClose, user }) {
   const addFiles = async raw => {
     const { files, skipped } = await collectAudioFiles(raw)
     if (skipped) setSkipped(s => s + skipped)
+
+    // Pre-upload auto-naming uploads each file to the worker just to name it —
+    // great for a few stems, far too slow for a big folder/zip (a 65-file drop
+    // = 65 extra full uploads fighting the browser's ~6 connections + the
+    // single worker). For large drops, skip it: the backend names every stem
+    // server-side during the (fast) upload, so the project view still shows the
+    // right instrument — the drop just lands FAST.
+    const willDetect = files.length <= 8
+
     const items = files.map(f => {
       const tooBig = f.size > MAX_MB * 1_000_000
       return {
@@ -1242,7 +1251,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         instrument: detectInstrument(f.name),   // filename guess — shown until PANNs replies
         instrumentUserSet:  false,               // true once the user actively picks
         instrumentDetected: false,               // true once PANNs (audio) sets it
-        detecting:  !tooBig,                     // show "Detecting…" until the worker answers
+        detecting:  !tooBig && willDetect,       // show "Auto naming…" only when we'll detect pre-upload
         status:     tooBig ? 'error' : 'queued',
         progress:   0,
         error:      tooBig ? `File too large (${(f.size/1_000_000).toFixed(0)} MB) — max is ${MAX_MB} MB` : null,
@@ -1254,7 +1263,8 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     // Identify the instrument from the AUDIO (PANNs worker) so the modal shows
     // the real one, not the filename guess. Async — updates each row when it
     // returns. Skips if the user already picked, or detection is unsure/off.
-    for (const it of items) {
+    // Only for small drops — big folders/zips are named server-side on upload.
+    if (willDetect) for (const it of items) {
       if (it.status === 'error') continue
       filesApi.detect(it.file).then(tag => {
         setQueue(q => q.map(item => {
