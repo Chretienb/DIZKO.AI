@@ -340,13 +340,28 @@ const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.cora
 // Toast notification — stacks at top-right, auto-dismisses
 function useToasts() {
   const [toasts, setToasts] = React.useState([])
+  const timers = React.useRef({})
+  // Arm (or cancel) a toast's auto-dismiss. duration:0 keeps it sticky — used by
+  // live-progress toasts that stay until the work finishes and finalizes them.
+  const arm = React.useCallback((id, duration) => {
+    clearTimeout(timers.current[id])
+    if (duration === 0) return
+    timers.current[id] = setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration || 6000)
+  }, [])
   const add = React.useCallback((msg, opts = {}) => {
     const id = Date.now() + Math.random()
     setToasts(t => [...t, { id, msg, type: opts.type || 'info', action: opts.action }])
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), opts.duration || 6000)
-  }, [])
-  const remove = React.useCallback(id => setToasts(t => t.filter(x => x.id !== id)), [])
-  return { toasts, add, remove }
+    arm(id, opts.duration)
+    return id
+  }, [arm])
+  // Patch an existing toast in place (e.g. "6 / 26 uploaded"); pass duration in
+  // opts to (re)arm dismissal — e.g. finalize a sticky toast so it fades out.
+  const update = React.useCallback((id, patch = {}, opts = {}) => {
+    setToasts(t => t.map(x => x.id === id ? { ...x, ...patch } : x))
+    if ('duration' in opts) arm(id, opts.duration)
+  }, [arm])
+  const remove = React.useCallback(id => { clearTimeout(timers.current[id]); setToasts(t => t.filter(x => x.id !== id)) }, [])
+  return { toasts, add, update, remove }
 }
 
 function ToastContainer({ toasts, remove }) {
@@ -490,7 +505,7 @@ function SidebarLibrary({ navigate }) {
 
 // ─── ROOT APP ──────────────────────────────────────────────────────────────
 export default function App({ onLogout, user, onProfileUpdate }) {
-  const { toasts, add: addToast, remove: removeToast } = useToasts()
+  const { toasts, add: addToast, update: updateToast, remove: removeToast } = useToasts()
   const isMobile = useIsMobile()
   const { toggle: toggleTheme, resolvedTheme } = useTheme()
 
@@ -761,7 +776,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
-      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} />}
+      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} updateToast={updateToast} />}
       <ToastContainer toasts={toasts} remove={removeToast} />
     </div>
     </MobileCtx.Provider>

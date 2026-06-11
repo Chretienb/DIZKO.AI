@@ -22,17 +22,68 @@ const MIME = { wav:'audio/wav', mp3:'audio/mpeg', flac:'audio/flac', ogg:'audio/
   opus:'audio/opus', wma:'audio/x-ms-wma' }
 const mimeFor = name => MIME[extOf(name)] || 'application/octet-stream'
 
-/** Extract the audio entries from a .zip File into File objects. */
+/**
+ * Extract the audio entries from a .zip File into File objects.
+ *
+ * Streams the archive instead of buffering it: a 26-stem export is easily
+ * multiple GB uncompressed, and the old path held the whole zip, the whole
+ * decompressed set, AND a copy per File all at once (~3× peak) — enough to OOM
+ * the tab (a crash .catch() can't even catch). Here we pull the blob through
+ * fflate's streaming Unzip, only inflate audio entries (junk/non-audio are
+ * never decompressed), and build each File straight from its chunks so peak
+ * memory stays ~1× the extracted audio.
+ */
 export async function audioFilesFromZip(zipFile) {
-  const { unzip } = await import('fflate')
-  const buf = new Uint8Array(await zipFile.arrayBuffer())
-  const entries = await new Promise((resolve, reject) =>
-    unzip(buf, (err, data) => err ? reject(err) : resolve(data)))
+  const { Unzip, UnzipInflate, UnzipPassThrough } = await import('fflate')
   const out = []
-  for (const [path, bytes] of Object.entries(entries)) {
-    if (isJunk(path) || !isAudioName(path) || !bytes.length) continue
-    out.push(new File([bytes], baseName(path), { type: mimeFor(path) }))
-  }
+
+  await new Promise((resolve, reject) => {
+    let pending = 0          // entries still inflating
+    let sourceDone = false   // archive fully fed in
+    const settle = () => { if (sourceDone && pending === 0) resolve() }
+
+    const unzipper = new Unzip(entry => {
+      if (isJunk(entry.name) || !isAudioName(entry.name)) return  // never inflate junk
+      pending++
+      const chunks = []
+      entry.ondata = (err, chunk, final) => {
+        if (err) { reject(err); return }
+        if (chunk && chunk.length) chunks.push(chunk)
+        if (final) {
+          // Pass the chunk array straight to File — no contiguous re-copy.
+          if (chunks.length) out.push(new File(chunks, baseName(entry.name), { type: mimeFor(entry.name) }))
+          pending--
+          settle()
+        }
+      }
+      entry.start()
+    })
+    // deflate (method 8) + stored (method 0) — exports may use either. Sync
+    // decompressors (no Web Worker) so this also runs under jsdom/node tests;
+    // streaming keeps each inflate to a chunk, so the main thread isn't pinned.
+    unzipper.register(UnzipInflate)
+    unzipper.register(UnzipPassThrough)
+
+    // Prefer Blob.stream() so we never hold the whole compressed archive
+    // (browsers); fall back to a single arrayBuffer push where stream() is
+    // missing (jsdom/older runtimes) — still cheaper than the old full
+    // decompress-everything path.
+    if (typeof zipFile.stream === 'function') {
+      const reader = zipFile.stream().getReader()
+      const pump = () => reader.read().then(({ done, value }) => {
+        if (done) { unzipper.push(new Uint8Array(0), true); sourceDone = true; settle(); return }
+        unzipper.push(value, false)
+        return pump()
+      }).catch(reject)
+      pump()
+    } else {
+      zipFile.arrayBuffer().then(buf => {
+        unzipper.push(new Uint8Array(buf), true)
+        sourceDone = true; settle()
+      }).catch(reject)
+    }
+  })
+
   return out
 }
 

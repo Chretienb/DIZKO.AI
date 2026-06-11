@@ -14,7 +14,9 @@ export default function CookieConsent() {
 
   return (
     <div role="dialog" aria-label="Cookie notice" aria-live="polite"
-      style={{ position:'fixed', left:16, right:16, bottom:16, zIndex:2000,
+      // Below the modal layer (z 1000) so it never overlaps and steals clicks
+      // from an open dialog's buttons (e.g. the upload modal's "Upload N files").
+      style={{ position:'fixed', left:16, right:16, bottom:16, zIndex:900,
         maxWidth:520, margin:'0 auto', display:'flex', alignItems:'center', gap:14,
         flexWrap:'wrap', justifyContent:'center',
         background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14,

@@ -1159,7 +1159,7 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-export function ModalUpload({ project, folderId, onClose, user, addToast }) {
+export function ModalUpload({ project, folderId, onClose, user, addToast, updateToast }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
@@ -1170,6 +1170,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
   const [requestSent,   setRequestSent]   = useState(new Set())
   const [myRole,        setMyRole]        = useState(null)  // user's role on the selected project
   const [skipped,       setSkipped]       = useState(0)     // non-audio files dropped during import
+  const [extracting,    setExtracting]    = useState(false)  // unzipping a dropped .zip
   const inputRef = useRef()
   const folderRef = useRef()
 
@@ -1232,7 +1233,16 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
   // zips are extracted and folders walked, then filtered to audio (see
   // collectAudioFiles). Non-audio is skipped silently with a count.
   const addFiles = async raw => {
-    const { files, skipped } = await collectAudioFiles(raw)
+    // Unzipping a big archive takes a beat — show a spinner so the modal isn't
+    // blank (and the user doesn't think the drop was lost) while it extracts.
+    const hasZip = Array.from(raw || []).some(f => (f.name || '').toLowerCase().endsWith('.zip'))
+    if (hasZip) setExtracting(true)
+    let files, skipped
+    try {
+      ({ files, skipped } = await collectAudioFiles(raw))
+    } finally {
+      if (hasZip) setExtracting(false)
+    }
     if (skipped) setSkipped(s => s + skipped)
 
     // Pre-upload auto-naming uploads each file to the worker just to name it —
@@ -1290,6 +1300,16 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
     setUploading(true)
 
     const updated = [...queue]
+    const total = updated.filter(f => f.status === 'queued').length
+    // Live-progress toast: sticky (duration:0) while uploads run, bumped as each
+    // stem lands ("6 / 26 uploaded"), then finalized to a result that fades out.
+    // Lives in App, so it keeps updating after the modal closes (fire-and-forget).
+    const toastId = total > 0 ? addToast?.(`Uploading 0 / ${total}…`, { type: 'new', duration: 0 }) : null
+    const bumpProgress = () => {
+      if (toastId == null) return
+      const done = updated.filter(f => f.status === 'done').length
+      updateToast?.(toastId, { msg: `Uploading ${done} / ${total}…` })
+    }
     const uploadOne = async (i) => {
       if (updated[i].status === 'done') return
       updated[i] = { ...updated[i], status:'uploading', progress: 10 }
@@ -1333,6 +1353,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
         cacheBust(`/projects/${selProj.id}/files`)
         window.dispatchEvent(new CustomEvent('dizko:files_updated', { detail: { projectId: selProj.id } }))
         setQueue([...updated])
+        bumpProgress()
         window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
       } catch (err) {
         // Check if this is a role restriction — show Request Access instead of error
@@ -1349,6 +1370,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
           updated[i] = { ...updated[i], status:'error', progress: 0, error: err.message }
         }
         setQueue([...updated])
+        bumpProgress()
       }
     }
 
@@ -1367,12 +1389,20 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
 
     // The modal is usually already closed (fire-and-forget), so report how it
     // went via a toast — the producer doesn't have to be watching to find out.
+    // Finalize the live-progress toast in place so it becomes the result and
+    // fades, instead of leaving "uploading…" up or stacking a second toast.
     const okN      = updated.filter(f => f.status === 'done').length
     const blockedN = updated.filter(f => f.status === 'blocked').length
     const failedN  = updated.filter(f => f.status === 'error' && !/too large/i.test(f.error || '')).length
-    if (blockedN)      addToast?.(`${blockedN} stem${blockedN > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
-    else if (failedN)  addToast?.(`${failedN} stem${failedN > 1 ? 's' : ''} didn't upload — open the project to retry`, { type: 'info' })
-    else if (okN)      addToast?.(`✅ ${okN} stem${okN > 1 ? 's' : ''} in — mixing now, we'll notify you`, { type: 'success' })
+    const finalMsg =
+      blockedN ? `${blockedN} stem${blockedN > 1 ? 's' : ''} need access to upload — request it on the project`
+      : failedN ? `${failedN} stem${failedN > 1 ? 's' : ''} didn't upload — open the project to retry`
+      : okN     ? `✅ ${okN} stem${okN > 1 ? 's' : ''} in — mixing now, we'll notify you`
+      : null
+    const finalType = (blockedN || failedN) ? 'info' : 'success'
+    if (finalMsg && toastId != null)      updateToast?.(toastId, { msg: finalMsg, type: finalType }, { duration: 6000 })
+    else if (finalMsg)                    addToast?.(finalMsg, { type: finalType })
+    else if (toastId != null)             updateToast?.(toastId, {}, { duration: 100 })  // nothing landed — dismiss
 
     // Auto-promote Draft → In Progress on first successful upload
     const anyDone = updated.some(f => f.status === 'done')
@@ -1385,17 +1415,14 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
   // close so the producer gets straight back to work. The uploads — and the
   // dizko:files_updated events that fill the project grid — keep running after
   // the modal unmounts (React 19 just no-ops the modal's own state updates), and
-  // the bell + "mix ready" email close the loop. startUpload() surfaces its own
-  // success/failure toast when the batch settles.
+  // the bell + "mix ready" email close the loop. startUpload() raises its own
+  // live-progress toast ("6 / 26 uploaded") and finalizes it when the batch
+  // settles, so we don't add one here.
   const startAndNotify = () => {
     if (!selProj?.id) return
     const n = queue.filter(f => f.status === 'queued').length
     if (n === 0) { onClose(); return }
-    startUpload()   // not awaited — runs in the background
-    addToast?.(
-      `Uploading ${n} stem${n > 1 ? 's' : ''} — we'll name them and notify you when they're in 🔔`,
-      { type: 'new', duration: 5000 }
-    )
+    startUpload()   // not awaited — runs in the background; owns the progress toast
     onClose()
   }
 
@@ -1411,17 +1438,18 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
   }
 
   if (allDone) return (
-    <Modal title="Added to project" sub={`${doneCount} file${doneCount > 1 ? 's' : ''} sent to Dizko.Ai`} onClose={onClose}>
-      <div style={{ textAlign:'center', padding:'12px 0 4px' }}>
-        <div style={{ width:60, height:60, borderRadius:'50%', background:`${C.coral}12`,
+    <Modal title="Working on your stems" onClose={onClose}>
+      <div style={{ textAlign:'center', padding:'8px 0 2px' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:`${C.coral}12`,
           border:`2px solid ${C.coral}22`, display:'flex', alignItems:'center',
-          justifyContent:'center', margin:'0 auto 18px' }}>
-          <Spinner size={26} color={C.coral}/>
+          justifyContent:'center', margin:'0 auto 16px' }}>
+          <Spinner size={24} color={C.coral}/>
         </div>
-        <div style={{ fontSize:15, fontWeight:800, color:C.t1, marginBottom:6 }}>Upload complete</div>
-        <p style={{ color:C.t3, fontSize:13, margin:'0 0 24px', lineHeight:1.55 }}>
-          <strong style={{ color:C.t1 }}>Dizko.Ai</strong> is detecting BPM, key, and generating your AI mix.
-          Your tracks will be ready in the Studio in a few seconds.
+        <div style={{ fontSize:15, fontWeight:700, color:C.t1, marginBottom:5, letterSpacing:'-.2px' }}>
+          {doneCount} stem{doneCount > 1 ? 's' : ''} added
+        </div>
+        <p style={{ color:C.t3, fontSize:13, margin:'0 0 22px', lineHeight:1.5 }}>
+          Detecting BPM, key &amp; building your mix — ready in the Studio shortly.
         </p>
         <Btn onClick={onClose} style={{ width:'100%' }}>Done</Btn>
       </div>
@@ -1502,12 +1530,16 @@ export function ModalUpload({ project, folderId, onClose, user, addToast }) {
             <path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
           </svg>
         </div>
-        <p style={{ margin:'0 0 5px', fontSize:14.5, fontWeight:700,
-          color: drag ? C.coral : 'rgba(var(--fg),.85)' }}>
-          {drag ? 'Drop to upload' : 'Drop files here, or click to browse'}
-        </p>
+        <div style={{ margin:'0 0 5px', fontSize:14.5, fontWeight:700,
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+          color: (drag || extracting) ? C.coral : 'rgba(var(--fg),.85)' }}>
+          {extracting
+            ? <><Spinner size={15} color={C.coral}/> Extracting zip…</>
+            : drag ? 'Drop to upload' : 'Drop files here, or click to browse'}
+        </div>
         <p style={{ margin:'0 0 14px', fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
-          Folders &amp; .zip welcome · WAV, MP3, FLAC · up to {MAX_MB} MB each
+          {extracting ? 'Reading your stems — this can take a moment for big archives'
+                      : <>Folders &amp; .zip welcome · WAV, MP3, FLAC · up to {MAX_MB} MB each</>}
         </p>
         <button onClick={e => { e.stopPropagation(); folderRef.current?.click() }}
           style={{ display:'inline-flex', alignItems:'center', gap:6, height:34, padding:'0 14px',
