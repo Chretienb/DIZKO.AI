@@ -7,8 +7,9 @@ import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
 import StemComments from './project/StemComments.jsx'
+import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
-import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion,
+import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -40,6 +41,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [msgCollab, setMsgCollab] = useState(null)
   const [remCollab, setRemCollab] = useState(null)
   const [reviewingId, setReviewingId] = useState(null)
+  const [playback,    setPlayback]    = useState({ id:null, playing:false })
+  const [search,      setSearch]      = useState('')
+
+  // Reflect the inline player's state onto the stem rows (which one is playing).
+  useEffect(() => {
+    const h = e => setPlayback({ id: e.detail?.id ?? null, playing: !!e.detail?.playing })
+    window.addEventListener('dizko:player_state', h)
+    return () => window.removeEventListener('dizko:player_state', h)
+  }, [])
 
   const loadAll = useCallback(async () => {
     if (!projectId) return
@@ -189,10 +199,26 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     ? parentFiles.filter(f => f.folder_id === selectedFolderId)
     : parentFiles
 
+  // Stable stem numbers (in group order) — independent of the search filter.
+  const stemNo = new Map()
+  GROUPS.forEach(g => stemsForView
+    .filter(f => getGroupKey(f.instrument || 'other') === g.key)
+    .forEach(f => stemNo.set(f.id, stemNo.size + 1)))
+
+  // Search filter over the song's stems.
+  const q = search.trim().toLowerCase()
+  const matchStem = f => !q || [f.suggested_name, f.original_name, f.instrument]
+    .some(v => (v || '').toLowerCase().includes(q))
+
   const grouped = GROUPS.map(g => ({
     ...g,
-    items: stemsForView.filter(f => getGroupKey(f.instrument || 'other') === g.key),
+    items: stemsForView.filter(f => getGroupKey(f.instrument || 'other') === g.key && matchStem(f)),
   })).filter(g => g.items.length > 0)
+
+  // Shared minimal chip style for the meta row.
+  const chip = { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
+    borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
+    fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
 
   const infoFile   = parentFiles.find(f => parseNotes(f).bpm)
   const projBpm    = infoFile ? parseNotes(infoFile).bpm : null
@@ -479,22 +505,17 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
           </div>
 
-          {/* Tags row */}
-          <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:10, flexWrap:'wrap' }}>
-            <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'3px 10px', borderRadius:20, background:'#E8E3FB', color:'#4532A0', fontSize:11.5, fontWeight:600 }}>
-              <svg width={8} height={8} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
-              Auto-labeled
-            </span>
-            {projBpm && <span style={{ padding:'3px 10px', borderRadius:20, background:'#D9E8F9', color:'#134695', fontSize:11.5, fontWeight:600 }}>BPM {Math.round(projBpm)}</span>}
-            {projKey?.trim() && <span style={{ padding:'3px 10px', borderRadius:20, background:'#FDE8CC', color:'#7A4E00', fontSize:11.5, fontWeight:600 }}>Key: {projKey}</span>}
-
-            {/* Clickable status badge */}
+          {/* Meta chips — minimal & modern */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:9, flexWrap:'wrap' }}>
+            {/* Clickable status */}
             <div style={{ position:'relative' }}>
               <button onClick={() => isOwner && setStatusOpen(o => !o)}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, background:'var(--surface-2)', border:'1px solid var(--border)', cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit' }}>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:ltDot(status) }}/>
-                <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t2)' }}>{status}</span>
-                {isOwner && <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
+                style={{ ...chip, cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit', transition:'background .1s' }}
+                onMouseEnter={e=>{ if(isOwner) e.currentTarget.style.background='rgba(var(--fg),.09)' }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(var(--fg),.05)' }}>
+                <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(status) }}/>
+                <span>{status}</span>
+                {isOwner && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
               </button>
               {statusOpen && isOwner && (
                 <>
@@ -517,8 +538,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )}
             </div>
 
-            <span style={{ fontSize:11.5, color:'var(--t4)' }}>·</span>
-            <span style={{ fontSize:11.5, color:'var(--t3)', fontWeight:500 }}>{project?.type || 'Single'}</span>
+            {projBpm && <span style={chip}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span>}
+            {projKey?.trim() && <span style={chip}>{projKey}</span>}
+            <span style={chip}>{project?.type || 'Single'}</span>
+            <span style={{ ...chip, color:'var(--t2)' }}>
+              <svg width={11} height={11} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="#E95A51"/></svg>
+              Auto-labeled
+            </span>
           </div>
 
           {/* Metadata row */}
@@ -529,9 +555,23 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
         </div>
 
-        {/* The inline player here was a non-functional mockup (hard-coded 38%
-            progress + "1:28"). Removed — playback runs through the bottom
-            MiniPlayer via playTrack(), which is the real, working player. */}
+        {/* Inline player — playing a stem on this page loads it HERE (the player
+            you're looking at), not the docked bottom MiniPlayer. */}
+        {playerFile && (
+          <div style={{ padding: isMobile ? '0 16px' : '0 24px' }}>
+            <InlineStemPlayer
+              track={playerFile}
+              playlist={parentFiles}
+              user={user}
+              projectTitle={project?.title}
+              onPlay={f => setPlayerFile(f)}
+              onClose={() => setPlayerFile(null)}
+            />
+          </div>
+        )}
+        <style>{`@keyframes eq { 0% { height:4px } 100% { height:14px } }
+          .stem-row .lt-play-btn { opacity: 0 }
+          .stem-row:hover .lt-play-btn { opacity: 1 }`}</style>{/* equalizer + hover-reveal play */}
 
         {/* Stem Sections */}
         <div style={{ padding: isMobile ? '16px' : '16px 24px', display:'flex', flexDirection:'column', gap:18 }}>
@@ -540,7 +580,34 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <p style={{ margin:'0 0 10px', fontSize:13, fontWeight:600, color:'var(--t2)' }}>No stems in <span style={{ color:'var(--t1)' }}>{project?.title}</span> yet</p>
               <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} style={{ fontSize:13, fontWeight:700, color:'#E95A51', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>Upload your first stem →</button>
             </div>
-          ) : grouped.map(group => {
+          ) : (<>
+            {/* Search */}
+            <div style={{ position:'relative', width:'100%' }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2} strokeLinecap="round"
+                style={{ position:'absolute', left:18, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+                <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search stems"
+                style={{ width:'100%', height:52, padding:'0 46px 0 46px', borderRadius:13, boxSizing:'border-box',
+                  background:'rgba(var(--fg),.05)', border:'1px solid transparent', color:'var(--t1)', fontSize:15,
+                  outline:'none', fontFamily:'inherit', transition:'background .12s' }}
+                onFocus={e=>e.currentTarget.style.background='rgba(var(--fg),.09)'}
+                onBlur={e=>e.currentTarget.style.background='rgba(var(--fg),.05)'} />
+              {search && (
+                <button onClick={()=>setSearch('')} aria-label="Clear search"
+                  style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', width:24, height:24, borderRadius:'50%',
+                    border:'none', background:'none', color:'var(--t3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                  onMouseEnter={e=>e.currentTarget.style.color='var(--t1)'} onMouseLeave={e=>e.currentTarget.style.color='var(--t3)'}>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
+            </div>
+
+            {grouped.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'30px 16px', fontSize:13, color:'var(--t3)' }}>
+                No stems match “<span style={{ color:'var(--t1)', fontWeight:600 }}>{search}</span>”.
+              </div>
+            ) : grouped.map(group => {
             const isFinals = group.key === 'finals'
             return (
               <div key={group.key}>
@@ -549,59 +616,78 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   {group.items.map((f, fi) => {
                     const notes   = parseNotes(f)
                     const badge   = getLtBadge(f.instrument, f.suggested_name)
-                    const label   = f.suggested_name || f.original_name || 'Untitled'
+                    const label   = f.suggested_name || f.original_name || 'Untitled'  // raw, for the rename input
+                    const name    = stemTitle(f, project?.title)                       // clean display name
                     const dur     = fmtDur(notes.duration)
+                    const sub     = [dur, notes.bpm && `${Math.round(notes.bpm)} BPM`, notes.key].filter(Boolean).join(' · ')
                     const isSel   = selectedFile?.id === f.id
+                    const isActive      = playback.id === f.id
+                    const isPlayingThis = isActive && playback.playing
                     const isRen   = renamingId === f.id
-                    const srRate  = f.instrument === 'vocals' ? '48kHz' : '44.1kHz'
-                    const descMap = { drums:'808 kick + hi-hat', bass:'Sub 808', guitar:'Arp synth', keys:'Background pad', synth:'Lead synth', harmony:'Choir', vocals:'Lead', finals:'Stereo mix', exports:'Rendered mix' }
-                    const fmtLine = ['WAV', srRate, dur, descMap[f.instrument]||''].filter(Boolean).join(' · ')
                     return (
-                      <div key={f.id}
+                      <div key={f.id} className="stem-row"
                         onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) } }}
                         style={{
-                          background:'var(--surface)',
+                          background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid #E95A51' : (isFinals ? '1px solid #C8E8A0' : S.border),
-                          borderRadius:8, padding:'11px 14px',
-                          display:'flex', alignItems:'center', gap:12, cursor:'pointer',
-                          transition:'border-color .1s, box-shadow .1s',
+                          borderRadius:10, padding:'13px 16px',
+                          display:'flex', alignItems:'center', gap:14, cursor:'pointer',
+                          transition:'border-color .12s, background .12s, box-shadow .12s',
                           boxShadow: isSel ? '0 0 0 3px rgba(233,90,81,.08)' : 'none',
                         }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.borderColor='var(--t4)' }}
                         onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.borderColor = isFinals ? '#C8E8A0' : 'var(--border)' }}>
-                        <div style={{ width:36, height:36, borderRadius:7, background: isFinals ? '#C4E4A0' : 'rgba(var(--fg),.08)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={isFinals ? '#4D8A20' : 'var(--t3)'} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                          </svg>
+                        <div style={{ width:36, height:36, borderRadius:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                          background: isActive ? 'rgba(233,90,81,.12)' : (isFinals ? '#C4E4A0' : 'rgba(var(--fg),.06)'),
+                          border: isActive ? '1px solid rgba(233,90,81,.35)' : '1px solid transparent', transition:'background .15s' }}>
+                          {isPlayingThis ? (
+                            <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:14 }}>
+                              {[0,1,2].map(i => <span key={i} style={{ width:2.5, borderRadius:2, background:'#E95A51', height:5, animation:`eq .85s ${i*0.16}s ease-in-out infinite alternate` }}/>)}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize:13, fontWeight:700, color: isActive ? '#E95A51' : (isFinals ? '#4D8A20' : 'var(--t3)'), fontVariantNumeric:'tabular-nums' }}>{stemNo.get(f.id)}</span>
+                          )}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           {isRen ? (
                             <InlineRename value={label} onSave={name => renameFile(f.id, name)} onCancel={() => setRenamingId(null)}/>
                           ) : (
-                            <div style={{ fontSize:13, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}
+                            <div title={f.original_name ? `Source: ${f.original_name}` : name}
+                              style={{ fontSize:14, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 }}
                               onDoubleClick={e=>{ e.stopPropagation(); setRenamingId(f.id) }}>
-                              {project?.title} — {label}
+                              {name}
                             </div>
                           )}
-                          {f.original_name && <div style={{ fontSize:11, color: isFinals ? '#4D8A20' : 'var(--t3)', marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
-                          {fmtLine && <div style={{ fontSize:11, color:'var(--t4)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fmtLine}</div>}
+                          {sub && <div style={{ fontSize:11.5, color: isFinals ? '#4D8A20' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
+                          {/* Noisy source filename only when the row is selected */}
+                          {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
                         <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0 }}>
                           {(!f.instrument || ['recording','other','demo'].includes(f.instrument)) ? (
                             // Untagged stem — let the user add a tag instead of a meaningless "Recording".
                             <InstrPicker value="" onChange={instr => setInstrument(f.id, instr)} />
                           ) : (
-                            <span style={{ display:'inline-block', padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, color:badge.color, background:badge.bg, border:`1px solid ${badge.border}`, whiteSpace:'nowrap', minWidth:76, textAlign:'center' }}>
+                            <span style={{ display:'inline-block', padding:'4px 11px', borderRadius:7, fontSize:11.5, fontWeight:600, color:badge.color, background:badge.bg, border:`1px solid ${badge.border}`, whiteSpace:'nowrap', textAlign:'center', opacity:.92 }}>
                               {badge.label}
                             </span>
                           )}
                         </div>
-                        <button onClick={e=>{ e.stopPropagation(); setPlayerFile(f); setIsPlaying(true); playTrack(f, parentFiles) }}
-                          style={{ width:28, height:28, borderRadius:'50%', border:'none', cursor:'pointer', background:'#E95A51', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, opacity:0, transition:'opacity .15s, transform .15s' }}
+                        <button aria-label={isPlayingThis ? 'Pause' : 'Play'}
+                          onClick={e=>{ e.stopPropagation()
+                            if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
+                            else { setPlayerFile(f); setIsPlaying(true) } }}
                           className="lt-play-btn"
-                          onMouseEnter={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.transform='scale(1.1)'}}
-                          onMouseLeave={e=>{e.currentTarget.style.opacity='0';e.currentTarget.style.transform='scale(1)'}}>
-                          <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
+                          style={{ width:32, height:32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                            border: isActive ? '1.5px solid transparent' : '1.5px solid #E95A51',
+                            background: isActive ? '#E95A51' : 'transparent',
+                            color: isActive ? '#fff' : '#E95A51',
+                            transition:'background .15s, color .15s, transform .15s, opacity .15s',
+                            ...(isActive ? { opacity:1 } : {}) }}
+                          onMouseEnter={e=>{ e.currentTarget.style.background='#E95A51'; e.currentTarget.style.color='#fff'; e.currentTarget.style.transform='scale(1.08)' }}
+                          onMouseLeave={e=>{ if(!isActive){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#E95A51' } e.currentTarget.style.transform='scale(1)' }}>
+                          {isPlayingThis
+                            ? <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                            : <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>}
                         </button>
                       </div>
                     )
@@ -610,6 +696,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               </div>
             )
           })}
+          </>)}
         </div>
 
         {/* Recent Activity */}
@@ -748,7 +835,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   </div>
                 )}
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true); playTrack(selectedFile, parentFiles) }}
+                  <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true) }}
                     style={{ height:34, borderRadius:8, border:'none', cursor:'pointer', background:'#E95A51', color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'inherit', transition:'opacity .1s' }}
                     onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                     <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
@@ -887,7 +974,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </div>
               </div>
             )}
-            <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true); playTrack(selectedFile, parentFiles); setMobileDetailOpen(false) }}
+            <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true); setMobileDetailOpen(false) }}
               style={{ width:'100%', height:46, borderRadius:11, border:'none', cursor:'pointer', background:'#E95A51', color:'#fff', fontSize:15, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'inherit', boxShadow:'0 4px 16px rgba(233,90,81,.3)' }}>
               <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
               Play Stem

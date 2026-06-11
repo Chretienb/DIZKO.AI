@@ -28,6 +28,19 @@ export function stripVersion(name) {
   return name.replace(/[_\-\s\.](v|ver)\d+/gi, '').replace(/\.[^.]+$/, '').trim()
 }
 
+// Human-readable stem title from the auto-label — DISPLAY ONLY (never renames).
+// "chretienbanza_Tempete_Cmaj_100_Drums" + project "Tempete" → "Cmaj 100 Drums"
+export function stemTitle(f, projectTitle = '') {
+  let s = (f?.suggested_name || f?.original_name || '').replace(/\.(wav|mp3|flac|aiff?|m4a|ogg)$/i, '')
+  if (projectTitle) {
+    const i = s.toLowerCase().indexOf(projectTitle.toLowerCase())
+    if (i >= 0) s = s.slice(i + projectTitle.length)        // keep only what follows the project name
+  }
+  s = s.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!s) s = f?.instrument ? f.instrument[0].toUpperCase() + f.instrument.slice(1) : 'Untitled'
+  return s.replace(/\b([a-z])([a-z]*)/g, (_, a, b) => a.toUpperCase() + b)  // light Title Case
+}
+
 export const STATUSES = ['In Progress', 'Review', 'New Takes', 'Draft']
 export const STATUS_META = s => ({
   'In Progress': { color:'#60a5fa', dot:'#60a5fa',  bg:'rgba(96,165,250,.12)',  border:'rgba(96,165,250,.28)'  },
