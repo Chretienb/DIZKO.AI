@@ -1506,23 +1506,32 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
       {/* Drop zone — one clickable surface (click = choose files); folders & zips
           drag in, or use the quiet "import a folder" link. */}
       <div
-        onClick={() => inputRef.current?.click()}
+        onClick={e => {
+          // inputRef.click() dispatches a click on the (nested) file input that
+          // BUBBLES back here — without this guard it re-fired the handler and
+          // popped a SECOND file dialog ("finder reopens"). Only open for real
+          // clicks on the drop surface, and never while we're already busy.
+          if (e.target === inputRef.current || e.target === folderRef.current) return
+          if (extracting) return
+          inputRef.current?.click()
+        }}
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={async e => { e.preventDefault(); setDrag(false); addFiles(await filesFromDataTransfer(e.dataTransfer)) }}
         style={{
-          borderRadius:16, padding:'36px 24px', textAlign:'center', cursor:'pointer',
+          borderRadius:16, padding:'36px 24px', textAlign:'center',
+          cursor: extracting ? 'default' : 'pointer',
           marginBottom:10, transition:'all .15s',
           background: drag ? `${C.coral}0f` : 'rgba(var(--fg),.025)',
           border: `1.5px dashed ${drag ? C.coral : 'rgba(var(--fg),.12)'}`,
         }}
         onMouseEnter={e => { if (!drag) e.currentTarget.style.borderColor = 'rgba(var(--fg),.22)' }}
         onMouseLeave={e => { if (!drag) e.currentTarget.style.borderColor = 'rgba(var(--fg),.12)' }}>
-        <input ref={inputRef} type="file" multiple
+        <input ref={inputRef} type="file" multiple onClick={e => e.stopPropagation()}
           accept=".wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a,.aac,.mp4,.wma,.opus,.zip"
-          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
-        <input ref={folderRef} type="file" multiple
-          style={{ display:'none' }} onChange={e => addFiles(e.target.files)} />
+          style={{ display:'none' }} onChange={e => { const fs = Array.from(e.target.files); e.target.value = ''; addFiles(fs) }} />
+        <input ref={folderRef} type="file" multiple onClick={e => e.stopPropagation()}
+          style={{ display:'none' }} onChange={e => { const fs = Array.from(e.target.files); e.target.value = ''; addFiles(fs) }} />
         <div style={{ width:50, height:50, borderRadius:15, margin:'0 auto 14px',
           display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s',
           background: drag ? `${C.coral}1f` : 'rgba(var(--fg),.05)' }}>
