@@ -1290,8 +1290,8 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     setUploading(true)
 
     const updated = [...queue]
-    for (let i = 0; i < updated.length; i++) {
-      if (updated[i].status === 'done') continue
+    const uploadOne = async (i) => {
+      if (updated[i].status === 'done') return
       updated[i] = { ...updated[i], status:'uploading', progress: 10 }
       setQueue([...updated])
 
@@ -1351,6 +1351,16 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         setQueue([...updated])
       }
     }
+
+    // Upload in parallel (5 at a time) so a folder lands in seconds and the
+    // stems show up TOGETHER, not trickling in one by one. Each finished upload
+    // still fires dizko:files_updated, so the project grid fills live.
+    let next = 0
+    await Promise.all(
+      Array.from({ length: Math.min(5, updated.length) }, async () => {
+        while (next < updated.length) await uploadOne(next++)
+      })
+    )
 
     setUploading(false)
     setAllDone(updated.every(f => f.status === 'done'))
