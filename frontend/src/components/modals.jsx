@@ -1159,7 +1159,7 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-export function ModalUpload({ project, folderId, onClose, user }) {
+export function ModalUpload({ project, folderId, onClose, user, addToast }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
@@ -1365,11 +1365,38 @@ export function ModalUpload({ project, folderId, onClose, user }) {
     setUploading(false)
     setAllDone(updated.every(f => f.status === 'done'))
 
+    // The modal is usually already closed (fire-and-forget), so report how it
+    // went via a toast — the producer doesn't have to be watching to find out.
+    const okN      = updated.filter(f => f.status === 'done').length
+    const blockedN = updated.filter(f => f.status === 'blocked').length
+    const failedN  = updated.filter(f => f.status === 'error' && !/too large/i.test(f.error || '')).length
+    if (blockedN)      addToast?.(`${blockedN} stem${blockedN > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
+    else if (failedN)  addToast?.(`${failedN} stem${failedN > 1 ? 's' : ''} didn't upload — open the project to retry`, { type: 'info' })
+    else if (okN)      addToast?.(`✅ ${okN} stem${okN > 1 ? 's' : ''} in — mixing now, we'll notify you`, { type: 'success' })
+
     // Auto-promote Draft → In Progress on first successful upload
     const anyDone = updated.some(f => f.status === 'done')
     if (anyDone && (!selProj.status || selProj.status === 'Draft')) {
       projectsApi.update(selProj.id, { status: 'In Progress' }).catch(() => {})
     }
+  }
+
+  // Fire-and-forget: kick the uploads off in the background, drop a toast, and
+  // close so the producer gets straight back to work. The uploads — and the
+  // dizko:files_updated events that fill the project grid — keep running after
+  // the modal unmounts (React 19 just no-ops the modal's own state updates), and
+  // the bell + "mix ready" email close the loop. startUpload() surfaces its own
+  // success/failure toast when the batch settles.
+  const startAndNotify = () => {
+    if (!selProj?.id) return
+    const n = queue.filter(f => f.status === 'queued').length
+    if (n === 0) { onClose(); return }
+    startUpload()   // not awaited — runs in the background
+    addToast?.(
+      `Uploading ${n} stem${n > 1 ? 's' : ''} — we'll name them and notify you when they're in 🔔`,
+      { type: 'new', duration: 5000 }
+    )
+    onClose()
   }
 
   const doneCount  = queue.filter(f => f.status === 'done').length
@@ -1628,7 +1655,7 @@ export function ModalUpload({ project, folderId, onClose, user }) {
         ) : queue.length > 0 ? (
           <>
             {queued > 0 ? (
-              <Btn onClick={startUpload} style={{ flex:1 }} disabled={!selProj?.id}>
+              <Btn onClick={startAndNotify} style={{ flex:1 }} disabled={!selProj?.id}>
                 {!selProj?.id ? 'Select a project first'
                   : `Upload ${queued} file${queued > 1 ? 's' : ''} →`}
               </Btn>
