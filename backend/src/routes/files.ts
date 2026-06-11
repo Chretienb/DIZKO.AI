@@ -332,6 +332,200 @@ async function uploadGate(userId: string, projectId: string, instrument: string,
   return null
 }
 
+// Background BPM/key/naming/WAV-peaks/Smart-Mix for a stem whose bytes are in R2.
+// Fetches the object back from R2 (server→R2, never blocks the user) only when
+// the bytes are needed (fallback analysis or WAV peaks). Sets the row to 'ready'.
+function enrichStemInBackground(takeId: string, projectId: string, userId: string, opts: {
+  fileUrl: string; fileName: string; contentType: string; instrument: string;
+  instrumentHint?: string | null; essentiaAnalysis?: any;
+}) {
+  const { fileUrl, fileName, contentType, instrument, instrumentHint, essentiaAnalysis } = opts
+  ;(async () => {
+    try {
+      let bpm: number | null = essentiaAnalysis?.bpm ?? null
+      let key: string | null = essentiaAnalysis?.key ? `${essentiaAnalysis.key} ${essentiaAnalysis.scale ?? ''}`.trim() : null
+      const isWav = contentType === 'audio/wav' || fileName.endsWith('.wav')
+      let buffer: Buffer | null = null
+      if ((!bpm || !key) || isWav) {
+        try { const r = await fetch(fileUrl); if (r.ok) buffer = Buffer.from(await r.arrayBuffer()) } catch {}
+      }
+      if ((!bpm || !key) && buffer) {
+        const fb = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
+        bpm = bpm ?? fb.bpm; key = key ?? fb.key
+      }
+
+      const { data: proj } = await supabase.from('projects').select('title, owner_id').eq('id', projectId).single()
+      const projectTitle = (proj as any)?.title ?? undefined
+      const ownerId = (proj as any)?.owner_id as string | undefined
+      let artist: string | undefined
+      if (ownerId) {
+        const owner = (await getUsersByIds([ownerId]).catch(() => null))?.get(ownerId)
+        artist = owner?.full_name || owner?.email?.split('@')[0] || undefined
+      }
+
+      let resolvedInstrument = instrument
+      if (!instrumentHint) {
+        const tagged = await classifyInstrument(fileUrl).catch(() => null)
+        if (tagged && tagged.confidence >= 0.30) {
+          resolvedInstrument = tagged.instrument
+          await supabase.from('stems').update({ instrument: tagged.instrument }).eq('id', takeId)
+        }
+      }
+
+      const suggestedName = await buildSuggestedName(fileName, resolvedInstrument, bpm, key, projectTitle, artist)
+      const peaks = buffer && isWav ? extractWaveformPeaks(buffer, 512) : null
+
+      await supabase.from('stems').update({
+        notes: JSON.stringify({
+          status: 'ready', type: 'take', bpm, key,
+          ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
+          ...(peaks ? { peaks } : {}),
+        }),
+        suggested_name: suggestedName,
+      }).eq('id', takeId)
+
+      console.log(`[enrich] ${fileName} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
+      scheduleSmartMix(projectId, userId)
+    } catch (e) {
+      console.error('[enrich] background analysis error:', (e as Error).message)
+    }
+  })()
+}
+
+// ── "Boom-instant" batch upload ─────────────────────────────────────────────
+// /batch-init: ONE call → access-check once, insert all rows as status
+// 'uploading', return a presigned PUT URL per file. The rows exist immediately,
+// so the project shows every stem the moment the user clicks (no waiting on the
+// 839MB to transfer). The browser then PUTs each file to R2 and calls
+// /:id/uploaded, which flips the row to 'ready' + kicks the same analysis.
+files.post('/batch-init', uploadLimit, async (c) => {
+  const user = c.var.user
+  let body: any
+  try { body = await c.req.json() } catch { return c.json({ data: null, error: 'Expected JSON', status: 400 }, 400) }
+  const { project_id, folder_id, files: items } = body || {}
+  if (!project_id || !Array.isArray(items) || items.length === 0) {
+    return c.json({ data: null, error: 'project_id and a non-empty files[] are required', status: 400 }, 400)
+  }
+  if (items.length > 200) return c.json({ data: null, error: 'Too many files in one batch (max 200)', status: 400 }, 400)
+
+  // Storage limit — whole batch at once.
+  const totalSize = items.reduce((s: number, f: any) => s + (Number(f.file_size) || 0), 0)
+  // The independent reads (storage, owner, first track) run in PARALLEL — keeps
+  // batch-init to ~one DB round trip so the stems appear near-instantly.
+  const [{ data: profile }, { data: project }, { data: existingTrack }] = await Promise.all([
+    supabase.from('profiles').select('storage_used_bytes, storage_limit_bytes').eq('id', user.id).single(),
+    supabase.from('projects').select('owner_id').eq('id', project_id).single(),
+    supabase.from('tracks').select('id').eq('project_id', project_id).order('position', { ascending: true }).limit(1).maybeSingle(),
+  ])
+  const pf = profile as any
+  if (pf && (pf.storage_used_bytes + totalSize) > pf.storage_limit_bytes) {
+    return c.json({ data: null, error: 'Storage limit reached — upgrade your plan to upload more', storage_used: pf.storage_used_bytes, storage_limit: pf.storage_limit_bytes, status: 403 }, 403)
+  }
+
+  // Resolve the caller's role ONCE (owner bypasses).
+  const isOwner = (project as any)?.owner_id === user.id
+  let role: string | null = null
+  if (!isOwner) {
+    const { data: collab } = await supabase.from('collaborators').select('role, status').eq('project_id', project_id).eq('user_id', user.id).maybeSingle()
+    if (!collab || (collab as any).status !== 'active') return c.json({ data: null, error: 'You are not a collaborator on this project', status: 403 }, 403)
+    role = (collab as any).role ?? 'Collaborator'
+  }
+
+  // Resolve/create the track ONCE.
+  let trackId = (existingTrack as { id: string } | null)?.id
+  if (!trackId) {
+    const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(items[0]?.file_name || 'Untitled'), position: 1 }).select('id').single()
+    if (trackErr) return c.json({ data: null, error: trackErr.message, status: 500 }, 500)
+    trackId = (newTrack as { id: string }).id
+  }
+
+  const blocked: any[] = []
+  // 1) Validate + plan (sync) — separate blocked files out.
+  const plan: { fileName: string; size: number; instrument: string; contentType: string; storagePath: string }[] = []
+  for (const f of items) {
+    const fileName = String(f?.file_name || '')
+    if (!fileName) continue
+    const size = Number(f.file_size) || 0
+    if (size > MAX_FILE_BYTES) { blocked.push({ file_name: fileName, error: 'File exceeds 500 MB limit' }); continue }
+    const instrument = (f.instrument ? String(f.instrument).trim() : '') || detectInstrument(fileName)
+    if (!isOwner && role && !roleCanUpload(role, instrument)) {
+      blocked.push({ file_name: fileName, instrument, role, needs_request: true, hint: `Request access to upload ${instrument}` })
+      continue
+    }
+    const contentType = resolveContentType(fileName, f.content_type || '')
+    const storagePath = `takes/${user.id}/${project_id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${fileName}`
+    plan.push({ fileName, size, instrument, contentType, storagePath })
+  }
+
+  if (plan.length === 0) return c.json({ data: { track_id: trackId, stems: [], blocked }, error: null, status: 200 }, 200)
+
+  // 2) Sign every PUT + GET URL in PARALLEL (was the batch's slow part when done
+  // one-by-one — this is what keeps "appear" near-instant for big drops).
+  const signed = await Promise.all(plan.map(async pl => ({
+    ...pl,
+    url:     await getR2PresignedPutUrl(pl.storagePath, pl.contentType),
+    fileUrl: await getR2SignedUrl(pl.storagePath),
+  })))
+
+  const meta = signed.map(s => ({ url: s.url, storage_path: s.storagePath, content_type: s.contentType, file_name: s.fileName, instrument: s.instrument }))
+  const rows = signed.map(s => ({
+    track_id: trackId, original_name: s.fileName, suggested_name: s.fileName,
+    file_url: s.fileUrl, storage_path: s.storagePath, file_size: s.size, mime_type: s.contentType, instrument: s.instrument,
+    ...(folder_id ? { folder_id } : {}),
+    notes: JSON.stringify({ status: 'uploading', type: 'take' }), uploaded_by: user.id,
+  }))
+
+  const { data: inserted, error: insErr } = await supabase.from('stems').insert(rows).select('id, storage_path')
+  if (insErr) return c.json({ data: null, error: insErr.message, status: 500 }, 500)
+
+  const byPath = new Map<string, string>((inserted as any[]).map(r => [r.storage_path, r.id]))
+  const stems = meta
+    .map(m => ({ id: byPath.get(m.storage_path), file_name: m.file_name, storage_path: m.storage_path, url: m.url, content_type: m.content_type, instrument: m.instrument }))
+    .filter(s => s.id)
+
+  return c.json({ data: { track_id: trackId, stems, blocked }, error: null, status: 200 }, 200)
+})
+
+// /:id/uploaded — the browser finished PUTting the bytes to R2. Count storage,
+// flip the row 'uploading' → 'analyzing', and kick the background enrichment.
+files.post('/:id/uploaded', uploadLimit, async (c) => {
+  const user = c.var.user
+  const id = c.req.param('id')
+  let body: any = {}
+  try { body = await c.req.json() } catch {}
+  const { instrument: instrumentHint, analysis: analysisRaw } = body || {}
+
+  const { data: stem } = await supabase
+    .from('stems').select('id, storage_path, original_name, mime_type, instrument, file_url, file_size, uploaded_by')
+    .eq('id', id).maybeSingle()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+  const s = stem as any
+  // Only the uploader (who got the presigned URL) can complete it.
+  if (s.uploaded_by !== user.id) return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+
+  const projectId = await projectIdForStem(id).catch(() => null)
+  if (!projectId) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+
+  let essentiaAnalysis: any = null
+  try { if (analysisRaw) essentiaAnalysis = JSON.parse(analysisRaw) } catch {}
+
+  ;(async () => {
+    const { error } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: s.file_size || 0 })
+    if (error) console.error('[uploaded] increment_storage rpc error:', error.message)
+  })()
+
+  const instrument = (instrumentHint ? String(instrumentHint).trim() : '') || s.instrument || detectInstrument(s.original_name)
+  await supabase.from('stems').update({
+    notes: JSON.stringify({ status: 'analyzing', type: 'take' }),
+    ...(instrument !== s.instrument ? { instrument } : {}),
+  }).eq('id', id)
+
+  const fileUrl = s.file_url || await getR2SignedUrl(s.storage_path)
+  enrichStemInBackground(id, projectId, user.id, { fileUrl, fileName: s.original_name, contentType: s.mime_type, instrument, instrumentHint, essentiaAnalysis })
+
+  return c.json({ data: { id, status: 'ready' }, error: null, status: 201 }, 201)
+})
+
 files.post('/upload-url', uploadLimit, async (c) => {
   const user = c.var.user
   let body: any
@@ -399,58 +593,7 @@ files.post('/register', uploadLimit, async (c) => {
   if (takeErr) return c.json({ data: null, error: takeErr.message, status: 500 }, 500)
   const takeId = (takeRecord as { id: string }).id
 
-  // Background enrichment — fetch the object back from R2 (server→R2, never blocks
-  // the user) only when we need the bytes for fallback BPM/key or WAV peaks.
-  ;(async () => {
-    try {
-      let bpm: number | null = essentiaAnalysis?.bpm ?? null
-      let key: string | null = essentiaAnalysis?.key ? `${essentiaAnalysis.key} ${essentiaAnalysis.scale ?? ''}`.trim() : null
-      const isWav = contentType === 'audio/wav' || file_name.endsWith('.wav')
-      let buffer: Buffer | null = null
-      if ((!bpm || !key) || isWav) {
-        try { const r = await fetch(fileUrl); if (r.ok) buffer = Buffer.from(await r.arrayBuffer()) } catch {}
-      }
-      if ((!bpm || !key) && buffer) {
-        const fb = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
-        bpm = bpm ?? fb.bpm; key = key ?? fb.key
-      }
-
-      const { data: proj } = await supabase.from('projects').select('title, owner_id').eq('id', project_id).single()
-      const projectTitle = (proj as any)?.title ?? undefined
-      const ownerId = (proj as any)?.owner_id as string | undefined
-      let artist: string | undefined
-      if (ownerId) {
-        const owner = (await getUsersByIds([ownerId]).catch(() => null))?.get(ownerId)
-        artist = owner?.full_name || owner?.email?.split('@')[0] || undefined
-      }
-
-      let resolvedInstrument = instrument
-      if (!instrumentHint) {
-        const tagged = await classifyInstrument(fileUrl).catch(() => null)
-        if (tagged && tagged.confidence >= 0.30) {
-          resolvedInstrument = tagged.instrument
-          await supabase.from('stems').update({ instrument: tagged.instrument }).eq('id', takeId)
-        }
-      }
-
-      const suggestedName = await buildSuggestedName(file_name, resolvedInstrument, bpm, key, projectTitle, artist)
-      const peaks = buffer && isWav ? extractWaveformPeaks(buffer, 512) : null
-
-      await supabase.from('stems').update({
-        notes: JSON.stringify({
-          status: 'ready', type: 'take', bpm, key,
-          ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
-          ...(peaks ? { peaks } : {}),
-        }),
-        suggested_name: suggestedName,
-      }).eq('id', takeId)
-
-      console.log(`[register] ${file_name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
-      scheduleSmartMix(project_id, user.id)
-    } catch (e) {
-      console.error('[register] background analysis error:', (e as Error).message)
-    }
-  })()
+  enrichStemInBackground(takeId, project_id, user.id, { fileUrl, fileName: file_name, contentType, instrument, instrumentHint, essentiaAnalysis })
 
   return c.json({
     data: { id: takeId, status: 'ready', instrument, message: 'Added — AI is analyzing and updating the mix' },

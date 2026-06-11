@@ -262,6 +262,43 @@ export const files = {
     }).then(readErr)
   },
 
+  // "Boom-instant" batch upload — one call creates every stem row as 'uploading'
+  // and returns a presigned PUT URL per file, so the project shows all stems
+  // immediately. Caller then PUTs each file to R2 and marks it uploaded.
+  batchInit: async (projectId, items, folderId) => {
+    const token = getToken()
+    const res = await fetch(`${BASE}/files/batch-init`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ project_id: projectId, folder_id: folderId || null, files: items }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (res.status === 401) { setToken(null); window.location.href = '/login' }
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+    return json.data   // { track_id, stems: [{ id, file_name, storage_path, url, content_type, instrument }], blocked: [] }
+  },
+
+  // PUT a file's bytes straight to R2 (no backend in the data path).
+  putToR2: async (url, file, contentType) => {
+    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file })
+    if (!res.ok) throw new Error(`Storage upload failed (HTTP ${res.status})`)
+    return true
+  },
+
+  // Tell the backend a stem's bytes have landed → flips it ready + kicks analysis.
+  markUploaded: (id, { instrument, analysis } = {}) => {
+    const token = getToken()
+    return fetch(`${BASE}/files/${id}/uploaded`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ instrument, analysis }),
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      return json
+    })
+  },
+
   // Classify a file's instrument from its AUDIO (PANNs worker) BEFORE upload, so
   // the modal can show the real instrument instead of the filename guess.
   // Returns { instrument, confidence } | null (null = worker off/unsure; never throws).

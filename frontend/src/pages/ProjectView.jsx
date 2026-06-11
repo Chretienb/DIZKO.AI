@@ -9,6 +9,7 @@ import { InstrPicker } from '../components/modals/upload.jsx'
 import StemComments from './project/StemComments.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
+import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
@@ -50,6 +51,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     window.addEventListener('dizko:player_state', h)
     return () => window.removeEventListener('dizko:player_state', h)
   }, [])
+
+  // Release any local upload-preview object URLs when leaving the project.
+  useEffect(() => () => clearAllUploadPreviews(), [])
 
   const loadAll = useCallback(async () => {
     if (!projectId) return
@@ -619,7 +623,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const label   = f.suggested_name || f.original_name || 'Untitled'  // raw, for the rename input
                     const name    = stemTitle(f, project?.title)                       // clean display name
                     const dur     = fmtDur(notes.duration)
-                    const sub     = [dur, notes.bpm && `${Math.round(notes.bpm)} BPM`, notes.key].filter(Boolean).join(' · ')
+                    // Bytes still uploading to R2 — playable instantly from the local
+                    // file we stashed; not yet from the cloud. 'failed' = PUT failed.
+                    const isUploading = notes.status === 'uploading'
+                    const isFailed    = notes.status === 'failed'
+                    const preview     = isUploading ? getUploadPreview(f.id) : null
+                    const canPlay     = (!isUploading && !isFailed) || !!preview
+                    const sub     = isUploading ? 'Uploading…'
+                                  : isFailed    ? 'Upload failed — open to retry'
+                                  : [dur, notes.bpm && `${Math.round(notes.bpm)} BPM`, notes.key].filter(Boolean).join(' · ')
                     const isSel   = selectedFile?.id === f.id
                     const isActive      = playback.id === f.id
                     const isPlayingThis = isActive && playback.playing
@@ -672,10 +684,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             </span>
                           )}
                         </div>
+                        {canPlay ? (
                         <button aria-label={isPlayingThis ? 'Pause' : 'Play'}
                           onClick={e=>{ e.stopPropagation()
                             if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
-                            else { setPlayerFile(f); setIsPlaying(true) } }}
+                            else { setPlayerFile(preview ? { ...f, file_url: preview } : f); setIsPlaying(true) } }}
                           className="lt-play-btn"
                           style={{ width:32, height:32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                             border: isActive ? '1.5px solid transparent' : '1.5px solid #E95A51',
@@ -689,6 +702,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             ? <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
                             : <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>}
                         </button>
+                        ) : (
+                          // Bytes still uploading (and no local preview, e.g. after a
+                          // refresh) — show a spinner in place of the play button.
+                          <div aria-label="Uploading" title="Uploading…" style={{ width:32, height:32, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px solid var(--border)' }}>
+                            <Spinner size={13} color={isFailed ? '#E95A51' : undefined} />
+                          </div>
+                        )}
                       </div>
                     )
                   })}
