@@ -12,7 +12,7 @@ import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
 import { cachedUrlFor } from '../lib/uploadStore.js'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
-         STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
+         STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels, GROUP_DROP_INSTR } from './project/meta.js'
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function ProjectView({ openModal, playTrack, addToast, user }) {
@@ -204,6 +204,20 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     catch (e) { setFiles(fs => fs.map(f => f.id === stemId ? { ...f, instrument: prev } : f)); addToast?.(`Couldn't tag: ${e.message}`, 'error') }
   }
 
+  // Drag a stem onto a group (DRUMS / BASS / MELODY / VOCALS / OTHER) to re-tag
+  // it to that family. If it's already in the group, keep its finer tag.
+  const [draggingId,   setDraggingId]   = useState(null)
+  const [dragOverGroup, setDragOverGroup] = useState(null)
+  const dropToGroup = (stemId, groupKey) => {
+    setDragOverGroup(null); setDraggingId(null)
+    const f = files.find(x => x.id === stemId)
+    const target = GROUP_DROP_INSTR[groupKey]
+    if (!f || !target) return
+    if (getGroupKey(f.instrument || 'other') === groupKey) return   // already here — no-op
+    setInstrument(stemId, target)
+    addToast?.(`Moved to ${GROUPS.find(g => g.key === groupKey)?.label || groupKey} — tagged ${target}`, 'success')
+  }
+
   const renameFile = async (stemId, name) => {
     const prevName = files.find(f => f.id === stemId)?.suggested_name
     setFiles(prev => prev.map(f => f.id === stemId ? {...f, suggested_name: name} : f))
@@ -263,7 +277,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const grouped = GROUPS.map(g => ({
     ...g,
     items: stemsForView.filter(f => getGroupKey(f.instrument || 'other') === g.key && matchStem(f)),
-  })).filter(g => g.items.length > 0)
+    // While dragging, keep the droppable groups visible (even empty) as targets.
+  })).filter(g => g.items.length > 0 || (draggingId && GROUP_DROP_INSTR[g.key]))
 
   // Shared minimal chip style for the meta row.
   const chip = { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
@@ -659,10 +674,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               </div>
             ) : grouped.map(group => {
             const isFinals = group.key === 'finals'
+            const canDrop  = !isFinals && !!GROUP_DROP_INSTR[group.key]
+            const isDropTarget = canDrop && dragOverGroup === group.key
             return (
-              <div key={group.key}>
-                <div style={S.sectionLabel}>{group.label}</div>
+              <div key={group.key}
+                onDragOver={canDrop ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverGroup !== group.key) setDragOverGroup(group.key) }) : undefined}
+                onDragLeave={canDrop ? (e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverGroup(g => (g === group.key ? null : g)) }) : undefined}
+                onDrop={canDrop ? (e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) dropToGroup(id, group.key) }) : undefined}
+                style={{ borderRadius:12, transition:'background .12s, box-shadow .12s',
+                  ...(isDropTarget ? { background:'rgba(233,90,81,.06)', boxShadow:'inset 0 0 0 2px rgba(233,90,81,.45)', padding:8 } : {}) }}>
+                <div style={S.sectionLabel}>{group.label}{isDropTarget ? ' · drop to tag' : ''}</div>
                 <div style={isFinals ? { background:'#EAF6DE', border:'1.5px solid #B8D98A', borderRadius:10, padding:10, display:'flex', flexDirection:'column', gap:7 } : { display:'flex', flexDirection:'column', gap:8 }}>
+                  {group.items.length === 0 && (
+                    <div style={{ fontSize:12, color:'var(--t3)', padding:'14px', border:'1.5px dashed rgba(var(--fg),.18)', borderRadius:10, textAlign:'center' }}>
+                      Drop a stem here to tag it {group.label.toLowerCase()}
+                    </div>
+                  )}
                   {group.items.map((f, fi) => {
                     const notes   = parseNotes(f)
                     const badge   = getLtBadge(f.instrument, f.suggested_name)
@@ -685,13 +712,17 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const isRen   = renamingId === f.id
                     return (
                       <div key={f.id} className="stem-row"
+                        draggable={!isRen}
+                        onDragStart={e => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(f.id) }}
+                        onDragEnd={() => { setDraggingId(null); setDragOverGroup(null) }}
                         onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) } }}
                         style={{
                           background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid #E95A51' : (isFinals ? '1px solid #C8E8A0' : S.border),
                           borderRadius:10, padding:'13px 16px',
                           display:'flex', alignItems:'center', gap:14, cursor:'pointer',
-                          transition:'border-color .12s, background .12s, box-shadow .12s',
+                          opacity: draggingId === f.id ? .4 : 1,
+                          transition:'border-color .12s, background .12s, box-shadow .12s, opacity .12s',
                           boxShadow: isSel ? '0 0 0 3px rgba(233,90,81,.08)' : 'none',
                         }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.borderColor='var(--t4)' }}

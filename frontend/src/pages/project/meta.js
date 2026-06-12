@@ -53,15 +53,22 @@ export function ltDot(status) {
 
 export const GROUPS = [
   { key:'finals',  label:'FINAL MIX',  instrs:['finals','exports','smart_bounce'] },
-  { key:'drums',   label:'DRUMS',      instrs:['drums','beats'] },
+  { key:'drums',   label:'DRUMS',      instrs:['drums','beats','kick','snare','hihat','cymbal','percussion'] },
   { key:'bass',    label:'BASS / 808', instrs:['bass'] },
-  { key:'melody',  label:'MELODY',     instrs:['guitar','keys','synth','harmony'] },
+  { key:'melody',  label:'MELODY',     instrs:['guitar','acoustic','keys','piano','organ','synth','pad','strings','brass','wind','harmony'] },
   { key:'vocals',  label:'VOCALS',     instrs:['vocals'] },
-  { key:'other',   label:'OTHER',      instrs:['recording','demo','other'] },
+  { key:'other',   label:'OTHER',      instrs:['recording','demo','other','master'] },
 ]
 export function getGroupKey(instr) {
   for (const g of GROUPS) if (g.instrs.includes(instr)) return g.key
   return 'other'
+}
+
+// When a stem is dropped INTO a group, re-tag it with that group's primary
+// instrument so it both moves there and carries the right tag (Studio reads the
+// instrument). A stem already in the group keeps its finer-grained tag.
+export const GROUP_DROP_INSTR = {
+  drums: 'drums', bass: 'bass', melody: 'keys', vocals: 'vocals', other: 'recording',
 }
 
 // Light-theme badge palette (matches Figma)
