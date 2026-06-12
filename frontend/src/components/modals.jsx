@@ -1405,7 +1405,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
   const queued = queue.filter(f => f.status === 'queued').length
 
   return (
-    <Modal title="Upload stems" sub={selProj?.title || undefined} onClose={onClose}>
+    <Modal title="Upload stems" sub={selProj?.title || undefined} onClose={onClose} width={760}>
 
       {/* Song indicator — shows which song files will land in */}
       {folderId && selProj && (
@@ -1465,7 +1465,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
         onDragLeave={() => setDrag(false)}
         onDrop={async e => { e.preventDefault(); setDrag(false); addFiles(await filesFromDataTransfer(e.dataTransfer)) }}
         style={{
-          borderRadius:16, padding:'36px 24px', textAlign:'center',
+          borderRadius:16, padding:'52px 28px', textAlign:'center',
           cursor: extracting ? 'default' : 'pointer',
           marginBottom:10, transition:'all .15s',
           background: drag ? `${C.coral}0f` : 'rgba(var(--fg),.025)',
