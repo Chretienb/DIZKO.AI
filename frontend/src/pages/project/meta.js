@@ -28,17 +28,14 @@ export function stripVersion(name) {
   return name.replace(/[_\-\s\.](v|ver)\d+/gi, '').replace(/\.[^.]+$/, '').trim()
 }
 
-// Human-readable stem title from the auto-label — DISPLAY ONLY (never renames).
-// "chretienbanza_Tempete_Cmaj_100_Drums" + project "Tempete" → "Cmaj 100 Drums"
-export function stemTitle(f, projectTitle = '') {
-  let s = (f?.suggested_name || f?.original_name || '').replace(/\.(wav|mp3|flac|aiff?|m4a|ogg)$/i, '')
-  if (projectTitle) {
-    const i = s.toLowerCase().indexOf(projectTitle.toLowerCase())
-    if (i >= 0) s = s.slice(i + projectTitle.length)        // keep only what follows the project name
-  }
-  s = s.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
-  if (!s) s = f?.instrument ? f.instrument[0].toUpperCase() + f.instrument.slice(1) : 'Untitled'
-  return s.replace(/\b([a-z])([a-z]*)/g, (_, a, b) => a.toUpperCase() + b)  // light Title Case
+// Stem title for display — the structured studio name as-is (DISPLAY ONLY).
+// The backend builds "Track_StemType_Key_BPM" (e.g. "TEST300_Bass_Amin_103");
+// show it verbatim (minus the extension) so producers see the full name, not
+// just the type. Falls back to the original filename, then the instrument.
+export function stemTitle(f, projectTitle = '') {  // eslint-disable-line no-unused-vars
+  const raw = (f?.suggested_name || f?.original_name || '').replace(/\.(wav|mp3|flac|aiff?|m4a|ogg)$/i, '')
+  if (raw) return raw
+  return f?.instrument ? f.instrument.charAt(0).toUpperCase() + f.instrument.slice(1) : 'Untitled'
 }
 
 export const STATUSES = ['In Progress', 'Review', 'New Takes', 'Draft']

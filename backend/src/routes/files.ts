@@ -7,7 +7,6 @@ import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { scheduleSmartMix } from '../lib/mixScheduler'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
-import { generateStemName } from '../lib/naming'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
@@ -414,9 +413,10 @@ files.post('/batch-init', uploadLimit, async (c) => {
   // batch-init to ~one DB round trip so the stems appear near-instantly.
   const [{ data: profile }, { data: project }, { data: existingTrack }] = await Promise.all([
     supabase.from('profiles').select('storage_used_bytes, storage_limit_bytes').eq('id', user.id).single(),
-    supabase.from('projects').select('owner_id').eq('id', project_id).single(),
+    supabase.from('projects').select('owner_id, title').eq('id', project_id).single(),
     supabase.from('tracks').select('id').eq('project_id', project_id).order('position', { ascending: true }).limit(1).maybeSingle(),
   ])
+  const projectTitle = (project as any)?.title as string | undefined
   const pf = profile as any
   if (pf && (pf.storage_used_bytes + totalSize) > pf.storage_limit_bytes) {
     return c.json({ data: null, error: 'Storage limit reached — upgrade your plan to upload more', storage_used: pf.storage_used_bytes, storage_limit: pf.storage_limit_bytes, status: 403 }, 403)
@@ -469,7 +469,8 @@ files.post('/batch-init', uploadLimit, async (c) => {
 
   const meta = signed.map(s => ({ url: s.url, storage_path: s.storagePath, content_type: s.contentType, file_name: s.fileName, instrument: s.instrument }))
   const rows = signed.map(s => ({
-    track_id: trackId, original_name: s.fileName, suggested_name: s.fileName,
+    // Structured name right away (Track_StemType); enrich appends _Key_BPM later.
+    track_id: trackId, original_name: s.fileName, suggested_name: buildSuggestedName(s.fileName, s.instrument, null, null, projectTitle),
     file_url: s.fileUrl, storage_path: s.storagePath, file_size: s.size, mime_type: s.contentType, instrument: s.instrument,
     ...(folder_id ? { folder_id } : {}),
     notes: JSON.stringify({ status: 'uploading', type: 'take' }), uploaded_by: user.id,
@@ -661,37 +662,41 @@ files.post('/register', uploadLimit, async (c) => {
   }, 201)
 })
 
-// Structured, organized name following the studio convention:
-//   Artist_Song_Key_BPM_StemName   (e.g. "JaneDoe_MidnightDrive_F#min_92_LeadVocals")
-// Missing pieces (no artist/key/bpm yet) are simply omitted — no empty segments.
-async function buildSuggestedName(
+// Clean StemType label from the instrument id (the "type" in the studio name).
+const STEM_TYPE_LABEL: Record<string, string> = {
+  vocals: 'Vocals', drums: 'Drums', kick: 'Kick', snare: 'Snare', hihat: 'HiHat',
+  cymbal: 'Cymbal', percussion: 'Perc', bass: 'Bass', guitar: 'Guitar',
+  acoustic: 'Acoustic', piano: 'Piano', keys: 'Keys', organ: 'Organ',
+  synth: 'Synth', pad: 'Pad', strings: 'Strings', brass: 'Brass', wind: 'Wind',
+  harmony: 'Harmony', master: 'Master', demo: 'Demo', recording: 'Recording',
+}
+
+// Structured, organized studio name: Track_StemType_Key_BPM
+//   e.g. "MidnightDrive_Vocals_F#min_92". Missing pieces (no key/bpm yet) are
+//   simply omitted — no empty segments.
+function buildSuggestedName(
   original: string,
   instrument: string,
   bpm: number | null,
   key: string | null,
   projectTitle?: string,
-  artist?: string,
-): Promise<string> {
-  // StemName is the clean instrument label (no AI), falling back to the filename.
-  const stemRaw = await generateStemName({
-    originalName: original,
-    ...(instrument   ? { instrument }   : {}),
-    ...(projectTitle ? { projectTitle } : {}),
-  }).catch(() => null)
-  const stemName = stemRaw ?? original.replace(/\.[^.]+$/, '')
-
-  // PascalCase-ish, filename-safe segment (keep # for sharp keys, strip the rest).
+  _artist?: string,
+): string {
+  // Filename-safe segment (keep # for sharp keys, strip everything else).
   const seg = (s?: string | null) => (s ?? '').replace(/[^A-Za-z0-9#]+/g, '')
   // Compact key: "F# minor" → "F#min", "C major" → "Cmaj".
   const fmtKey = (k?: string | null) =>
     (k ?? '').replace(/\bmajor\b/i, 'maj').replace(/\bminor\b/i, 'min').replace(/[^A-Za-z0-9#]+/g, '')
 
+  const stemType = STEM_TYPE_LABEL[instrument]
+    || (instrument ? instrument.charAt(0).toUpperCase() + instrument.slice(1) : '')
+    || original.replace(/\.[^.]+$/, '')
+
   const parts = [
-    seg(artist),
-    seg(projectTitle),
-    fmtKey(key),
-    bpm ? String(Math.round(bpm)) : '',
-    seg(stemName),
+    seg(projectTitle),                       // Track
+    seg(stemType),                           // StemType
+    fmtKey(key),                             // Key
+    bpm ? String(Math.round(bpm)) : '',      // BPM
   ].filter(Boolean)
 
   return parts.join('_')
