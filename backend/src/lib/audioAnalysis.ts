@@ -12,30 +12,40 @@ function readWavBuffer(buf: Buffer): { samples: Float32Array; sampleRate: number
     if (buf.toString('ascii', 0, 4) !== 'RIFF') return null
     if (buf.toString('ascii', 8, 12) !== 'WAVE') return null
 
-    const numChannels = buf.readUInt16LE(22)
-    const sampleRate  = buf.readUInt32LE(24)
-    const bitsPerSamp = buf.readUInt16LE(34)
-
-    // Find 'data' chunk — it may not be at offset 36
-    let dataOffset = 12
-    while (dataOffset < buf.length - 8) {
-      const id   = buf.toString('ascii', dataOffset, dataOffset + 4)
-      const size = buf.readUInt32LE(dataOffset + 4)
-      if (id === 'data') { dataOffset += 8; break }
-      dataOffset += 8 + size
+    // Walk the chunks to find BOTH 'fmt ' and 'data'. They aren't at fixed
+    // offsets — DAWs (Pro Tools, Logic, …) insert JUNK/bext padding chunks
+    // before fmt, so the format fields must be read RELATIVE to the fmt chunk,
+    // not at hardcoded offsets (that read 0s → silence → no BPM/key/peaks).
+    let fmtOff = -1, dataOffset = -1, dataSize = 0
+    let o = 12
+    while (o + 8 <= buf.length) {
+      const id   = buf.toString('ascii', o, o + 4)
+      const size = buf.readUInt32LE(o + 4)
+      if (id === 'fmt ')      fmtOff = o + 8
+      else if (id === 'data') { dataOffset = o + 8; dataSize = size; break }
+      o += 8 + size + (size & 1)   // chunks are word-aligned (pad byte if odd)
     }
-    if (dataOffset >= buf.length) return null
+    if (fmtOff < 0 || dataOffset < 0) return null
+
+    const audioFormat = buf.readUInt16LE(fmtOff)        // 1 = PCM int, 3 = IEEE float
+    const numChannels = buf.readUInt16LE(fmtOff + 2)
+    const sampleRate  = buf.readUInt32LE(fmtOff + 4)
+    const bitsPerSamp = buf.readUInt16LE(fmtOff + 14)
+    const isFloat     = audioFormat === 3
+    if (!numChannels || !bitsPerSamp) return null
 
     const bytesPerSamp = bitsPerSamp / 8
-    const numSamples   = Math.floor((buf.length - dataOffset) / (bytesPerSamp * numChannels))
+    const dataLen      = Math.min(dataSize || (buf.length - dataOffset), buf.length - dataOffset)
+    const numSamples   = Math.floor(dataLen / (bytesPerSamp * numChannels))
     const samples      = new Float32Array(numSamples)
 
     for (let i = 0; i < numSamples; i++) {
       let val = 0
       for (let ch = 0; ch < numChannels; ch++) {
         const off = dataOffset + (i * numChannels + ch) * bytesPerSamp
-        if (bitsPerSamp === 16) val += buf.readInt16LE(off) / 32768
-        else if (bitsPerSamp === 32) val += buf.readInt32LE(off) / 2147483648
+        if (bitsPerSamp === 16)      val += buf.readInt16LE(off) / 32768
+        else if (bitsPerSamp === 24) val += buf.readIntLE(off, 3) / 8388608          // 2^23
+        else if (bitsPerSamp === 32) val += isFloat ? buf.readFloatLE(off) : buf.readInt32LE(off) / 2147483648
         else if (bitsPerSamp === 8)  val += (buf.readUInt8(off) - 128) / 128
       }
       samples[i] = val / numChannels  // mono mix-down
