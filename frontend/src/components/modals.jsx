@@ -1303,7 +1303,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     setUploading(true)
 
     const items = queue.filter(f => f.status === 'queued')
-    if (items.length === 0) { setUploading(false); return }
+    if (items.length === 0) { setUploading(false); onClose(); return }
 
     // ONE batch call → every stem row is created as 'uploading' with a presigned
     // PUT URL. The rows exist immediately, so the project shows all stems the
@@ -1319,6 +1319,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     } catch (e) {
       setUploading(false)
       addToast?.(e?.message || 'Upload failed to start', { type: 'info' })
+      onClose()
       return
     }
 
@@ -1350,8 +1351,12 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
     enqueue(recs)
 
-    if (blocked.length) addToast?.(`${blocked.length} stem${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
+    // Stems exist + are showing now → close the modal (we kept it open with its
+    // "Uploading…" spinner through batch-init, so there's no empty-screen flash).
     setUploading(false)
+    onClose()
+
+    if (blocked.length) addToast?.(`${blocked.length} stem${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
     if (recs.length && (!selProj.status || selProj.status === 'Draft')) {
       projectsApi.update(selProj.id, { status: 'In Progress' }).catch(() => {})
     }
@@ -1368,8 +1373,9 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     if (!selProj?.id) return
     const n = queue.filter(f => f.status === 'queued').length
     if (n === 0) { onClose(); return }
-    startUpload()   // not awaited — runs in the background; owns the progress toast
-    onClose()
+    // Don't close here — startUpload keeps the modal open (button spinner) through
+    // batch-init and closes it once the stems are created + showing.
+    startUpload()
   }
 
   const doneCount  = queue.filter(f => f.status === 'done').length
