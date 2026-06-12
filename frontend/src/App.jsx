@@ -531,6 +531,31 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // Register service worker and request push permission once on load
   React.useEffect(() => { if (user?.id) setupPushNotifications() }, [user?.id])
 
+  // Background uploads: resume any left in IndexedDB after a refresh, and show a
+  // single live-progress toast driven by the uploader (it runs above the router
+  // so uploads continue across page changes).
+  React.useEffect(() => {
+    if (!user?.id) return
+    import('./lib/backgroundUploader.js').then(m => m.resumeAll()).catch(() => {})
+    let toastId = null
+    const onProg = e => {
+      const { total = 0, done = 0, failed = 0, active = 0 } = e.detail || {}
+      if (!total) return
+      if (active > 0) {
+        const msg = `Uploading ${done} / ${total}…`
+        if (toastId == null) toastId = addToast(msg, { type: 'new', duration: 0 })
+        else updateToast(toastId, { msg })
+      } else {
+        const msg = failed ? `${done} uploaded · ${failed} couldn't upload — re-add them`
+                           : `✅ ${done} stem${done > 1 ? 's' : ''} uploaded — mixing now`
+        if (toastId != null) { updateToast(toastId, { msg, type: failed ? 'info' : 'success' }, { duration: 6000 }); toastId = null }
+        else addToast(msg, { type: failed ? 'info' : 'success' })
+      }
+    }
+    window.addEventListener('dizko:upload_progress', onProg)
+    return () => window.removeEventListener('dizko:upload_progress', onProg)
+  }, [user?.id, addToast, updateToast])
+
   // ── Global presence — single channel owned here, onlineIds passed as prop ──
   const [onlineIds, setOnlineIds] = React.useState(new Set())
   React.useEffect(() => {

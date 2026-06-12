@@ -285,6 +285,26 @@ export const files = {
     return true
   },
 
+  // Fresh presigned PUT URL for an existing uploading stem (resume after expiry).
+  putUrl: (id) => {
+    const token = getToken()
+    return fetch(`${BASE}/files/${id}/put-url`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    }).then(r => r.json()).then(j => j.data || null).catch(() => null)
+  },
+
+  // Heal stems left 'uploading' by an abandoned upload (tab refreshed mid-upload)
+  // — recovers ones whose bytes reached R2, fails the rest. Returns {recovered,failed}.
+  reconcile: (projectId) => {
+    const token = getToken()
+    return fetch(`${BASE}/files/reconcile`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ project_id: projectId }),
+    }).then(r => r.json()).then(j => j.data || { recovered: 0, failed: 0 }).catch(() => ({ recovered: 0, failed: 0 }))
+  },
+
   // Tell the backend a stem's bytes have landed → flips it ready + kicks analysis.
   markUploaded: (id, { instrument, analysis } = {}) => {
     const token = getToken()

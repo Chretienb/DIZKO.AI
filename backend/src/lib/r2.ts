@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const r2Client = new S3Client({
@@ -22,6 +22,14 @@ export async function uploadToR2(key: string, body: Buffer, contentType: string)
 
 export async function deleteFromR2(key: string): Promise<void> {
   await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
+}
+
+// Does the object exist in R2? Used to reconcile stems left 'uploading' when a
+// direct browser→R2 upload was abandoned (tab refreshed/closed mid-upload): if
+// the bytes actually landed we can recover the stem; if not, it's failed.
+export async function r2ObjectExists(key: string): Promise<boolean> {
+  try { await r2Client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); return true }
+  catch { return false }
 }
 
 // Default 7-day expiry — regenerated fresh on every GET request

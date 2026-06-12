@@ -14,6 +14,8 @@ import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.
 import { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFiles, filesFromDataTransfer } from './modals/upload.jsx'
 import { setUploadPreview } from '../pages/project/uploadPreview.js'
+import { putPending } from '../lib/uploadStore.js'
+import { enqueue } from '../lib/backgroundUploader.js'
 
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
@@ -1301,15 +1303,11 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     setUploading(true)
 
     const items = queue.filter(f => f.status === 'queued')
-    const total = items.length
-    // Live-progress toast: sticky (duration:0) while uploads run, bumped as each
-    // stem lands, then finalized to a result that fades out. Lives in App, so it
-    // keeps updating after the modal closes (fire-and-forget).
-    const toastId = total > 0 ? addToast?.(`Uploading 0 / ${total}…`, { type: 'new', duration: 0 }) : null
+    if (items.length === 0) { setUploading(false); return }
 
     // ONE batch call → every stem row is created as 'uploading' with a presigned
     // PUT URL. The rows exist immediately, so the project shows all stems the
-    // moment we dispatch — no waiting on the 839MB to transfer.
+    // moment we dispatch — no waiting on the bytes.
     let init
     try {
       init = await filesApi.batchInit(selProj.id, items.map(it => ({
@@ -1320,15 +1318,12 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
       })), folderId)
     } catch (e) {
       setUploading(false)
-      const msg = e?.message || 'Upload failed to start'
-      if (toastId != null) updateToast?.(toastId, { msg, type: 'info' }, { duration: 6000 })
-      else addToast?.(msg, { type: 'info' })
+      addToast?.(e?.message || 'Upload failed to start', { type: 'info' })
       return
     }
 
     const blocked = init?.blocked || []
-    // Pair returned stems to queued files by name (handles blocked ones being
-    // dropped + duplicate names, in order).
+    // Pair returned stems to queued files by name (blocked ones dropped + dupes).
     const byName = new Map()
     for (const it of items) { const k = it.file.name; (byName.get(k) || byName.set(k, []).get(k)).push(it) }
     const pairs = []
@@ -1337,61 +1332,27 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
       if (it) pairs.push({ stem: s, file: it.file, item: it })
     }
 
-    // Boom: stash a local objectURL (instant playback), then tell the project to
-    // show them — all before any byte uploads. (folder_id was set at insert.)
+    // Resilient records: persist the bytes in IndexedDB (survive refresh → stay
+    // playable + resumable) and stash an in-session objectURL for instant play.
+    const recs = pairs.map(p => ({
+      id: p.stem.id, projectId: selProj.id, name: p.file.name, blob: p.file,
+      putUrl: p.stem.url, storagePath: p.stem.storage_path, contentType: p.stem.content_type,
+      instrument: (p.item.instrumentUserSet || p.item.instrumentDetected) ? p.item.instrument : undefined,
+    }))
     for (const p of pairs) setUploadPreview(p.stem.id, p.file)
+    await Promise.all(recs.map(r => putPending(r)))
+
+    // Boom — show them now; hand the bytes to the background uploader, which keeps
+    // going across refresh/navigation (App resumes it on load) and drives the
+    // progress toast via dizko:upload_progress.
     cacheBust(`/projects/${selProj.id}/files`)
     window.dispatchEvent(new CustomEvent('dizko:files_updated', { detail: { projectId: selProj.id } }))
+    window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
+    enqueue(recs)
 
-    // Now stream the bytes straight to R2 (5 at a time) and flip each row ready.
-    let done = 0, failed = 0
-    const bump = () => { if (toastId != null) updateToast?.(toastId, { msg: `Uploading ${done} / ${total}…` }) }
-    const isRetryable = (m='') => /NetworkError|Failed to fetch|fetch|timeout|network|HTTP 5\d\d/i.test(m)
-    const markFailed = (p, e) => {
-      failed++; bump()
-      filesApi.update(p.stem.id, { notes: JSON.stringify({ status: 'failed', type: 'take', error: e?.message }) })
-        .then(() => window.dispatchEvent(new CustomEvent('dizko:files_updated', { detail: { projectId: selProj.id } })))
-        .catch(() => {})
-    }
-    const uploadOne = async (p) => {
-      const instrument = (p.item.instrumentUserSet || p.item.instrumentDetected) ? p.item.instrument : undefined
-      for (let attempt = 1; ; attempt++) {
-        try { await filesApi.putToR2(p.stem.url, p.file, p.stem.content_type); break }
-        catch (e) {
-          if (attempt >= 3 || !isRetryable(e?.message)) { markFailed(p, e); return }
-          await new Promise(r => setTimeout(r, 500 * attempt))
-        }
-      }
-      try {
-        await filesApi.markUploaded(p.stem.id, { instrument })
-        done++; bump()
-        cacheBust(`/projects/${selProj.id}/files`)
-        window.dispatchEvent(new CustomEvent('dizko:files_updated', { detail: { projectId: selProj.id } }))
-        window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
-      } catch (e) { markFailed(p, e) }
-    }
-    let next = 0
-    await Promise.all(Array.from({ length: Math.min(5, pairs.length) }, async () => {
-      while (next < pairs.length) await uploadOne(pairs[next++])
-    }))
-
+    if (blocked.length) addToast?.(`${blocked.length} stem${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
     setUploading(false)
-    setAllDone(failed === 0 && blocked.length === 0 && done > 0)
-
-    // The modal is usually already closed (fire-and-forget), so finalize the
-    // live-progress toast in place — it becomes the result and fades.
-    const finalMsg =
-      blocked.length ? `${blocked.length} stem${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`
-      : failed       ? `${failed} stem${failed > 1 ? 's' : ''} didn't upload — open the project to retry`
-      : done         ? `✅ ${done} stem${done > 1 ? 's' : ''} uploaded — mixing now`
-      : null
-    const finalType = (blocked.length || failed) ? 'info' : 'success'
-    if (finalMsg && toastId != null)      updateToast?.(toastId, { msg: finalMsg, type: finalType }, { duration: 6000 })
-    else if (finalMsg)                    addToast?.(finalMsg, { type: finalType })
-    else if (toastId != null)             updateToast?.(toastId, {}, { duration: 100 })  // nothing landed — dismiss
-
-    // Auto-promote Draft → In Progress on first successful upload
-    if (done > 0 && (!selProj.status || selProj.status === 'Draft')) {
+    if (recs.length && (!selProj.status || selProj.status === 'Draft')) {
       projectsApi.update(selProj.id, { status: 'In Progress' }).catch(() => {})
     }
   }

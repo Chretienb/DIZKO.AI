@@ -1,6 +1,6 @@
 import { Hono }         from 'hono'
 import { supabase }     from '../lib/supabase'
-import { uploadToR2, deleteFromR2, getR2SignedUrl, getR2PresignedPutUrl, r2KeyFromUrl } from '../lib/r2'
+import { uploadToR2, deleteFromR2, getR2SignedUrl, getR2PresignedPutUrl, r2ObjectExists, r2KeyFromUrl } from '../lib/r2'
 import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
@@ -524,6 +524,66 @@ files.post('/:id/uploaded', uploadLimit, async (c) => {
   enrichStemInBackground(id, projectId, user.id, { fileUrl, fileName: s.original_name, contentType: s.mime_type, instrument, instrumentHint, essentiaAnalysis })
 
   return c.json({ data: { id, status: 'ready' }, error: null, status: 201 }, 201)
+})
+
+// /reconcile — heal stems left 'uploading' when a direct upload was abandoned
+// (tab refreshed/closed mid-upload). For each of the caller's 'uploading' stems
+// in the project: if the bytes are actually in R2, recover it (→ analyzing +
+// enrich); if not and it's been a while, mark it 'failed'.
+files.post('/reconcile', uploadLimit, async (c) => {
+  const user = c.var.user
+  let body: any
+  try { body = await c.req.json() } catch { return c.json({ data: null, error: 'Expected JSON', status: 400 }, 400) }
+  const { project_id } = body || {}
+  if (!project_id) return c.json({ data: null, error: 'project_id is required', status: 400 }, 400)
+
+  const { data: project } = await supabase.from('projects').select('owner_id').eq('id', project_id).single()
+  const isOwner = (project as any)?.owner_id === user.id
+  if (!isOwner) {
+    const { data: collab } = await supabase.from('collaborators').select('status').eq('project_id', project_id).eq('user_id', user.id).maybeSingle()
+    if (!collab || (collab as any).status !== 'active') return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+  }
+
+  const { data: tracks } = await supabase.from('tracks').select('id').eq('project_id', project_id)
+  const trackIds = (tracks as any[] || []).map(t => t.id)
+  if (trackIds.length === 0) return c.json({ data: { recovered: 0, failed: 0 }, error: null, status: 200 }, 200)
+
+  const { data: stems } = await supabase
+    .from('stems').select('id, storage_path, original_name, mime_type, instrument, file_url, created_at, notes')
+    .in('track_id', trackIds).eq('uploaded_by', user.id)
+
+  let recovered = 0, failed = 0
+  const now = Date.now()
+  await Promise.all((stems as any[] || []).map(async s => {
+    let status = 'ready'
+    try { status = JSON.parse(s.notes || '{}').status } catch {}
+    if (status !== 'uploading') return
+    if (await r2ObjectExists(s.storage_path).catch(() => false)) {
+      const instrument = s.instrument || detectInstrument(s.original_name)
+      await supabase.from('stems').update({ notes: JSON.stringify({ status: 'analyzing', type: 'take' }) }).eq('id', s.id)
+      const fileUrl = s.file_url || await getR2SignedUrl(s.storage_path)
+      enrichStemInBackground(s.id, project_id, user.id, { fileUrl, fileName: s.original_name, contentType: s.mime_type, instrument, instrumentHint: instrument })
+      recovered++
+    } else if (s.created_at && (now - new Date(s.created_at).getTime()) > 90_000) {
+      await supabase.from('stems').update({ notes: JSON.stringify({ status: 'failed', type: 'take', error: 'Upload was interrupted' }) }).eq('id', s.id)
+      failed++
+    }
+  }))
+
+  return c.json({ data: { recovered, failed }, error: null, status: 200 }, 200)
+})
+
+// Fresh presigned PUT URL for an existing 'uploading' stem — lets the background
+// uploader resume a PUT after the original URL (1h) expired.
+files.post('/:id/put-url', uploadLimit, async (c) => {
+  const user = c.var.user
+  const id = c.req.param('id')
+  const { data: stem } = await supabase.from('stems').select('storage_path, mime_type, uploaded_by').eq('id', id).maybeSingle()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+  const s = stem as any
+  if (s.uploaded_by !== user.id) return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+  const url = await getR2PresignedPutUrl(s.storage_path, s.mime_type || 'application/octet-stream')
+  return c.json({ data: { url }, error: null, status: 200 }, 200)
 })
 
 files.post('/upload-url', uploadLimit, async (c) => {

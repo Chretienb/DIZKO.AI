@@ -10,6 +10,7 @@ import StemComments from './project/StemComments.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
+import { cachedUrlFor } from '../lib/uploadStore.js'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels } from './project/meta.js'
 
@@ -44,6 +45,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [reviewingId, setReviewingId] = useState(null)
   const [playback,    setPlayback]    = useState({ id:null, playing:false })
   const [search,      setSearch]      = useState('')
+  const [cachedUrls,  setCachedUrls]  = useState({})  // stemId → local objectURL for in-flight uploads (survives refresh via IndexedDB)
+  const cacheRef      = useRef(new Map())
+  const reconciledRef = useRef(false)
 
   // Reflect the inline player's state onto the stem rows (which one is playing).
   useEffect(() => {
@@ -52,8 +56,36 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     return () => window.removeEventListener('dizko:player_state', h)
   }, [])
 
-  // Release any local upload-preview object URLs when leaving the project.
-  useEffect(() => () => clearAllUploadPreviews(), [])
+  // Release any local upload-preview / cached object URLs when leaving the project.
+  useEffect(() => () => {
+    clearAllUploadPreviews()
+    cacheRef.current.forEach(u => { try { URL.revokeObjectURL(u) } catch {} })
+    cacheRef.current.clear()
+  }, [])
+
+  // For stems still 'uploading': load their bytes from IndexedDB so they stay
+  // PLAYABLE after a refresh, resume the background upload, and reconcile any
+  // whose bytes already reached R2 (heals "stuck loading" after a reload).
+  useEffect(() => {
+    const uploading = files.filter(f => { try { return parseNotes(f).status === 'uploading' } catch { return false } })
+    if (!uploading.length) { reconciledRef.current = false; return }
+    let alive = true
+    ;(async () => {
+      const toLoad = uploading.filter(f => !cacheRef.current.has(f.id) && !getUploadPreview(f.id))
+      const entries = (await Promise.all(toLoad.map(async f => { const u = await cachedUrlFor(f.id); return u ? [f.id, u] : null }))).filter(Boolean)
+      if (!alive || !entries.length) return
+      entries.forEach(([id, u]) => cacheRef.current.set(id, u))
+      setCachedUrls(prev => ({ ...prev, ...Object.fromEntries(entries) }))
+    })()
+    if (!reconciledRef.current) {
+      reconciledRef.current = true
+      import('../lib/backgroundUploader.js').then(m => m.resumeAll()).catch(() => {})
+      filesApi.reconcile(projectId).then(r => {
+        if (r?.recovered || r?.failed) filesApi.list(projectId).then(x => setFiles(x.data || [])).catch(() => {})
+      }).catch(() => {})
+    }
+    return () => { alive = false }
+  }, [files, projectId])
 
   const loadAll = useCallback(async () => {
     if (!projectId) return
@@ -624,10 +656,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const name    = stemTitle(f, project?.title)                       // clean display name
                     const dur     = fmtDur(notes.duration)
                     // Bytes still uploading to R2 — playable instantly from the local
-                    // file we stashed; not yet from the cloud. 'failed' = PUT failed.
+                    // file (memory preview this session, or IndexedDB cache after a
+                    // refresh); not yet from the cloud. 'failed' = the PUT failed.
                     const isUploading = notes.status === 'uploading'
                     const isFailed    = notes.status === 'failed'
-                    const preview     = isUploading ? getUploadPreview(f.id) : null
+                    const preview     = isUploading ? (getUploadPreview(f.id) || cachedUrls[f.id] || null) : null
                     const canPlay     = (!isUploading && !isFailed) || !!preview
                     const sub     = isUploading ? 'Uploading…'
                                   : isFailed    ? 'Upload failed — open to retry'
