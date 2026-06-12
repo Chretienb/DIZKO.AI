@@ -507,6 +507,14 @@ files.post('/:id/uploaded', uploadLimit, async (c) => {
   const projectId = await projectIdForStem(id).catch(() => null)
   if (!projectId) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
 
+  // Verify the bytes actually landed before finalizing. A client PUT can error
+  // (slow/dropped connection under load) even when R2 got the object — so the
+  // uploader calls this regardless, and we only "fail" if the object is truly
+  // absent. Prevents false "Upload failed" on a stem that did upload.
+  if (!(await r2ObjectExists(s.storage_path).catch(() => false))) {
+    return c.json({ data: null, error: 'Upload incomplete — file not in storage', incomplete: true, status: 409 }, 409)
+  }
+
   let essentiaAnalysis: any = null
   try { if (analysisRaw) essentiaAnalysis = JSON.parse(analysisRaw) } catch {}
 
@@ -553,25 +561,25 @@ files.post('/reconcile', uploadLimit, async (c) => {
     .from('stems').select('id, storage_path, original_name, mime_type, instrument, file_url, created_at, notes')
     .in('track_id', trackIds).eq('uploaded_by', user.id)
 
-  let recovered = 0, failed = 0
-  const now = Date.now()
+  // Recover-only: any 'uploading' OR (falsely) 'failed' stem whose bytes are
+  // actually in R2 → flip to ready + enrich. We never mark failed here — that
+  // would wrongly fail slow in-progress PUTs (R2 has no object until the PUT
+  // completes). Genuine failure is decided by /:id/uploaded (verifies R2).
+  let recovered = 0
   await Promise.all((stems as any[] || []).map(async s => {
     let status = 'ready'
     try { status = JSON.parse(s.notes || '{}').status } catch {}
-    if (status !== 'uploading') return
+    if (status !== 'uploading' && status !== 'failed') return
     if (await r2ObjectExists(s.storage_path).catch(() => false)) {
       const instrument = s.instrument || detectInstrument(s.original_name)
       await supabase.from('stems').update({ notes: JSON.stringify({ status: 'analyzing', type: 'take' }) }).eq('id', s.id)
       const fileUrl = s.file_url || await getR2SignedUrl(s.storage_path)
       enrichStemInBackground(s.id, project_id, user.id, { fileUrl, fileName: s.original_name, contentType: s.mime_type, instrument, instrumentHint: instrument })
       recovered++
-    } else if (s.created_at && (now - new Date(s.created_at).getTime()) > 90_000) {
-      await supabase.from('stems').update({ notes: JSON.stringify({ status: 'failed', type: 'take', error: 'Upload was interrupted' }) }).eq('id', s.id)
-      failed++
     }
   }))
 
-  return c.json({ data: { recovered, failed }, error: null, status: 200 }, 200)
+  return c.json({ data: { recovered, failed: 0 }, error: null, status: 200 }, 200)
 })
 
 // Fresh presigned PUT URL for an existing 'uploading' stem — lets the background

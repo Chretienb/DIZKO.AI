@@ -39,20 +39,35 @@ async function putBytes(rec) {
 }
 
 async function handle(rec) {
-  try {
-    await putBytes(rec)                       // bytes → R2 (the slow part)
-  } catch (e) {
-    // PUT failed for real — bytes aren't in R2. Mark the stem failed, drop cache.
-    prog.failed++
-    await filesApi.update(rec.id, { notes: JSON.stringify({ status: 'failed', type: 'take', error: e?.message }) }).catch(() => {})
-    await delPending(rec.id)
-    inFlight.delete(rec.id); filesUpdated(rec.projectId); emit(); return
+  // Try the PUT, but DON'T trust a client-side error — a dropped/slow connection
+  // under load can error even when R2 actually got the object. So always try to
+  // finalize: markUploaded verifies the bytes are really in R2 (409 = not there).
+  try { await putBytes(rec) } catch {}
+
+  // Finalize, retrying a 409 once in case of brief PUT→HEAD consistency lag.
+  let incomplete = false
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await filesApi.markUploaded(rec.id, { instrument: rec.instrument })
+      await delPending(rec.id)                // bytes confirmed in R2 → done
+      prog.done++
+      inFlight.delete(rec.id); filesUpdated(rec.projectId); emit()
+      return
+    } catch (e) {
+      incomplete = /incomplete|not in storage|HTTP 409/i.test(e?.message || '')
+      if (incomplete && attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue }
+      break
+    }
   }
-  // Bytes are safe in R2. Tell the backend to finalize + analyze. If THIS fails,
-  // the bytes are still up — reconcile-on-load will flip it ready later.
-  await filesApi.markUploaded(rec.id, { instrument: rec.instrument }).catch(() => {})
-  await delPending(rec.id)                    // cache no longer needed
-  prog.done++
+
+  if (incomplete) {
+    // Bytes genuinely aren't in R2 → real failure. KEEP the cache so a refresh
+    // (resumeAll) re-uploads it; the stem shows a retry hint, not a dead end.
+    prog.failed++
+    await filesApi.update(rec.id, { notes: JSON.stringify({ status: 'failed', type: 'take', error: 'Upload was interrupted' }) }).catch(() => {})
+  }
+  // else: transient finalize error (network) — leave 'uploading' + cache; resume
+  // / reconcile will heal it. Don't touch prog so the toast doesn't over-report.
   inFlight.delete(rec.id); filesUpdated(rec.projectId); emit()
 }
 

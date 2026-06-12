@@ -87,6 +87,20 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     return () => { alive = false }
   }, [files, projectId])
 
+  // While anything is still uploading/failed, poll reconcile so bytes that
+  // landed (including a falsely-'failed' stem) flip to ready on their own — no
+  // manual refresh needed.
+  const hasPendingUploads = files.some(f => { try { const s = parseNotes(f).status; return s === 'uploading' || s === 'failed' } catch { return false } })
+  useEffect(() => {
+    if (!hasPendingUploads) return
+    const t = setInterval(() => {
+      filesApi.reconcile(projectId).then(r => {
+        if (r?.recovered) filesApi.list(projectId).then(x => setFiles(x.data || [])).catch(() => {})
+      }).catch(() => {})
+    }, 20000)
+    return () => clearInterval(t)
+  }, [hasPendingUploads, projectId])
+
   const loadAll = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
@@ -663,7 +677,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const preview     = isUploading ? (getUploadPreview(f.id) || cachedUrls[f.id] || null) : null
                     const canPlay     = (!isUploading && !isFailed) || !!preview
                     const sub     = isUploading ? 'Uploading…'
-                                  : isFailed    ? 'Upload failed — open to retry'
+                                  : isFailed    ? 'Upload interrupted — refresh to resume'
                                   : [dur, notes.bpm && `${Math.round(notes.bpm)} BPM`, notes.key].filter(Boolean).join(' · ')
                     const isSel   = selectedFile?.id === f.id
                     const isActive      = playback.id === f.id
