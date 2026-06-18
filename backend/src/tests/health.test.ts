@@ -22,10 +22,10 @@ describe('GET /health', () => {
     expect(json.data.supabase).toBe(true)
   })
 
-  it('reports openai as configured', async () => {
+  it('reports claude as configured', async () => {
     const res  = await fetch(`${BASE}/health`)
     const json = await res.json()
-    expect(typeof json.data.openai).toBe('boolean')
+    expect(typeof json.data.claude).toBe('boolean')
   })
 
   it('returns a valid ISO timestamp', async () => {

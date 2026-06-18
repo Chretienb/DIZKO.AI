@@ -82,7 +82,6 @@ app.get('/health', (c) =>
       framework: 'Hono',
       timestamp: new Date().toISOString(),
       supabase: !!process.env.SUPABASE_URL,
-      openai:    !!process.env.OPENAI_API_KEY,
       claude:    !!process.env.ANTHROPIC_API_KEY,
     },
     error: null,
@@ -215,7 +214,7 @@ console.log(`  Framework: Hono`)
 console.log(`  Port     : ${PORT}`)
 console.log(`  Supabase : ${process.env.SUPABASE_URL ?? '⚠  not configured'}`)
 console.log(`  CORS     : ${process.env.FRONTEND_ORIGIN ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'}`)
-console.log(`  OpenAI   : ${process.env.OPENAI_API_KEY ? '✓ configured' : '⚠  not set (heuristic naming active)'}\n`)
+console.log(`  Claude   : ${process.env.ANTHROPIC_API_KEY ? '✓ configured' : '⚠  not set (Smart Mix / AI feedback disabled)'}\n`)
 
 export default {
   port: PORT,
