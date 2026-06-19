@@ -16,6 +16,7 @@ import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFile
 import { setUploadPreview } from '../pages/project/uploadPreview.js'
 import { putPending } from '../lib/uploadStore.js'
 import { enqueue } from '../lib/backgroundUploader.js'
+import { encodeToFlac } from '../lib/flac.js'
 
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 export { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker } from './modals/upload.jsx'
@@ -1305,16 +1306,29 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     const items = queue.filter(f => f.status === 'queued')
     if (items.length === 0) { setUploading(false); onClose(); return }
 
+    // Compress each WAV to FLAC (lossless, ~half the size) BEFORE upload so big
+    // multi-stem drops transfer in half the bytes. Best-effort per file — if a
+    // file can't be encoded it uploads as-is. We yield between files so the
+    // modal's spinner keeps animating during the (CPU-bound) encode.
+    const prepared = []
+    for (const it of items) {
+      let blob = it.file, name = it.file.name, type = it.file.type || ''
+      const flac = await encodeToFlac(it.file).catch(() => null)
+      if (flac) { blob = flac.blob; name = flac.name; type = 'audio/flac' }
+      prepared.push({ it, blob, name, type })
+      await new Promise(r => setTimeout(r, 0))
+    }
+
     // ONE batch call → every stem row is created as 'uploading' with a presigned
     // PUT URL. The rows exist immediately, so the project shows all stems the
     // moment we dispatch — no waiting on the bytes.
     let init
     try {
-      init = await filesApi.batchInit(selProj.id, items.map(it => ({
-        file_name:    it.file.name,
-        file_size:    it.file.size,
-        content_type: it.file.type || '',
-        instrument:   (it.instrumentUserSet || it.instrumentDetected) ? it.instrument : undefined,
+      init = await filesApi.batchInit(selProj.id, prepared.map(p => ({
+        file_name:    p.name,
+        file_size:    p.blob.size,
+        content_type: p.type,
+        instrument:   (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined,
       })), folderId)
     } catch (e) {
       setUploading(false)
@@ -1324,23 +1338,24 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     }
 
     const blocked = init?.blocked || []
-    // Pair returned stems to queued files by name (blocked ones dropped + dupes).
+    // Pair returned stems to prepared files by (possibly .flac) name.
     const byName = new Map()
-    for (const it of items) { const k = it.file.name; (byName.get(k) || byName.set(k, []).get(k)).push(it) }
+    for (const p of prepared) { const k = p.name; (byName.get(k) || byName.set(k, []).get(k)).push(p) }
     const pairs = []
     for (const s of (init?.stems || [])) {
-      const it = byName.get(s.file_name)?.shift()
-      if (it) pairs.push({ stem: s, file: it.file, item: it })
+      const p = byName.get(s.file_name)?.shift()
+      if (p) pairs.push({ stem: s, prepared: p })
     }
 
     // Resilient records: persist the bytes in IndexedDB (survive refresh → stay
-    // playable + resumable) and stash an in-session objectURL for instant play.
-    const recs = pairs.map(p => ({
-      id: p.stem.id, projectId: selProj.id, name: p.file.name, blob: p.file,
-      putUrl: p.stem.url, storagePath: p.stem.storage_path, contentType: p.stem.content_type,
-      instrument: (p.item.instrumentUserSet || p.item.instrumentDetected) ? p.item.instrument : undefined,
+    // playable + resumable). The local instant-play preview uses the ORIGINAL
+    // WAV (universal <audio> support) — the FLAC is just what we transfer/store.
+    const recs = pairs.map(({ stem, prepared: p }) => ({
+      id: stem.id, projectId: selProj.id, name: p.name, blob: p.blob,
+      putUrl: stem.url, storagePath: stem.storage_path, contentType: stem.content_type,
+      instrument: (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined,
     }))
-    for (const p of pairs) setUploadPreview(p.stem.id, p.file)
+    for (const { stem, prepared: p } of pairs) setUploadPreview(stem.id, p.it.file)
     await Promise.all(recs.map(r => putPending(r)))
 
     // Boom — show them now; hand the bytes to the background uploader, which keeps

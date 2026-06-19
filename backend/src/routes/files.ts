@@ -7,7 +7,7 @@ import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { scheduleSmartMix } from '../lib/mixScheduler'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
-import { transcodeToPreview, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
+import { transcodeToPreview, decodeToWav, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
@@ -344,13 +344,19 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
     try {
       let bpm: number | null = essentiaAnalysis?.bpm ?? null
       let key: string | null = essentiaAnalysis?.key ? `${essentiaAnalysis.key} ${essentiaAnalysis.scale ?? ''}`.trim() : null
-      const isWav = contentType === 'audio/wav' || fileName.endsWith('.wav')
+      const isWav  = contentType === 'audio/wav'  || fileName.endsWith('.wav')
+      const isFlac = contentType === 'audio/flac' || fileName.endsWith('.flac')
+      // Fetch the bytes — needed for the MP3 preview and (decoded) for peaks/BPM.
       let buffer: Buffer | null = null
-      if ((!bpm || !key) || isWav) {
-        try { const r = await fetch(fileUrl); if (r.ok) buffer = Buffer.from(await r.arrayBuffer()) } catch {}
-      }
-      if ((!bpm || !key) && buffer) {
-        const fb = await analyzeWavBuffer(buffer).catch(() => ({ bpm: null, key: null }))
+      try { const r = await fetch(fileUrl); if (r.ok) buffer = Buffer.from(await r.arrayBuffer()) } catch {}
+
+      // PCM WAV used for analysis: WAV uploads are already PCM; FLAC (or anything
+      // else) is decoded to WAV via ffmpeg so BPM/key/peaks still work.
+      let pcmWav: Buffer | null = null
+      if (buffer) pcmWav = isWav ? buffer : await decodeToWav(buffer).catch(() => null)
+
+      if ((!bpm || !key) && pcmWav) {
+        const fb = await analyzeWavBuffer(pcmWav).catch(() => ({ bpm: null, key: null }))
         bpm = bpm ?? fb.bpm; key = key ?? fb.key
       }
 
@@ -373,13 +379,14 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       }
 
       const suggestedName = await buildSuggestedName(fileName, resolvedInstrument, bpm, key, projectTitle, artist)
-      const peaks = buffer && isWav ? extractWaveformPeaks(buffer, 512) : null
+      const peaks = pcmWav ? extractWaveformPeaks(pcmWav, 512) : null
 
       // Compressed MP3 preview for instant playback — the buffer is already in
-      // memory, so this costs no extra download. Best-effort: a failure just
-      // means no preview key, and playback falls back to the full WAV.
+      // memory, so this costs no extra download. ffmpeg reads WAV or FLAC; we
+      // only bother for those big lossless formats (mp3/m4a already stream fine).
+      // Best-effort: a failure just means playback falls back to the full file.
       let previewKey: string | null = null
-      if (buffer && isWav) {
+      if (buffer && (isWav || isFlac)) {
         try {
           const mp3 = await transcodeToPreview(buffer)
           previewKey = previewKeyFor(takeId)

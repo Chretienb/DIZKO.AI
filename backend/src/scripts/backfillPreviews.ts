@@ -19,8 +19,10 @@ const limitArg = process.argv.indexOf('--limit')
 const LIMIT = limitArg >= 0 ? Number(process.argv[limitArg + 1]) : Infinity
 const POOL = 4   // stems processed in parallel (transcode itself is capped at 3)
 
-const isWav = (s: any) =>
-  s.mime_type === 'audio/wav' || String(s.original_name || '').toLowerCase().endsWith('.wav')
+const isLossless = (s: any) => {
+  const n = String(s.original_name || '').toLowerCase()
+  return s.mime_type === 'audio/wav' || s.mime_type === 'audio/flac' || n.endsWith('.wav') || n.endsWith('.flac')
+}
 
 function parseNotes(s: any): any {
   try { return JSON.parse(s.notes || '{}') } catch { return {} }
@@ -63,7 +65,7 @@ async function main() {
   if (error) { console.error('query failed:', error.message); process.exit(1) }
 
   const candidates = (data as any[])
-    .filter(isWav)
+    .filter(isLossless)
     .filter(s => !parseNotes(s).preview && s.storage_path)
     .slice(0, LIMIT === Infinity ? undefined : LIMIT)
 

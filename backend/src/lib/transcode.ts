@@ -35,6 +35,29 @@ export function previewKeyFor(stemId: string): string {
 }
 
 /**
+ * Decode any audio buffer (e.g. an uploaded FLAC) to a PCM WAV buffer, so the
+ * WAV-based analysis (BPM/key/peaks) can run on FLAC uploads. ffmpeg picks the
+ * input format from the bytes. Same concurrency gate + pipe handling as encode.
+ */
+export async function decodeToWav(input: Buffer): Promise<Buffer> {
+  return withSlot(async () => {
+    const proc = Bun.spawn(
+      ['ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-f', 'wav', 'pipe:1'],
+      { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe' },
+    )
+    const stdoutP = new Response(proc.stdout).arrayBuffer()
+    const stderrP = new Response(proc.stderr).text()
+    proc.stdin.write(input)
+    await proc.stdin.end()
+    const [out, code, err] = await Promise.all([stdoutP, proc.exited, stderrP])
+    if (code !== 0) throw new Error(`ffmpeg decode exited ${code}: ${err.slice(0, 300)}`)
+    const buf = Buffer.from(out)
+    if (buf.length === 0) throw new Error('ffmpeg decode produced empty output')
+    return buf
+  })
+}
+
+/**
  * Encode a WAV buffer to a 128 kbps MP3 (mono-preserving, original sample rate).
  * Reads stdin / writes stdout concurrently so a large input can't deadlock on a
  * full OS pipe buffer. Throws on a non-zero exit or empty output — callers treat
