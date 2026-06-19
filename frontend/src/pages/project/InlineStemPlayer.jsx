@@ -53,7 +53,9 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     if (!track?.file_url) return
     setLoading(true)
     setProgress(0); setCurrent(0); setDuration(0)
-    const a = new Audio(track.file_url)
+    // Prefer the small MP3 preview for instant playback; the full WAV is only
+    // pulled when there's no preview yet (older stems, or still analyzing).
+    const a = new Audio(track.preview_url || track.file_url)
     audioRef.current = a
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
@@ -61,7 +63,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     a.onended          = () => { setPlaying(false); goNext() }
     const p = a.play(); setPlaying(true)
     return () => { p?.then(() => { a.pause(); a.src='' }).catch(() => { a.src='' }) }
-  }, [track?.file_url])
+  }, [track?.preview_url, track?.file_url])
 
   const toggle = () => {
     if (!audioRef.current) return

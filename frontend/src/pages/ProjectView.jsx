@@ -101,6 +101,20 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     return () => clearInterval(t)
   }, [hasPendingUploads, projectId])
 
+  // BPM/key/peaks AND the small MP3 preview are generated a few seconds AFTER
+  // the bytes land (status 'analyzing'). The upload-complete refetch fires too
+  // early to see them, so keep re-pulling the list while anything is analyzing —
+  // that's how preview_url (instant playback) lands without a manual refresh.
+  const hasAnalyzing = files.some(f => { try { return parseNotes(f).status === 'analyzing' } catch { return false } })
+  useEffect(() => {
+    if (!hasAnalyzing) return
+    const t = setInterval(() => {
+      cacheBust(`/projects/${projectId}/files`)
+      filesApi.list(projectId).then(x => setFiles(x.data || [])).catch(() => {})
+    }, 5000)
+    return () => clearInterval(t)
+  }, [hasAnalyzing, projectId])
+
   const loadAll = useCallback(async () => {
     if (!projectId) return
     setLoading(true)

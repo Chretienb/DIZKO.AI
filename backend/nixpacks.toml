@@ -1,0 +1,5 @@
+# Railway builds this API with Nixpacks (Bun detected). ffmpeg is needed to
+# transcode uploaded WAV stems into small MP3 previews for instant playback —
+# see src/lib/transcode.ts (spawned as a child process from enrichStemInBackground).
+[phases.setup]
+aptPkgs = ["ffmpeg"]

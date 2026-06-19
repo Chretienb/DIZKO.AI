@@ -7,6 +7,7 @@ import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { scheduleSmartMix } from '../lib/mixScheduler'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
+import { transcodeToPreview, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
@@ -374,16 +375,32 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       const suggestedName = await buildSuggestedName(fileName, resolvedInstrument, bpm, key, projectTitle, artist)
       const peaks = buffer && isWav ? extractWaveformPeaks(buffer, 512) : null
 
+      // Compressed MP3 preview for instant playback — the buffer is already in
+      // memory, so this costs no extra download. Best-effort: a failure just
+      // means no preview key, and playback falls back to the full WAV.
+      let previewKey: string | null = null
+      if (buffer && isWav) {
+        try {
+          const mp3 = await transcodeToPreview(buffer)
+          previewKey = previewKeyFor(takeId)
+          await uploadToR2(previewKey, mp3, PREVIEW_CONTENT_TYPE)
+        } catch (e) {
+          previewKey = null
+          console.error('[enrich] preview transcode failed:', (e as Error).message)
+        }
+      }
+
       await supabase.from('stems').update({
         notes: JSON.stringify({
           status: 'ready', type: 'take', bpm, key,
           ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
           ...(peaks ? { peaks } : {}),
+          ...(previewKey ? { preview: previewKey } : {}),
         }),
         suggested_name: suggestedName,
       }).eq('id', takeId)
 
-      console.log(`[enrich] ${fileName} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
+      console.log(`[enrich] ${fileName} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''}${previewKey ? ' · preview' : ''})`)
       scheduleSmartMix(projectId, userId)
     } catch (e) {
       console.error('[enrich] background analysis error:', (e as Error).message)

@@ -72,7 +72,7 @@ const LIB_COLORS = { master:'#E8B84B', vocals:'#8b5cf6', drums:'#F4937A', bass:'
 
 // A single stem in the side library — one compact line: dot · name · sender · +/-.
 // Draggable onto the board.
-function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
+function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove, projectTitle }) {
   const color = LIB_COLORS[s.instrument] || C.t3
   const label = LIB_LABELS[s.instrument] || s.instrument || 'Stem'
   const isMaster = s.instrument === 'master'
@@ -80,10 +80,19 @@ function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
   const up  = uploaders[s.uploaded_by]
   const who = up?.full_name?.split(' ')[0] || up?.email?.split('@')[0] || ''
 
+  // Every stem name is prefixed with the project name (e.g. "streamcash_Guitar"),
+  // which is redundant here — the project is already shown above. Strip that
+  // leading prefix so the distinguishing part (instrument · key · BPM) is what
+  // shows and isn't the first thing cut off. Full name stays in the tooltip.
+  const fullName = s.suggested_name || s.original_name || label
+  const slug = (projectTitle || '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+  const m = fullName.match(/^([a-z0-9]+)[_\s-]+(.+)$/i)
+  const displayName = (slug && m && m[1].toLowerCase() === slug) ? m[2] : fullName
+
   return (
     <div draggable
       onDragStart={e => { e.dataTransfer.setData('text/stem-id', s.id); e.dataTransfer.effectAllowed = 'copy' }}
-      title={isMaster ? 'Master — the final mixed version. Drag onto the board.' : 'Drag onto the board'}
+      title={isMaster ? `${fullName} — Master (final mix). Drag onto the board.` : `${fullName} — drag onto the board`}
       style={{ display:'flex', alignItems:'center', gap:9, cursor:'grab', borderRadius: isMaster ? 11 : 8,
         padding: isMaster ? '11px 10px' : '6px 8px',
         background: isMaster ? `${color}14` : on ? `${color}12` : 'transparent',
@@ -95,7 +104,7 @@ function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove }) {
       <div style={{ flex:1, minWidth:0, display:'flex', flexDirection: isMaster ? 'column' : 'row', alignItems: isMaster ? 'flex-start' : 'baseline', gap: isMaster ? 1 : 6 }}>
         {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase', color }}>Master</span>}
         <span style={{ fontSize: isMaster ? 14 : 12.5, fontWeight: isMaster ? 800 : 400, color: isMaster ? color : C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%' }}>
-          {s.suggested_name || s.original_name || label}
+          {isMaster ? fullName : displayName}
         </span>
         {who && <span style={{ fontSize:11, fontWeight:400, color:C.t3, flexShrink:0 }}>· {who}</span>}
       </div>
@@ -994,7 +1003,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       } catch { setTransposing(null); playTrack(stem, boardStems); applyVol(); return }
       setTransposing(null)
     }
-    playTrack({ ...stem, file_url: url }, boardStems)
+    // Transposed audio lives in this rendered WAV — null preview_url so the
+    // MiniPlayer plays THIS (pitched) file, not the original-pitch MP3 preview.
+    playTrack({ ...stem, file_url: url, preview_url: null }, boardStems)
     applyVol()
   }, [boardStems, playTrack])
 
@@ -1124,7 +1135,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               )}
               {mixerStems.map(s => (
                 <LibraryRow key={s.id} s={s}
-                  boardIds={boardIds} uploaders={uploaders}
+                  boardIds={boardIds} uploaders={uploaders} projectTitle={activeProject?.title}
                   onAdd={addToBoard} onRemove={removeFromBoard} />
               ))}
             </div>

@@ -350,7 +350,7 @@ function useToasts() {
   }, [])
   const add = React.useCallback((msg, opts = {}) => {
     const id = Date.now() + Math.random()
-    setToasts(t => [...t, { id, msg, type: opts.type || 'info', action: opts.action }])
+    setToasts(t => [...t, { id, msg, type: opts.type || 'info', action: opts.action, progress: opts.progress, sub: opts.sub }])
     arm(id, opts.duration)
     return id
   }, [arm])
@@ -364,10 +364,15 @@ function useToasts() {
   return { toasts, add, update, remove }
 }
 
+const TOAST_CSS = `
+@keyframes toastIn { from{opacity:0;transform:translateY(-8px) scale(.98)} to{opacity:1;transform:none} }
+@keyframes toastShimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+`
 function ToastContainer({ toasts, remove }) {
   if (!toasts.length) return null
   return (
     <div style={{ position:'fixed', top:16, right:16, zIndex:9999, display:'flex', flexDirection:'column', gap:8 }}>
+      <style>{TOAST_CSS}</style>
       {toasts.map(t => {
         const colors = {
           info:    { bg:'#1a1a1a', border:'rgba(var(--fg),.12)', icon:'#6366f1' },
@@ -378,11 +383,27 @@ function ToastContainer({ toasts, remove }) {
           <div key={t.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
             background: colors.bg, borderRadius:14, border:`1px solid ${colors.border}`,
             boxShadow:'0 8px 32px rgba(0,0,0,.4)', minWidth:280, maxWidth:360,
-            animation:'slideIn .2s ease' }}>
+            animation:'toastIn .22s cubic-bezier(.2,.8,.2,1)' }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:colors.icon,
               flexShrink:0, marginTop:4, boxShadow:`0 0 8px ${colors.icon}` }}/>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, color:'#fff', lineHeight:1.45 }}>{t.msg}</div>
+              <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:10 }}>
+                <div style={{ fontSize:13, fontWeight: typeof t.progress === 'number' ? 600 : 400, color:'#fff', lineHeight:1.45 }}>{t.msg}</div>
+                {typeof t.progress === 'number' && (
+                  <div style={{ fontSize:12, fontWeight:700, color:colors.icon, flexShrink:0, fontVariantNumeric:'tabular-nums' }}>
+                    {Math.round(t.progress * 100)}%
+                  </div>
+                )}
+              </div>
+              {t.sub && <div style={{ fontSize:11.5, color:'rgba(var(--fg),.5)', marginTop:2, fontVariantNumeric:'tabular-nums' }}>{t.sub}</div>}
+              {typeof t.progress === 'number' && (
+                <div style={{ marginTop:9, height:5, borderRadius:4, background:'rgba(var(--fg),.1)', overflow:'hidden' }}>
+                  <div style={{ position:'relative', height:'100%', width:`${Math.max(5, Math.round(t.progress * 100))}%`, borderRadius:4,
+                    background:`linear-gradient(90deg, ${colors.icon}, ${colors.icon}cc)`, transition:'width .4s cubic-bezier(.2,.8,.2,1)', overflow:'hidden' }}>
+                    <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent)', animation:'toastShimmer 1.1s ease-in-out infinite' }}/>
+                  </div>
+                </div>
+              )}
               {t.action && (
                 <button onClick={() => { t.action.fn(); remove(t.id) }} style={{
                   marginTop:6, fontSize:12, fontWeight:700, color:colors.icon,
@@ -542,13 +563,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       const { total = 0, done = 0, failed = 0, active = 0 } = e.detail || {}
       if (!total) return
       if (active > 0) {
-        const msg = `Uploading ${done} / ${total}…`
-        if (toastId == null) toastId = addToast(msg, { type: 'new', duration: 0 })
-        else updateToast(toastId, { msg })
+        const progress = done / total
+        const msg = 'Uploading stems'
+        const sub = `${done} of ${total}`
+        if (toastId == null) toastId = addToast(msg, { type: 'new', duration: 0, progress, sub })
+        else updateToast(toastId, { msg, progress, sub })
       } else {
-        const msg = failed ? `${done} uploaded · ${failed} couldn't upload — re-add them`
-                           : `✅ ${done} stem${done > 1 ? 's' : ''} uploaded — mixing now`
-        if (toastId != null) { updateToast(toastId, { msg, type: failed ? 'info' : 'success' }, { duration: 6000 }); toastId = null }
+        const msg = failed ? `${done} uploaded · ${failed} couldn’t upload — re-add them`
+                           : `${done} stem${done > 1 ? 's' : ''} uploaded — mixing now`
+        if (toastId != null) { updateToast(toastId, { msg, sub: null, progress: undefined, type: failed ? 'info' : 'success' }, { duration: 6000 }); toastId = null }
         else addToast(msg, { type: failed ? 'info' : 'success' })
       }
     }

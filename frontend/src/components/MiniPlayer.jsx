@@ -38,7 +38,8 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     if (!track?.file_url) return
     setLoading(true)
     setProgress(0); setCurrent(0); setDuration(0)
-    const a = new Audio(track.file_url)
+    // Prefer the small MP3 preview for instant playback; fall back to the WAV.
+    const a = new Audio(track.preview_url || track.file_url)
     audioRef.current = a
     a.volume = vol
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
@@ -55,7 +56,7 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
     a.onended          = () => { setPlaying(false); goNext() }
     const p = a.play(); setPlaying(true)
     return () => { p?.then(() => { a.pause(); a.src='' }).catch(() => { a.src='' }) }
-  }, [track?.file_url])
+  }, [track?.preview_url, track?.file_url])
 
   const toggle = () => {
     if (!audioRef.current) return

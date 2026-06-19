@@ -30,6 +30,8 @@ export interface FileRecord {
   original_name: string
   suggested_name: string
   file_url: string
+  /** Signed URL to a small MP3 preview for instant playback (absent until analyzed). */
+  preview_url?: string
   storage_path: string
   file_size: number
   mime_type: string

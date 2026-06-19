@@ -538,6 +538,14 @@ projects.get('/:id/files', async (c) => {
     if (key) {
       try { stem.file_url = await getR2SignedUrl(key) } catch { /* keep stored url */ }
     }
+    // Sign the small MP3 preview (instant-play source) when one exists. The key
+    // lives in notes.preview; the frontend plays preview_url and falls back to
+    // file_url when it's absent (older stems / non-WAV uploads).
+    let previewKey: string | null = null
+    try { previewKey = JSON.parse((stem.notes as string) || '{}').preview || null } catch { /* no preview */ }
+    if (previewKey) {
+      try { stem.preview_url = await getR2SignedUrl(previewKey) } catch { /* fall back to file_url */ }
+    }
     return stem
   }))
 

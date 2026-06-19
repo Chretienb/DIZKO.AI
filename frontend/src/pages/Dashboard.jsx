@@ -195,7 +195,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   }
 
   const rightList = (
-    <div style={{ flex:1, overflowY:'auto', padding:'4px 8px 12px', display:'flex', flexDirection:'column', gap:2 }}>
+    <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'4px 8px 12px', display:'flex', flexDirection:'column', gap:2 }}>
       {tab === 'upnext' && (projList.length ? projList.map(projectRow)
         : <div style={{ padding:'40px 16px', textAlign:'center', color:DK.t3, fontSize:13 }}>No projects yet.</div>)}
       {tab === 'stems' && (stemList.length ? stemList.map(stemRow)
@@ -244,7 +244,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
       {/* ── WebPlayer panel ── */}
       <div style={{ background:DK.panel, borderRadius:20, border:DK.border, overflow:'hidden',
-        display:'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: isMobile ? 'auto' : 'calc(100vh - 90px)' }}>
+        display:'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(100vh - 90px)' }}>
 
         {/* ══ LEFT — Big square cover ══ */}
         <div style={{ flex: isMobile ? 'none' : '0 0 46%', padding: isMobile ? 14 : 20, display:'flex', flexDirection:'column', gap:14 }}>
@@ -306,7 +306,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         {!isMobile && <div style={{ width:1, background:'rgba(var(--fg),.06)', flexShrink:0 }}/>}
 
         {/* ══ RIGHT — Up Next ══ */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, padding: isMobile ? '0 0 14px' : '20px 0 0' }}>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, minHeight:0, padding: isMobile ? '0 0 14px' : '20px 0 0' }}>
           {/* Search row */}
           <div style={{ padding: isMobile ? '14px 14px 0' : '0 20px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:9, height:40, padding:'0 13px', borderRadius:10,
