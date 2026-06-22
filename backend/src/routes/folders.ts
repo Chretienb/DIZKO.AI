@@ -2,6 +2,7 @@ import { Hono }        from 'hono'
 import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize }    from '../middleware/sanitize'
+import { isProjectOwner } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const folders = new Hono<{ Variables: HonoVariables }>()
@@ -117,8 +118,9 @@ folders.delete('/:id', async (c) => {
     .from('folders').select('project_id').eq('id', folderId).single()
   if (!folder) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
 
-  const ok = await assertProjectAccess((folder as any).project_id, userId)
-  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  // Songs are structural — owner-only delete (big blast radius).
+  const ok = await isProjectOwner((folder as any).project_id, userId)
+  if (!ok) return c.json({ data: null, error: 'Only the project owner can delete songs', status: 403 }, 403)
 
   // Unassign stems in this folder (don't delete them)
   await supabase.from('stems').update({ folder_id: null }).eq('folder_id', folderId)

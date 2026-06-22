@@ -441,9 +441,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         const s = payload.new
         if (!s?.id) return
         if (s.instrument === 'smart_bounce') {
-          setSmartMixUrl(s.file_url)
-          try { const notes = JSON.parse(s.notes||'{}'); setSmartMixInfo({ contributors: notes.contributors||[], stem_count: notes.stem_count||0 }) } catch {}
-          addToast?.(<><strong style={{color:'#fff'}}>Smart Mix updated</strong> — all latest takes mixed in</>, { type:'success', duration:7000, action:{ label:'Listen', fn:()=>playTrack(s) } })
+          // Add it to stems (kept out of the board/library by the mixer filter) so
+          // the "latest saved mix" effect surfaces and persists it in the panel.
+          setStems(prev => prev.find(x => x.id === s.id) ? prev : [s, ...prev])
           return
         }
         const isOwn = s.uploaded_by === user?.id
@@ -483,7 +483,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setDetectingBpm(true)
     try {
       const tmpCtx = new (window.AudioContext || window.webkitAudioContext)()
-      const buf    = await fetchAudioCached(src.file_url)
+      const buf    = await fetchAudioCached(src.preview_url || src.file_url)
       const audio  = await tmpCtx.decodeAudioData(buf.slice(0))
       await tmpCtx.close()
       const SR = audio.sampleRate
@@ -558,7 +558,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     const decoded = await Promise.all(loadableStems.map(async s => {
       const label = s.suggested_name || s.original_name || s.id
       try {
-        const buf = await fetchAudioCached(s.file_url, pct =>
+        // Decode the MP3 preview (what single-stem playback uses) — it's small and
+      // decodes everywhere. The FLAC original can fail decodeAudioData in-browser.
+      const buf = await fetchAudioCached(s.preview_url || s.file_url, pct =>
           setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
         )
         // Decode on a dedicated context so the playback context stays clean
@@ -689,14 +691,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (!activeId) return
     setDawExporting(true)
     try {
-      // Export exactly the stems on the board (the user's chosen working set)
-      const ids = [...boardIds].join(',')
-      const qs  = `format=${format}${ids ? `&stem_ids=${encodeURIComponent(ids)}` : ''}`
+      // Export exactly the stems in the chosen scope (board, or selected songs).
+      const ids = exportStemIds.join(',')
+      if (!ids) { addToast('Nothing to export — add stems to the board or pick a song', 'error'); return }
+      const qs  = `format=${format}&stem_ids=${encodeURIComponent(ids)}`
       const proj = projects.find(p => p.id === activeId)
-      // Name the download for the song being exported (or "All Songs").
-      const songLabel = songId === 'all' ? 'All Songs'
-        : songId === 'unsorted' ? 'Unsorted'
-        : (songs.find(s => s.id === songId)?.name || 'Song')
+      // Name the download for the export scope.
+      const songLabel = exportSel === 'board'
+        ? 'Board'
+        : exportAllActive
+          ? 'All Songs'
+          : exportSongs.filter(s => exportSel.has(s.id)).map(s => s.name).join(', ') || 'Songs'
       const safe = s => (s||'').replace(/[^a-zA-Z0-9 _-]/g,'').trim().replace(/\s+/g,'_')
       const exportFileName = `${safe(proj?.title)||'Project'}_${safe(songLabel)||'Export'}_Dizko_Export.zip`
 
@@ -964,6 +969,63 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // Board = chosen subset of mixer stems, in library order
   const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
 
+  // ── Export scope ──────────────────────────────────────────────────────────
+  // 'board' = the de-muted stems on the board; otherwise a Set of song (folder)
+  // ids ('unsorted' for loose stems) to export one, several, or all songs.
+  const [exportSel, setExportSel] = useState('board')
+  const isMixStem = s => s.instrument && s.instrument !== 'original' && s.instrument !== 'smart_bounce' && !parsedNotes(s).parent_stem_id
+  const exportSongs = useMemo(() => {
+    const list = songs.map(f => ({ id: f.id, name: f.name || 'Untitled song' }))
+    if (stems.some(s => isMixStem(s) && !s.folder_id)) list.push({ id: 'unsorted', name: 'Unsorted' })
+    return list
+  }, [songs, stems])
+  const exportStems = useMemo(() => {
+    if (exportSel === 'board') return boardStems.filter(s => !mutedIds.has(s.id))
+    return stems.filter(s => isMixStem(s) && exportSel.has(s.folder_id || 'unsorted'))
+  }, [exportSel, boardStems, mutedIds, stems])
+  const exportStemIds = useMemo(() => exportStems.map(s => s.id), [exportStems])
+  const exportAllActive = exportSel !== 'board' && exportSongs.length > 0 && exportSongs.every(s => exportSel.has(s.id))
+  const onExportBoard = () => setExportSel('board')
+  const onExportAll   = () => setExportSel(new Set(exportSongs.map(s => s.id)))
+  const onExportToggleSong = (id) => setExportSel(prev => {
+    const next = prev === 'board' ? new Set() : new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next.size === 0 ? 'board' : next
+  })
+
+  // All saved mixes for this song/project, newest version first — for the panel's
+  // version list (play + restore the board that made each one).
+  const mixVersions = useMemo(() => {
+    const verOf = s => { try { return Number(JSON.parse(s.notes || '{}').version) || 0 } catch { return 0 } }
+    return stems
+      .filter(s => s.instrument === 'smart_bounce' && (s.file_url || s.preview_url))
+      .sort((a, b) => verOf(b) - verOf(a) || (+new Date(b.created_at) - +new Date(a.created_at)))
+      .map(s => {
+        let n = {}; try { n = JSON.parse(s.notes || '{}') } catch {}
+        return { id: s.id, url: s.preview_url || s.file_url, name: s.suggested_name || (n.version ? `Mix ${n.version}` : 'Mix'), version: n.version || 0, snapshot: n.board_snapshot || null }
+      })
+  }, [stems])
+
+  // Surface the latest mix in the panel so it persists across plays / reloads.
+  useEffect(() => {
+    if (!mixVersions.length) { setSmartMixUrl(null); setSmartMixInfo(null); return }
+    const latest = mixVersions[0]
+    setSmartMixUrl(latest.url)
+    setSmartMixInfo({ stem_count: stems.find(s => s.id === latest.id) ? (() => { try { return JSON.parse(stems.find(s => s.id === latest.id).notes || '{}').stem_count } catch { return 0 } })() : 0, version: latest.version, name: latest.name })
+  }, [mixVersions])
+
+  // Restore the board exactly as it was when a mix version was generated.
+  const restoreSnapshot = (snap) => {
+    if (!snap) { addToast?.('This mix has no saved board to restore', 'info'); return }
+    setBoardIds(new Set(snap.board || []))
+    setMutedIds(new Set(snap.muted || []))
+    setSoloId(snap.solo ?? null)
+    setVolumes(snap.volumes || {})
+    setTrims(snap.trims || {})
+    setTransposes(snap.transposes || {})
+    addToast?.(<>Board restored — tweak and <strong style={{ color:'#fff' }}>Generate again</strong> for a new version</>, { type:'success' })
+  }
+
   // Load comments for every board stem so their waveform markers show without
   // needing to expand each one first. Guarded so each stem is fetched once.
   useEffect(() => {
@@ -993,7 +1055,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (!url) {
       setTransposing(stem.id)
       try {
-        const buf = await fetchAudioCached(stem.file_url)
+        const buf = await fetchAudioCached(stem.preview_url || stem.file_url)
         const rc  = new (window.AudioContext || window.webkitAudioContext)()
         const audio = await rc.decodeAudioData(buf.slice(0))
         rc.close().catch(() => {})
@@ -1112,7 +1174,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               metronomeOn={metronomeOn}
               onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
               beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
-              stems={stems}
+              stems={stems} trackCount={boardStems.length}
             />
           </div>
         </div>
@@ -1230,7 +1292,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               const stemPlaying = previewing && preview.playing   // this stem playing in the MiniPlayer
 
               return (
-                <TrackItem key={s.id}
+                <TrackItem key={s.id} user={user} isOwner={activeProject?.owner_id === user?.id}
                   stem={s} index={i} color={color}
                   isMuted={mutedIds.has(s.id)} isSolo={soloId===s.id}
                   isExpanded={expandedId===s.id} isDeleting={deletingId===s.id}
@@ -1286,18 +1348,24 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               // Mix exactly the stems on the board, excluding muted ones.
               const boardMixIds = boardStems.filter(s => !mutedIds.has(s.id)).map(s => s.id)
               try {
-                const r = await smartBounceApi(activeId, fid, boardMixIds)
+                // Snapshot the exact board so this version can be restored later.
+                const snapshot = { board:[...boardIds], muted:[...mutedIds], solo:soloId, volumes, trims, transposes }
+                const r = await smartBounceApi(activeId, fid, boardMixIds, snapshot)
                 setSmartMixUrl(r.data?.bounce_url)
-                setSmartMixInfo({ contributors:r.data?.contributors||[], stem_count:r.data?.stem_count })
+                setSmartMixInfo({ contributors:r.data?.contributors||[], stem_count:r.data?.stem_count, version:r.data?.version, name:r.data?.name })
+                addToast?.(<><strong style={{color:'#fff'}}>{r.data?.name || 'Mix'}</strong> saved to the project</>, { type:'success' })
                 // The bounce route refreshes this song's analysis — pull it in (give it a beat).
                 setTimeout(() => fetchAiAnalysis(activeId, fid), 1200)
               } catch {}
               setSmartMixing(false)
             }}
             onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}
+            mixVersions={mixVersions} onRestoreMix={restoreSnapshot}
             openModal={openModal} activeProject={activeProject}
             activeId={activeId} dawExporting={dawExporting} onExportDAW={exportToDAW}
-            exportScope={songOptions.find(o => o.id === songId)?.label || 'All Songs'}
+            exportCount={exportStems.length}
+            exportSongs={exportSongs} exportSel={exportSel} exportAllActive={exportAllActive}
+            onExportBoard={onExportBoard} onExportAll={onExportAll} onExportToggleSong={onExportToggleSong}
           />
           </div>
         </div>

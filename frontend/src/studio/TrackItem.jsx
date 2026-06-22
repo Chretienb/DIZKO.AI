@@ -1,9 +1,10 @@
 import React from 'react'
 import { MobileCtx } from '../lib/mobile.js'
 import { Avatar, Spinner, C } from '../components/ui/index.jsx'
-import { timeAgo } from '../lib/utils.js'
+import { timeAgo, getToken } from '../lib/utils.js'
 import Waveform from './Waveform.jsx'
 
+const IconHeart = ({size=13,filled=false,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={filled?color:'none'} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>
 const IconPlay  = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 3l15 9-15 9V3z"/></svg>
 const IconPause = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
 const IconTrash = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -21,11 +22,24 @@ export default function TrackItem({
   currentTime, duration, isPlaying, previewPlaying, storedPeaks,
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
-  onRemoveFromBoard, onAddCommentAt, onReply,
+  onRemoveFromBoard, onAddCommentAt, onReply, user, isOwner,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const commentCount = (comments||[]).filter(c => !c.resolved).length
   const stemLabel = STEM_LABELS[s.instrument] || s.instrument || 'Track'
+  // You can delete your own stems; the owner can delete anything. Master/mix = owner-only.
+  const isOwnerOnly = s.instrument === 'master' || s.instrument === 'smart_bounce'
+  const canDelete = isOwnerOnly ? isOwner : (isOwner || s.uploaded_by === user?.id)
+
+  // Like / favourite this take — toggles liked_by in the stem's notes.
+  const likedBy = React.useMemo(() => { try { return JSON.parse(s.notes || '{}').liked_by || [] } catch { return [] } }, [s.notes])
+  const [liked, setLiked] = React.useState(() => user?.id ? likedBy.includes(user.id) : false)
+  React.useEffect(() => { setLiked(user?.id ? likedBy.includes(user.id) : false) }, [likedBy, user])
+  const toggleLike = async () => {
+    setLiked(v => !v)   // optimistic
+    try { await fetch(`/api/files/${s.id}/like`, { method:'POST', credentials:'include', headers:{ Authorization:`Bearer ${getToken()}` } }) }
+    catch { setLiked(v => !v) }
+  }
 
   // Per-stem key + tempo, detected during analysis (stored on the stem's notes).
   const stemMeta = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
@@ -183,17 +197,24 @@ export default function TrackItem({
             onMouseEnter={e=>e.currentTarget.style.background=`${color}25`} onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
             {previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
           </button>
+          <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
+            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
+            onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
+            <IconHeart size={13} filled={liked} color={liked?'#f4937a':'currentColor'}/>
+          </button>
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-6, right:-6, minWidth:18, height:18, padding:'0 4px', borderRadius:9, background:color, color:'#fff', fontSize:11, fontWeight:800, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}`, fontVariantNumeric:'tabular-nums' }}>{commentCount}</span>}
           </button>
+          {canDelete && (
           <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
             onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
             onMouseLeave={e=>{e.currentTarget.style.color=C.t3;e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background='transparent'}}>
             {isDeleting?<Spinner size={10} color="#ef4444"/>:<IconTrash size={12}/>}
           </button>
+          )}
           {onRemoveFromBoard && (
             <button onClick={()=>onRemoveFromBoard(s.id)} aria-label={`Remove ${stemLabel} from board`} title="Remove from board"
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}

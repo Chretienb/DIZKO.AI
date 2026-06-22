@@ -43,7 +43,6 @@ import billingRoutes          from './routes/billing'
 import { startCleanupJob }   from './lib/cleanupJob'
 import { runSmartBounce }    from './lib/smartBounce'
 import { analyzeProject }    from './lib/aiAnalysis'
-import { scheduleSmartMix }  from './lib/mixScheduler'
 import { notify, getProjectMemberIds } from './lib/notificationService'
 
 import type { HonoVariables } from './types'
@@ -182,10 +181,13 @@ subscribeToFileEvents(async (payload) => {
     })
   }).catch(() => null)
 
-  // Auto-mix — debounced so a burst of uploads (e.g. a folder drop) produces
-  // ONE mix + mix-ready notification after the batch settles, not one per file.
-  scheduleSmartMix(projectId, stem.uploaded_by)
+  // Mixing is manual only — the user clicks "Generate Mix" to mix what's on
+  // their board. We do NOT auto-mix on upload.
 })
+
+// One mix at a time per project — impatient double-clicks used to pile up
+// (4 concurrent mixes once took 283s); reject extras instead of thrashing.
+const mixInFlight = new Set<string>()
 
 // ── POST /projects/:id/smart-bounce — manual trigger ─────────────────────────
 app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
@@ -195,7 +197,14 @@ app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
   // Board-driven mix: client sends the exact stems on the board (minus muted).
   const body      = await c.req.json().catch(() => ({} as any))
   const stemIds   = Array.isArray(body?.stem_ids) ? (body.stem_ids as string[]) : null
-  const result    = await runSmartBounce(projectId, user.id, folderId, stemIds)
+  const board     = body?.board && typeof body.board === 'object' ? body.board : null  // board snapshot for version restore
+
+  if (mixInFlight.has(projectId))
+    return c.json({ data: null, error: 'A mix is already running for this project — hang tight.', status: 409 }, 409)
+  mixInFlight.add(projectId)
+  let result
+  try { result = await runSmartBounce(projectId, user.id, folderId, stemIds, board) }
+  finally { mixInFlight.delete(projectId) }
   if (!result) return c.json({ data: null, error: 'Not enough stems to mix', status: 400 }, 400)
   // Refresh the AI analysis for this song so feedback reflects what was just mixed.
   analyzeProject(projectId, user.id, folderId).catch(() => null)

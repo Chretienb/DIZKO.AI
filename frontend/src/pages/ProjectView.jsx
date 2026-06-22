@@ -51,7 +51,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
   // Reflect the inline player's state onto the stem rows (which one is playing).
   useEffect(() => {
-    const h = e => setPlayback({ id: e.detail?.id ?? null, playing: !!e.detail?.playing })
+    const h = e => setPlayback({ id: e.detail?.id ?? null, playing: !!e.detail?.playing, loading: !!e.detail?.loading })
     window.addEventListener('dizko:player_state', h)
     return () => window.removeEventListener('dizko:player_state', h)
   }, [])
@@ -272,6 +272,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // ── Derived data ──────────────────────────────────────────────────────────
   const parentFiles = files.filter(f => !parseNotes(f).parent_stem_id)
 
+  // Saved Smart Mixes (the bounces), newest version first — surfaced in their own section.
+  const mixVer = f => { const n = parseNotes(f); return Number(n.version) || 0 }
+  const mixes = files
+    .filter(f => f.instrument === 'smart_bounce' && (f.file_url || f.preview_url))
+    .sort((a, b) => mixVer(b) - mixVer(a) || (+new Date(b.created_at) - +new Date(a.created_at)))
+
   // Filter stems to the selected song (folder). If no songs exist yet, show all.
   const stemsForView = folders.length > 0 && selectedFolderId
     ? parentFiles.filter(f => f.folder_id === selectedFolderId)
@@ -349,13 +355,30 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       e.target.value = ''  // allow re-picking the same file
     }
   }
-  const actItems = activity.length > 0
-    ? activity
-    : [...files].sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,6).map(f => ({
+  // Resolve a stem's uploader to a friendly name (You / first name / collaborator).
+  const nameFor = (uid) => {
+    if (!uid) return 'Someone'
+    if (uid === user?.id) return 'You'
+    if (uid === project?.owner_id && project?.owner?.full_name) return project.owner.full_name.split(' ')[0]
+    const c = collabs.find(c => (c.user_id || c.user?.id) === uid)
+    const nm = c?.user?.full_name || c?.user?.email?.split('@')[0]
+    return nm ? nm.split(' ')[0] : 'A collaborator'
+  }
+  // Clean, human activity feed: who did what, newest first.
+  const actItems = [...files]
+    .filter(f => !parseNotes(f).parent_stem_id)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 8)
+    .map(f => {
+      const isMix = f.instrument === 'smart_bounce'
+      return {
         id: f.id,
-        body: `${f.suggested_name || f.original_name || 'File'} — auto-labeled "${f.instrument || 'audio'}"`,
+        who: nameFor(f.uploaded_by),
+        verb: isMix ? 'generated' : 'added',
+        what: isMix ? (f.suggested_name || 'a mix') : stemTitle(f, project?.title),
         created_at: f.created_at,
-      }))
+      }
+    })
 
   const ACT_COLORS = ['#E95A51','#7E77D0','#3CDA6F','var(--t3)']
 
@@ -363,8 +386,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const S = {
     border: '1px solid var(--border)',
     border2: '1px solid var(--border-2)',
-    sectionLabel: { fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:'var(--t3)', marginBottom:8 },
-    card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' },
+    sectionLabel: { fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:'var(--t3)', marginBottom:9 },
+    card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden' },
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -648,9 +671,56 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             />
           </div>
         )}
+        {/* Mixes — every saved Smart Mix (the bounces), versioned newest-first */}
+        {mixes.length > 0 && (
+          <div style={{ padding: isMobile ? '12px 16px 0' : '12px 24px 0' }}>
+            <div style={S.sectionLabel}>Mixes · {mixes.length}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {mixes.map(m => {
+                const mn = parseNotes(m)
+                const isActive      = playback.id === m.id
+                const isPlayingThis = isActive && playback.playing
+                const isLoading     = isActive && playback.loading
+                return (
+                  <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:14,
+                    position:'relative', overflow:'hidden',
+                    background:'var(--surface)', border: isActive ? '1px solid #E95A51' : S.border }}>
+                    {isLoading && (
+                      <div aria-hidden="true" style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(233,90,81,.12)' }}>
+                        <div style={{ height:'100%', background:'linear-gradient(90deg,#E95A51,#F59E8C)', boxShadow:'0 0 8px rgba(233,90,81,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } })); else setPlayerFile(m) }}
+                      aria-label={isPlayingThis ? `Pause ${m.suggested_name || 'mix'}` : `Play ${m.suggested_name || 'mix'}`}
+                      style={{ width:36, height:36, borderRadius:'50%', border:'none', background:'#E95A51', color:'#fff', cursor:'pointer',
+                        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 3px 10px rgba(233,90,81,.4)' }}>
+                      {isPlayingThis
+                        ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
+                        : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><path d="M6 3l15 9-15 9V3z"/></svg>}
+                    </button>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.suggested_name || 'Mix'}</div>
+                      <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+                        {mn.duration ? fmtDur(mn.duration) + ' · ' : ''}{mn.stem_count || '—'} stems{isPlayingThis ? ' · playing' : ''}
+                      </div>
+                    </div>
+                    <a href={m.file_url} download={`${m.suggested_name || 'mix'}.wav`} aria-label="Download mix"
+                      style={{ width:34, height:34, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)', textDecoration:'none', flexShrink:0 }}
+                      onMouseEnter={e=>e.currentTarget.style.color='var(--t1)'} onMouseLeave={e=>e.currentTarget.style.color='var(--t3)'}>
+                      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <style>{`@keyframes eq { 0% { height:4px } 100% { height:14px } }
+          @keyframes chargeLane { 0% { width:4% } 60% { width:72% } 100% { width:94% } }
           .stem-row .lt-play-btn { opacity: 0 }
-          .stem-row:hover .lt-play-btn { opacity: 1 }`}</style>{/* equalizer + hover-reveal play */}
+          .stem-row:hover .lt-play-btn { opacity: 1 }`}</style>{/* equalizer + charge lane + hover-reveal play */}
 
         {/* Stem Sections */}
         <div style={{ padding: isMobile ? '16px' : '16px 24px', display:'flex', flexDirection:'column', gap:18 }}>
@@ -723,6 +793,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const isSel   = selectedFile?.id === f.id
                     const isActive      = playback.id === f.id
                     const isPlayingThis = isActive && playback.playing
+                    const isLoading     = isActive && playback.loading
                     const isRen   = renamingId === f.id
                     return (
                       <div key={f.id} className="stem-row"
@@ -733,7 +804,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         style={{
                           background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid #E95A51' : (isFinals ? '1px solid #C8E8A0' : S.border),
-                          borderRadius:10, padding:'13px 16px',
+                          borderRadius:10, padding:'13px 16px', position:'relative', overflow:'hidden',
                           display:'flex', alignItems:'center', gap:14, cursor:'pointer',
                           opacity: draggingId === f.id ? .4 : 1,
                           transition:'border-color .12s, background .12s, box-shadow .12s, opacity .12s',
@@ -741,6 +812,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.borderColor='var(--t4)' }}
                         onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.borderColor = isFinals ? '#C8E8A0' : 'var(--border)' }}>
+                        {/* Charging light lane — fills while the track loads, then it plays */}
+                        {isLoading && (
+                          <div aria-hidden="true" style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(233,90,81,.12)' }}>
+                            <div style={{ height:'100%', background:'linear-gradient(90deg,#E95A51,#F59E8C)', boxShadow:'0 0 8px rgba(233,90,81,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
+                          </div>
+                        )}
                         <div style={{ width:36, height:36, borderRadius:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                           background: isActive ? 'rgba(233,90,81,.12)' : (isFinals ? '#C4E4A0' : 'rgba(var(--fg),.06)'),
                           border: isActive ? '1px solid rgba(233,90,81,.35)' : '1px solid transparent', transition:'background .15s' }}>
@@ -767,14 +844,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
                         <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0 }}>
-                          {(!f.instrument || ['recording','other','demo'].includes(f.instrument)) ? (
-                            // Untagged stem — let the user add a tag instead of a meaningless "Recording".
-                            <InstrPicker value="" onChange={instr => setInstrument(f.id, instr)} />
-                          ) : (
-                            <span style={{ display:'inline-block', padding:'4px 11px', borderRadius:7, fontSize:11.5, fontWeight:600, color:badge.color, background:badge.bg, border:`1px solid ${badge.border}`, whiteSpace:'nowrap', textAlign:'center', opacity:.92 }}>
-                              {badge.label}
-                            </span>
-                          )}
+                          {/* Always editable — pick or change the instrument on any stem. */}
+                          <InstrPicker
+                            value={(f.instrument && !['recording','other','demo'].includes(f.instrument)) ? f.instrument : ''}
+                            onChange={instr => setInstrument(f.id, instr)} />
                         </div>
                         {canPlay ? (
                         <button aria-label={isPlayingThis ? 'Pause' : 'Play'}
@@ -813,14 +886,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
         {/* Recent Activity */}
         <div style={{ padding: isMobile ? '0 16px 24px' : '0 24px 28px' }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--t1)', marginBottom:10 }}>Recent Activity</div>
-          <div style={{ background:'var(--surface)', borderRadius:10, border:S.border, overflow:'hidden' }}>
+          <div style={S.sectionLabel}>Recent activity</div>
+          <div style={{ background:'var(--surface)', borderRadius:14, border:S.border, overflow:'hidden' }}>
             {actItems.length === 0 ? (
               <div style={{ padding:'24px', textAlign:'center', fontSize:12.5, color:'var(--t3)' }}>No activity yet.</div>
             ) : actItems.map((n, i) => (
               <div key={n.id||i} style={{ display:'flex', alignItems:'center', gap:11, padding:'11px 16px', borderBottom: i<actItems.length-1 ? '1px solid var(--surface-2)' : 'none' }}>
                 <div style={{ width:7, height:7, borderRadius:'50%', background:ACT_COLORS[i%4], flexShrink:0 }}/>
-                <div style={{ flex:1, fontSize:12.5, color:'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.body||n.message||n.title}</div>
+                <div style={{ flex:1, fontSize:12.5, color:'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  <strong style={{ color:'var(--t1)', fontWeight:700 }}>{n.who}</strong> {n.verb} <span style={{ color:'var(--t1)' }}>{n.what}</span>
+                </div>
                 <span style={{ fontSize:11, color:'var(--t4)', flexShrink:0 }}>{timeAgo(n.created_at)}</span>
               </div>
             ))}
@@ -830,7 +905,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         {/* Mobile: collaborators */}
         {isMobile && collabs.length > 0 && (
           <div style={{ padding:'0 16px 24px' }}>
-            <div style={{ background:'var(--surface)', borderRadius:10, border:S.border, overflow:'hidden' }}>
+            <div style={{ background:'var(--surface)', borderRadius:14, border:S.border, overflow:'hidden' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px', borderBottom:'1px solid var(--border)' }}>
                 <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
                 {isOwner && <button onClick={() => openModal?.('invite', { project })} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(233,90,81,.3)', background:'rgba(233,90,81,.08)', color:'#E95A51', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ Invite</button>}

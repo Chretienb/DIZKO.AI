@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
-import { assertProjectAccess, projectIdForStem } from '../lib/rbac'
+import { assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const stemComments = new Hono<{ Variables: HonoVariables }>()
@@ -121,8 +121,16 @@ stemComments.patch('/:commentId/resolve', async (c) => {
 })
 
 stemComments.delete('/:commentId', async (c) => {
-  const { error } = await supabase.from('stem_comments')
-    .delete().eq('id', c.req.param('commentId')).eq('user_id', c.var.user.id)
+  const userId    = c.var.user.id
+  const commentId = c.req.param('commentId')
+  // Author can delete their own comment; the project owner can moderate any.
+  const { data: comment } = await supabase.from('stem_comments').select('stem_id, user_id').eq('id', commentId).single()
+  if (!comment) return c.json({ data: null, error: 'Comment not found', status: 404 }, 404)
+  const projectId = await projectIdForStem((comment as any).stem_id)
+  const owner = projectId ? await isProjectOwner(projectId, userId) : false
+  if (!owner && (comment as any).user_id !== userId)
+    return c.json({ data: null, error: 'You can only delete your own comments', status: 403 }, 403)
+  const { error } = await supabase.from('stem_comments').delete().eq('id', commentId)
   if (error) return c.json({ error: error.message }, 500)
   return c.json({ data: { deleted: true } })
 })

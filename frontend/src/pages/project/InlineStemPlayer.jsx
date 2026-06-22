@@ -120,9 +120,12 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
       currentTime: a?.currentTime ?? 0,
       duration:    a?.duration || 0,
       playing:     false,
+      loading,
       ...over,
     } }))
   }
+  // Push loading changes immediately so the track rows can show a charging lane.
+  useEffect(() => { broadcast({ playing }) }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!playing) { broadcast({ playing: false }); return }
     let raf
@@ -130,7 +133,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, track?.id])
+  }, [playing, track?.id, loading])
 
   useEffect(() => () => {
     window.dispatchEvent(new CustomEvent('dizko:player_state', {

@@ -5,12 +5,11 @@ import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
-import { scheduleSmartMix } from '../lib/mixScheduler'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { transcodeToPreview, decodeToWav, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
-import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem } from '../lib/rbac'
+import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import type { HonoVariables } from '../types'
 
@@ -282,9 +281,7 @@ files.post('/upload', uploadLimit, async (c) => {
 
       console.log(`[upload] ${file.name} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''})`)
 
-      // Debounced AI analysis + Smart Mix — collapses a folder of uploads into
-      // ONE mix after the batch settles (was per-file → 75× on a 75-file drop).
-      scheduleSmartMix(projectId, user.id)
+      // No auto-mix — mixing happens only when the user clicks "Generate Mix".
     } catch (e) {
       console.error('[upload] background analysis error:', (e as Error).message)
     }
@@ -408,7 +405,7 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       }).eq('id', takeId)
 
       console.log(`[enrich] ${fileName} → "${suggestedName}" (${bpm ?? 'n/a'} BPM · ${key ?? 'n/a'}${peaks ? ` · ${peaks.length} peaks` : ''}${previewKey ? ' · preview' : ''})`)
-      scheduleSmartMix(projectId, userId)
+      // No auto-mix — mixing happens only when the user clicks "Generate Mix".
     } catch (e) {
       console.error('[enrich] background analysis error:', (e as Error).message)
     }
@@ -882,17 +879,28 @@ files.patch('/:id', sanitize, async (c) => {
 
 // ── DELETE /files/:id ──────────────────────────────────────────────────────────
 files.delete('/:id', async (c) => {
-  // Only members of the stem's project may delete it
+  const userId    = c.var.user.id
   const projectId = await projectIdForStem(c.req.param('id'))
-  if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: stem, error: fetchErr } = await supabase
-    .from('stems').select('storage_path, file_size, uploaded_by').eq('id', c.req.param('id')).single()
+    .from('stems').select('storage_path, file_size, uploaded_by, instrument').eq('id', c.req.param('id')).single()
 
   if (fetchErr) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
 
-  const s = stem as { storage_path: string; file_size: number; uploaded_by: string } | null
+  const s = stem as { storage_path: string; file_size: number; uploaded_by: string; instrument: string } | null
+
+  // Permission: you can delete your OWN stems; the owner can delete anything.
+  // The master + Smart Mix versions are owner-only (they're the deliverables).
+  const owner       = await isProjectOwner(projectId, userId)
+  const isUploader  = s?.uploaded_by === userId
+  const isOwnerOnly = s?.instrument === 'master' || s?.instrument === 'smart_bounce'
+  if (isOwnerOnly ? !owner : !(owner || isUploader)) {
+    return c.json({ data: null, error: isOwnerOnly
+      ? 'Only the project owner can delete the mix/master'
+      : "You can only delete your own stems", status: 403 }, 403)
+  }
   if (s?.storage_path) {
     await deleteFromR2(s.storage_path).catch(e => console.error('[delete] R2 error:', e.message))
     if (s.file_size && s.uploaded_by) {

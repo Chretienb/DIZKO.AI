@@ -32,7 +32,7 @@ const FEATURES = [
     ),
   },
   {
-    label: 'AI File Naming',
+    label: 'Smart File Naming',
     sub: 'Stop naming files. Start making music.',
     icon: (
       <svg width={22} height={22} viewBox="0 0 24 24" fill="none"

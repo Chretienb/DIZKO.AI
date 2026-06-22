@@ -6,7 +6,7 @@ import { getToken } from '../lib/utils.js'
 // ─── MINI PLAYER ───────────────────────────────────────────────────────────
 // Docked bottom bar + drag-to-expand full panel. Plays a single track from a
 // playlist with prev/next, like, approve, seek, and volume.
-export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
+export default function MiniPlayer({ track, playlist, user, onClose, onPlay, barless }) {
   const audioRef               = useRef(null)
   const pendingSeekRef         = useRef(null)   // seek requested before audio metadata is ready
   const [playing,  setPlaying] = useState(false)
@@ -212,6 +212,11 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay }) {
   const railW  = isMobile ? 52 : 76
   // Panel height: on mobile fill almost the full screen, on desktop a fixed sheet
   const panelH = isMobile ? `calc(100dvh - 72px)` : '500px'
+
+  // In the studio the board's track rows carry their own transport, so we hide
+  // the bottom bar there. The audio element is created in an effect (not in JSX),
+  // so playback keeps working even though nothing is rendered.
+  if (barless) return null
 
   return (
     <>

@@ -25,6 +25,14 @@ export async function assertProjectAccess(projectId: string, userId: string): Pr
   return !!collab
 }
 
+/** True only if userId is the project's owner (not just a collaborator). */
+export async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
+  if (!projectId || !userId) return false
+  const { data: project } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  return (project as any)?.owner_id === userId
+}
+
 /** Resolve the project id that owns a given stem, or null. */
 export async function projectIdForStem(stemId: string): Promise<string | null> {
   const { data: stem } = await supabase

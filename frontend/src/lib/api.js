@@ -387,7 +387,7 @@ export const accessRequests = {
 }
 
 // ── Smart Bounce ──────────────────────────────────────────────────────────────
-export const smartBounce = (projectId, folderId, stemIds) => post(`/projects/${projectId}/smart-bounce${folderId ? `?folder_id=${folderId}` : ''}`, stemIds ? { stem_ids: stemIds } : {})
+export const smartBounce = (projectId, folderId, stemIds, board) => post(`/projects/${projectId}/smart-bounce${folderId ? `?folder_id=${folderId}` : ''}`, { ...(stemIds ? { stem_ids: stemIds } : {}), ...(board ? { board } : {}) })
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 export const messagesApi = {

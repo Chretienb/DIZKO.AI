@@ -812,6 +812,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           user={user}
           onClose={() => { setNowPlaying(null); setPlaylist([]) }}
           onPlay={playTrack}
+          barless={location.pathname.startsWith('/studio')}
         />
       )}
 
