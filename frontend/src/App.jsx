@@ -712,7 +712,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               { id:'studio',        path:'/studio',        label:'Studio',   Icon: StudioMic },
               { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
               { id:'library',       path:'/library',       label:'Library',  Icon: BookOpen },
-              { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
+              // Stats hidden from the rail for MVP — route + page kept, bring it back later.
+              // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
             ].map(n => {
               const on = currentNav?.id === n.id
               const sz = isMobile ? 38 : 44
