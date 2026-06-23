@@ -138,14 +138,17 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
   // a smart_bounce stem so the project keeps a history. We prune the oldest once
   // past KEEP_VERSIONS so storage doesn't grow without bound.
   const KEEP_VERSIONS = 8
-  // Count existing mixes PROJECT-WIDE (not the folder-scoped `stems` above) — the
-  // saved mixes have no folder_id, so a song-scoped query never found them and the
-  // version always reset to 1. Query all smart_bounce stems across the project.
-  const { data: bounceRows } = await supabase
+  // Versions are per-SONG: each song keeps its own Mix 1, 2, 3… Scope the count
+  // (and the prune) to this song's mixes. The bounce is now tagged with folder_id
+  // (below), so this query finds them — fixing both the version reset AND the
+  // cross-song mix leakage Angel flagged.
+  let bounceQuery = supabase
     .from('stems')
     .select('id, notes, created_at, storage_path, file_size, uploaded_by')
     .in('track_id', trackIds)
     .eq('instrument', 'smart_bounce')
+  bounceQuery = folderId ? bounceQuery.eq('folder_id', folderId) : bounceQuery.is('folder_id', null)
+  const { data: bounceRows } = await bounceQuery
   const existingBounces = (bounceRows as any[]) || []
   const versionOf = (b: any) => { try { return Number(JSON.parse(b.notes || '{}').version) || 0 } catch { return 0 } }
   const nextVersion = (existingBounces.length ? Math.max(...existingBounces.map(versionOf)) : 0) + 1
@@ -225,7 +228,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
     const mixName = `Mix ${nextVersion}`
     await supabase.from('stems').insert({
       track_id: trackId, original_name: 'smart_mix.wav',
-      suggested_name: mixName,
+      suggested_name: mixName, folder_id: folderId,
       file_url: bounceUrl, storage_path: storagePath,
       file_size: mixBuf.length, mime_type: 'audio/wav',
       instrument: 'smart_bounce',
@@ -339,6 +342,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
     track_id:       trackId,
     original_name:  'smart_mix.wav',
     suggested_name: mixName,
+    folder_id:      folderId,
     file_url:       bounceUrl,
     storage_path:   storagePath,
     file_size:      mixBuf.length,

@@ -711,6 +711,15 @@ function buildSuggestedName(
   projectTitle?: string,
   _artist?: string,
 ): string {
+  // Protect already-descriptive names: if the user's filename already names a
+  // specific stem type, keep THEIR name (just tidied) instead of flattening it to
+  // a generic label and losing the detail (e.g. "..._snare.wav" → don't make it "Drums").
+  const base = original.replace(/\.[^.]+$/, '')
+  const STEM_WORDS = /\b(master|vocals?|vox|adlib|harmon|lead|snare|kick|hi-?hat|hat|tom|clap|cymbal|ride|perc|drum|bass|808|sub|gtr|guitar|acoustic|piano|keys?|rhodes|wurli|organ|synth|pad|strings?|brass|horns?|sax|flute|arp|hook|melody)\b/i
+  if (STEM_WORDS.test(base) && base.length <= 64) {
+    return base.replace(/[\s]+/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '')
+  }
+
   // Filename-safe segment (keep # for sharp keys, strip everything else).
   const seg = (s?: string | null) => (s ?? '').replace(/[^A-Za-z0-9#]+/g, '')
   // Compact key: "F# minor" → "F#min", "C major" → "Cmaj".

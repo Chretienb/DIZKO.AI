@@ -33,6 +33,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [renamingProject, setRenamingProject] = useState(false)
   const [shareOpen,    setShareOpen]    = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
+  const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
+  const openPlayer = (f) => { setPlayerAutoplay(true); setPlayerFile(f) }
   const [isPlaying,    setIsPlaying]    = useState(false)
   const [selectedFolderId,   setSelectedFolderId]   = useState(null)
   const [newSongInput,       setNewSongInput]       = useState(false)
@@ -133,9 +135,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       const filesRes = await filesApi.list(projectId)
       const loaded   = filesRes.data || []
       setFiles(loaded)
-
-      const featured = loaded.find(f => ['finals','exports','smart_bounce'].includes(f.instrument)) || loaded[0]
-      if (featured) setPlayerFile(featured)
+      // Don't auto-load/feature a mix on open — it pulled a random song's mix and
+      // autoplayed it. The user plays a mix/stem when they want (per Angel's note).
 
       try {
         const r = await fetch(`/api/notifications?project_id=${projectId}&limit=20`, {
@@ -270,12 +271,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────
-  const parentFiles = files.filter(f => !parseNotes(f).parent_stem_id)
+  // Stems shown in the groups — exclude Demucs children and the mixes (those live
+  // in the Mixes section, not as stem rows).
+  const parentFiles = files.filter(f => !parseNotes(f).parent_stem_id && f.instrument !== 'smart_bounce')
 
   // Saved Smart Mixes (the bounces), newest version first — surfaced in their own section.
   const mixVer = f => { const n = parseNotes(f); return Number(n.version) || 0 }
   const mixes = files
-    .filter(f => f.instrument === 'smart_bounce' && (f.file_url || f.preview_url))
+    // Only this song's mixes (bounces are tagged with their folder_id).
+    .filter(f => f.instrument === 'smart_bounce' && (f.file_url || f.preview_url)
+      && (!selectedFolderId || f.folder_id === selectedFolderId))
     .sort((a, b) => mixVer(b) - mixVer(a) || (+new Date(b.created_at) - +new Date(a.created_at)))
 
   // Filter stems to the selected song (folder). If no songs exist yet, show all.
@@ -666,7 +671,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               playlist={parentFiles}
               user={user}
               projectTitle={project?.title}
-              onPlay={f => setPlayerFile(f)}
+              autoPlay={playerAutoplay}
+              onPlay={openPlayer}
               onClose={() => setPlayerFile(null)}
             />
           </div>
@@ -691,7 +697,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       </div>
                     )}
                     <button
-                      onClick={() => { if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } })); else setPlayerFile(m) }}
+                      onClick={() => { if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } })); else openPlayer(m) }}
                       aria-label={isPlayingThis ? `Pause ${m.suggested_name || 'mix'}` : `Play ${m.suggested_name || 'mix'}`}
                       style={{ width:36, height:36, borderRadius:'50%', border:'none', background:'#E95A51', color:'#fff', cursor:'pointer',
                         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 3px 10px rgba(233,90,81,.4)' }}>
@@ -853,7 +859,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         <button aria-label={isPlayingThis ? 'Pause' : 'Play'}
                           onClick={e=>{ e.stopPropagation()
                             if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
-                            else { setPlayerFile(preview ? { ...f, file_url: preview } : f); setIsPlaying(true) } }}
+                            else { openPlayer(preview ? { ...f, file_url: preview } : f); setIsPlaying(true) } }}
                           className="lt-play-btn"
                           style={{ width:32, height:32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                             border: isActive ? '1.5px solid transparent' : '1.5px solid #E95A51',
@@ -1022,7 +1028,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   </div>
                 )}
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true) }}
+                  <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true) }}
                     style={{ height:34, borderRadius:8, border:'none', cursor:'pointer', background:'#E95A51', color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'inherit', transition:'opacity .1s' }}
                     onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                     <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
@@ -1161,7 +1167,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </div>
               </div>
             )}
-            <button onClick={() => { setPlayerFile(selectedFile); setIsPlaying(true); setMobileDetailOpen(false) }}
+            <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true); setMobileDetailOpen(false) }}
               style={{ width:'100%', height:46, borderRadius:11, border:'none', cursor:'pointer', background:'#E95A51', color:'#fff', fontSize:15, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'inherit', boxShadow:'0 4px 16px rgba(233,90,81,.3)' }}>
               <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
               Play Stem

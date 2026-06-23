@@ -52,12 +52,12 @@ export function ltDot(status) {
 }
 
 export const GROUPS = [
-  { key:'finals',  label:'FINAL MIX',  instrs:['finals','exports','smart_bounce'] },
+  { key:'finals',  label:'MASTER',     instrs:['finals','exports','smart_bounce','master'] },
   { key:'drums',   label:'DRUMS',      instrs:['drums','beats','kick','snare','hihat','cymbal','percussion'] },
   { key:'bass',    label:'BASS / 808', instrs:['bass'] },
   { key:'melody',  label:'MELODY',     instrs:['guitar','acoustic','keys','piano','organ','synth','pad','strings','brass','wind','harmony'] },
   { key:'vocals',  label:'VOCALS',     instrs:['vocals'] },
-  { key:'other',   label:'OTHER',      instrs:['recording','demo','other','master'] },
+  { key:'other',   label:'OTHER',      instrs:['recording','demo','other'] },
 ]
 export function getGroupKey(instr) {
   for (const g of GROUPS) if (g.instrs.includes(instr)) return g.key

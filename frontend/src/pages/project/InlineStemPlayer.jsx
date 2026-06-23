@@ -12,7 +12,7 @@ import { getPeaks, cachedPeaks, synthPeaks } from '../../lib/waveform.js'
 const CORAL = '#E95A51'
 const GRAD  = 'linear-gradient(90deg, #E95A51 0%, #F0739A 55%, #F28FB8 100%)'
 
-export default function InlineStemPlayer({ track, playlist = [], user, projectTitle = '', onPlay, onClose }) {
+export default function InlineStemPlayer({ track, playlist = [], user, projectTitle = '', onPlay, onClose, autoPlay = true }) {
   const audioRef                = useRef(null)
   const [playing,  setPlaying]  = useState(false)
   const [progress, setProgress] = useState(0)
@@ -61,8 +61,11 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     a.onloadedmetadata = () => setDuration(a.duration)
     a.oncanplay        = () => setLoading(false)
     a.onended          = () => { setPlaying(false); goNext() }
-    const p = a.play(); setPlaying(true)
-    return () => { p?.then(() => { a.pause(); a.src='' }).catch(() => { a.src='' }) }
+    // Autoplay on user-initiated track changes, but stay paused when the project
+    // just loaded the featured mix (don't blast audio on open).
+    let p
+    if (autoPlay) { p = a.play(); setPlaying(true) } else { setPlaying(false) }
+    return () => { (p ?? Promise.resolve()).then(() => { a.pause(); a.src='' }).catch(() => { a.src='' }) }
   }, [track?.preview_url, track?.file_url])
 
   const toggle = () => {

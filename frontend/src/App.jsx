@@ -484,15 +484,11 @@ function StudioMic({ size = 24, weight = 'regular' }) {
 }
 
 // Masonry / dashboard-layout grid icon (drop-in: accepts size + weight)
-function MasonryIcon({ size = 24, weight = 'regular' }) {
-  const fill = weight === 'fill' || weight === 'bold'
-  const c = fill ? { fill:'currentColor', stroke:'none' } : { fill:'none', stroke:'currentColor', strokeWidth:1.9 }
+function MasonryIcon({ size = 24 }) {
+  // Projects = an album of songs → library-music icon.
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24">
-      <rect x="2.5"  y="2.5"  width="8" height="5.5"  rx="1.6" {...c}/>
-      <rect x="13.5" y="2.5"  width="8" height="10.5" rx="1.6" {...c}/>
-      <rect x="2.5"  y="10.5" width="8" height="11"   rx="1.6" {...c}/>
-      <rect x="13.5" y="15.5" width="8" height="5.5"  rx="1.6" {...c}/>
+    <svg width={size} height={size} viewBox="0 0 182 182" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M95.55 118.3C101.92 118.3 107.304 116.101 111.703 111.703C116.101 107.304 118.3 101.92 118.3 95.55V45.5H136.5C139.078 45.5 141.24 44.6279 142.984 42.8838C144.728 41.1396 145.6 38.9783 145.6 36.4C145.6 33.8217 144.728 31.6604 142.984 29.9163C141.24 28.1721 139.078 27.3 136.5 27.3H118.3C115.722 27.3 113.56 28.1721 111.816 29.9163C110.072 31.6604 109.2 33.8217 109.2 36.4V77.35C107.228 75.8333 105.105 74.6958 102.83 73.9375C100.555 73.1792 98.1283 72.8 95.55 72.8C89.18 72.8 83.7958 74.9992 79.3975 79.3975C74.9992 83.7958 72.8 89.18 72.8 95.55C72.8 101.92 74.9992 107.304 79.3975 111.703C83.7958 116.101 89.18 118.3 95.55 118.3ZM54.6 145.6C49.595 145.6 45.3104 143.818 41.7463 140.254C38.1821 136.69 36.4 132.405 36.4 127.4V18.2C36.4 13.195 38.1821 8.91042 41.7463 5.34625C45.3104 1.78208 49.595 0 54.6 0H163.8C168.805 0 173.09 1.78208 176.654 5.34625C180.218 8.91042 182 13.195 182 18.2V127.4C182 132.405 180.218 136.69 176.654 140.254C173.09 143.818 168.805 145.6 163.8 145.6H54.6ZM54.6 127.4H163.8V18.2H54.6V127.4ZM18.2 182C13.195 182 8.91042 180.218 5.34625 176.654C1.78208 173.09 0 168.805 0 163.8V45.5C0 42.9217 0.872083 40.7604 2.61625 39.0163C4.36042 37.2721 6.52167 36.4 9.1 36.4C11.6783 36.4 13.8396 37.2721 15.5838 39.0163C17.3279 40.7604 18.2 42.9217 18.2 45.5V163.8H136.5C139.078 163.8 141.24 164.672 142.984 166.416C144.728 168.16 145.6 170.322 145.6 172.9C145.6 175.478 144.728 177.64 142.984 179.384C141.24 181.128 139.078 182 136.5 182H18.2Z"/>
     </svg>
   )
 }
@@ -720,14 +716,16 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               return (
                 <button key={n.id} onClick={() => navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
-                  style={{ width:sz, height:sz, borderRadius:11, border:'none', cursor:'pointer', flexShrink:0,
-                    display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit',
-                    background: on ? 'rgba(var(--fg),.1)' : 'transparent',
-                    color: on ? '#fff' : 'rgba(var(--fg),.42)',
-                    transition:'all .12s' }}
-                  onMouseEnter={e => { if (!on) { e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.7)' } }}
-                  onMouseLeave={e => { if (!on) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(var(--fg),.42)' } }}>
-                  <n.Icon size={isMobile ? 20 : 23} weight={on ? 'bold' : 'regular'} />
+                  style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0, padding:'3px 0',
+                    display:'flex', flexDirection:'column', alignItems:'center', gap:3, background:'transparent', fontFamily:'inherit',
+                    color: on ? '#fff' : 'rgba(var(--fg),.42)', transition:'color .12s' }}
+                  onMouseEnter={e => { if (!on) e.currentTarget.style.color='rgba(var(--fg),.7)' }}
+                  onMouseLeave={e => { if (!on) e.currentTarget.style.color='rgba(var(--fg),.42)' }}>
+                  <span style={{ width:sz, height:sz, borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center',
+                    background: on ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
+                    <n.Icon size={isMobile ? 19 : 22} weight={on ? 'bold' : 'regular'} />
+                  </span>
+                  <span style={{ fontSize:isMobile ? 9 : 9.5, fontWeight:600, lineHeight:1, letterSpacing:'.01em' }}>{n.label}</span>
                 </button>
               )
             })}
