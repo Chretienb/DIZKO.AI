@@ -12,6 +12,7 @@ import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
 import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
 import { pitchShiftBuffer, audioBufferToWavBlob } from '../studio/pitchShift.js'
+import { getBytes as getCachedBytes, putBytes as putCachedBytes } from '../lib/audioCache.js'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -37,9 +38,9 @@ function cacheSet(key, val) {
 }
 
 // ── Decoded-buffer cache + background preloader ──────────────────────────────
-// Decoding board stems' ORIGINALS ahead of time (on studio open) makes "Play all"
-// instant AND tightly synced (the MP3 preview's encoder delay made the visual
-// lead the audio). decodeAudioData is off-main-thread, so this never freezes.
+// Decoding board stems' lightweight MP3 previews ahead of time (on studio open)
+// makes "Play all" instant. Bytes are also persisted to IndexedDB so a returning
+// musician never re-downloads. decodeAudioData is off-main-thread, never freezes.
 const decodedCache = new Map()           // url → AudioBuffer
 let _sharedDecodeCtx = null
 const sharedDecodeCtx = () => (_sharedDecodeCtx ||= new (window.AudioContext || window.webkitAudioContext)())
@@ -54,6 +55,10 @@ async function preloadDecoded(url) {
 
 async function fetchAudioCached(url, onProgress) {
   if (audioBufferCache.has(url)) { onProgress?.(100); return audioBufferCache.get(url) }
+  // Persistent IndexedDB cache — survives reloads, so a returning musician never
+  // re-downloads stems they've already played. Network only on a true cold miss.
+  const stored = await getCachedBytes(url).catch(() => null)
+  if (stored) { onProgress?.(100); cacheSet(url, stored); return stored }
   // cache:'reload' forces a fresh request — R2 304 responses omit CORS headers
   // which causes the browser to block the response. reload bypasses the cache.
   const res = await fetch(url, { mode:'cors', credentials:'omit', cache:'reload' })
@@ -75,6 +80,7 @@ async function fetchAudioCached(url, onProgress) {
   let pos = 0
   for (const chunk of chunks) { buf.set(chunk, pos); pos += chunk.length }
   cacheSet(url, buf.buffer)
+  putCachedBytes(url, buf.buffer).catch(() => {})   // persist for instant next time
   return buf.buffer
 }
 
@@ -573,21 +579,25 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     const decodeCtx = new (window.AudioContext || window.webkitAudioContext)()
     const decoded = await Promise.all(loadableStems.map(async s => {
       const label = s.suggested_name || s.original_name || s.id
+      // Play the lightweight MP3 preview (~10× smaller than the original) so the
+      // mix starts fast. The preview is full-length — only the bytes are smaller.
+      // Fall back to the original when a stem has no preview yet.
+      const playUrl    = s.preview_url || s.file_url
+      const fromPreview = !!s.preview_url
       try {
-        // Use the preloaded decoded ORIGINAL (instant + tightly synced — the MP3
-        // preview's encoder delay made the visual lead the audio). Fall back to
-        // decoding on the fly if it wasn't preloaded yet.
-        let audio = decodedCache.get(s.file_url)
+        // Use the preloaded decoded buffer (instant) if the background preloader
+        // already grabbed it; otherwise decode on the fly.
+        let audio = decodedCache.get(playUrl)
         if (!audio) {
-          const buf = await fetchAudioCached(s.file_url, pct =>
+          const buf = await fetchAudioCached(playUrl, pct =>
             setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
           audio = await decodeCtx.decodeAudioData(buf.slice(0))
           if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
-          decodedCache.set(s.file_url, audio)
+          decodedCache.set(playUrl, audio)
         }
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        seedPeaksFromBuffer(s.file_url, audio)   // peaks always from the original (unshifted) audio
-        console.log(`[studio] ✓ decoded: ${label}`)
+        seedPeaksFromBuffer(s.file_url, audio)   // peaks keyed to the stem's waveform
+        console.log(`[studio] ✓ decoded: ${label}${fromPreview ? ' (preview)' : ''}`)
 
         // Per-stem transpose: play a pitch-shifted copy (same length → stays in sync).
         const semis = Math.round(transposesRef.current[s.id] || 0)
@@ -598,9 +608,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             shifted = await pitchShiftBuffer(audio, semis)   // runs in a Web Worker
             pitchCacheRef.current.set(key, shifted)
           }
-          return { s, audio: shifted }
+          return { s, audio: shifted, fromPreview }
         }
-        return { s, audio }
+        return { s, audio, fromPreview }
       } catch (e) {
         console.error(`[studio] ✗ failed: ${label} —`, e?.message)
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
@@ -620,14 +630,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     const startTime = ctx.currentTime + 0.05
     let maxDur = 0
 
-    decoded.filter(Boolean).forEach(({ s, audio }) => {
+    decoded.filter(Boolean).forEach(({ s, audio, fromPreview }) => {
       const trim        = getTrim(s.id)
       const vol         = getVolume(s.id)
       const isMuted     = mutedIds.has(s.id)
       const isSilenced  = soloId !== null && soloId !== s.id
       const trimStart    = audio.duration * trim.start
       const effectiveDur = audio.duration * (trim.end - trim.start)
-      const playFrom     = trimStart + offsetRef.current
+      // LAME adds ~1105 samples (~0.025s) of leading silence to the MP3 preview.
+      // Skip past it so the audio lines up with the waveform playhead.
+      const PREVIEW_LAG  = fromPreview ? 0.025 : 0
+      const playFrom     = trimStart + offsetRef.current + PREVIEW_LAG
       // Skip stem if the seek position is past its end — don't start it at all
       if (playFrom >= audio.duration) return
       if (effectiveDur > maxDur) maxDur = effectiveDur
@@ -995,15 +1008,32 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // Board = chosen subset of mixer stems, in library order
   const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
 
-  // Background preload: decode the board's originals as soon as they're on the
-  // board (studio open / stem added), throttled, so "Play all" is instant and
-  // synced. decodeAudioData is off the main thread, so this never freezes the UI.
+  // Background preload: decode the board's lightweight previews as soon as they
+  // land on the board (studio open / stem added), throttled, so "Play all" is
+  // instant. decodeAudioData is off the main thread, so this never freezes the UI.
   const [preparing, setPreparing] = useState(0)
+
+  // Resizable STEMS panel — names were too long to read at the fixed 240px width.
+  const [stemsW, setStemsW] = useState(() => { try { return Math.max(200, Math.min(520, Number(localStorage.getItem('dizko_stems_w')) || 260)) } catch { return 260 } })
+  const startStemsResize = (e) => {
+    e.preventDefault()
+    const startX = e.clientX, startW = stemsW
+    const move = ev => setStemsW(Math.max(200, Math.min(520, startW + (ev.clientX - startX))))
+    const up = () => {
+      document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up)
+      document.body.style.cursor = ''
+      setStemsW(w => { try { localStorage.setItem('dizko_stems_w', String(w)) } catch {}; return w })
+    }
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+    document.body.style.cursor = 'col-resize'
+  }
   useEffect(() => {
-    const urls = boardStems.filter(s => s.file_url && !decodedCache.has(s.file_url)).map(s => s.file_url)
+    const urls = boardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(u))
     if (!urls.length) { setPreparing(0); return }
     let cancelled = false, i = 0, active = 0
-    const CONCURRENCY = 2
+    // Previews are small; fetch them in parallel (browsers cap ~6/host anyway) so
+    // the whole board is decoded and ready before the musician hits Play all.
+    const CONCURRENCY = Math.min(6, urls.length)
     setPreparing(urls.length)
     const next = () => {
       if (cancelled) return
@@ -1231,11 +1261,18 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       </div>
 
       {loading ? <LoadingBlock/> : (
-        <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'240px 1fr 300px', gap:20, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':`${stemsW}px 1fr 300px`, gap:20, alignItems:'start' }}>
 
           {/* ── Stems library panel — tap +/- (or drag on desktop) to build the board ── */}
           <div style={{ position: isMobile ? 'static' : 'sticky', top:165, borderRadius:14, overflow:'hidden',
             border:`1px solid ${C.border}`, background:C.surface }}>
+            {/* Drag the right edge to widen (long stem names) */}
+            {!isMobile && (
+              <div onMouseDown={startStemsResize} title="Drag to resize" aria-hidden="true"
+                style={{ position:'absolute', top:0, right:0, width:7, height:'100%', cursor:'col-resize', zIndex:6 }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(244,147,122,.25)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
+            )}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
               padding:'10px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
               <span style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Stems</span>

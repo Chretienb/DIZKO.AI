@@ -694,14 +694,21 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       : location.pathname.startsWith(n.path)
   ) ?? (location.pathname === '/account' ? { id:'account', label:'Account', path:'/account' } : NAV[0])
 
+  // Sidebar expand/collapse (icon+labels ↔ icon-only). Desktop only; persisted.
+  const [navExpanded, setNavExpanded] = useState(() => {
+    try { return localStorage.getItem('dizko_nav_expanded') !== '0' } catch { return true }
+  })
+  const toggleNav = () => setNavExpanded(v => { const n = !v; try { localStorage.setItem('dizko_nav_expanded', n ? '1' : '0') } catch {} ; return n })
+  const expanded = !isMobile && navExpanded
+
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
   const SidebarContent = () => (
     <>
       {(
         /* ── Icon-only rail — used on both desktop and mobile ── */
         <>
-          {/* Nav — icon only (Home on top, no logo) */}
-          <nav style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding: isMobile ? '12px 0 0' : '18px 14px 0', flexShrink:0 }}>
+          {/* Nav — icon-only rail, or icon+label rows when expanded */}
+          <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: isMobile ? '12px 0 0' : (expanded ? '18px 10px 0' : '18px 14px 0'), flexShrink:0 }}>
             {[
               { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
               { id:'projects',      path:'/projects',      label:'Projects', Icon: MasonryIcon },
@@ -716,16 +723,21 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               return (
                 <button key={n.id} onClick={() => navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
-                  style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0, padding:'3px 0',
-                    display:'flex', flexDirection:'column', alignItems:'center', gap:3, background:'transparent', fontFamily:'inherit',
-                    color: on ? '#fff' : 'rgba(var(--fg),.42)', transition:'color .12s' }}
-                  onMouseEnter={e => { if (!on) e.currentTarget.style.color='rgba(var(--fg),.7)' }}
-                  onMouseLeave={e => { if (!on) e.currentTarget.style.color='rgba(var(--fg),.42)' }}>
-                  <span style={{ width:sz, height:sz, borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center',
-                    background: on ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
+                  style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0,
+                    display:'flex', alignItems:'center', fontFamily:'inherit',
+                    flexDirection: expanded ? 'row' : 'column',
+                    justifyContent: expanded ? 'flex-start' : 'center',
+                    gap: expanded ? 12 : 3, padding: expanded ? '7px 10px' : '3px 0',
+                    borderRadius: expanded ? 11 : 0,
+                    background: expanded && on ? 'rgba(var(--fg),.1)' : 'transparent',
+                    color: on ? '#fff' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
+                  onMouseEnter={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
+                  onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
+                  <span style={{ width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                    background: (!expanded && on) ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
                     <n.Icon size={isMobile ? 19 : 22} weight={on ? 'bold' : 'regular'} />
                   </span>
-                  <span style={{ fontSize:isMobile ? 9 : 9.5, fontWeight:600, lineHeight:1, letterSpacing:'.01em' }}>{n.label}</span>
+                  <span style={{ fontSize: expanded ? 13.5 : (isMobile ? 9 : 9.5), fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
                 </button>
               )
             })}
@@ -748,6 +760,20 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               <PhPlus size={17} weight="bold" />
             </button>
           </div>
+
+          {/* Collapse / expand toggle (desktop) — Angel's chevron */}
+          {!isMobile && (
+            <div style={{ padding: expanded ? '4px 10px' : '4px 0', display:'flex', justifyContent: expanded ? 'flex-end' : 'center', flexShrink:0 }}>
+              <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
+                style={{ height:30, padding: expanded ? '0 10px' : 0, width: expanded ? 'auto' : 34, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:'inherit', fontSize:12, fontWeight:600, transition:'all .12s' }}
+                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.55)' }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: navExpanded ? 'none' : 'rotate(180deg)', transition:'transform .15s' }}><polyline points="15 18 9 12 15 6"/></svg>
+                {expanded && <span>Collapse</span>}
+              </button>
+            </div>
+          )}
 
           {/* Bottom: theme toggle + notification + avatar */}
           <div style={{ padding:'6px 8px 16px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, flexShrink:0 }}>
@@ -777,7 +803,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       <a href="#main-content" className="sr-only sr-only-focusable">Skip to main content</a>
 
       {/* ══ SIDEBAR — icon rail on both desktop and mobile ═══════════════════ */}
-      <aside style={{ width: isMobile ? 52 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh' }}>
+      <aside style={{ width: isMobile ? 52 : (expanded ? 190 : 76), background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh', transition:'width .16s ease' }}>
         <SidebarContent />
       </aside>
 

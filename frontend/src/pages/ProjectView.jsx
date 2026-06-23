@@ -325,9 +325,24 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
     fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
 
-  const infoFile   = parentFiles.find(f => parseNotes(f).bpm)
+  // Header BPM/key describe the SELECTED SONG, not the whole album. Prefer the
+  // song's master (its canonical tempo/key); fall back to any analyzed stem.
+  const infoFile   = stemsForView.find(f => f.instrument === 'master' && parseNotes(f).bpm)
+                  || stemsForView.find(f => parseNotes(f).bpm)
   const projBpm    = infoFile ? parseNotes(infoFile).bpm : null
   const projKey    = infoFile ? `${parseNotes(infoFile).key || ''}${parseNotes(infoFile).scale === 'minor' ? 'm' : ''}` : null
+
+  // Format/sample-rate for the song's stems (most common extension; vocals are 48k).
+  const songFmt    = (() => {
+    const counts = {}
+    stemsForView.forEach(f => {
+      const ext = (f.original_name || '').split('.').pop()?.toUpperCase()
+      if (ext && ext.length <= 4) counts[ext] = (counts[ext] || 0) + 1
+    })
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    return top ? top[0] : 'WAV'
+  })()
+  const songRate   = stemsForView.some(f => f.instrument === 'vocals') ? '48kHz' : '44.1kHz'
 
   const selNotes   = selectedFile ? parseNotes(selectedFile) : {}
   const selLabels  = selectedFile ? getDetectedLabels(selectedFile, selNotes) : []
@@ -667,11 +682,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             {/* "Auto-labeled" badge removed per Angel — visual bloat. */}
           </div>
 
-          {/* Metadata row */}
+          {/* Metadata row — scoped to the selected song's stems. */}
           <div style={{ fontSize:12, color:'var(--t3)' }}>
-            {parentFiles.length} stem{parentFiles.length!==1?'s':''}
+            {stemsForView.length} stem{stemsForView.length!==1?'s':''}
             {project?.updated_at && <><span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>Updated {timeAgo(project.updated_at)}</>}
-            <span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>WAV<span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>44.1kHz
+            <span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>{songFmt}<span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>{songRate}
           </div>
         </div>
 
