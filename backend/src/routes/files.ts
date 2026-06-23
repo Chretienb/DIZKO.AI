@@ -37,15 +37,28 @@ function resolveContentType(filename: string, browserType: string): string {
 
 // ── Detect instrument type from filename (no AI needed) ───────────────────────
 function detectInstrument(filename: string): string {
-  const n = filename.toLowerCase()
-  if (/vocal|vox|voice|lead|melody|hook|adlib|singing/.test(n)) return 'vocals'
-  if (/drum|beat|kick|snare|perc|trap|boom|hi.?hat/.test(n))   return 'drums'
-  if (/bass|sub|808/.test(n))                                    return 'bass'
-  if (/guitar|gtr|acous/.test(n))                                return 'guitar'
-  if (/piano|keys?|synth|pad|organ|chord/.test(n))               return 'keys'
-  if (/harm|choir|bg.?vocal|backing|stack/.test(n))              return 'harmony'
-  if (/violin|strings?|brass|horn|sax|flute/.test(n))            return 'instrument'
-  if (/demo|rough|bounce|mix/.test(n))                           return 'demo'
+  const n = filename.toLowerCase().replace(/[_\-.]/g, ' ')
+  if (/\bmaster\b|mastered|mixdown|final mix/.test(n))           return 'master'
+  if (/vocal|vox|voice|sing|choir|verse|hook|chorus|rap|acapella|adlib/.test(n)) return 'vocals'
+  if (/guitar|gtr|acous|strat|tele|riff/.test(n))               return 'guitar'
+  // Specific drum hits first so "openhat"/"clap" don't fall into generic "drums".
+  if (/open ?hat|openhh|ohh\b/.test(n))                         return 'openhat'
+  if (/\bclap\b|claps/.test(n))                                 return 'clap'
+  if (/\bkick\b|\bbd\b/.test(n))                                return 'kick'
+  if (/\bsnare\b|\bsd\b/.test(n))                               return 'snare'
+  if (/hi ?hat|closed ?hat|\bhh\b|hat\b/.test(n))               return 'hihat'
+  if (/drum|cymbal|crash|ride|perc|tom|rimshot|loop|beat/.test(n)) return 'drums'
+  if (/\b808\b/.test(n))                                        return '808'
+  if (/\bbass\b|bassline|\bsub\b/.test(n))                      return 'bass'
+  if (/\bbell|bells|glock|chime|celesta/.test(n))             return 'bells'
+  if (/piano|keys?|keyboard|clav|rhodes|wurli/.test(n))        return 'keys'
+  if (/\borgan\b/.test(n))                                     return 'organ'
+  if (/\blead\b|melody|arp/.test(n))                          return 'lead'
+  if (/synth|pad|pluck|analog|wavetable/.test(n))            return 'synth'
+  if (/harm|choir|bg.?vocal|backing|stack/.test(n))          return 'harmony'
+  if (/violin|strings?|brass|horn|sax|flute/.test(n))        return 'strings'
+  if (/\bfx\b|effect|riser|sweep|impact|foley|atmos|ambient/.test(n)) return 'fx'
+  if (/demo|rough/.test(n))                                  return 'demo'
   return 'recording'
 }
 
@@ -920,6 +933,27 @@ files.delete('/:id', async (c) => {
   const { error } = await supabase.from('stems').delete().eq('id', c.req.param('id'))
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { message: 'File deleted' }, error: null, status: 200 })
+})
+
+// ── POST /files/:id/archive — toggle archived (soft-hide, kept in storage) ────
+// Lets a producer tuck away an old take without deleting it. Same gate as delete:
+// the uploader or the project owner. The stem stays in R2 + counts toward storage.
+files.post('/:id/archive', async (c) => {
+  const userId = c.var.user.id
+  const id = c.req.param('id')
+  const projectId = await projectIdForStem(id)
+  if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  const { data: stem } = await supabase.from('stems').select('notes, uploaded_by').eq('id', id).maybeSingle()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+  const owner = await isProjectOwner(projectId, userId)
+  if (!owner && (stem as any).uploaded_by !== userId)
+    return c.json({ data: null, error: 'You can only archive your own stems', status: 403 }, 403)
+  let notes: any = {}; try { notes = JSON.parse((stem as any).notes || '{}') } catch {}
+  notes.archived = !notes.archived
+  const { error } = await supabase.from('stems').update({ notes: JSON.stringify(notes) }).eq('id', id)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { archived: notes.archived }, error: null, status: 200 })
 })
 
 // ── GET /files (query by track) ────────────────────────────────────────────────

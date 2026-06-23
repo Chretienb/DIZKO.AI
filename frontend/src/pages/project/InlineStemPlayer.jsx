@@ -22,17 +22,18 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
   const [liked,    setLiked]    = useState(false)
   const [likeCount,setLikeCount]= useState(0)
   const [peaks,    setPeaks]    = useState(() => cachedPeaks(track?.id) || synthPeaks(track?.id))
+  // True only once we have the REAL decoded peaks — until then we draw a neutral
+  // flat placeholder instead of a misleading random waveform (Angel's note).
+  const [peaksReady, setPeaksReady] = useState(() => !!cachedPeaks(track?.id))
 
-  // Show a per-stem waveform immediately (deterministic), then upgrade to the
-  // real decoded audio once available. Real decode needs R2 CORS for fetch();
-  // until then the synthesized shape stands in (unique per stem).
   useEffect(() => {
     if (!track?.id) return
     const cached = cachedPeaks(track.id)
     setPeaks(cached || synthPeaks(track.id))
+    setPeaksReady(!!cached)
     if (cached || !track.file_url) return
     let alive = true
-    getPeaks(track.id, track.file_url).then(p => { if (alive) setPeaks(p) }).catch(() => {})
+    getPeaks(track.id, track.file_url).then(p => { if (alive) { setPeaks(p); setPeaksReady(true) } }).catch(() => {})
     return () => { alive = false }
   }, [track?.id, track?.file_url])
 
@@ -211,17 +212,20 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
         </div>
       </div>
 
-      {/* Waveform = scrub bar. Real per-stem bars when decoded; static art otherwise. */}
+      {/* Waveform = scrub bar. Flat placeholder until the REAL peaks decode (no
+          misleading random waveform), then the true per-stem bars. */}
       <div onMouseDown={!loading ? scrub : undefined}
         role="slider" aria-label="Seek" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}
         style={{ position:'relative', height:128, cursor:(!loading && duration) ? 'pointer' : 'default',
-          opacity: loading ? .45 : 1, transition:'opacity .2s' }}>
+          opacity: (loading || !peaksReady) ? .4 : 1, transition:'opacity .25s' }}>
         {/* Each bar's height is the audio peak; played bars fill coral. */}
         <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', gap:2, pointerEvents:'none' }}>
           {peaks.map((p, i) => {
             const played = (i / peaks.length) * 100 <= progress
-            return <div key={i} style={{ flex:1, height:`${Math.max(3, p * 100)}%`, borderRadius:2,
-              background: played ? CORAL : 'rgba(var(--fg),.22)', transition:'background .12s' }}/>
+            // Neutral, uniform baseline while loading the real peaks.
+            const h = peaksReady ? Math.max(3, p * 100) : 14
+            return <div key={i} style={{ flex:1, height:`${h}%`, borderRadius:2,
+              background: peaksReady && played ? CORAL : 'rgba(var(--fg),.22)', transition:'height .25s, background .12s' }}/>
           })}
         </div>
         {/* Playhead */}

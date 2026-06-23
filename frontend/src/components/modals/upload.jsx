@@ -133,23 +133,29 @@ export const INSTR_LIST = [
   { id:'kick',      label:'Kick',            color:'#dc2626' },
   { id:'snare',     label:'Snare',           color:'#f87171' },
   { id:'hihat',     label:'Hi-Hat',          color:'#fb7185' },
+  { id:'openhat',   label:'Open Hat',        color:'#fb7185' },
+  { id:'clap',      label:'Clap',            color:'#f87171' },
   { id:'cymbal',    label:'Cymbal',          color:'#fda4af' },
   { id:'percussion',label:'Percussion',      color:'#f43f5e' },
   // Bass
   { id:'bass',      label:'Bass',            color:'#22c55e' },
+  { id:'808',       label:'808',             color:'#16a34a' },
   // Guitars
   { id:'guitar',    label:'Guitar',          color:'#f59e0b' },
   { id:'acoustic',  label:'Acoustic Guitar', color:'#d97706' },
   // Keys
   { id:'piano',     label:'Piano',           color:'#3b82f6' },
   { id:'keys',      label:'Keys',            color:'#60a5fa' },
+  { id:'bells',     label:'Bells',           color:'#38bdf8' },
   { id:'organ',     label:'Organ',           color:'#2563eb' },
   { id:'synth',     label:'Synth',           color:'#ec4899' },
+  { id:'lead',      label:'Lead',            color:'#a855f7' },
   { id:'pad',       label:'Pad',             color:'#f0abfc' },
   // Orchestral / wind
   { id:'strings',   label:'Strings',         color:'#f97316' },
   { id:'brass',     label:'Brass',           color:'#eab308' },
   { id:'wind',      label:'Wind',            color:'#facc15' },
+  { id:'fx',        label:'FX',              color:'#94a3b8' },
   { id:'recording', label:'Recording',       color:'#6b7280' },
   { id:'other',     label:'Other',           color:'#9ca3af' },
 ]
@@ -158,27 +164,50 @@ export function detectInstrument(filename) {
   const f = filename.toLowerCase().replace(/[_\-\.]/g, ' ')
   if (/\bmaster\b|mastered|mixdown|final mix|final master|\bfinal\b|\bmstr\b/.test(f)) return 'master'
   if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric|acapella|adlib/.test(f)) return 'vocals'
-  if (/guitar|gtr|acoustic|electric|strat|tele|riff|chord/.test(f))     return 'guitar'
-  if (/drum|kick|snare|hihat|hi hat|cymbal|perc|clap|tom|rimshot|one shot|oneshot|shot|sample|loop|pattern/.test(f)) return 'drums'
-  if (/\bbass\b|bassline|808|sub|low end/.test(f))                       return 'bass'
+  if (/guitar|gtr|acoustic|electric|strat|tele|riff/.test(f))           return 'guitar'
+  // Specific drum hits first (so "openhat" / "clap" don't fall through to generic "drums").
+  if (/open ?hat|openhh|ohh\b/.test(f))                                  return 'openhat'
+  if (/\bclap\b|claps/.test(f))                                          return 'clap'
+  if (/\bkick\b|\bbd\b/.test(f))                                         return 'kick'
+  if (/\bsnare\b|\bsd\b/.test(f))                                        return 'snare'
+  if (/hi ?hat|closed ?hat|\bhh\b|hat\b/.test(f))                        return 'hihat'
+  if (/drum|cymbal|crash|ride|perc|tom|rimshot|one ?shot|loop|pattern/.test(f)) return 'drums'
+  if (/\b808\b/.test(f))                                                 return '808'
+  if (/\bbass\b|bassline|\bsub\b|low end/.test(f))                       return 'bass'
   if (/beat|prod|instrumental|trap|drill|afro|type beat/.test(f))        return 'drums'
-  if (/piano|keys|keyboard|organ|clav|rhodes|melody/.test(f))           return 'piano'
-  if (/synth|pad|lead|arp|analog|wavetable|osc|pluck|chord/.test(f))    return 'synth'
+  if (/\bbell|bells|glock|chime|celesta/.test(f))                        return 'bells'
+  if (/piano|keys|keyboard|clav|rhodes|wurli/.test(f))                  return 'piano'
+  if (/\borgan\b/.test(f))                                              return 'organ'
+  if (/\blead\b|melody|arp/.test(f))                                    return 'lead'
+  if (/synth|pad|analog|wavetable|osc|pluck/.test(f))                  return 'synth'
   if (/string|violin|cello|viola|orchestra|orch/.test(f))               return 'strings'
-  if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'horns'
+  if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'brass'
+  if (/\bfx\b|effect|riser|sweep|impact|foley|texture|atmos|ambient/.test(f)) return 'fx'
   return ''
 }
 
 export function InstrPicker({ value, onChange }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const ref = useRef()
   useEffect(() => {
     if (!open) return
+    setQuery('')
     const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
+  // Show the picked instrument — a known one, or a custom typed label.
   const current = INSTR_LIST.find(i => i.id === value)
+    || (value ? { id:value, label:value.charAt(0).toUpperCase()+value.slice(1), color:'#9ca3af' } : null)
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? INSTR_LIST.filter(i => i.label.toLowerCase().includes(q) || i.id.includes(q)) : INSTR_LIST
+  // Offer a custom instrument when the typed text isn't an exact match.
+  const exact = INSTR_LIST.some(i => i.label.toLowerCase() === q || i.id === q)
+  const customId = q.replace(/[^a-z0-9 ]/g, '').trim()
+  const pick = (id) => { onChange(id); setOpen(false) }
+
   return (
     <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
       <button onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
@@ -193,7 +222,7 @@ export function InstrPicker({ value, onChange }) {
       {open && (
         <div style={{ position:'fixed', zIndex:9999,
           background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10,
-          boxShadow:'0 8px 24px rgba(0,0,0,.5)', padding:4, minWidth:150 }}
+          boxShadow:'0 8px 24px rgba(0,0,0,.5)', padding:4, width:190, display:'flex', flexDirection:'column' }}
           ref={el => {
             if (!el || !ref.current) return
             const btn = ref.current.querySelector('button')
@@ -202,27 +231,50 @@ export function InstrPicker({ value, onChange }) {
             el.style.top  = (r.top - el.offsetHeight - 6) + 'px'
             el.style.left = r.left + 'px'
           }}>
-          {INSTR_LIST.map(ins => {
-            const isMaster = ins.id === 'master'
-            const selected = value === ins.id
-            return (
-            <button key={ins.id} onClick={() => { onChange(ins.id); setOpen(false) }}
-              style={{ width:'100%', padding: isMaster ? '10px 10px' : '7px 10px', border:'none',
-                borderRadius:7, marginBottom: isMaster ? 4 : 0,
-                borderBottom: isMaster ? `1px solid ${C.border}` : 'none',
-                background: selected ? `${ins.color}12` : isMaster ? `${ins.color}10` : 'transparent',
-                color: selected || isMaster ? ins.color : C.t1,
-                fontSize: isMaster ? 14 : 12, fontWeight: selected || isMaster ? 800 : 500,
-                cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
-              onMouseEnter={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}1c` : 'rgba(var(--fg),.06)' }}
-              onMouseLeave={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}10` : 'transparent' }}>
-              {isMaster
-                ? <span aria-hidden="true" style={{ fontSize:13, lineHeight:1 }}>★</span>
-                : <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>}
-              <span style={{ flex:1 }}>{ins.label}</span>
-              {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.06em', textTransform:'uppercase', opacity:.8 }}>Final</span>}
-            </button>
-          )})}
+          {/* Search / type a custom instrument */}
+          <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => { if (e.key === 'Enter' && customId) pick(filtered[0]?.id || customId) }}
+            placeholder="Search or type…"
+            style={{ width:'100%', boxSizing:'border-box', height:30, marginBottom:4, padding:'0 9px', borderRadius:7,
+              border:`1px solid ${C.border}`, background:'rgba(var(--fg),.05)', color:C.t1, fontSize:12, outline:'none', fontFamily:'inherit' }}/>
+          <div style={{ maxHeight:230, overflowY:'auto' }}>
+            {filtered.map(ins => {
+              const isMaster = ins.id === 'master'
+              const selected = value === ins.id
+              return (
+              <button key={ins.id} onClick={() => pick(ins.id)}
+                style={{ width:'100%', padding: isMaster ? '10px 10px' : '7px 10px', border:'none',
+                  borderRadius:7, marginBottom: isMaster ? 4 : 0,
+                  borderBottom: isMaster ? `1px solid ${C.border}` : 'none',
+                  background: selected ? `${ins.color}12` : isMaster ? `${ins.color}10` : 'transparent',
+                  color: selected || isMaster ? ins.color : C.t1,
+                  fontSize: isMaster ? 14 : 12, fontWeight: selected || isMaster ? 800 : 500,
+                  cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
+                onMouseEnter={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}1c` : 'rgba(var(--fg),.06)' }}
+                onMouseLeave={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}10` : 'transparent' }}>
+                {isMaster
+                  ? <span aria-hidden="true" style={{ fontSize:13, lineHeight:1 }}>★</span>
+                  : <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>}
+                <span style={{ flex:1 }}>{ins.label}</span>
+                {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.06em', textTransform:'uppercase', opacity:.8 }}>Final</span>}
+              </button>
+            )})}
+            {/* Custom instrument from the typed text */}
+            {q && !exact && customId && (
+              <button onClick={() => pick(customId)}
+                style={{ width:'100%', padding:'7px 10px', border:'none', borderRadius:7, background:'transparent',
+                  color:C.coral, fontSize:12, fontWeight:600, cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                <span style={{ fontSize:13, lineHeight:1 }}>+</span>
+                <span style={{ flex:1 }}>Use “{customId}”</span>
+              </button>
+            )}
+            {!filtered.length && !customId && (
+              <div style={{ padding:'10px', fontSize:11.5, color:C.t3, textAlign:'center' }}>No match</div>
+            )}
+          </div>
         </div>
       )}
     </div>

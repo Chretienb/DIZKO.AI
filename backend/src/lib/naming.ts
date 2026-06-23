@@ -13,14 +13,14 @@ const INSTRUMENT_MAP: Record<string, string> = {
   voc: 'Vocals', vocal: 'Vocals', vocals: 'Vocals', vox: 'Vocals', singing: 'Vocals', voice: 'Vocals',
   // Drums / percussion
   drum: 'Drums', drums: 'Drums', kick: 'Kick', snare: 'Snare',
-  hihat: 'Hi-Hat', 'hi-hat': 'Hi-Hat', hh: 'Hi-Hat', cymbal: 'Cymbal',
-  perc: 'Percussion', percussion: 'Percussion',
+  hihat: 'Hi-Hat', 'hi-hat': 'Hi-Hat', hh: 'Hi-Hat', openhat: 'Open Hat', clap: 'Clap',
+  cymbal: 'Cymbal', perc: 'Percussion', percussion: 'Percussion',
   // Bass
-  bass: 'Bass',
+  bass: 'Bass', '808': '808',
   // Guitar
   gtr: 'Guitar', guitar: 'Guitar', gtrs: 'Guitars', acou: 'Acoustic Guitar', acoustic: 'Acoustic Guitar',
   // Keys / synth
-  keys: 'Keys', piano: 'Piano', synth: 'Synth', pad: 'Pad', organ: 'Organ',
+  keys: 'Keys', piano: 'Piano', bells: 'Bells', synth: 'Synth', pad: 'Pad', organ: 'Organ',
   // Lead / melodic
   lead: 'Lead', melody: 'Melody', arp: 'Arp', hook: 'Hook',
   // Other

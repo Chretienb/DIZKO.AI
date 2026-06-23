@@ -15,7 +15,7 @@ export default function Transport({
   bpm, onBpmChange,
   metronomeOn, onToggleMetronome,
   beatFlash, detectingBpm, onDetectBpm,
-  stems, trackCount = 0,
+  stems, trackCount = 0, preparing = 0,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const progress = duration > 0 ? currentTime / duration : 0
@@ -73,6 +73,11 @@ export default function Transport({
         </span>
         {trackCount > 0 && (
           <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>· {trackCount} track{trackCount>1?'s':''}</span>
+        )}
+        {!playing && preparing > 0 && (
+          <span style={{ fontSize:11, fontWeight:600, color:C.coral, display:'flex', alignItems:'center', gap:5 }}>
+            · <Spinner size={10} color={C.coral}/> preparing {preparing}
+          </span>
         )}
       </div>
 

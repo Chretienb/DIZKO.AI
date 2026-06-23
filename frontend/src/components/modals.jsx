@@ -1163,7 +1163,7 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-export function ModalUpload({ project, folderId, onClose, user, addToast, updateToast }) {
+export function ModalUpload({ project, folderId, folderName, onClose, user, addToast, updateToast }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
@@ -1171,6 +1171,16 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
   const [uploading,     setUploading]     = useState(false)
   const [allDone,       setAllDone]       = useState(false)
   const [requesting,    setRequesting]    = useState(null)
+  // Resolve the real song name (the badge used to read literal "this song").
+  const [songLabel,     setSongLabel]     = useState(folderName || '')
+  useEffect(() => {
+    if (folderName) { setSongLabel(folderName); return }
+    if (!folderId || !(project?.id)) return
+    foldersApi.list(project.id).then(r => {
+      const f = (r.data || []).find(x => x.id === folderId)
+      if (f?.name) setSongLabel(f.name)
+    }).catch(() => {})
+  }, [folderId, folderName, project?.id])
   const [requestSent,   setRequestSent]   = useState(new Set())
   const [myRole,        setMyRole]        = useState(null)  // user's role on the selected project
   const [skipped,       setSkipped]       = useState(0)     // non-audio files dropped during import
@@ -1355,8 +1365,25 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
       putUrl: stem.url, storagePath: stem.storage_path, contentType: stem.content_type,
       instrument: (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined,
     }))
+
+    // Nothing to transfer (all blocked, or the batch returned no rows) — never
+    // close silently; tell the user what happened.
+    if (recs.length === 0) {
+      setUploading(false); onClose()
+      addToast?.(blocked.length
+        ? `${blocked.length} file${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`
+        : 'Upload couldn’t start — please try again', { type: 'info' })
+      return
+    }
+
     for (const { stem, prepared: p } of pairs) setUploadPreview(stem.id, p.it.file)
-    await Promise.all(recs.map(r => putPending(r)))
+    // Cache bytes in IndexedDB for refresh-resumability — BEST EFFORT. On a full
+    // disk (or private mode) IndexedDB rejects; that must NOT abort the upload,
+    // since the bytes are already in memory for the background transfer. Without
+    // this guard a full disk silently killed the whole upload ("nothing happened").
+    let cacheFailed = false
+    await Promise.all(recs.map(r => putPending(r).catch(() => { cacheFailed = true })))
+    if (cacheFailed) addToast?.('Low disk space — uploads will run now but won\'t resume if you refresh', { type: 'info' })
 
     // Boom — show them now; hand the bytes to the background uploader, which keeps
     // going across refresh/navigation (App resumes it on load) and drives the
@@ -1393,6 +1420,15 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
     startUpload()
   }
 
+  // Guard accidental close (click-outside / ✕) when there are unsent files —
+  // Angel lost his queue by clicking off the modal.
+  const guardedClose = () => {
+    const pendingFiles = queue.some(f => f.status === 'queued')
+    if ((uploading || pendingFiles) &&
+        !window.confirm('Discard the files you added? They haven’t been uploaded yet.')) return
+    onClose()
+  }
+
   const doneCount  = queue.filter(f => f.status === 'done').length
   const errorCount = queue.filter(f => f.status === 'error').length
   const hasQueued  = queue.some(f => f.status === 'queued')
@@ -1426,7 +1462,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
   const queued = queue.filter(f => f.status === 'queued').length
 
   return (
-    <Modal title="Upload stems" sub={selProj?.title || undefined} onClose={onClose} width={760}>
+    <Modal title="Upload stems" sub={selProj?.title || undefined} onClose={guardedClose} width={760}>
 
       {/* Song indicator — shows which song files will land in */}
       {folderId && selProj && (
@@ -1434,7 +1470,7 @@ export function ModalUpload({ project, folderId, onClose, user, addToast, update
           borderRadius:9, background:'rgba(233,90,81,.08)', border:'1px solid rgba(233,90,81,.2)' }}>
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           <span style={{ fontSize:12, color:'rgba(var(--fg),.7)' }}>
-            Files will go to <strong style={{ color:'#E95A51' }}>this song</strong> in {selProj.title}
+            Files will go to <strong style={{ color:'#E95A51' }}>{songLabel || 'this song'}</strong> in {selProj.title}
           </span>
         </div>
       )}

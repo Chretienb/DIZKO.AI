@@ -104,8 +104,14 @@ function parseWavPcm(arrayBuffer) {
  * Encode a WAV File to a FLAC Blob. Returns { blob, name } or null (caller then
  * uploads the original). Never throws.
  */
+// Above this, skip in-browser FLAC: the encode is a synchronous main-thread call,
+// so large files freeze the tab for seconds (a 12×37 MB drop looked like a dead
+// upload — "nothing happened"). Big files upload as WAV; the transfer is backgrounded.
+const MAX_FLAC_BYTES = 24 * 1024 * 1024
+
 export async function encodeToFlac(file) {
   try {
+    if (file.size > MAX_FLAC_BYTES) return null
     if (!isLikelyWav(file)) return null
     const buf = await file.arrayBuffer()
     const wav = parseWavPcm(buf)

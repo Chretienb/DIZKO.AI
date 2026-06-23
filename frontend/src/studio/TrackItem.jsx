@@ -207,14 +207,8 @@ export default function TrackItem({
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-6, right:-6, minWidth:18, height:18, padding:'0 4px', borderRadius:9, background:color, color:'#fff', fontSize:11, fontWeight:800, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}`, fontVariantNumeric:'tabular-nums' }}>{commentCount}</span>}
           </button>
-          {canDelete && (
-          <button onClick={()=>onDelete(s.id)} disabled={isDeleting} aria-label={`Delete ${stemLabel}`}
-            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
-            onMouseEnter={e=>{e.currentTarget.style.color='#ef4444';e.currentTarget.style.borderColor='rgba(239,68,68,.3)';e.currentTarget.style.background='rgba(239,68,68,.05)'}}
-            onMouseLeave={e=>{e.currentTarget.style.color=C.t3;e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background='transparent'}}>
-            {isDeleting?<Spinner size={10} color="#ef4444"/>:<IconTrash size={12}/>}
-          </button>
-          )}
+          {/* Trashcan removed on board stems per Angel — the X (remove from board)
+              is the action we want here; deletion lives in the project view. */}
           {onRemoveFromBoard && (
             <button onClick={()=>onRemoveFromBoard(s.id)} aria-label={`Remove ${stemLabel} from board`} title="Remove from board"
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}

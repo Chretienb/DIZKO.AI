@@ -223,6 +223,7 @@ export const files = {
   get:    (id)              => get(`/files/${id}`),
   update: (id, body)        => patch(`/files/${id}`, body),
   delete:        (id)        => del(`/files/${id}`),
+  archive:       (id)        => post(`/files/${id}/archive`, {}),
   separateStems: (id)        => post(`/files/${id}/separate-stems`, {}),
 
   // Upload audio to a project, DIRECT to R2 to avoid the browser→backend→R2

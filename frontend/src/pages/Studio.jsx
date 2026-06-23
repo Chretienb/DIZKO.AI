@@ -36,6 +36,22 @@ function cacheSet(key, val) {
   audioBufferCache.set(key, val)
 }
 
+// ── Decoded-buffer cache + background preloader ──────────────────────────────
+// Decoding board stems' ORIGINALS ahead of time (on studio open) makes "Play all"
+// instant AND tightly synced (the MP3 preview's encoder delay made the visual
+// lead the audio). decodeAudioData is off-main-thread, so this never freezes.
+const decodedCache = new Map()           // url → AudioBuffer
+let _sharedDecodeCtx = null
+const sharedDecodeCtx = () => (_sharedDecodeCtx ||= new (window.AudioContext || window.webkitAudioContext)())
+async function preloadDecoded(url) {
+  if (!url || decodedCache.has(url)) return decodedCache.get(url)
+  const bytes = await fetchAudioCached(url)
+  const audio = await sharedDecodeCtx().decodeAudioData(bytes.slice(0))
+  if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
+  decodedCache.set(url, audio)
+  return audio
+}
+
 async function fetchAudioCached(url, onProgress) {
   if (audioBufferCache.has(url)) { onProgress?.(100); return audioBufferCache.get(url) }
   // cache:'reload' forces a fresh request — R2 304 responses omit CORS headers
@@ -558,13 +574,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     const decoded = await Promise.all(loadableStems.map(async s => {
       const label = s.suggested_name || s.original_name || s.id
       try {
-        // Decode the MP3 preview (what single-stem playback uses) — it's small and
-      // decodes everywhere. The FLAC original can fail decodeAudioData in-browser.
-      const buf = await fetchAudioCached(s.preview_url || s.file_url, pct =>
-          setLoadingPct(prev => ({ ...prev, [s.id]: pct }))
-        )
-        // Decode on a dedicated context so the playback context stays clean
-        const audio = await decodeCtx.decodeAudioData(buf.slice(0))
+        // Use the preloaded decoded ORIGINAL (instant + tightly synced — the MP3
+        // preview's encoder delay made the visual lead the audio). Fall back to
+        // decoding on the fly if it wasn't preloaded yet.
+        let audio = decodedCache.get(s.file_url)
+        if (!audio) {
+          const buf = await fetchAudioCached(s.file_url, pct =>
+            setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
+          audio = await decodeCtx.decodeAudioData(buf.slice(0))
+          if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
+          decodedCache.set(s.file_url, audio)
+        }
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
         seedPeaksFromBuffer(s.file_url, audio)   // peaks always from the original (unshifted) audio
         console.log(`[studio] ✓ decoded: ${label}`)
@@ -885,7 +905,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   const mixerStems = useMemo(() => visibleStems.filter(s => {
     if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce') return false
-    const n = parsedNotes(s); return !n.parent_stem_id
+    const n = parsedNotes(s); return !n.parent_stem_id && !n.archived   // hide archived stems
   // Master (the engineer's final mix) pinned to the top — of the library and the
   // board. Stable sort keeps every other stem in its existing order.
   }).sort((a, b) => (b.instrument === 'master' ? 1 : 0) - (a.instrument === 'master' ? 1 : 0)), [visibleStems])
@@ -964,10 +984,40 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }, [])
   const removeFromBoard = useCallback(id => {
     setBoardIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    // If it's currently playing in the board mix, stop its source NOW — removing
+    // it from the board used to leave the audio still sounding.
+    const src = audioRefs.current[id]
+    if (src) { try { src.stop() } catch {} delete audioRefs.current[id] }
+    delete gainRefs.current[id]
+    delete analyserRefs.current[id]
   }, [])
 
   // Board = chosen subset of mixer stems, in library order
   const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
+
+  // Background preload: decode the board's originals as soon as they're on the
+  // board (studio open / stem added), throttled, so "Play all" is instant and
+  // synced. decodeAudioData is off the main thread, so this never freezes the UI.
+  const [preparing, setPreparing] = useState(0)
+  useEffect(() => {
+    const urls = boardStems.filter(s => s.file_url && !decodedCache.has(s.file_url)).map(s => s.file_url)
+    if (!urls.length) { setPreparing(0); return }
+    let cancelled = false, i = 0, active = 0
+    const CONCURRENCY = 2
+    setPreparing(urls.length)
+    const next = () => {
+      if (cancelled) return
+      while (active < CONCURRENCY && i < urls.length) {
+        active++
+        preloadDecoded(urls[i++]).catch(() => {}).finally(() => {
+          if (cancelled) return
+          active--; setPreparing(c => Math.max(0, c - 1)); next()
+        })
+      }
+    }
+    next()
+    return () => { cancelled = true }
+  }, [boardStems])
 
   // ── Export scope ──────────────────────────────────────────────────────────
   // 'board' = the de-muted stems on the board; otherwise a Set of song (folder)
@@ -1174,7 +1224,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               metronomeOn={metronomeOn}
               onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
               beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
-              stems={stems} trackCount={boardStems.length}
+              stems={stems} trackCount={boardStems.length} preparing={preparing}
             />
           </div>
         </div>
@@ -1283,13 +1333,14 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
               const hKey       = `${s.uploaded_by}::${s.instrument||'recording'}`
 
-              // Per-stem playback clock: the single-stem MiniPlayer preview drives
-              // only its own waveform; otherwise the synced "Play all" transport does.
-              const previewing = isPreviewing(s)
+              // Per-stem playback clock: a single-stem preview drives only its own
+              // waveform — but when the BOARD is playing, ONE master timeline wins
+              // for every stem (ignore any stale per-stem preview position).
+              const previewing = isPreviewing(s) && !playing
               const pbTime     = previewing ? preview.currentTime : currentTime
               const pbDur      = previewing ? preview.duration    : duration
               const pbPlaying  = previewing ? preview.playing     : playing
-              const stemPlaying = previewing && preview.playing   // this stem playing in the MiniPlayer
+              const stemPlaying = previewing && preview.playing   // this stem playing in the single-stem preview
 
               return (
                 <TrackItem key={s.id} user={user} isOwner={activeProject?.owner_id === user?.id}
@@ -1308,7 +1359,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
                   onMute={toggleMute} onSolo={toggleSolo}
                   onPlay={handleStemPlay} onToggleExpand={handleToggleExpand}
-                  onSeek={(sec) => handleStemSeek(s, sec)}
+                  onSeek={(sec) => playing ? seek(sec) : handleStemSeek(s, sec)}
                   onDelete={deleteStem}
                   onVolumeChange={changeVolume}
                   onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}

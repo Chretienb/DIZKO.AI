@@ -34,6 +34,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [shareOpen,    setShareOpen]    = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
+  const [showArchived,   setShowArchived]   = useState(false)
   const openPlayer = (f) => { setPlayerAutoplay(true); setPlayerFile(f) }
   const [isPlaying,    setIsPlaying]    = useState(false)
   const [selectedFolderId,   setSelectedFolderId]   = useState(null)
@@ -219,6 +220,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     catch (e) { setFiles(fs => fs.map(f => f.id === stemId ? { ...f, instrument: prev } : f)); addToast?.(`Couldn't tag: ${e.message}`, 'error') }
   }
 
+  // Archive / unarchive a stem — soft-hide it (kept in storage), optimistic.
+  const toggleArchive = async (stemId) => {
+    const flip = f => { if (f.id !== stemId) return f; let n = {}; try { n = JSON.parse(f.notes || '{}') } catch {}; return { ...f, notes: JSON.stringify({ ...n, archived: !n.archived }) } }
+    const willArchive = !(() => { try { return JSON.parse(files.find(f => f.id === stemId)?.notes || '{}').archived } catch { return false } })()
+    setFiles(fs => fs.map(flip))
+    try { await filesApi.archive(stemId); addToast?.(willArchive ? 'Stem archived' : 'Stem restored', { type: 'success' }) }
+    catch (e) { setFiles(fs => fs.map(flip)); addToast?.(`Couldn't archive: ${e.message}`, 'error') }
+  }
+
   // Drag a stem onto a group (DRUMS / BASS / MELODY / VOCALS / OTHER) to re-tag
   // it to that family. If it's already in the group, keep its finer tag.
   const [draggingId,   setDraggingId]   = useState(null)
@@ -271,16 +281,21 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────
-  // Stems shown in the groups — exclude Demucs children and the mixes (those live
-  // in the Mixes section, not as stem rows).
-  const parentFiles = files.filter(f => !parseNotes(f).parent_stem_id && f.instrument !== 'smart_bounce')
+  // Stems shown in the groups — exclude Demucs children, the mixes (those live in
+  // the Mixes section), and ARCHIVED stems (those live in the Archived section).
+  const parentFiles = files.filter(f => { const n = parseNotes(f); return !n.parent_stem_id && !n.archived && f.instrument !== 'smart_bounce' })
+
+  // Archived stems (soft-hidden, kept in storage) — surfaced in their own section.
+  const archivedStems = files
+    .filter(f => { const n = parseNotes(f); return n.archived && !n.parent_stem_id && (!selectedFolderId || f.folder_id === selectedFolderId) })
+    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
 
   // Saved Smart Mixes (the bounces), newest version first — surfaced in their own section.
   const mixVer = f => { const n = parseNotes(f); return Number(n.version) || 0 }
   const mixes = files
-    // Only this song's mixes (bounces are tagged with their folder_id).
-    .filter(f => f.instrument === 'smart_bounce' && (f.file_url || f.preview_url)
-      && (!selectedFolderId || f.folder_id === selectedFolderId))
+    // Only this song's mixes (bounces are tagged with their folder_id), not archived.
+    .filter(f => { const n = parseNotes(f); return f.instrument === 'smart_bounce' && !n.archived && (f.file_url || f.preview_url)
+      && (!selectedFolderId || f.folder_id === selectedFolderId) })
     .sort((a, b) => mixVer(b) - mixVer(a) || (+new Date(b.created_at) - +new Date(a.created_at)))
 
   // Filter stems to the selected song (folder). If no songs exist yet, show all.
@@ -369,9 +384,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     const nm = c?.user?.full_name || c?.user?.email?.split('@')[0]
     return nm ? nm.split(' ')[0] : 'A collaborator'
   }
-  // Clean, human activity feed: who did what, newest first.
+  // Clean, human activity feed: who did what, newest first. Scoped to the open
+  // song when one is selected; shows the whole album when viewing all songs.
   const actItems = [...files]
-    .filter(f => !parseNotes(f).parent_stem_id)
+    .filter(f => { const n = parseNotes(f); return !n.parent_stem_id && !n.archived && (!selectedFolderId || f.folder_id === selectedFolderId) })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 8)
     .map(f => {
@@ -648,10 +664,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             {projBpm && <span style={chip}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span>}
             {projKey?.trim() && <span style={chip}>{projKey}</span>}
             <span style={chip}>{project?.type || 'Single'}</span>
-            <span style={{ ...chip, color:'var(--t2)' }}>
-              <svg width={11} height={11} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="#E95A51"/></svg>
-              Auto-labeled
-            </span>
+            {/* "Auto-labeled" badge removed per Angel — visual bloat. */}
           </div>
 
           {/* Metadata row */}
@@ -849,6 +862,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           {/* Noisy source filename only when the row is selected */}
                           {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
+                        {(isOwner || f.uploaded_by === user?.id) && (
+                          <button onClick={e=>{ e.stopPropagation(); toggleArchive(f.id) }} aria-label="Archive stem" title="Archive — hides it but keeps it stored"
+                            className="lt-play-btn"
+                            style={{ width:30, height:30, borderRadius:8, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                              border:'1px solid var(--border)', background:'transparent', color:'var(--t3)', transition:'all .12s' }}
+                            onMouseEnter={e=>{ e.currentTarget.style.color='var(--t1)'; e.currentTarget.style.borderColor='var(--t4)' }}
+                            onMouseLeave={e=>{ e.currentTarget.style.color='var(--t3)'; e.currentTarget.style.borderColor='var(--border)' }}>
+                            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8"/><line x1="9.5" y1="12" x2="14.5" y2="12"/></svg>
+                          </button>
+                        )}
                         <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0 }}>
                           {/* Always editable — pick or change the instrument on any stem. */}
                           <InstrPicker
@@ -889,6 +912,39 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           })}
           </>)}
         </div>
+
+        {/* Archived — soft-hidden stems, kept in storage. Collapsible. */}
+        {archivedStems.length > 0 && (
+          <div style={{ padding: isMobile ? '0 16px 16px' : '0 24px 16px' }}>
+            <button onClick={()=>setShowArchived(v=>!v)} aria-expanded={showArchived}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', border:'none', background:'transparent', cursor:'pointer', padding:0, marginBottom:9 }}>
+              <span style={S.sectionLabel}>Archived · {archivedStems.length}</span>
+              <span style={{ color:'var(--t3)', display:'flex', transform: showArchived ? 'rotate(180deg)' : 'none', transition:'transform .15s' }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </button>
+            {showArchived && (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {archivedStems.map(m => (
+                  <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:12, background:'var(--surface)', border:S.border, opacity:.85 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--t2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{stemTitle(m, project?.title)}</div>
+                      <div style={{ fontSize:11, color:'var(--t4)' }}>archived</div>
+                    </div>
+                    {(isOwner || m.uploaded_by === user?.id) && (
+                      <button onClick={()=>toggleArchive(m.id)} title="Restore to the project"
+                        style={{ height:28, padding:'0 12px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:11.5, fontWeight:600, cursor:'pointer' }}
+                        onMouseEnter={e=>{ e.currentTarget.style.borderColor='#E95A51'; e.currentTarget.style.color='#E95A51' }}
+                        onMouseLeave={e=>{ e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)' }}>
+                        Restore
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Recent Activity */}
         <div style={{ padding: isMobile ? '0 16px 24px' : '0 24px 28px' }}>
