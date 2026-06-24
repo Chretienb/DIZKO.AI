@@ -628,6 +628,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     setPlaylist(list.length > 0 ? list : [file])
   }, [])
 
+  // Single-stem preview in the Studio uses this same global player but renders it
+  // barless (hidden). When you leave the Studio it would otherwise pop up on the
+  // next page still playing — so stop and clear it on Studio exit.
+  const prevPathRef = React.useRef(location.pathname)
+  React.useEffect(() => {
+    const wasStudio = prevPathRef.current.startsWith('/studio')
+    const isStudio  = location.pathname.startsWith('/studio')
+    if (wasStudio && !isStudio) { setNowPlaying(null); setPlaylist([]) }
+    prevPathRef.current = location.pathname
+  }, [location.pathname])
+
   // Owner-pays: creating projects and inviting are paid (owner) actions, but
   // UPLOADING is contributing — free collaborators must be able to add their
   // stems to projects they're a member of. (Backend gates create/invite/export;
