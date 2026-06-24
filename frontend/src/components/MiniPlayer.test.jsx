@@ -59,3 +59,43 @@ describe('MiniPlayer ↔ board single-source-of-truth', () => {
     expect(play).toHaveBeenCalledTimes(1)
   })
 })
+
+// ── Instant single-stem playback ──────────────────────────────────────────────
+// "Click → boom" depends on the player loading a FAST source: the small MP3
+// preview (or a cached blob: URL) — never the heavy original WAV — and starting
+// synchronously on mount with no awaited fetch in between.
+describe('MiniPlayer instant playback', () => {
+  // Capture every URL handed to `new Audio(...)`.
+  const captureAudioSrcs = () => {
+    const srcs = []
+    const Real = window.Audio
+    vi.spyOn(window, 'Audio').mockImplementation(function (src) { srcs.push(src); return new Real(src) })
+    return srcs
+  }
+
+  it('loads the small preview, NOT the heavy WAV, when a preview exists', () => {
+    const srcs = captureAudioSrcs()
+    const t = { id: 's2', file_url: 'https://x.test/big.wav', preview_url: 'https://x.test/small.mp3', notes: '{}' }
+    render(<MiniPlayer track={t} playlist={[t]} user={{ id: 'u1' }} onClose={noop} onPlay={noop} />)
+    expect(srcs[0]).toBe('https://x.test/small.mp3')
+    expect(srcs[0]).not.toBe(t.file_url)
+  })
+
+  it('plays a cached blob: URL directly (no network round-trip = instant)', () => {
+    const srcs = captureAudioSrcs()
+    const blob = 'blob:http://localhost/cached-preview'
+    const t = { id: 's3', file_url: 'https://x.test/big.wav', preview_url: blob, notes: '{}' }
+    render(<MiniPlayer track={t} playlist={[t]} user={{ id: 'u1' }} onClose={noop} onPlay={noop} />)
+    expect(srcs[0]).toBe(blob)
+    expect(srcs[0].startsWith('blob:')).toBe(true)
+  })
+
+  it('calls play() synchronously on mount (no awaited fetch before playback starts)', () => {
+    const play = window.HTMLMediaElement.prototype.play
+    play.mockClear()
+    const t = { id: 's4', file_url: 'https://x.test/big.wav', preview_url: 'blob:http://localhost/x', notes: '{}' }
+    // No act()/await — assert play fired during the synchronous render+effect flush.
+    act(() => { render(<MiniPlayer track={t} playlist={[t]} user={{ id: 'u1' }} onClose={noop} onPlay={noop} />) })
+    expect(play).toHaveBeenCalled()
+  })
+})

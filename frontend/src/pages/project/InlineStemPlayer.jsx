@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { parseNotes, stemTitle } from './meta.js'
 import { getToken } from '../../lib/utils.js'
 import { getPeaks, cachedPeaks, synthPeaks } from '../../lib/waveform.js'
+import { cachedPreviewBlobUrl, warmPreviewBytes } from '../../lib/audioCache.js'
 
 // ─── INLINE STEM PLAYER ──────────────────────────────────────────────────────
 // Large banner player at the top of the project page. The stem you play loads
@@ -54,10 +55,13 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     if (!track?.file_url) return
     setLoading(true)
     setProgress(0); setCurrent(0); setDuration(0)
-    // Prefer the small MP3 preview for instant playback; the full WAV is only
-    // pulled when there's no preview yet (older stems, or still analyzing).
-    const a = new Audio(track.preview_url || track.file_url)
+    // Instant playback: if the preview's bytes are already cached (memory or
+    // IndexedDB across reloads), play a local blob: URL with zero network. Else
+    // stream the small MP3 preview; the full WAV is only a last resort.
+    const src = cachedPreviewBlobUrl(track.preview_url) || track.preview_url || track.file_url
+    const a = new Audio(src)
     audioRef.current = a
+    warmPreviewBytes(track.preview_url)   // fill the cache so replays/reloads are instant
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
     a.oncanplay        = () => setLoading(false)

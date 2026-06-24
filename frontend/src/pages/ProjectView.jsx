@@ -10,6 +10,7 @@ import StemComments from './project/StemComments.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
+import { warmPreviewBytes } from '../lib/audioCache.js'
 import { cachedUrlFor } from '../lib/uploadStore.js'
 import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels, GROUP_DROP_INSTR } from './project/meta.js'
@@ -59,6 +60,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     window.addEventListener('dizko:player_state', h)
     return () => window.removeEventListener('dizko:player_state', h)
   }, [])
+
+  // Warm every stem/mix preview in the background (mem ← IndexedDB ← network, 3 at
+  // a time) so clicking play on any row in this project is instant — no R2 wait.
+  useEffect(() => {
+    const urls = [...new Set(files.map(f => f.preview_url).filter(Boolean))]
+    if (!urls.length) return
+    let cancelled = false, i = 0, active = 0
+    const next = () => {
+      while (!cancelled && active < 3 && i < urls.length) {
+        active++
+        warmPreviewBytes(urls[i++]).finally(() => { if (!cancelled) { active--; next() } })
+      }
+    }
+    next()
+    return () => { cancelled = true }
+  }, [files])
 
   // Release any local upload-preview / cached object URLs when leaving the project.
   useEffect(() => () => {

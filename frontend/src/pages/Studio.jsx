@@ -12,7 +12,7 @@ import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
 import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
 import { pitchShiftBuffer, audioBufferToWavBlob } from '../studio/pitchShift.js'
-import { getBytes as getCachedBytes, putBytes as putCachedBytes } from '../lib/audioCache.js'
+import { stableKey as ck, fetchAudioCached, cachedPreviewBlobUrl, warmPreviewBytes } from '../lib/audioCache.js'
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -27,61 +27,22 @@ function useConfirm() {
   return { pending, arm }
 }
 
-// ── Audio cache (LRU, max 20 entries) ────────────────────────────────────────
+// Byte cache, blob-URL playback and IndexedDB persistence live in lib/audioCache
+// (shared with ProjectView). All keyed by stableKey (`ck`) so presigned-URL churn
+// never causes a miss. Here we keep only the Web-Audio DECODED-buffer cache, used
+// by "Play all" to schedule every stem sample-locked.
 const MAX_CACHE = 20
-const audioBufferCache = new Map()
-function cacheSet(key, val) {
-  if (audioBufferCache.size >= MAX_CACHE) {
-    audioBufferCache.delete(audioBufferCache.keys().next().value)
-  }
-  audioBufferCache.set(key, val)
-}
-
-// ── Decoded-buffer cache + background preloader ──────────────────────────────
-// Decoding board stems' lightweight MP3 previews ahead of time (on studio open)
-// makes "Play all" instant. Bytes are also persisted to IndexedDB so a returning
-// musician never re-downloads. decodeAudioData is off-main-thread, never freezes.
-const decodedCache = new Map()           // url → AudioBuffer
+const decodedCache = new Map()           // stable key → AudioBuffer
 let _sharedDecodeCtx = null
 const sharedDecodeCtx = () => (_sharedDecodeCtx ||= new (window.AudioContext || window.webkitAudioContext)())
 async function preloadDecoded(url) {
-  if (!url || decodedCache.has(url)) return decodedCache.get(url)
+  const key = ck(url)
+  if (!url || decodedCache.has(key)) return decodedCache.get(key)
   const bytes = await fetchAudioCached(url)
   const audio = await sharedDecodeCtx().decodeAudioData(bytes.slice(0))
   if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
-  decodedCache.set(url, audio)
+  decodedCache.set(key, audio)
   return audio
-}
-
-async function fetchAudioCached(url, onProgress) {
-  if (audioBufferCache.has(url)) { onProgress?.(100); return audioBufferCache.get(url) }
-  // Persistent IndexedDB cache — survives reloads, so a returning musician never
-  // re-downloads stems they've already played. Network only on a true cold miss.
-  const stored = await getCachedBytes(url).catch(() => null)
-  if (stored) { onProgress?.(100); cacheSet(url, stored); return stored }
-  // cache:'reload' forces a fresh request — R2 304 responses omit CORS headers
-  // which causes the browser to block the response. reload bypasses the cache.
-  const res = await fetch(url, { mode:'cors', credentials:'omit', cache:'reload' })
-  if (!res.ok) throw new Error(`Audio fetch failed: ${res.status} ${res.statusText}`)
-  const total = Number(res.headers.get('Content-Length') || 0)
-  const reader = res.body?.getReader()
-  if (!reader) throw new Error('No response body')
-  const chunks = []
-  let received = 0
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    received += value.length
-    if (total) onProgress?.(Math.min(99, Math.round((received / total) * 100)))
-  }
-  onProgress?.(100)
-  const buf = new Uint8Array(received)
-  let pos = 0
-  for (const chunk of chunks) { buf.set(chunk, pos); pos += chunk.length }
-  cacheSet(url, buf.buffer)
-  putCachedBytes(url, buf.buffer).catch(() => {})   // persist for instant next time
-  return buf.buffer
 }
 
 function LoadingBlock() {
@@ -587,13 +548,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       try {
         // Use the preloaded decoded buffer (instant) if the background preloader
         // already grabbed it; otherwise decode on the fly.
-        let audio = decodedCache.get(playUrl)
+        let audio = decodedCache.get(ck(playUrl))
         if (!audio) {
           const buf = await fetchAudioCached(playUrl, pct =>
             setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
           audio = await decodeCtx.decodeAudioData(buf.slice(0))
           if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
-          decodedCache.set(playUrl, audio)
+          decodedCache.set(ck(playUrl), audio)
         }
         setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
         seedPeaksFromBuffer(s.file_url, audio)   // peaks keyed to the stem's waveform
@@ -1028,7 +989,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     document.body.style.cursor = 'col-resize'
   }
   useEffect(() => {
-    const urls = boardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(u))
+    const urls = boardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(ck(u)))
     if (!urls.length) { setPreparing(0); return }
     let cancelled = false, i = 0, active = 0
     // Previews are small; fetch them in parallel (browsers cap ~6/host anyway) so
@@ -1048,6 +1009,25 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     next()
     return () => { cancelled = true }
   }, [boardStems])
+
+  // Warm the preview BYTES for EVERY visible stem (not just the board), so a
+  // single click on any stem starts instantly. Byte-only (no decode) so it's
+  // light; throttled; runs in the background once the stem list is known.
+  useEffect(() => {
+    const urls = mixerStems.map(s => s.preview_url).filter(u => u && !audioBufferCache.has(ck(u)))
+    if (!urls.length) return
+    let cancelled = false, i = 0, active = 0
+    const CONCURRENCY = 3
+    const next = () => {
+      if (cancelled) return
+      while (active < CONCURRENCY && i < urls.length) {
+        active++
+        warmPreviewBytes(urls[i++]).finally(() => { if (!cancelled) { active--; next() } })
+      }
+    }
+    next()
+    return () => { cancelled = true }
+  }, [mixerStems])
 
   // ── Export scope ──────────────────────────────────────────────────────────
   // 'board' = the de-muted stems on the board; otherwise a Set of song (folder)
@@ -1129,7 +1109,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       setTimeout(() => window.dispatchEvent(new CustomEvent('dizko:player_volume', { detail:{ volume: v } })), 0)
     }
     const semis = Math.round(transposesRef.current[stem.id] || 0)
-    if (!semis) { playTrack(stem, boardStems); applyVol(); return }
+    if (!semis) {
+      // Use cached preview bytes (blob URL) for instant start; else stream remote.
+      const blob = cachedPreviewBlobUrl(stem.preview_url)
+      playTrack(blob ? { ...stem, preview_url: blob } : stem, boardStems)
+      applyVol()
+      return
+    }
     const key = `${stem.id}:${semis}`
     let url = transposedUrlCacheRef.current.get(key)
     if (!url) {

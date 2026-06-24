@@ -4,6 +4,14 @@
 // reloads/navigation, so the second time a musician opens a project, "Play all"
 // bounces instantly — no waiting on R2.
 
+// R2 URLs are AWS-presigned — their query string (X-Amz-Signature/Date) changes
+// on every request, so keying any cache by the full URL would miss on every page
+// load. Key by origin + path only, so the SAME object hits the cache across
+// reloads (which is what makes a returning musician's playback truly instant).
+export function stableKey(url) {
+  try { const u = new URL(url); return u.origin + u.pathname } catch { return url || '' }
+}
+
 const DB_NAME = 'dizko-audio'
 const STORE   = 'bytes'
 const MAX_ENTRIES = 80           // ~ several projects' worth of previews; pruned LRU-ish
@@ -69,4 +77,67 @@ async function prune() {
     const drop = recs.slice(0, recs.length - MAX_ENTRIES)
     await withStore('readwrite', s => { drop.forEach(r => s.delete(r.url)); return null })
   } catch {} finally { pruning = false }
+}
+
+// ── In-memory byte cache + instant-playback helpers (shared by Studio & ProjectView) ──
+// All keyed by stableKey() so presigned-URL churn never causes a miss.
+const MEM_MAX = 24
+const memCache = new Map()              // stableKey → ArrayBuffer
+function memSet(key, val) {
+  if (memCache.size >= MEM_MAX) memCache.delete(memCache.keys().next().value)
+  memCache.set(key, val)
+}
+
+// Fetch audio bytes with a 3-tier cache: memory → IndexedDB → network. The fetch
+// uses the full (signed) URL; the cache is keyed by the stable path so a returning
+// visit hits disk and never touches the network.
+export async function fetchAudioCached(url, onProgress) {
+  const key = stableKey(url)
+  if (memCache.has(key)) { onProgress?.(100); return memCache.get(key) }
+  const stored = await getBytes(key).catch(() => null)
+  if (stored) { onProgress?.(100); memSet(key, stored); return stored }
+  // cache:'reload' — R2 304s omit CORS headers, which the browser then blocks.
+  const res = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'reload' })
+  if (!res.ok) throw new Error(`Audio fetch failed: ${res.status} ${res.statusText}`)
+  const total = Number(res.headers.get('Content-Length') || 0)
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('No response body')
+  const chunks = []; let received = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value); received += value.length
+    if (total) onProgress?.(Math.min(99, Math.round((received / total) * 100)))
+  }
+  onProgress?.(100)
+  const buf = new Uint8Array(received); let pos = 0
+  for (const c of chunks) { buf.set(c, pos); pos += c.length }
+  memSet(key, buf.buffer)
+  putBytes(key, buf.buffer).catch(() => {})   // persist (stable key) for instant next time
+  return buf.buffer
+}
+
+// True for a stem whose bytes are already resident in memory (ready to play now).
+export function isWarm(url) { return memCache.has(stableKey(url)) }
+
+// Instant playback: if a preview's bytes are cached, hand the <audio> element a
+// local blob: URL instead of a remote R2 URL — it starts with zero network.
+const blobUrlCache = new Map()          // stableKey → object URL
+export function cachedPreviewBlobUrl(url) {
+  if (!url) return null
+  const key = stableKey(url)
+  if (blobUrlCache.has(key)) return blobUrlCache.get(key)
+  if (!memCache.has(key)) return null
+  try {
+    const u = URL.createObjectURL(new Blob([memCache.get(key)], { type: 'audio/mpeg' }))
+    blobUrlCache.set(key, u)
+    return u
+  } catch { return null }
+}
+
+// Warm the byte cache (IndexedDB → memory, or network on a true cold miss) so the
+// first click after a page load is instant too. No-op if already resident.
+export async function warmPreviewBytes(url) {
+  if (!url || memCache.has(stableKey(url))) return
+  try { await fetchAudioCached(url) } catch {}
 }
