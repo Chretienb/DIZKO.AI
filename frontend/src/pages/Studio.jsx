@@ -1014,7 +1014,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // single click on any stem starts instantly. Byte-only (no decode) so it's
   // light; throttled; runs in the background once the stem list is known.
   useEffect(() => {
-    const urls = mixerStems.map(s => s.preview_url).filter(u => u && !audioBufferCache.has(ck(u)))
+    const urls = [...new Set(mixerStems.map(s => s.preview_url).filter(Boolean))]   // warmPreviewBytes no-ops if already cached
     if (!urls.length) return
     let cancelled = false, i = 0, active = 0
     const CONCURRENCY = 3
