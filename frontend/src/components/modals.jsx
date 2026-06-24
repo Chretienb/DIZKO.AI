@@ -563,10 +563,12 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   const daysLeft   = billingStatus?.trial_days_left ?? 0
   const storagePct = billingStatus?.storage_percent ?? 0
 
+  // Price IDs live only in the backend env (STRIPE_PRICE_*) — we send the plan
+  // name and the server resolves it, so switching Stripe accounts is env-only.
   const PLANS = [
-    { id:'pro',    label:'Pro',    price:'14.99', storage:'50 GB',  priceId:'price_1TYvWuE1CNYMrSh5ZvWOx7XO', popular:true  },
-    { id:'studio', label:'Studio', price:'29.99', storage:'200 GB', priceId:'price_1TYvX5E1CNYMrSh5hIof0XZ4', popular:false },
-    { id:'label',  label:'Label',  price:'99',    storage:'1 TB',   priceId:'price_1TYvX5E1CNYMrSh5A67yR8dW', popular:false },
+    { id:'pro',    label:'Pro',    price:'14.99', storage:'50 GB',  popular:true  },
+    { id:'studio', label:'Studio', price:'29.99', storage:'200 GB', popular:false },
+    { id:'label',  label:'Label',  price:'99',    storage:'1 TB',   popular:false },
   ]
   const selected = PLANS.find(p => p.id === selPlan) ?? PLANS[0]
 
@@ -574,7 +576,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     setActing(true)
     setErr('')
     try {
-      const r = await billingApi.checkout(selected.priceId)
+      const r = await billingApi.checkout(selected.id)
       if (r?.data?.url) { window.location.href = r.data.url; return }
       setErr(r?.error ?? 'Could not start checkout — try again')
     } catch (e) {

@@ -411,7 +411,7 @@ export const venuesApi = {
 // ── Billing ───────────────────────────────────────────────────────────────────
 export const billingApi = {
   status:   ()           => get('/billing/status'),
-  checkout: (price_id)   => request('POST', '/billing/checkout', { price_id }),
+  checkout: (plan)       => request('POST', '/billing/checkout', { plan }),
   portal:   ()           => request('POST', '/billing/portal', {}),
 }
 

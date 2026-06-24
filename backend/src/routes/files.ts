@@ -698,6 +698,28 @@ files.post('/register', uploadLimit, async (c) => {
 
   enrichStemInBackground(takeId, project_id, user.id, { fileUrl, fileName: file_name, contentType, instrument, instrumentHint, essentiaAnalysis })
 
+  // Let the rest of the crew know a stem landed — in-app + email. Deduped on the
+  // project (5-min window), so uploading a whole folder is a single notification.
+  ;(async () => {
+    try {
+      const memberIds = await getProjectMemberIds(project_id)
+      if (memberIds.length <= 1) return   // solo project — nobody to tell
+      const uploader = (await getUsersByIds([user.id]).catch(() => null))?.get(user.id)
+      const who = uploader?.full_name || uploader?.email?.split('@')[0] || 'A collaborator'
+      const { data: proj } = await supabase.from('projects').select('title').eq('id', project_id).single()
+      const projTitle = (proj as { title?: string } | null)?.title || 'your project'
+      await notify({
+        type:         'upload',
+        recipientIds: memberIds,
+        actorId:      user.id,
+        projectId:    project_id,
+        title:        'New stem uploaded',
+        body:         `${who} added a new stem to “${projTitle}”.`,
+        actionUrl:    `/projects/${project_id}`,
+      })
+    } catch (e) { console.error('[register] upload notify failed:', (e as Error).message) }
+  })()
+
   return c.json({
     data: { id: takeId, status: 'ready', instrument, message: 'Added — AI is analyzing and updating the mix' },
     error: null, status: 201,

@@ -110,7 +110,7 @@ export default function ResetPassword() {
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:32 }}>
           <img src={logo} style={{ width:38, height:38, borderRadius:10, objectFit:'cover' }} alt=""/>
           <span style={{ fontSize:17, fontWeight:800, color:'#111', letterSpacing:'-.4px' }}>
-            Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+            Dizko
           </span>
         </div>
 

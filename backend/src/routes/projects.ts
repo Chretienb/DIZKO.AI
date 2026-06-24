@@ -13,6 +13,8 @@ import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import { assertProjectAccess } from '../lib/rbac'
+import { notify } from '../lib/notificationService'
+import { inviteEmail, inviteNewUserEmail } from '../lib/emailTemplates'
 import { execSync } from 'child_process'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -486,12 +488,36 @@ projects.post('/:id/cover', async (c) => {
 })
 
 // ── DELETE /projects/:id ──────────────────────────────────────────────────────
+// Owner-only. A project that still has collaborators cannot be deleted — the
+// owner must remove every collaborator first, so shared work is never wiped out
+// from under the people working on it.
 projects.delete('/:id', async (c) => {
+  const projectId = c.req.param('id')
+  const userId    = c.var.user.id
+
+  const { data: proj } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+  if ((proj as { owner_id: string }).owner_id !== userId)
+    return c.json({ data: null, error: 'Only the project owner can delete this project', status: 403 }, 403)
+
+  // Guard: block deletion while any collaborators (pending or accepted) remain.
+  const { count } = await supabase
+    .from('collaborators')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
+  if ((count ?? 0) > 0)
+    return c.json({
+      data: null,
+      error: `Remove all collaborators before deleting this project (${count} remaining).`,
+      status: 409,
+    }, 409)
+
   const { error } = await supabase
     .from('projects')
     .delete()
-    .eq('id', c.req.param('id'))
-    .eq('owner_id', c.var.user.id)
+    .eq('id', projectId)
+    .eq('owner_id', userId)
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { message: 'Project deleted' }, error: null, status: 200 })
@@ -771,15 +797,49 @@ projects.post('/:id/collaborators', sanitize, async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  if (inviteeId) {
-    supabase.from('notifications').insert({
-      user_id: inviteeId,
-      project_id: projectId,
-      type: 'invite',
-      message: 'You were invited to collaborate on a project',
-      metadata: { invited_by: user.id, role: role ?? 'Collaborator' },
-    })
-  }
+  // Notify the invitee — in-app + email for an existing account, or a signup
+  // invite email for someone who doesn't have an account yet.
+  ;(async () => {
+    try {
+      const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
+      const projTitle = (proj as { title?: string } | null)?.title || 'a project'
+      const inviter = (await getUsersByIds([user.id]).catch(() => null))?.get(user.id)
+      const inviterName = inviter?.full_name || inviter?.email?.split('@')[0] || 'Someone'
+      const inviteUrl = `${process.env.APP_URL || 'https://app.dizko.ai'}/projects/${projectId}`
+
+      if (inviteeId) {
+        await notify({
+          type:         'invite',
+          recipientIds: [inviteeId],
+          actorId:      user.id,
+          projectId,
+          title:        'You were invited to collaborate',
+          body:         `${inviterName} invited you to join “${projTitle}” as ${role ?? 'Collaborator'}.`,
+          actionUrl:    `/projects/${projectId}`,
+          emailHtml:    inviteEmail({ inviterName, projectTitle: projTitle, role: role ?? 'Collaborator', acceptUrl: inviteUrl }).html,
+          emailSubject: `${inviterName} invited you to “${projTitle}” on Dizko`,
+        })
+      } else {
+        // No account yet — email the address directly with a signup invite.
+        const apiKey = process.env.RESEND_API_KEY
+        if (apiKey) {
+          const signupUrl = `${process.env.APP_URL || 'https://app.dizko.ai'}/login`
+          await fetch('https://api.resend.com/emails', {
+            method:  'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              from:    process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>',
+              to:      email,
+              subject: `${inviterName} invited you to collaborate on Dizko`,
+              html:    inviteNewUserEmail({ inviterName, projectTitle: projTitle, role: role ?? 'Collaborator', signupUrl }).html,
+            }),
+          })
+        }
+      }
+    } catch (e) {
+      console.error('[invite] notify failed:', (e as Error).message)
+    }
+  })()
 
   return c.json({ data: collaborator, error: null, status: 201 }, 201)
 })

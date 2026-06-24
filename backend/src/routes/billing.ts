@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { stripe, PLAN_LIMITS, priceIdToPlan } from '../lib/stripe'
+import { stripe, PLAN_LIMITS, priceIdToPlan, planToPriceId } from '../lib/stripe'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import type { HonoVariables } from '../types'
@@ -73,11 +73,13 @@ billing.post('/checkout', requireAuth, async (c) => {
   const userId = c.var.user.id
   const user   = c.var.user
 
-  let body: { price_id?: string } = {}
+  let body: { price_id?: string; plan?: string } = {}
   try { body = await c.req.json() } catch {}
 
-  const priceId = body.price_id ?? process.env.STRIPE_PRICE_PRO
-  if (!priceId) return c.json({ data: null, error: 'price_id is required', status: 400 }, 400)
+  // Prefer the plan name (resolved to a price ID from env) so the frontend never
+  // hardcodes Stripe IDs. Still accept a raw price_id for backwards-compat.
+  const priceId = body.price_id ?? planToPriceId(body.plan)
+  if (!priceId) return c.json({ data: null, error: 'No price configured for that plan — check STRIPE_PRICE_* env vars', status: 400 }, 400)
 
   const { data: profile } = await supabase
     .from('profiles')

@@ -12,6 +12,7 @@ import { join }                   from 'path'
 import { tmpdir }                 from 'os'
 import { supabase }               from './supabase'
 import { uploadToR2, getR2SignedUrl, deleteFromR2 } from './r2'
+import { notify, getProjectMemberIds } from './notificationService'
 
 // ── Measurement-driven mix engine (no external AI) ──────────────────────────
 // Decisions come from the actual audio: we measure each stem's integrated
@@ -360,6 +361,26 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
   try { await supabase.rpc('increment_storage', { user_id: triggeredBy, bytes: mixBuf.length }) } catch {}
 
   console.log(`[smartBounce] done — ${mixName}, ${validFiles.length} stems → ${bounceUrl}`)
+
+  // Tell the crew a fresh mix is ready — in-app + email (everyone but whoever
+  // triggered it). dedup keyed on the version so each new mix lands once.
+  try {
+    const memberIds = await getProjectMemberIds(projectId)
+    const { data: proj } = await supabase.from('projects').select('title').eq('id', projectId).single()
+    const projTitle = (proj as { title?: string } | null)?.title || 'your project'
+    await notify({
+      type:         'mix_ready',
+      recipientIds: memberIds,
+      actorId:      triggeredBy,
+      projectId,
+      title:        `${mixName} is ready`,
+      body:         `A new mix (${mixName}) was bounced for “${projTitle}” — ${validFiles.length} stems.`,
+      actionUrl:    `/projects/${projectId}`,
+      dedupKey:     `mix_ready:${projectId}:${nextVersion}`,
+    })
+  } catch (e) {
+    console.error('[smartBounce] notify failed:', (e as Error).message)
+  }
 
   return {
     bounce_url:   bounceUrl,

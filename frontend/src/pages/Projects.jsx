@@ -93,6 +93,13 @@ export default function PageProjects({ openModal, refreshKey, user }) {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState(null)
   const [myRoles,  setMyRoles]  = useState({})
+  const [showArchived, setShowArchived] = useState(false)
+
+  const restoreProject = async (e, id) => {
+    e.stopPropagation()
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'In Progress' } : p))
+    try { await projectsApi.update(id, { status: 'In Progress' }) } catch {}
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -123,7 +130,8 @@ export default function PageProjects({ openModal, refreshKey, user }) {
       .finally(() => setLoading(false))
   }, [refreshKey, user?.id])
 
-  const visible    = projects
+  const visible    = projects.filter(p => p.status !== 'Archived')
+  const archived   = projects.filter(p => p.status === 'Archived')
   const ownedCount = Object.values(myRoles).filter(r => r === 'Owner').length
 
   // Responsive grid — auto-fills columns, cards stay album-sized
@@ -233,6 +241,36 @@ export default function PageProjects({ openModal, refreshKey, user }) {
               onClick={() => navigate(`/projects/${p.id}`)}
             />
           ))}
+        </div>
+      )}
+
+      {/* ── Archived ────────────────────────────────────────────────────── */}
+      {!loading && archived.length > 0 && (
+        <div style={{ marginTop:28 }}>
+          <button onClick={() => setShowArchived(v => !v)}
+            style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer',
+              fontFamily:'inherit', padding:0, marginBottom:14 }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: showArchived ? 'rotate(90deg)' : 'none', transition:'transform .15s' }}><polyline points="9 18 15 12 9 6"/></svg>
+            <span style={{ fontSize:12.5, fontWeight:700, color:'var(--t2)' }}>Archived</span>
+            <span style={{ fontSize:11, fontWeight:700, color:'var(--t3)', background:'rgba(var(--fg),.06)', padding:'2px 8px', borderRadius:20 }}>{archived.length}</span>
+          </button>
+          {showArchived && (
+            <div style={gridStyle}>
+              {archived.map(p => (
+                <div key={p.id} style={{ position:'relative', opacity:.72 }}>
+                  <ProjectCard p={p} role={myRoles[p.id]} onClick={() => navigate(`/projects/${p.id}`)} />
+                  {myRoles[p.id] === 'Owner' && (
+                    <button onClick={(e) => restoreProject(e, p.id)} title="Restore project"
+                      style={{ position:'absolute', top:8, right:8, height:28, padding:'0 11px', borderRadius:8, border:'none',
+                        background:'rgba(0,0,0,.72)', color:'#fff', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                      Restore
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </>

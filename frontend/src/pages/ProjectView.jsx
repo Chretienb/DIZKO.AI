@@ -32,6 +32,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [renamingId,   setRenamingId]   = useState(null)
   const [renamingProject, setRenamingProject] = useState(false)
   const [shareOpen,    setShareOpen]    = useState(false)
+  const [projMenu,     setProjMenu]     = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
   const [showArchived,   setShowArchived]   = useState(false)
@@ -261,6 +262,37 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     setProject(prev => ({ ...prev, status: newStatus }))
     setStatusOpen(false)
     try { await projectsApi.update(projectId, { status: newStatus }) } catch {}
+  }
+
+  // Owner: archive (soft-hide, kept intact) or delete the whole project.
+  const archiveProject = async () => {
+    setProjMenu(false)
+    try {
+      await projectsApi.update(projectId, { status: 'Archived' })
+      addToast?.('Project archived', { type: 'success' })
+      navigate('/projects')
+    } catch (e) {
+      addToast?.(`Couldn't archive: ${e.message || 'try again'}`, { type: 'error' })
+    }
+  }
+
+  const deleteProject = async () => {
+    setProjMenu(false)
+    // A project with collaborators can't be deleted — they must be removed first.
+    const others = collabs.filter(c => c.role !== 'owner').length
+    if (others > 0) {
+      addToast?.(`Remove all ${others} collaborator${others > 1 ? 's' : ''} from this project before deleting it.`, { type: 'error' })
+      return
+    }
+    if (!window.confirm(`Delete "${project?.title}"? This permanently removes the project and all its stems and can’t be undone.`)) return
+    try {
+      await projectsApi.delete(projectId)
+      addToast?.('Project deleted', { type: 'success' })
+      navigate('/projects')
+    } catch (e) {
+      // Backend also guards (defense in depth) — surface its message verbatim.
+      addToast?.(e.message || 'Could not delete project', { type: 'error' })
+    }
   }
 
   // Owner approves/declines a pending join request (a pending collaborator row).
@@ -640,6 +672,47 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <svg width={10} height={10} viewBox="0 0 12 12" fill="none"><path d="M3 2l7 4-7 4V2z" fill="#fff"/></svg>
                 Open in Studio
               </button>
+
+              {/* Owner: archive / delete project */}
+              {isOwner && (
+                <div style={{ position:'relative' }}>
+                  <button onClick={() => setProjMenu(o => !o)} title="More" aria-label="Project options"
+                    style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
+                      background: projMenu ? 'rgba(var(--fg),.08)' : 'transparent', color:'var(--t2)',
+                      display:'flex', alignItems:'center', justifyContent:'center', transition:'background .1s' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)' }}
+                    onMouseLeave={e=>{ if (!projMenu) e.currentTarget.style.background='transparent' }}>
+                    <svg width={17} height={17} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+                  </button>
+                  {projMenu && (
+                    <>
+                      <div onClick={() => setProjMenu(false)} style={{ position:'fixed', inset:0, zIndex:30 }}/>
+                      <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:31, minWidth:188,
+                        background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:6,
+                        boxShadow:'0 12px 32px rgba(0,0,0,.18)' }}>
+                        <button onClick={archiveProject}
+                          style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
+                            border:'none', background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                            fontSize:13, fontWeight:600, color:'var(--t1)' }}
+                          onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.06)'}
+                          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 12h4"/></svg>
+                          Archive project
+                        </button>
+                        <button onClick={deleteProject}
+                          style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
+                            border:'none', background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                            fontSize:13, fontWeight:600, color:'#ef4444' }}
+                          onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.08)'}
+                          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                          Delete project
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -994,20 +1067,26 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
                 const isPending = collab.status === 'pending'
+                const isRequest = isPending && !collab.invited_by   // they asked to join → owner approves
+                const isInvited = isPending && !!collab.invited_by  // owner invited → awaiting their acceptance
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
                     <div style={{ width:32, height:32, borderRadius:'50%', background:`${clr}18`, border:`1.5px solid ${clr}35`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
-                      {isPending
+                      {isRequest
                         ? <span style={{ fontSize:10, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.12)', border:'1px solid rgba(234,159,30,.25)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
-                        : <span style={{ fontSize:10, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.12)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.25)':'rgba(165,165,173,.2)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                        : isInvited
+                          ? <span style={{ fontSize:10, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.22)', padding:'1px 7px', borderRadius:20 }}>Invited · pending</span>
+                          : <span style={{ fontSize:10, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.12)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.25)':'rgba(165,165,173,.2)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                     </div>
-                    {isOwner && isPending ? (
+                    {isOwner && isRequest ? (
                       <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                         <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 11px', borderRadius:7, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:11.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
                         <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:11.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Decline</button>
                       </div>
+                    ) : isOwner && isInvited ? (
+                      <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} title="Cancel invite" style={{ height:26, padding:'0 10px', borderRadius:7, border:S.border, background:'transparent', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>Cancel</button>
                     ) : (!isSelf && !isPending && <button onClick={() => setMsgCollab(collab)} style={{ height:26, padding:'0 10px', borderRadius:7, border:S.border, background:'transparent', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Message</button>)}
                   </div>
                 )
@@ -1135,10 +1214,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
                 const isPending = collab.status === 'pending'
-                const showApproval = isOwner && isPending
+                const isRequest = isPending && !collab.invited_by   // they asked to join → owner approves
+                const isInvited = isPending && !!collab.invited_by  // owner invited → awaiting their acceptance
+                const showApproval = isOwner && isRequest
+                const showCancel   = isOwner && isInvited
                 const showMessage  = !isSelf && !isPending
                 const showRemove   = isOwner && !isOwnerEntry && !isSelf && !isPending
-                const hasActions   = showApproval || showMessage || showRemove
+                const hasActions   = showApproval || showCancel || showMessage || showRemove
                 const aBtn = { flex:1, height:26, borderRadius:7, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'11px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
@@ -1146,9 +1228,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
                       <div style={{ marginTop:4 }}>
-                        {isPending
+                        {isRequest
                           ? <span style={{ fontSize:9.5, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.1)', border:'1px solid rgba(234,159,30,.22)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
-                          : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                          : isInvited
+                            ? <span style={{ fontSize:9.5, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.22)', padding:'1px 7px', borderRadius:20 }}>Invited · pending</span>
+                            : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                       </div>
                       {hasActions && (
                         <div style={{ display:'flex', gap:6, marginTop:9 }}>
@@ -1156,6 +1240,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', fontWeight:800, opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
                             <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Decline</button>
                           </>}
+                          {showCancel  && <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t3)' }}>Cancel invite</button>}
                           {showMessage && <button onClick={() => setMsgCollab(collab)} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t2)' }}>Message</button>}
                           {showRemove  && <button onClick={() => setRemCollab(collab)} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Remove</button>}
                         </div>

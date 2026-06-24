@@ -26,3 +26,8 @@ dist-ssr
 # Deployment
 .vercel
 *.local
+
+# Local agent skill installs (npx skills add)
+.agents/
+.claude/skills/
+skills-lock.json

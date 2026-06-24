@@ -102,7 +102,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
   useEffect(() => {
     projectsApi.list().then(r => {
-      const list = r.data || []
+      const list = (r.data || []).filter(p => p.status !== 'Archived')   // archived projects stay out of the dashboard
       setProjects(list)
       if (list[0]) setSelId(list[0].id)
     }).catch(() => {}).finally(() => setLoading(false))

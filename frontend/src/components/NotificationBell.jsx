@@ -86,9 +86,13 @@ export default function NotificationBell({ user }) {
         <path d="M13.73 21a2 2 0 01-3.46 0"/>
       </svg>
       {unread > 0 && (
-        <div style={{ position:'absolute', top:5, right:5, width:7, height:7, borderRadius:'50%',
-          background:'#E95A51', border:'1.5px solid var(--surface)',
-          animation:'notif-blink 1.4s ease-in-out infinite' }}/>
+        <div style={{ position:'absolute', top:-4, right:-4, minWidth:16, height:16, padding:'0 4px',
+          borderRadius:8, background:'#E95A51', border:'2px solid var(--bg)', boxSizing:'border-box',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:9.5, fontWeight:800, color:'#fff', lineHeight:1, fontFamily:S.font, letterSpacing:'-.02em',
+          boxShadow:'0 1px 4px rgba(233,90,81,.55)' }}>
+          {unread > 99 ? '99+' : unread}
+        </div>
       )}
       <style>{`
         @keyframes notif-blink {

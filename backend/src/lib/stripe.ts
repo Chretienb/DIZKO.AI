@@ -15,3 +15,15 @@ export function priceIdToPlan(priceId: string): string {
   if (priceId === process.env.STRIPE_PRICE_LABEL)  return 'label'
   return 'pro' // fallback
 }
+
+// Resolve a plan name → its Stripe price ID from env. Single source of truth, so
+// switching Stripe accounts only means updating env vars (no price IDs baked into
+// the frontend). Unknown/missing plans fall back to Pro.
+export function planToPriceId(plan?: string): string | undefined {
+  switch ((plan || '').toLowerCase()) {
+    case 'studio': return process.env.STRIPE_PRICE_STUDIO
+    case 'label':  return process.env.STRIPE_PRICE_LABEL
+    case 'pro':    return process.env.STRIPE_PRICE_PRO
+    default:       return process.env.STRIPE_PRICE_PRO
+  }
+}

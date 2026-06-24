@@ -44,6 +44,24 @@ const anonClient = createClient(process.env.SUPABASE_URL!, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
+// ── Frontend origin for auth links (password reset, etc.) ─────────────────────
+// Prefer the origin the request actually came from — that way reset links go to
+// the same host the user is on (works in dev AND prod with no env change). Only
+// trust known hosts; otherwise fall back to FRONTEND_ORIGIN or the prod URL.
+const PROD_ORIGIN = 'https://app.dizko.ai'
+const ALLOWED_ORIGINS = new Set(
+  [process.env.FRONTEND_ORIGIN, PROD_ORIGIN, 'http://localhost:5173', 'http://localhost:5174']
+    .filter(Boolean) as string[]
+)
+function resolveFrontendOrigin(c: { req: { header: (k: string) => string | undefined } }): string {
+  const origin = c.req.header('origin')
+  if (origin && ALLOWED_ORIGINS.has(origin)) return origin
+  return process.env.FRONTEND_ORIGIN || PROD_ORIGIN
+}
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_ORIGIN) {
+  console.warn(`[auth] FRONTEND_ORIGIN not set — auth links use the request origin or default to ${PROD_ORIGIN}`)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -169,7 +187,7 @@ auth.post('/forgot-password', forgotLimit, sanitize, async (c) => {
   const email = validateEmail(body.email)
   // Always return success — never reveal whether an email exists
   if (email) {
-    const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+    const frontendOrigin = resolveFrontendOrigin(c)
     await anonClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${frontendOrigin}/reset-password`,
     }).catch(() => null)
