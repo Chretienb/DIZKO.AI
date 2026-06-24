@@ -85,32 +85,6 @@ function ProjectCard({ p, role, onClick }) {
   )
 }
 
-// ── "New project" card ───────────────────────────────────────────────────────
-function NewProjectCard({ onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      display:'flex', flexDirection:'column', gap:12, padding:12,
-      borderRadius:14, border:'none', cursor:'pointer', textAlign:'left',
-      background:'transparent', fontFamily:'inherit', transition:'background .15s',
-    }}
-      onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}
-      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-      <div style={{ width:'100%', aspectRatio:'1 / 1', borderRadius:10, flexShrink:0,
-        border:`1.5px dashed rgba(var(--fg),.18)`, display:'flex',
-        alignItems:'center', justifyContent:'center' }}>
-        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={C.coral}
-          strokeWidth={2} strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </div>
-      <div>
-        <div style={{ fontSize:14, fontWeight:700, color:C.t2, marginBottom:3 }}>New Project</div>
-        <div style={{ fontSize:12, color:C.t3, fontWeight:500 }}>Start a fresh project</div>
-      </div>
-    </button>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function PageProjects({ openModal, refreshKey, user }) {
   const navigate   = useNavigate()
@@ -259,7 +233,6 @@ export default function PageProjects({ openModal, refreshKey, user }) {
               onClick={() => navigate(`/projects/${p.id}`)}
             />
           ))}
-          <NewProjectCard onClick={() => openModal('new-project', {})} />
         </div>
       )}
     </>

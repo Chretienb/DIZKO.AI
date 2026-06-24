@@ -70,6 +70,21 @@ notifications.delete('/push-subscribe', sanitize, async (c) => {
   return c.json({ data: { unsubscribed: true }, error: null, status: 200 })
 })
 
+// DELETE /notifications/:id — remove a single notification (user-scoped)
+notifications.delete('/:id', async (c) => {
+  const me = c.var.user.id
+  await supabase.from('notifications').delete()
+    .eq('id', c.req.param('id')).eq('user_id', me)
+  return c.json({ data: { ok: true }, error: null, status: 200 })
+})
+
+// DELETE /notifications — clear all of the current user's notifications
+notifications.delete('/', async (c) => {
+  const me = c.var.user.id
+  await supabase.from('notifications').delete().eq('user_id', me)
+  return c.json({ data: { ok: true }, error: null, status: 200 })
+})
+
 // GET /notifications/vapid-public-key — expose VAPID public key to frontend
 notifications.get('/vapid-public-key', async (c) => {
   const key = process.env.VAPID_PUBLIC_KEY

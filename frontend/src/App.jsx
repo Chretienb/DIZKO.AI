@@ -20,7 +20,7 @@ const ProjectView          = lazy(() => import('./pages/ProjectView.jsx'))
 const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.TermsPage })))
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
-import NotificationBell from './components/NotificationBell.jsx'
+import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
 import { House, UsersThree, BookOpen, ChartBar, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
@@ -30,6 +30,8 @@ import {
   ModalNewTrack, ModalUpload,
 } from './components/modals.jsx'
 const PageAccount = lazy(() => import('./pages/Account.jsx'))
+const PageHelp    = lazy(() => import('./pages/Help.jsx'))
+const PageAbout   = lazy(() => import('./pages/About.jsx'))
 
 // A lazily-loaded chunk failed to fetch — almost always because a new deploy
 // changed the chunk hashes under an already-open tab (not a real app error).
@@ -493,6 +495,22 @@ function MasonryIcon({ size = 24 }) {
   )
 }
 
+// Terms & Conditions — document with lines + a check badge. The "paper" is
+// currentColor; the lines/check are cut to var(--bg) so it reads on any theme.
+function TermsIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="2.5" width="13" height="19" rx="2.4" fill="currentColor"/>
+      <rect x="5.6" y="5.9"  width="7.8" height="1.7" rx="0.85" fill="var(--bg)"/>
+      <rect x="5.6" y="9.1"  width="7.8" height="1.7" rx="0.85" fill="var(--bg)"/>
+      <rect x="5.6" y="12.3" width="5.8" height="1.7" rx="0.85" fill="var(--bg)"/>
+      <rect x="5.6" y="15.5" width="4.4" height="1.7" rx="0.85" fill="var(--bg)"/>
+      <circle cx="17.4" cy="17.4" r="4.8" fill="currentColor" stroke="var(--bg)" strokeWidth="1.3"/>
+      <path d="M15.4 17.5l1.4 1.4 2.4-2.5" stroke="var(--bg)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 function SidebarLibrary({ navigate }) {
   const [latest, setLatest] = React.useState(null)
   React.useEffect(() => {
@@ -692,7 +710,11 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     n.path === '/'
       ? location.pathname === '/'
       : location.pathname.startsWith(n.path)
-  ) ?? (location.pathname === '/account' ? { id:'account', label:'Account', path:'/account' } : NAV[0])
+  ) ?? (location.pathname === '/account' ? { id:'account', label:'Account', path:'/account' }
+      : location.pathname === '/notifications' ? { id:'notifications', label:'Notifications', path:'/notifications' }
+      : location.pathname === '/help' ? { id:'help', label:'Help', path:'/help' }
+      : location.pathname === '/about' ? { id:'about', label:'About', path:'/about' }
+      : NAV[0])
 
   // Sidebar expand/collapse (icon+labels ↔ icon-only). Desktop only; persisted.
   const [navExpanded, setNavExpanded] = useState(() => {
@@ -701,14 +723,30 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const toggleNav = () => setNavExpanded(v => { const n = !v; try { localStorage.setItem('dizko_nav_expanded', n ? '1' : '0') } catch {} ; return n })
   const expanded = !isMobile && navExpanded
 
+  // "More" menu under the avatar — Invite friends / Help / About.
+  const [moreOpen, setMoreOpen] = useState(false)
+
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
   const SidebarContent = () => (
     <>
       {(
         /* ── Icon-only rail — used on both desktop and mobile ── */
         <>
+          {/* Collapse / expand toggle (desktop) — icon only, pinned at the top above Home */}
+          {!isMobile && (
+            <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex', justifyContent: expanded ? 'flex-end' : 'center', flexShrink:0 }}>
+              <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
+                style={{ width:34, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s' }}
+                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.55)' }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: navExpanded ? 'none' : 'rotate(180deg)', transition:'transform .15s' }}><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            </div>
+          )}
+
           {/* Nav — icon-only rail, or icon+label rows when expanded */}
-          <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: isMobile ? '12px 0 0' : (expanded ? '18px 10px 0' : '18px 14px 0'), flexShrink:0 }}>
+          <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: isMobile ? '12px 0 0' : (expanded ? '8px 10px 0' : '8px 14px 0'), flexShrink:0 }}>
             {[
               { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
               { id:'projects',      path:'/projects',      label:'Projects', Icon: MasonryIcon },
@@ -751,29 +789,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <SidebarLibrary navigate={navigate} />
           </div>
 
-          {/* + New project */}
-          <div style={{ display:'flex', justifyContent:'center', padding:'10px 0 6px', flexShrink:0 }}>
-            <button onClick={() => openModal('new-project', {})} title="New project"
-              style={{ width:40, height:40, borderRadius:'50%', border:'1px solid rgba(var(--fg),.12)', background:'rgba(var(--fg),.04)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(var(--fg),.7)', transition:'all .12s' }}
-              onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.background='rgba(var(--fg),.04)'; e.currentTarget.style.color='rgba(var(--fg),.7)' }}>
-              <PhPlus size={17} weight="bold" />
+          {/* Terms & policies — document+check icon (where the + used to be) */}
+          <div style={{ display:'flex', justifyContent:'center', flexShrink:0,
+            padding: expanded ? '8px 12px 4px' : '8px 4px 4px' }}>
+            <button onClick={() => navigate('/terms')} title="Terms & Policies" aria-label="Terms & Policies"
+              style={{ background:'none', border:'none', cursor:'pointer', padding:6, borderRadius:8,
+                color:'rgba(var(--fg),.4)', display:'flex', alignItems:'center', justifyContent:'center', transition:'color .12s, background .12s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.color='rgba(var(--fg),.78)'; e.currentTarget.style.background='rgba(var(--fg),.06)' }}
+              onMouseLeave={e=>{ e.currentTarget.style.color='rgba(var(--fg),.4)'; e.currentTarget.style.background='transparent' }}>
+              <TermsIcon size={20} />
             </button>
           </div>
-
-          {/* Collapse / expand toggle (desktop) — Angel's chevron */}
-          {!isMobile && (
-            <div style={{ padding: expanded ? '4px 10px' : '4px 0', display:'flex', justifyContent: expanded ? 'flex-end' : 'center', flexShrink:0 }}>
-              <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
-                style={{ height:30, padding: expanded ? '0 10px' : 0, width: expanded ? 'auto' : 34, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:'inherit', fontSize:12, fontWeight:600, transition:'all .12s' }}
-                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
-                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='rgba(var(--fg),.55)' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: navExpanded ? 'none' : 'rotate(180deg)', transition:'transform .15s' }}><polyline points="15 18 9 12 15 6"/></svg>
-                {expanded && <span>Collapse</span>}
-              </button>
-            </div>
-          )}
 
           {/* Bottom: theme toggle + notification + avatar */}
           <div style={{ padding:'6px 8px 16px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, flexShrink:0 }}>
@@ -787,6 +813,42 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                 {user?.full_name ? user.full_name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() : 'ME'}
               </span>
             </button>
+
+            {/* "More" — invite friends / help / about */}
+            <div style={{ position:'relative' }}>
+              <button onClick={() => setMoreOpen(o => !o)} title="More" aria-label="More"
+                style={{ width:30, height:24, borderRadius:8, border:'none', cursor:'pointer',
+                  background: moreOpen ? 'rgba(var(--fg),.1)' : 'transparent', color:'rgba(var(--fg),.45)',
+                  display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.08)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
+                onMouseLeave={e => { if (!moreOpen) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(var(--fg),.45)' } }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+              </button>
+              {moreOpen && (
+                <>
+                  <div onClick={() => setMoreOpen(false)} style={{ position:'fixed', inset:0, zIndex:50 }}/>
+                  <div style={{ position:'absolute', bottom:0, left:'calc(100% + 10px)', zIndex:51,
+                    minWidth:190, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12,
+                    padding:6, boxShadow:'0 10px 32px rgba(0,0,0,.18)' }}>
+                    {[
+                      { label:'Invite friends', icon:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6', onClick:() => openModal('invite', {}) },
+                      { label:'Help',           icon:'M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/help') },
+                      { label:'About',          icon:'M12 16v-4M12 8h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/about') },
+                    ].map(item => (
+                      <button key={item.label} onClick={() => { setMoreOpen(false); item.onClick() }}
+                        style={{ display:'flex', alignItems:'center', gap:11, width:'100%', padding:'9px 10px', borderRadius:8,
+                          border:'none', background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                          fontSize:13, fontWeight:600, color:'var(--t1)', transition:'background .1s' }}
+                        onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}
+                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d={item.icon}/></svg>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -822,6 +884,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/analytics"     element={<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
+            <Route path="/notifications" element={<NotificationsPage user={user} />} />
+            <Route path="/help"          element={<PageHelp />} />
+            <Route path="/about"         element={<PageAbout />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
