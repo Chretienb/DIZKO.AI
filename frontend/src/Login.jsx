@@ -195,7 +195,7 @@ export default function Login({ onLogin }) {
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <img src={logo} alt="" style={{ width:56, height:56, borderRadius:16, objectFit:'cover', boxShadow:'0 4px 18px rgba(0,0,0,.4)' }}/>
             <span style={{ fontSize:24, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>
-              Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+              Dizko
             </span>
           </div>
         </div>

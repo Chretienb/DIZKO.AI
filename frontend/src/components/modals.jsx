@@ -240,7 +240,6 @@ export function ModalNewProject({ onClose, onCreated }) {
 
   const handleTitleChange = (e) => {
     setTitle(e.target.value)
-    if (!songName) setSongName(e.target.value)
   }
 
   const handleCreate = async () => {

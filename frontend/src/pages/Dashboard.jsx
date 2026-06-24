@@ -121,7 +121,10 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   const selProject  = projects.find(p => p.id === selId)
   const parentStems = files.filter(f => !pn(f).parent_stem_id && f.instrument !== 'smart_bounce')
   const latestMix   = files.find(f => f.instrument === 'smart_bounce')
-  const contributors = (collabs.length || 0) + (selProject ? 1 : 0)
+  // Contributors = people you've ADDED, not yourself. The collaborators list
+  // includes the owner as a synthetic 'owner' entry, so exclude that — a brand-new
+  // solo project reads 0, and each person you invite adds 1.
+  const contributors = collabs.filter(c => c.role !== 'owner').length
 
   const people = (() => {
     const m = new Map()
@@ -285,7 +288,9 @@ export default function PageDashboard({ openModal, user, playTrack }) {
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'#fff' }}>
                     <svg width={15} height={15} viewBox="0 0 24 24" fill="#fff"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-                    {contributors} <span style={{ color:'rgba(var(--fg),.6)' }}>contributors</span>
+                    {contributors === 0
+                      ? <span style={{ color:'rgba(var(--fg),.6)' }}>Just you</span>
+                      : <>{contributors} <span style={{ color:'rgba(var(--fg),.6)' }}>contributor{contributors !== 1 ? 's' : ''}</span></>}
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'#fff' }}>
                     <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>

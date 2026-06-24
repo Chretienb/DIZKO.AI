@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Rocket, MusicNotes, Microphone, UploadSimple, UsersThree, CreditCard, ShieldCheck } from '@phosphor-icons/react'
+import { Rocket, MusicNotes, Microphone, UploadSimple, UsersThree, CreditCard, ShieldCheck, Export, Wrench, EnvelopeSimple } from '@phosphor-icons/react'
 import { C } from '../components/ui/index.jsx'
 
 // ── Knowledge base content ────────────────────────────────────────────────────
@@ -9,7 +9,7 @@ import { C } from '../components/ui/index.jsx'
 const CATEGORIES = [
   {
     key: 'getting-started', name: 'Getting Started',
-    Icon: Rocket,
+    Icon: Rocket, desc: 'New to Dizko? Set up your first project.',
     articles: [
       { q: 'What is Dizko?', a: 'Dizko is a real-time music collaboration platform. Upload your stems, organize them into projects and songs, mix and bounce them in the Studio, and share with your collaborators — all in one place.' },
       { q: 'How do I create my first project?', a: 'On the Projects page, click “New Project”, give it a name, choose Single or Album, then upload your stems. Your project opens with everything organized by instrument.' },
@@ -18,7 +18,7 @@ const CATEGORIES = [
   },
   {
     key: 'projects', name: 'Projects & Songs',
-    Icon: MusicNotes,
+    Icon: MusicNotes, desc: 'Organize albums, songs and stems.',
     articles: [
       { q: 'What is the difference between a Single and an Album?', a: 'An Album holds multiple songs; a Single is one song. Add more songs to an album any time with “New Song”. Each song keeps its own stems, key, BPM and mixes.' },
       { q: 'How are my stems organized?', a: 'Stems are grouped by type — Master, Drums, Bass / 808, Melody, Vocals and more — under the song they belong to, so your largest projects stay tidy.' },
@@ -27,7 +27,7 @@ const CATEGORIES = [
   },
   {
     key: 'studio', name: 'Studio & Bouncing',
-    Icon: Microphone,
+    Icon: Microphone, desc: 'Play, mix and bounce your board.',
     articles: [
       { q: 'How do I play all my stems together?', a: 'Add stems to the board and hit “Play all”. Every stem is locked to one master timeline so they stay perfectly in sync as they play.' },
       { q: 'What is a bounce?', a: 'A bounce plays the stems on your board together so you can hear the full track. Smart Mix can also generate a balanced version with EQ, panning and reverb applied.' },
@@ -37,7 +37,7 @@ const CATEGORIES = [
   },
   {
     key: 'uploads', name: 'Uploading Stems',
-    Icon: UploadSimple,
+    Icon: UploadSimple, desc: 'Formats, naming and auto-detection.',
     articles: [
       { q: 'What file formats are supported?', a: 'WAV, MP3, FLAC and most common audio formats. Large files upload directly from your browser and resume automatically if your connection drops.' },
       { q: 'What is the naming convention?', a: 'Dizko uses [SONG][STEM TYPE][KEY][BPM] — for example “TWIN_Bass_Am_102”. If you’ve already given a stem a good name, Dizko keeps it as-is.' },
@@ -46,7 +46,7 @@ const CATEGORIES = [
   },
   {
     key: 'crew', name: 'Collaboration & Crew',
-    Icon: UsersThree,
+    Icon: UsersThree, desc: 'Invite people and manage access.',
     articles: [
       { q: 'How do I invite collaborators?', a: 'Open a project and click Share / Invite, or use “Invite friends” in the ⋯ menu under your avatar. Invited collaborators can view and contribute based on the access you give them.' },
       { q: 'Who can delete stems?', a: 'The person who uploaded a stem, or the project owner, can delete it. Masters and saved mixes can only be removed by the owner.' },
@@ -55,7 +55,7 @@ const CATEGORIES = [
   },
   {
     key: 'billing', name: 'Accounts & Billing',
-    Icon: CreditCard,
+    Icon: CreditCard, desc: 'Trial, plans and storage.',
     articles: [
       { q: 'How does the free trial work?', a: 'Dizko is free for your first 2 months — no charge until month 3. You can create projects, invite your crew and export the whole time.' },
       { q: 'How do I manage my plan?', a: 'Go to Account → Billing & Plan to see your current plan, days remaining and payment details.' },
@@ -64,10 +64,28 @@ const CATEGORIES = [
   },
   {
     key: 'rights', name: 'Rights & Ownership',
-    Icon: ShieldCheck,
+    Icon: ShieldCheck, desc: 'Who owns your music and data.',
     articles: [
       { q: 'Who owns the music I upload?', a: 'You do. You keep full ownership of the content you upload to Dizko. See our Terms of Service for the details.' },
       { q: 'Can I delete my data?', a: 'Yes. You can delete your account at any time from settings; your data is removed within 30 days.' },
+    ],
+  },
+  {
+    key: 'sharing', name: 'Sharing & Export',
+    Icon: Export, desc: 'Export bundles and share your work.',
+    articles: [
+      { q: 'How do I export my project?', a: 'In the Studio, open Export and choose Board. Dizko packages your stems together with an Ableton (.als) session and a Logic guide so you can keep working in your own DAW.' },
+      { q: 'What is included in an export?', a: 'Your selected board stems plus session/guide files. Muted stems are left out, so you export exactly the version you’re hearing.' },
+      { q: 'How do I share a project?', a: 'Use Share / Invite on a project to add collaborators. They get access based on the role you give them, and changes stay in sync in real time.' },
+    ],
+  },
+  {
+    key: 'troubleshooting', name: 'Troubleshooting',
+    Icon: Wrench, desc: 'Playback, uploads and common fixes.',
+    articles: [
+      { q: 'Audio won’t play or sounds out of sync', a: 'Make sure your stems finished uploading and analyzing, then reload the Studio. During Play all, every stem is locked to one master timeline, so a hard refresh clears any stale state.' },
+      { q: 'My upload seems stuck', a: 'Large files process in the background and resume automatically if your connection drops. Give it a moment — the stem appears once it’s registered. Refresh the page if it still looks stalled.' },
+      { q: 'A mix won’t generate', a: 'You need at least one stem on the board before generating. If a mix is already running, wait for it to finish, then try again. Still stuck? Email us at team@dizko.ai.' },
     ],
   },
 ]
@@ -126,25 +144,51 @@ export default function PageHelp() {
 
       {/* Browse mode: category cards */}
       {!results && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(210px, 1fr))', gap:12 }}>
-          {CATEGORIES.map(cat => (
-            <button key={cat.key} onClick={() => { setCat(cat.key); setOpen(null) }}
-              style={{ display:'flex', alignItems:'center', gap:13, padding:'16px', borderRadius:14,
-                border:`1px solid ${C.border}`, background:'var(--surface)', cursor:'pointer', textAlign:'left',
-                fontFamily:'inherit', transition:'background .12s, border-color .12s' }}
-              onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.04)'; e.currentTarget.style.borderColor='rgba(var(--fg),.16)' }}
-              onMouseLeave={e => { e.currentTarget.style.background='var(--surface)'; e.currentTarget.style.borderColor=C.border }}>
-              <div style={{ width:38, height:38, borderRadius:11, flexShrink:0, background:`${C.coral}12`,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <cat.Icon size={19} color={C.coral} weight="duotone" />
-              </div>
-              <div style={{ minWidth:0 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:C.t1, letterSpacing:'-.1px' }}>{cat.name}</div>
-                <div style={{ fontSize:12, color:C.t3, marginTop:2 }}>{cat.articles.length} article{cat.articles.length!==1?'s':''}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:C.t3, margin:'0 0 12px 2px' }}>
+            Browse by topic
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(244px, 1fr))', gap:14 }}>
+            {CATEGORIES.map(cat => (
+              <button key={cat.key} onClick={() => { setCat(cat.key); setOpen(null) }}
+                style={{ display:'flex', flexDirection:'column', gap:0, padding:'18px', borderRadius:16,
+                  border:`1px solid ${C.border}`, background:'var(--surface)', cursor:'pointer', textAlign:'left',
+                  fontFamily:'inherit', transition:'transform .12s, box-shadow .12s, border-color .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=`${C.coral}55`; e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.08)'; e.currentTarget.style.transform='translateY(-2px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.transform='none' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:13 }}>
+                  <div style={{ width:42, height:42, borderRadius:12, flexShrink:0,
+                    background:`linear-gradient(135deg, ${C.coral}22, ${C.coral}0c)`,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <cat.Icon size={21} color={C.coral} weight="duotone" />
+                  </div>
+                  <span style={{ fontSize:10.5, fontWeight:700, color:C.t3, background:'rgba(var(--fg),.06)',
+                    padding:'3px 9px', borderRadius:20 }}>{cat.articles.length} article{cat.articles.length!==1?'s':''}</span>
+                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>{cat.name}</div>
+                <div style={{ fontSize:12.5, color:C.t3, marginTop:4, lineHeight:1.5 }}>{cat.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Contact card — make the support email easy to find */}
+          <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:18, padding:'20px 22px', borderRadius:16,
+            border:`1px solid ${C.border}`, background:`linear-gradient(135deg, ${C.coral}10, rgba(99,102,241,.06))`, flexWrap:'wrap' }}>
+            <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:`${C.coral}18`,
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <EnvelopeSimple size={23} color={C.coral} weight="duotone" />
+            </div>
+            <div style={{ flex:1, minWidth:200 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>Still need help?</div>
+              <div style={{ fontSize:12.5, color:C.t3, marginTop:3 }}>Can’t find an answer? Our team usually replies within a day.</div>
+            </div>
+            <a href="mailto:team@dizko.ai"
+              style={{ display:'inline-flex', alignItems:'center', gap:8, height:42, padding:'0 18px', borderRadius:11,
+                background:C.grad, color:'#fff', fontSize:13.5, fontWeight:700, textDecoration:'none', boxShadow:`0 6px 18px ${C.coral}40`, whiteSpace:'nowrap' }}>
+              <EnvelopeSimple size={16} weight="bold" /> team@dizko.ai
+            </a>
+          </div>
+        </>
       )}
 
       {/* Results / category view: article accordion */}

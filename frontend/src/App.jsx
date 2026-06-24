@@ -26,12 +26,13 @@ import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
   ModalProject, ModalNewProject, ModalAccountSettings, ModalBilling,
-  ModalKeyboardShortcuts, ModalInvite, ModalMessage, ModalViewWork,
+  ModalKeyboardShortcuts, ModalMessage, ModalViewWork,
   ModalNewTrack, ModalUpload,
 } from './components/modals.jsx'
 const PageAccount = lazy(() => import('./pages/Account.jsx'))
 const PageHelp    = lazy(() => import('./pages/Help.jsx'))
 const PageAbout   = lazy(() => import('./pages/About.jsx'))
+const PageInvite  = lazy(() => import('./pages/Invite.jsx'))
 
 // A lazily-loaded chunk failed to fetch — almost always because a new deploy
 // changed the chunk hashes under an already-open tab (not a real app error).
@@ -637,6 +638,13 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       setModal({ type: 'billing', data: {} })
       return
     }
+    // Invite is a full page now, not a modal — route there (carry the project if given).
+    if (type === 'invite') {
+      setModal(null)
+      const pid = data?.project?.id
+      navigate(pid ? `/invite?project=${encodeURIComponent(pid)}` : '/invite')
+      return
+    }
     setModal({ type, data })
   }
   const closeModal       = () => setModal(null)
@@ -714,6 +722,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       : location.pathname === '/notifications' ? { id:'notifications', label:'Notifications', path:'/notifications' }
       : location.pathname === '/help' ? { id:'help', label:'Help', path:'/help' }
       : location.pathname === '/about' ? { id:'about', label:'About', path:'/about' }
+      : location.pathname === '/invite' ? { id:'invite', label:'Invite', path:'/invite' }
       : NAV[0])
 
   // Sidebar expand/collapse (icon+labels ↔ icon-only). Desktop only; persisted.
@@ -887,6 +896,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />
             <Route path="/about"         element={<PageAbout />} />
+            <Route path="/invite"        element={<PageInvite />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
@@ -911,7 +921,6 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} billingStatus={billingStatus} billingLoaded={billingLoaded} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
-      {modal?.type==='invite'      && <ModalInvite     onClose={closeModal} />}
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
