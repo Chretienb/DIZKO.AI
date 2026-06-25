@@ -248,8 +248,10 @@ export function ModalNewProject({ onClose, onCreated }) {
     try {
       const res = await projectsApi.create({ title: title.trim(), type, status })
       const project = res.data
-      if (project?.id && songName.trim()) {
-        await foldersApi.create(project.id, songName.trim()).catch(() => {})
+      // Always create the first song folder — default to "Track 1" if the user
+      // didn't name it, so every project opens with a song to upload into.
+      if (project?.id) {
+        await foldersApi.create(project.id, songName.trim() || 'Track 1').catch(() => {})
       }
       if (project?.id && coverFile) {
         try {
@@ -294,7 +296,7 @@ export function ModalNewProject({ onClose, onCreated }) {
       </div>
 
       <Field label="Album / Project Name" placeholder="e.g. Summer Vibes Vol. 2" value={title} onChange={handleTitleChange} />
-      <Field label="First Song Name" placeholder="e.g. FIREMAN" value={songName} onChange={e => setSongName(e.target.value)} />
+      <Field label="First Song Name" placeholder="e.g. Track 1" value={songName} onChange={e => setSongName(e.target.value)} />
       <div style={{ marginBottom:18 }}>
         <MLabel>Type</MLabel>
         <PillSelect options={types} value={type} onChange={setType} />
