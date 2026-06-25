@@ -1342,11 +1342,28 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               </div>
             )}
 
-            {/* Board has stems available but none placed yet */}
+            {/* Board has stems available but none placed yet — a tall, inviting
+                drop zone (the whole board accepts drops; this gives an easy big
+                target and reacts to the drag). */}
             {!loadingStems && mixerStems.length > 0 && boardStems.length === 0 && (
-              <div style={{ background:C.surface, borderRadius:20, padding:'48px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1.5px dashed ${C.border}` }}>
-                <div style={{ fontSize:15, fontWeight:700, color:C.t1, marginBottom:6 }}>Your board is empty</div>
-                <div style={{ fontSize:13, color:C.t3 }}>{isMobile ? 'Add stems from the list to build your mix.' : 'Drag stems from the list on the left to build your mix.'}</div>
+              <div style={{ background: dragOver ? `${C.coral}0c` : C.surface, borderRadius:20,
+                minHeight: isMobile ? 240 : 380, padding:'40px 24px',
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
+                boxShadow:'0 1px 4px rgba(var(--fg),.06)',
+                border:`2px dashed ${dragOver ? C.coral : C.border}`, transition:'border-color .15s, background .15s' }}>
+                <div style={{ width:64, height:64, borderRadius:18, marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center',
+                  background:`${C.coral}10`, border:`1.5px dashed ${C.coral}45`,
+                  transform: dragOver ? 'scale(1.06)' : 'none', transition:'transform .15s' }}>
+                  <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3v13"/><path d="M7 11l5 5 5-5"/><path d="M4 18v1a2 2 0 002 2h12a2 2 0 002-2v-1"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize:17, fontWeight:700, color:C.t1, marginBottom:7 }}>
+                  {dragOver ? 'Drop to add to your mix' : 'Your board is empty'}
+                </div>
+                <div style={{ fontSize:13.5, color:C.t3, maxWidth:300, lineHeight:1.5 }}>
+                  {isMobile ? 'Add stems from the list to build your mix.' : 'Drag stems from the list on the left and drop them anywhere here to build your mix.'}
+                </div>
               </div>
             )}
 
