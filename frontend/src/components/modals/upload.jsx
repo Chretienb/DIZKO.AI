@@ -160,29 +160,41 @@ export const INSTR_LIST = [
   { id:'other',     label:'Other',           color:'#9ca3af' },
 ]
 
+// Strip filename noise (producer tags, @handles, BPM, brackets) BEFORE detecting,
+// so junk like "[Prod. …]" doesn't make every stem read as Drums (the "prod" trap).
+function cleanForDetect(filename) {
+  return (filename || '').toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')
+    .replace(/@\S+/g, ' ')
+    .replace(/\b\d{1,3}\s?bpm\b/g, ' ')
+    .replace(/\bprod(uced)?\b\.?/g, ' ')
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim()
+}
+
 export function detectInstrument(filename) {
-  const f = filename.toLowerCase().replace(/[_\-\.]/g, ' ')
-  if (/\bmaster\b|mastered|mixdown|final mix|final master|\bfinal\b|\bmstr\b/.test(f)) return 'master'
-  if (/vocal|voice|vox|sing|choir|verse|hook|chorus|rap|lyric|acapella|adlib/.test(f)) return 'vocals'
-  if (/guitar|gtr|acoustic|electric|strat|tele|riff/.test(f))           return 'guitar'
-  // Specific drum hits first (so "openhat" / "clap" don't fall through to generic "drums").
-  if (/open ?hat|openhh|ohh\b/.test(f))                                  return 'openhat'
-  if (/\bclap\b|claps/.test(f))                                          return 'clap'
-  if (/\bkick\b|\bbd\b/.test(f))                                         return 'kick'
-  if (/\bsnare\b|\bsd\b/.test(f))                                        return 'snare'
-  if (/hi ?hat|closed ?hat|\bhh\b|hat\b/.test(f))                        return 'hihat'
-  if (/drum|cymbal|crash|ride|perc|tom|rimshot|one ?shot|loop|pattern/.test(f)) return 'drums'
-  if (/\b808\b/.test(f))                                                 return '808'
-  if (/\bbass\b|bassline|\bsub\b|low end/.test(f))                       return 'bass'
-  if (/beat|prod|instrumental|trap|drill|afro|type beat/.test(f))        return 'drums'
-  if (/\bbell|bells|glock|chime|celesta/.test(f))                        return 'bells'
-  if (/piano|keys|keyboard|clav|rhodes|wurli/.test(f))                  return 'piano'
-  if (/\borgan\b/.test(f))                                              return 'organ'
-  if (/\blead\b|melody|arp/.test(f))                                    return 'lead'
-  if (/synth|pad|analog|wavetable|osc|pluck/.test(f))                  return 'synth'
-  if (/string|violin|cello|viola|orchestra|orch/.test(f))               return 'strings'
-  if (/horn|brass|trumpet|trombone|sax|flute|oboe|clarinet|wind/.test(f)) return 'brass'
-  if (/\bfx\b|effect|riser|sweep|impact|foley|texture|atmos|ambient/.test(f)) return 'fx'
+  const f = cleanForDetect(filename)
+  if (/\b(master|mastered|mixdown|final mix|final master|mstr)\b/.test(f)) return 'master'
+  if (/\b(open ?hat|openhh|ohh?)\b/.test(f))                            return 'openhat'
+  if (/\b(clap|claps|reverbclap)\b/.test(f))                           return 'clap'
+  if (/\b(kick|kik|bd)\b/.test(f))                                     return 'kick'
+  if (/\b(snare|sd)\b/.test(f))                                        return 'snare'
+  if (/\b(hi ?hat|closed ?hat|hh|hat)\b/.test(f))                      return 'hihat'
+  if (/\b(cymbal|crash|ride|splash|rim|rimshot|tom|conga|bongo|shaker|tambourine|tamb|cowbell|djembe|cajon|clave|woodblock|triangle|metal|drum|drumroll|perc)\w*/.test(f)) return 'drums'
+  if (/\b808\b/.test(f))                                               return '808'
+  if (/\b(bass|bassline|sub|low end)\b/.test(f))                       return 'bass'
+  // Instruments BEFORE ambiguous role words (so "Guitar hook" → guitar, not vocals).
+  if (/\b(guitar|gtr|acoustic|electric|strat|tele|riff|banjo|mandolin|ukulele|uke)\b/.test(f)) return 'guitar'
+  if (/\b(piano|keys?|keyboard|clav|rhodes|wurli|organ|accordion|harpsichord)\b/.test(f)) return 'piano'
+  if (/\b(synth|pad|pluck|stab|reese|wavetable|osc|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog)\b/.test(f)) return 'synth'
+  if (/\b(bell|bells|glock|chime|celesta)\b/.test(f))                  return 'bells'
+  if (/\b(violin|violon|viola|cello|fiddle|harp|strings?|orchestra|orch)\b/.test(f)) return 'strings'
+  if (/\b(brass|horns?|trumpet|trombone|tuba)\b/.test(f))              return 'brass'
+  if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(f))          return 'wind'
+  if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(f)) return 'fx'
+  if (/\b(vocal|voice|vox|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|lyric)\b/.test(f)) return 'vocals'
+  if (/\b(lead|melody|arp|hook)\b/.test(f))                            return 'lead'
   return ''
 }
 

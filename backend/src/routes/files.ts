@@ -36,29 +36,44 @@ function resolveContentType(filename: string, browserType: string): string {
 }
 
 // ── Detect instrument type from filename (no AI needed) ───────────────────────
+// Strip filename noise (producer tags, @handles, BPM, brackets) BEFORE detecting,
+// so junk like "[Prod. …]" doesn't make every stem read as Drums (the "prod" trap).
+function cleanForDetect(filename: string): string {
+  return filename.toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')   // [Prod...] (12)
+    .replace(/@\S+/g, ' ')                    // @seventhbeats
+    .replace(/\b\d{1,3}\s?bpm\b/g, ' ')       // 103bpm
+    .replace(/\bprod(uced)?\b\.?/g, ' ')      // Prod.
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim()
+}
+
 function detectInstrument(filename: string): string {
-  const n = filename.toLowerCase().replace(/[_\-.]/g, ' ')
-  if (/\bmaster\b|mastered|mixdown|final mix/.test(n))           return 'master'
-  if (/vocal|vox|voice|sing|choir|verse|hook|chorus|rap|acapella|adlib/.test(n)) return 'vocals'
-  if (/guitar|gtr|acous|strat|tele|riff/.test(n))               return 'guitar'
-  // Specific drum hits first so "openhat"/"clap" don't fall into generic "drums".
-  if (/open ?hat|openhh|ohh\b/.test(n))                         return 'openhat'
-  if (/\bclap\b|claps/.test(n))                                 return 'clap'
-  if (/\bkick\b|\bbd\b/.test(n))                                return 'kick'
-  if (/\bsnare\b|\bsd\b/.test(n))                               return 'snare'
-  if (/hi ?hat|closed ?hat|\bhh\b|hat\b/.test(n))               return 'hihat'
-  if (/drum|cymbal|crash|ride|perc|tom|rimshot|loop|beat/.test(n)) return 'drums'
-  if (/\b808\b/.test(n))                                        return '808'
-  if (/\bbass\b|bassline|\bsub\b/.test(n))                      return 'bass'
-  if (/\bbell|bells|glock|chime|celesta/.test(n))             return 'bells'
-  if (/piano|keys?|keyboard|clav|rhodes|wurli/.test(n))        return 'keys'
-  if (/\borgan\b/.test(n))                                     return 'organ'
-  if (/\blead\b|melody|arp/.test(n))                          return 'lead'
-  if (/synth|pad|pluck|analog|wavetable/.test(n))            return 'synth'
-  if (/harm|choir|bg.?vocal|backing|stack/.test(n))          return 'harmony'
-  if (/violin|strings?|brass|horn|sax|flute/.test(n))        return 'strings'
-  if (/\bfx\b|effect|riser|sweep|impact|foley|atmos|ambient/.test(n)) return 'fx'
-  if (/demo|rough/.test(n))                                  return 'demo'
+  const n = cleanForDetect(filename)
+  if (/\b(master|mastered|mixdown|final mix)\b/.test(n))                 return 'master'
+  // Specific drum/percussion hits first.
+  if (/\b(open ?hat|openhh|ohh?)\b/.test(n))                            return 'openhat'
+  if (/\b(clap|claps|reverbclap)\b/.test(n))                           return 'clap'
+  if (/\b(kick|kik|bd)\b/.test(n))                                     return 'kick'
+  if (/\b(snare|sd)\b/.test(n))                                        return 'snare'
+  if (/\b(hi ?hat|closed ?hat|hh|hat)\b/.test(n))                      return 'hihat'
+  if (/\b(cymbal|crash|ride|splash|rim|rimshot|tom|conga|bongo|shaker|tambourine|tamb|cowbell|djembe|cajon|clave|woodblock|triangle|metal|drum|drumroll|perc)\w*/.test(n)) return 'drums'
+  if (/\b808\b/.test(n))                                               return '808'
+  if (/\b(bass|bassline|sub)\b/.test(n))                               return 'bass'
+  // Instruments BEFORE ambiguous role words (so "Guitar hook" → guitar, not vocals).
+  if (/\b(guitar|gtr|acoustic|electric|strat|tele|riff|banjo|mandolin|ukulele|uke)\b/.test(n)) return 'guitar'
+  if (/\b(piano|keys?|keyboard|clav|rhodes|wurli|organ|accordion|harpsichord)\b/.test(n)) return 'keys'
+  if (/\b(synth|pad|pluck|stab|reese|wavetable|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog)\b/.test(n)) return 'synth'
+  if (/\b(bell|bells|glock|chime|celesta)\b/.test(n))                  return 'bells'
+  if (/\b(violin|violon|viola|cello|fiddle|harp|strings?)\b/.test(n))  return 'strings'
+  if (/\b(brass|horns?|trumpet|trombone|tuba)\b/.test(n))              return 'brass'
+  if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(n))          return 'wind'
+  if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(n)) return 'fx'
+  // Vocals + roles last so instrument words win.
+  if (/\b(vocal|vox|voice|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap)\b/.test(n)) return 'vocals'
+  if (/\b(lead|melody|arp|hook)\b/.test(n))                            return 'lead'
+  if (/\b(demo|rough)\b/.test(n))                                      return 'demo'
   return 'recording'
 }
 
@@ -741,16 +756,39 @@ const STEM_TYPE_LABEL: Record<string, string> = {
 // more specific words win (checked top-to-bottom).
 const FILENAME_STEM_WORDS: [RegExp, string][] = [
   [/\bmaster\b/i, 'Master'],
-  [/\b(adlib|ad-lib)\b/i, 'Adlib'], [/\bharmon\w*/i, 'Harmony'], [/\b(vocals?|vox)\b/i, 'Vocals'],
+  // Vocals + abbreviations
+  [/\b(adlib|ad-lib)\b/i, 'Adlib'], [/\bharmon\w*/i, 'Harmony'],
+  [/\b(bgv|bgvs|bvs?|backing|backups?)\b/i, 'BGV'], [/\b(choir|chant)\b/i, 'Choir'],
+  [/\b(vocals?|vox|vocal)\b/i, 'Vocals'],
+  // Bass
   [/\b808\b/i, '808'], [/\bsub\b/i, 'Sub'], [/\bbass\b/i, 'Bass'],
-  [/\bsnare\b/i, 'Snare'], [/\bkick\b/i, 'Kick'], [/\b(open ?hat|open-?hat)\b/i, 'OpenHat'],
-  [/\b(hi-?hat|hats?)\b/i, 'HiHat'], [/\bclap\b/i, 'Clap'], [/\btom\b/i, 'Tom'],
-  [/\b(cymbal|ride|crash)\b/i, 'Cymbal'], [/\bperc\w*/i, 'Perc'], [/\bdrums?\b/i, 'Drums'],
-  [/\b(acoustic)\b/i, 'Acoustic'], [/\b(gtr|guitar)s?\b/i, 'Guitar'],
-  [/\b(piano|rhodes|wurli)\b/i, 'Piano'], [/\borgan\b/i, 'Organ'], [/\bkeys?\b/i, 'Keys'],
-  [/\bsynth\b/i, 'Synth'], [/\bpad\b/i, 'Pad'], [/\bbells?\b/i, 'Bells'],
-  [/\bstrings?\b/i, 'Strings'], [/\b(brass|horns?)\b/i, 'Brass'], [/\b(sax|flute|wind)\b/i, 'Wind'],
+  // Drums + percussion
+  [/\bsnare\b/i, 'Snare'], [/\b(kick|kik)\b/i, 'Kick'], [/\b(open ?hat|open-?hat|\boh\b)\b/i, 'OpenHat'],
+  [/\b(hi-?hat|hats?|\bhh\b)\b/i, 'HiHat'], [/\bclap\b/i, 'Clap'], [/\b(tom|toms)\b/i, 'Tom'],
+  [/\b(cymbal|ride|crash|splash)\b/i, 'Cymbal'], [/\b(rim|rimshot)\b/i, 'Rim'],
+  [/\b(conga|congas)\b/i, 'Conga'], [/\b(bongo|bongos)\b/i, 'Bongo'], [/\b(shaker|shkr|shake)\b/i, 'Shaker'],
+  [/\b(tambourine|tamb)\b/i, 'Tambourine'], [/\bcowbell\b/i, 'Cowbell'], [/\b(djembe|cajon|udu)\b/i, 'Percussion'],
+  [/\b(clave|claves|woodblock|triangle)\b/i, 'Percussion'], [/\bperc\w*/i, 'Perc'], [/\bdrums?\b/i, 'Drums'],
+  // Guitar / plucked
+  [/\bacoustic\b/i, 'Acoustic'], [/\b(gtr|guitar)s?\b/i, 'Guitar'],
+  [/\bbanjo\b/i, 'Banjo'], [/\bmandolin\b/i, 'Mandolin'], [/\b(ukulele|uke)\b/i, 'Ukulele'],
+  // Keys
+  [/\b(piano|rhodes|wurli|clav)\b/i, 'Piano'], [/\borgan\b/i, 'Organ'],
+  [/\b(accordion|harmonica)\b/i, 'Accordion'], [/\bkeys?\b/i, 'Keys'],
+  // Synth (sources / popular plugins all map to Synth)
+  [/\b(serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|nexus2)\b/i, 'Synth'],
+  [/\bsynth\b/i, 'Synth'], [/\bpad\b/i, 'Pad'], [/\bbells?\b/i, 'Bells'], [/\b(pluck|stab)\b/i, 'Pluck'],
+  // Strings / orchestral
+  [/\b(violin|violon|vln|fiddle)\b/i, 'Violin'], [/\bviola\b/i, 'Viola'], [/\b(cello|vc)\b/i, 'Cello'],
+  [/\bharp\b/i, 'Harp'], [/\bstrings?\b/i, 'Strings'],
+  // Brass / wind
+  [/\b(trumpet|tpt)\b/i, 'Trumpet'], [/\b(trombone|tbn)\b/i, 'Trombone'],
+  [/\b(brass|horns?)\b/i, 'Brass'], [/\b(sax|saxophone)\b/i, 'Sax'],
+  [/\b(flute|clarinet|oboe|wind)\b/i, 'Wind'],
+  // Melodic roles
   [/\blead\b/i, 'Lead'], [/\bmelody\b/i, 'Melody'], [/\barp\b/i, 'Arp'], [/\bhook\b/i, 'Hook'],
+  // FX / sound design
+  [/\b(riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|drone|atmos|foley|transition|noise|texture)\b/i, 'FX'],
 ]
 function stemTypeFromFilename(base: string): string | null {
   // Normalize separators to spaces so \b word boundaries fire (underscores are
@@ -759,6 +797,32 @@ function stemTypeFromFilename(base: string): string | null {
   for (const [re, label] of FILENAME_STEM_WORDS) if (re.test(norm)) return label
   return null
 }
+
+// Last resort: when nothing is recognized, pull the most DESCRIPTIVE word out of
+// a (usually noisy) filename so the stem gets a real name — e.g.
+// "Angel da Vinci - CAMERAS_Siren" → "Siren" — instead of the generic "Recording".
+const NAME_NOISE = /\b(prod|produced|by|the|and|for|with|final|mastered?|mix(?:down|ed)?|bounce|export|stem|stems|track|takes?|loops?|samples?|packs?|kits?|presets?|vol|version|ft|feat|featuring|official|tag|tagged|extreme|analog|lab|african|producer|bundle|seventhbeats|free|wet|dry|main|full|new|old)\b/gi
+function meaningfulWordFromFilename(base: string): string | null {
+  const s = base
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')             // [Prod...] (12)
+    .replace(/@\S+/g, ' ')                              // @seventhbeats
+    .replace(/\b\d{1,3}\s?bpm\b/gi, ' ')                // 103bpm
+    .replace(/\b\d{4}[-_]\d{2}[-_]\d{2}\S*/g, ' ')      // dates
+    .replace(/[#&/]+/g, ' ')
+    .replace(/[_\-.]+/g, ' ')
+    .replace(NAME_NOISE, ' ')
+    .replace(/\b\d+\b/g, ' ')                           // bare numbers
+    .replace(/\s{2,}/g, ' ').trim()
+  const tokens = s.split(' ').filter(t => /[a-z]/i.test(t) && t.length >= 2)
+  // The descriptor is usually the LAST surviving token (after a song/producer prefix).
+  const w = tokens[tokens.length - 1]
+  if (!w) return null
+  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+}
+
+// Canonical instrument values that carry no descriptive detail — when the
+// instrument field is one of these, prefer the filename over the bare label.
+const GENERIC_INSTR = new Set(['recording', 'other', ''])
 
 // Structured, organized studio name: SONG_StemType_Key_BPM
 //   e.g. "TWIN_Bass_Am_102". The convention is ALWAYS applied — we never bail out
@@ -782,12 +846,17 @@ export function buildSuggestedName(
   const fmtKey = (k?: string | null) =>
     (k ?? '').replace(/\bmajor\b/i, 'maj').replace(/\bminor\b/i, 'min').replace(/[^A-Za-z0-9#]+/g, '')
 
-  // Stem type: prefer a specific word from the filename, else the detected
-  // instrument's label, else a tidied instrument string.
+  // Stem type, in priority order:
+  //   1. a specific instrument word/abbreviation found in the filename
+  //   2. the detected instrument's label — but ONLY if it actually carries detail
+  //      (a generic "recording"/"other" is skipped so we don't print "Recording")
+  //   3. the most descriptive word pulled from the filename
+  //   4. last resort: "Recording"
+  const instr = (instrument || '').toLowerCase()
   const stemType = stemTypeFromFilename(base)
-    || STEM_TYPE_LABEL[instrument]
-    || (instrument ? instrument.charAt(0).toUpperCase() + instrument.slice(1) : '')
-    || 'Stem'
+    || (GENERIC_INSTR.has(instr) ? null : (STEM_TYPE_LABEL[instr] || (instrument.charAt(0).toUpperCase() + instrument.slice(1))))
+    || meaningfulWordFromFilename(base)
+    || 'Recording'
 
   const parts = [
     seg(projectTitle),                       // SONG
