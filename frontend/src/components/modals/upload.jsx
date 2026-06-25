@@ -173,29 +173,36 @@ function cleanForDetect(filename) {
     .replace(/\s{2,}/g, ' ').trim()
 }
 
+// Mirrors the backend STEM_SPEC (dizko_stem_naming_logic). Order = priority;
+// compound/specific keywords first, instruments before ambiguous role words.
+const STEM_SPEC = [
+  ['master',     /\b(master|mastered|mixdown|full ?mix|stereo ?mix|2 ?mix|two ?mix|final ?mix|rough ?mix|instrumental|album ?version|radio ?edit|bounce|export|current)\b/],
+  ['kick',       /\b(808 ?kick|sub ?kick|bass ?drum|kick|kik|bd|kd)\b/],
+  ['snare',      /\b(snare|snr|sn|sd|rimshot|rim|side ?stick|clap|claps|clp|handclap|reverbclap)\b/],
+  ['openhat',    /\b(open ?hat|openhh|half ?open|oh)\b/],
+  ['hihat',      /\b(hi ?-?hat|hats?|hh|ch|closed ?hat|pedal ?hat|trap ?hat)\b/],
+  ['cymbal',     /\b(cymbal|ride|crash|splash|china|sizzle|overhead)\b/],
+  ['percussion', /\b(perc|percussion|shaker|tambourine|tamb|conga|bongo|timbale|cowbell|woodblock|claves|cabasa|maracas|triangle|djembe|cajon|snap|stomp)\b/],
+  ['drums',      /\b(drums?|drum ?loop|breakbeat|break|amen|full ?kit|kit ?loop|live ?drums|groove|tr-?808|tr-?909|drum ?machine|mpc|sp404|metal|drumroll|beat)\b/],
+  ['808',        /\b808\b/],
+  ['bass',       /\b(bass|bs|sub ?bass|subbass|sub|low ?end|bass ?line|reese|synth ?bass|growl ?bass|wobble|acid ?bass|tb-?303|live ?bass|electric ?bass|bass ?guitar|slap ?bass|upright ?bass|double ?bass|fretless|deep ?bass|sine ?bass|rumble)\b/],
+  ['keys',       /\b(keys?|piano|pno|rhodes|wurli|wurlitzer|clav|clavinet|electric ?piano|ep|grand ?piano|upright|keyboard|kb|kbd|organ|hammond|b3|leslie|drawbar)\b/],
+  ['bells',      /\b(marimba|xylophone|vibraphone|vibes?|glockenspiel|glock|bells?|chimes?|tubular ?bells|steel ?drum|kalimba|celeste|celesta)\b/],
+  ['pad',        /\b(pad|atmosphere|atmo|ambient|texture|wash|lush|evolving|drone|sustained|swell|warm ?pad|cold ?pad|dark ?pad)\b/],
+  ['arp',        /\b(arp|arpeggio|arpeggiated|sequence|seq|riff|gated ?synth|gate)\b/],
+  ['lead',       /\b(lead|synth ?lead|ld|mono ?lead|main ?synth|top ?synth|synth ?line|analog ?lead|pluck|stab|saw ?lead|square ?lead|melody)\b/],
+  ['guitar',     /\b(guitar|gtr|git|acoustic|ac ?guitar|elec ?guitar|electric ?guitar|strat|tele|les ?paul|sg|clean ?guitar|distorted|overdrive|crunch|rhythm ?guitar|lead ?guitar|fingerpicked|strummed|nylon|12 ?string|slide|banjo|mandolin|ukulele|uke)\b/],
+  ['strings',    /\b(strings?|violin|violon|viola|cello|fiddle|orchestral|orch|string ?section|pizzicato|pizz|bowed|chamber ?strings|live ?strings|harp)\b/],
+  ['brass',      /\b(horns?|brass|trumpet|trombone|sax|saxophone|flute|french ?horn|tuba|horn ?section|alto ?sax|tenor ?sax|bari ?sax|flugelhorn|clarinet|oboe)\b/],
+  ['synth',      /\b(synth|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog|wavetable)\b/],
+  ['harmony',    /\b(harmony|harmonies|bgv|bg ?vox|background ?vocal|backing|adlib|ad ?lib|doubles|dbl|double|bv|back ?vox|bg|support ?vox|oohs|aahs|stack|chant|choir)\b/],
+  ['vocals',     /\b(vocals?|vox|voc|topline|top ?line|voice|main ?vox|main ?vocal|singer|sung|dry ?vox|wet ?vox|processed ?vox|rap|verse|bars|feature|feat|hook|bridge|pre-?chorus|prechorus|outro|intro ?vox|spoken|talk ?box|vocoder|talkbox|lyric|acapella|acappella|tags?|chops?|runs|takes?)\b/],
+  ['fx',         /\b(fx|effect|sfx|transition|riser|build|buildup|drop|downlifter|uplifter|sweep|swoosh|whoosh|rush|fall|reverse|spin|rewind|foley|noise|static|glitch|stutter|distortion ?fx|bitcrush|lo-?fi|vinyl|crackle|tape|siren|air ?horn|alarm|crowd|room ?tone|white ?noise|pink ?noise)\b/],
+]
 export function detectInstrument(filename) {
   const f = cleanForDetect(filename)
-  if (/\b(master|mastered|mixdown|final mix|final master|mstr)\b/.test(f)) return 'master'
-  if (/\b(open ?hat|openhh|ohh?)\b/.test(f))                            return 'openhat'
-  if (/\b(clap|claps|reverbclap)\b/.test(f))                           return 'clap'
-  if (/\b(kick|kik|bd)\b/.test(f))                                     return 'kick'
-  if (/\b(snare|sd)\b/.test(f))                                        return 'snare'
-  if (/\b(hi ?hat|closed ?hat|hh|hat)\b/.test(f))                      return 'hihat'
-  if (/\b(cymbal|crash|ride|splash|rim|rimshot|tom|conga|bongo|shaker|tambourine|tamb|cowbell|djembe|cajon|clave|woodblock|triangle|metal|drum|drumroll|perc)\w*/.test(f)) return 'drums'
-  if (/\b808\b/.test(f))                                               return '808'
-  if (/\b(bass|bassline|sub|low end)\b/.test(f))                       return 'bass'
-  // Instruments BEFORE ambiguous role words (so "Guitar hook" → guitar, not vocals).
-  if (/\b(guitar|gtr|acoustic|electric|strat|tele|riff|banjo|mandolin|ukulele|uke)\b/.test(f)) return 'guitar'
-  if (/\b(piano|keys?|keyboard|clav|rhodes|wurli|organ|accordion|harpsichord)\b/.test(f)) return 'piano'
-  if (/\b(synth|pad|pluck|stab|reese|wavetable|osc|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog)\b/.test(f)) return 'synth'
-  if (/\b(bell|bells|glock|chime|celesta)\b/.test(f))                  return 'bells'
-  if (/\b(violin|violon|viola|cello|fiddle|harp|strings?|orchestra|orch)\b/.test(f)) return 'strings'
-  if (/\b(brass|horns?|trumpet|trombone|tuba)\b/.test(f))              return 'brass'
-  if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(f))          return 'wind'
-  if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(f)) return 'fx'
-  if (/\b(vocal|voice|vox|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|lyric|tags?|chops?|runs|takes?|rec)\b/.test(f)) return 'vocals'
-  if (/\b(lead|melody|arp|hook)\b/.test(f))                            return 'lead'
-  return ''
+  for (const [instr, re] of STEM_SPEC) if (re.test(f)) return instr
+  return ''   // unrecognized → "Set instrument"
 }
 
 export function InstrPicker({ value, onChange }) {

@@ -49,31 +49,48 @@ function cleanForDetect(filename: string): string {
     .replace(/\s{2,}/g, ' ').trim()
 }
 
+// ── Authoritative stem spec (dizko_stem_naming_logic) ────────────────────────
+// One ordered table drives BOTH the instrument badge/grouping (`instr`, a
+// canonical value the GROUPS map to Master/Vocals/Melody/Bass/Drums/FX/Other) AND
+// the display name's stem TYPE (`label`). Order = priority — compound/specific
+// keywords first so e.g. "808 kick" → Kick (drums), bare "808" → 808 (bass), and
+// instrument words beat ambiguous role words ("Guitar hook" → Guitar, not vox).
+export const STEM_SPEC: { instr: string; label: string; re: RegExp }[] = [
+  // Master (strong, unambiguous indicators only)
+  { instr:'master', label:'Master', re:/\b(master|mastered|mixdown|full ?mix|stereo ?mix|2 ?mix|two ?mix|final ?mix|rough ?mix|instrumental|album ?version|radio ?edit|bounce|export|current)\b/ },
+  // Drums / percussion — compounds first
+  { instr:'kick',       label:'Kick',   re:/\b(808 ?kick|sub ?kick|bass ?drum|kick|kik|bd|kd)\b/ },
+  { instr:'snare',      label:'Snare',  re:/\b(snare|snr|sn|sd|rimshot|rim|side ?stick|clap|claps|clp|handclap|reverbclap)\b/ },
+  { instr:'openhat',    label:'OpenHat',re:/\b(open ?hat|openhh|half ?open|oh)\b/ },
+  { instr:'hihat',      label:'HiHat',  re:/\b(hi ?-?hat|hats?|hh|ch|closed ?hat|pedal ?hat|trap ?hat)\b/ },
+  { instr:'cymbal',     label:'Cymbal', re:/\b(cymbal|ride|crash|splash|china|sizzle|overhead)\b/ },
+  { instr:'percussion', label:'Perc',   re:/\b(perc|percussion|shaker|tambourine|tamb|conga|bongo|timbale|cowbell|woodblock|claves|cabasa|maracas|triangle|djembe|cajon|snap|stomp)\b/ },
+  { instr:'drums',      label:'Drums',  re:/\b(drums?|drum ?loop|breakbeat|break|amen|full ?kit|kit ?loop|live ?drums|groove|tr-?808|tr-?909|drum ?machine|mpc|sp404|metal|drumroll|beat)\b/ },
+  // Bass
+  { instr:'808',  label:'808',  re:/\b808\b/ },
+  { instr:'bass', label:'Bass', re:/\b(bass|bs|sub ?bass|subbass|sub|low ?end|bass ?line|reese|synth ?bass|growl ?bass|wobble|acid ?bass|tb-?303|live ?bass|electric ?bass|bass ?guitar|slap ?bass|upright ?bass|double ?bass|fretless|deep ?bass|sine ?bass|rumble)\b/ },
+  // Melody
+  { instr:'keys',    label:'Keys',    re:/\b(keys?|piano|pno|rhodes|wurli|wurlitzer|clav|clavinet|electric ?piano|ep|grand ?piano|upright|keyboard|kb|kbd|organ|hammond|b3|leslie|drawbar)\b/ },
+  { instr:'bells',   label:'Bells',   re:/\b(marimba|xylophone|vibraphone|vibes?|glockenspiel|glock|bells?|chimes?|tubular ?bells|steel ?drum|kalimba|celeste|celesta)\b/ },
+  { instr:'pad',     label:'Pad',     re:/\b(pad|atmosphere|atmo|ambient|texture|wash|lush|evolving|drone|sustained|swell|warm ?pad|cold ?pad|dark ?pad)\b/ },
+  { instr:'arp',     label:'Arp',     re:/\b(arp|arpeggio|arpeggiated|sequence|seq|riff|gated ?synth|gate)\b/ },
+  { instr:'lead',    label:'Lead',    re:/\b(lead|synth ?lead|ld|mono ?lead|main ?synth|top ?synth|synth ?line|analog ?lead|pluck|stab|saw ?lead|square ?lead|melody)\b/ },
+  { instr:'guitar',  label:'Guitar',  re:/\b(guitar|gtr|git|acoustic|ac ?guitar|elec ?guitar|electric ?guitar|strat|tele|les ?paul|sg|clean ?guitar|distorted|overdrive|crunch|rhythm ?guitar|lead ?guitar|fingerpicked|strummed|nylon|12 ?string|slide|banjo|mandolin|ukulele|uke)\b/ },
+  { instr:'strings', label:'Strings', re:/\b(strings?|violin|violon|viola|cello|fiddle|orchestral|orch|string ?section|pizzicato|pizz|bowed|chamber ?strings|live ?strings|harp)\b/ },
+  { instr:'brass',   label:'Brass',   re:/\b(horns?|brass|trumpet|trombone|sax|saxophone|flute|french ?horn|tuba|horn ?section|alto ?sax|tenor ?sax|bari ?sax|flugelhorn|clarinet|oboe)\b/ },
+  { instr:'synth',   label:'Synth',   re:/\b(synth|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog|wavetable)\b/ },
+  // Vocals (after instruments)
+  { instr:'harmony', label:'Harmony', re:/\b(harmony|harmonies|bgv|bg ?vox|background ?vocal|backing|adlib|ad ?lib|doubles|dbl|double|bv|back ?vox|bg|support ?vox|oohs|aahs|stack|chant|choir)\b/ },
+  { instr:'vocals',  label:'Vocals',  re:/\b(vocals?|vox|voc|topline|top ?line|voice|main ?vox|main ?vocal|singer|sung|dry ?vox|wet ?vox|processed ?vox|rap|verse|bars|feature|feat|hook|bridge|pre-?chorus|prechorus|outro|intro ?vox|spoken|talk ?box|vocoder|talkbox|lyric|acapella|acappella|tags?|chops?|runs|takes?)\b/ },
+  // FX
+  { instr:'fx', label:'FX', re:/\b(fx|effect|sfx|transition|riser|build|buildup|drop|downlifter|uplifter|sweep|swoosh|whoosh|rush|fall|reverse|spin|rewind|foley|noise|static|glitch|stutter|distortion ?fx|bitcrush|lo-?fi|vinyl|crackle|tape|siren|air ?horn|alarm|crowd|room ?tone|white ?noise|pink ?noise)\b/ },
+  // Other (explicit)
+  { instr:'recording', label:'Recording', re:/\b(recording|new ?recording|misc|extra|temp|draft|wip|test|untitled|audio|sample|unknown)\b/ },
+]
+
 function detectInstrument(filename: string): string {
   const n = cleanForDetect(filename)
-  if (/\b(master|mastered|mixdown|final mix)\b/.test(n))                 return 'master'
-  // Specific drum/percussion hits first.
-  if (/\b(open ?hat|openhh|ohh?)\b/.test(n))                            return 'openhat'
-  if (/\b(clap|claps|reverbclap)\b/.test(n))                           return 'clap'
-  if (/\b(kick|kik|bd)\b/.test(n))                                     return 'kick'
-  if (/\b(snare|sd)\b/.test(n))                                        return 'snare'
-  if (/\b(hi ?hat|closed ?hat|hh|hat)\b/.test(n))                      return 'hihat'
-  if (/\b(cymbal|crash|ride|splash|rim|rimshot|tom|conga|bongo|shaker|tambourine|tamb|cowbell|djembe|cajon|clave|woodblock|triangle|metal|drum|drumroll|perc)\w*/.test(n)) return 'drums'
-  if (/\b808\b/.test(n))                                               return '808'
-  if (/\b(bass|bassline|sub)\b/.test(n))                               return 'bass'
-  // Instruments BEFORE ambiguous role words (so "Guitar hook" → guitar, not vocals).
-  if (/\b(guitar|gtr|acoustic|electric|strat|tele|riff|banjo|mandolin|ukulele|uke)\b/.test(n)) return 'guitar'
-  if (/\b(piano|keys?|keyboard|clav|rhodes|wurli|organ|accordion|harpsichord)\b/.test(n)) return 'keys'
-  if (/\b(synth|pad|pluck|stab|reese|wavetable|serum|nexus|massive|sylenth|omnisphere|kontakt|juno|moog|triton|pigments|vital|diva|prophet|analog ?lab|analog)\b/.test(n)) return 'synth'
-  if (/\b(bell|bells|glock|chime|celesta)\b/.test(n))                  return 'bells'
-  if (/\b(violin|violon|viola|cello|fiddle|harp|strings?)\b/.test(n))  return 'strings'
-  if (/\b(brass|horns?|trumpet|trombone|tuba)\b/.test(n))              return 'brass'
-  if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(n))          return 'wind'
-  if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(n)) return 'fx'
-  // Vocals + roles last so instrument words win.
-  if (/\b(vocal|vox|voice|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|tags?|chops?|runs|takes?|rec)\b/.test(n)) return 'vocals'
-  if (/\b(lead|melody|arp|hook)\b/.test(n))                            return 'lead'
-  if (/\b(demo|rough)\b/.test(n))                                      return 'demo'
+  for (const s of STEM_SPEC) if (s.re.test(n)) return s.instr
   return 'recording'
 }
 
@@ -792,9 +809,10 @@ const FILENAME_STEM_WORDS: [RegExp, string][] = [
 ]
 function stemTypeFromFilename(base: string): string | null {
   // Normalize separators to spaces so \b word boundaries fire (underscores are
-  // word chars, so "mix_snare" wouldn't otherwise match \bsnare\b).
+  // word chars). Same STEM_SPEC table that drives the instrument badge, so the
+  // display TYPE and the grouping always agree.
   const norm = base.replace(/[_\-.]+/g, ' ')
-  for (const [re, label] of FILENAME_STEM_WORDS) if (re.test(norm)) return label
+  for (const s of STEM_SPEC) if (s.re.test(norm)) return s.label
   return null
 }
 

@@ -51,13 +51,16 @@ export function ltDot(status) {
   return { 'In Progress':'#E95A51', 'Review':'#EA9F1E', 'New Takes':'#E8709A', 'Draft':'var(--t3)' }[status] || 'var(--t3)'
 }
 
+// Order + grouping per the dizko stem-naming spec:
+// Master · Vocals · Melody · Bass · Drums · FX · Other.
 export const GROUPS = [
   { key:'finals',  label:'MASTER',     instrs:['finals','exports','smart_bounce','master'] },
-  { key:'drums',   label:'DRUMS',      instrs:['drums','beats','kick','snare','hihat','openhat','clap','cymbal','percussion'] },
+  { key:'vocals',  label:'VOCALS',     instrs:['vocals','harmony'] },
+  { key:'melody',  label:'MELODY',     instrs:['guitar','acoustic','keys','piano','bells','mallets','organ','synth','lead','pad','arp','strings','brass','wind'] },
   { key:'bass',    label:'BASS / 808', instrs:['bass','808'] },
-  { key:'melody',  label:'MELODY',     instrs:['guitar','acoustic','keys','piano','bells','organ','synth','lead','pad','strings','brass','wind','harmony'] },
-  { key:'vocals',  label:'VOCALS',     instrs:['vocals'] },
-  { key:'other',   label:'OTHER',      instrs:['recording','demo','other','fx'] },
+  { key:'drums',   label:'DRUMS',      instrs:['drums','beats','kick','snare','hihat','openhat','clap','cymbal','percussion'] },
+  { key:'fx',      label:'FX',         instrs:['fx'] },
+  { key:'other',   label:'OTHER',      instrs:['recording','demo','other'] },
 ]
 export function getGroupKey(instr) {
   for (const g of GROUPS) if (g.instrs.includes(instr)) return g.key
@@ -68,7 +71,7 @@ export function getGroupKey(instr) {
 // instrument so it both moves there and carries the right tag (Studio reads the
 // instrument). A stem already in the group keeps its finer-grained tag.
 export const GROUP_DROP_INSTR = {
-  drums: 'drums', bass: 'bass', melody: 'keys', vocals: 'vocals', other: 'recording',
+  drums: 'drums', bass: 'bass', melody: 'keys', vocals: 'vocals', fx: 'fx', other: 'recording',
 }
 
 // Light-theme badge palette (matches Figma)
@@ -85,6 +88,7 @@ export const LT_BADGE = {
   harmony:     { label:'Harmony',      bg:'#E8E3FB', border:'#C8C0F0', color:'#4532A0' },
   vocals:      { label:'Vocal',        bg:'#F8E0DF', border:'#F0C0BE', color:'#8B1A14' },
   recording:   { label:'Recording',   bg:'#F8E0DF', border:'#F0C0BE', color:'#8B1A14' },
+  fx:          { label:'FX',           bg:'#DDF0F4', border:'#A8D6E0', color:'#0E5A6B' },
   demo:        { label:'Demo',         bg:'var(--surface-2)', border:'var(--border)', color:'#6B6B78' },
   other:       { label:'Audio',        bg:'var(--surface-2)', border:'var(--border)', color:'#6B6B78' },
 }
