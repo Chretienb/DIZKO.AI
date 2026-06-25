@@ -735,10 +735,38 @@ const STEM_TYPE_LABEL: Record<string, string> = {
   harmony: 'Harmony', master: 'Master', demo: 'Demo', recording: 'Recording',
 }
 
-// Structured, organized studio name: Track_StemType_Key_BPM
-//   e.g. "MidnightDrive_Vocals_F#min_92". Missing pieces (no key/bpm yet) are
-//   simply omitted — no empty segments.
-function buildSuggestedName(
+// Specific stem words that may appear in a filename → a clean type label. Lets
+// us keep DETAIL (snare vs generic drums, 808 vs generic bass) while still
+// applying the [SONG]_[TYPE]_[KEY]_[BPM] convention around it. Order matters:
+// more specific words win (checked top-to-bottom).
+const FILENAME_STEM_WORDS: [RegExp, string][] = [
+  [/\bmaster\b/i, 'Master'],
+  [/\b(adlib|ad-lib)\b/i, 'Adlib'], [/\bharmon\w*/i, 'Harmony'], [/\b(vocals?|vox)\b/i, 'Vocals'],
+  [/\b808\b/i, '808'], [/\bsub\b/i, 'Sub'], [/\bbass\b/i, 'Bass'],
+  [/\bsnare\b/i, 'Snare'], [/\bkick\b/i, 'Kick'], [/\b(open ?hat|open-?hat)\b/i, 'OpenHat'],
+  [/\b(hi-?hat|hats?)\b/i, 'HiHat'], [/\bclap\b/i, 'Clap'], [/\btom\b/i, 'Tom'],
+  [/\b(cymbal|ride|crash)\b/i, 'Cymbal'], [/\bperc\w*/i, 'Perc'], [/\bdrums?\b/i, 'Drums'],
+  [/\b(acoustic)\b/i, 'Acoustic'], [/\b(gtr|guitar)s?\b/i, 'Guitar'],
+  [/\b(piano|rhodes|wurli)\b/i, 'Piano'], [/\borgan\b/i, 'Organ'], [/\bkeys?\b/i, 'Keys'],
+  [/\bsynth\b/i, 'Synth'], [/\bpad\b/i, 'Pad'], [/\bbells?\b/i, 'Bells'],
+  [/\bstrings?\b/i, 'Strings'], [/\b(brass|horns?)\b/i, 'Brass'], [/\b(sax|flute|wind)\b/i, 'Wind'],
+  [/\blead\b/i, 'Lead'], [/\bmelody\b/i, 'Melody'], [/\barp\b/i, 'Arp'], [/\bhook\b/i, 'Hook'],
+]
+function stemTypeFromFilename(base: string): string | null {
+  // Normalize separators to spaces so \b word boundaries fire (underscores are
+  // word chars, so "mix_snare" wouldn't otherwise match \bsnare\b).
+  const norm = base.replace(/[_\-.]+/g, ' ')
+  for (const [re, label] of FILENAME_STEM_WORDS) if (re.test(norm)) return label
+  return null
+}
+
+// Structured, organized studio name: SONG_StemType_Key_BPM
+//   e.g. "TWIN_Bass_Am_102". The convention is ALWAYS applied — we never bail out
+//   to the raw filename just because it contains a stem word (that's what made
+//   uploads keep names like "bass_final" instead of the convention). The stem type
+//   prefers a specific word found in the filename (snare/808/lead) over the generic
+//   instrument label so detail isn't lost. Missing key/bpm segments are omitted.
+export function buildSuggestedName(
   original: string,
   instrument: string,
   bpm: number | null,
@@ -746,14 +774,7 @@ function buildSuggestedName(
   projectTitle?: string,
   _artist?: string,
 ): string {
-  // Protect already-descriptive names: if the user's filename already names a
-  // specific stem type, keep THEIR name (just tidied) instead of flattening it to
-  // a generic label and losing the detail (e.g. "..._snare.wav" → don't make it "Drums").
   const base = original.replace(/\.[^.]+$/, '')
-  const STEM_WORDS = /\b(master|vocals?|vox|adlib|harmon|lead|snare|kick|hi-?hat|hat|tom|clap|cymbal|ride|perc|drum|bass|808|sub|gtr|guitar|acoustic|piano|keys?|rhodes|wurli|organ|synth|pad|strings?|brass|horns?|sax|flute|arp|hook|melody)\b/i
-  if (STEM_WORDS.test(base) && base.length <= 64) {
-    return base.replace(/[\s]+/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '')
-  }
 
   // Filename-safe segment (keep # for sharp keys, strip everything else).
   const seg = (s?: string | null) => (s ?? '').replace(/[^A-Za-z0-9#]+/g, '')
@@ -761,18 +782,23 @@ function buildSuggestedName(
   const fmtKey = (k?: string | null) =>
     (k ?? '').replace(/\bmajor\b/i, 'maj').replace(/\bminor\b/i, 'min').replace(/[^A-Za-z0-9#]+/g, '')
 
-  const stemType = STEM_TYPE_LABEL[instrument]
+  // Stem type: prefer a specific word from the filename, else the detected
+  // instrument's label, else a tidied instrument string.
+  const stemType = stemTypeFromFilename(base)
+    || STEM_TYPE_LABEL[instrument]
     || (instrument ? instrument.charAt(0).toUpperCase() + instrument.slice(1) : '')
-    || original.replace(/\.[^.]+$/, '')
+    || 'Stem'
 
   const parts = [
-    seg(projectTitle),                       // Track
-    seg(stemType),                           // StemType
-    fmtKey(key),                             // Key
+    seg(projectTitle),                       // SONG
+    seg(stemType),                           // STEM TYPE
+    fmtKey(key),                             // KEY
     bpm ? String(Math.round(bpm)) : '',      // BPM
   ].filter(Boolean)
 
-  return parts.join('_')
+  // Always returns the convention; falls back to the tidied filename only if we
+  // somehow have no song/type/key/bpm at all.
+  return parts.join('_') || base.replace(/\s+/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '')
 }
 
 // ── POST /files/:id/separate-stems ────────────────────────────────────────────
