@@ -2,29 +2,41 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, Avatar } from '../components/ui/index.jsx'
 
-// Flat list row — small line-icon, label + sub, chevron on hover. Matches the
-// notifications screen: hairline dividers, no tinted tiles.
-const Row = ({ icon, label, sub, onClick, danger }) => {
+// Card row — a tinted icon chip (per-item accent), label + sub, an optional
+// status pill (e.g. trial days on Billing), and a chevron that slides on hover.
+// The whole card lifts + accent-borders on hover.
+const Row = ({ icon, label, sub, badge, badgeColor, onClick, danger, accent = '#6366f1' }) => {
   const [hov, setHov] = React.useState(false)
+  const tone = danger ? '#ef4444' : accent
   return (
     <button onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display:'flex', alignItems:'center', gap:12, width:'100%', padding:'12px 8px',
-        border:'none', borderBottom:'1px solid var(--border-2)', cursor:'pointer', textAlign:'left',
-        fontFamily:'inherit', borderRadius:8, transition:'background .12s',
-        background: hov ? (danger ? 'rgba(239,68,68,.06)' : 'rgba(var(--fg),.04)') : 'transparent' }}>
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-        stroke={danger ? '#f87171' : (hov ? C.t1 : C.t3)}
-        strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
-        <path d={icon}/>
-      </svg>
+      style={{ display:'flex', alignItems:'center', gap:13, width:'100%', padding:'13px 14px',
+        border:`1px solid ${hov ? `${tone}55` : 'var(--border)'}`, cursor:'pointer', textAlign:'left',
+        fontFamily:'inherit', borderRadius:13,
+        transition:'background .14s, border-color .14s, transform .14s, box-shadow .14s',
+        background: hov ? (danger ? 'rgba(239,68,68,.05)' : 'var(--surface-2)') : 'var(--surface)',
+        boxShadow: hov ? `0 4px 16px ${tone}1f` : 'none',
+        transform: hov ? 'translateY(-1px)' : 'none' }}>
+      {/* tinted icon chip */}
+      <span style={{ width:36, height:36, borderRadius:10, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+        background:`${tone}14`, border:`1px solid ${tone}22` }}>
+        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={tone}
+          strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>
+      </span>
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:13, fontWeight:600, color: danger ? '#f87171' : C.t1, letterSpacing:'-.1px' }}>{label}</div>
-        {sub && <div style={{ fontSize:11.5, color:'var(--t4)', marginTop:1 }}>{sub}</div>}
+        <div style={{ fontSize:13.5, fontWeight:650, color: danger ? '#ef4444' : C.t1, letterSpacing:'-.1px' }}>{label}</div>
+        {sub && <div style={{ fontSize:11.5, color:'var(--t4)', marginTop:2 }}>{sub}</div>}
       </div>
+      {badge && (
+        <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.02em', color: badgeColor || tone,
+          background:`${badgeColor || tone}16`, border:`1px solid ${badgeColor || tone}30`,
+          padding:'3px 9px', borderRadius:999, flexShrink:0, whiteSpace:'nowrap' }}>{badge}</span>
+      )}
       {!danger && (
-        <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-          stroke={hov ? C.t2 : 'var(--t4)'} strokeWidth={2} strokeLinecap="round" style={{ flexShrink:0, transition:'stroke .12s' }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+          stroke={hov ? tone : 'var(--t4)'} strokeWidth={2} strokeLinecap="round"
+          style={{ flexShrink:0, transition:'stroke .14s, transform .14s', transform: hov ? 'translateX(2px)' : 'none' }}>
           <polyline points="9,18 15,12 9,6"/>
         </svg>
       )}
@@ -97,25 +109,32 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
       {/* ── Settings ── */}
       <div style={{ borderTop:`1px solid ${C.border}`, marginTop:18, paddingTop:14 }}>
         <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.06em', textTransform:'uppercase',
-          color:'var(--t4)', marginBottom:2 }}>Settings</div>
-        <Row
-          icon="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
-          label="Account Settings"
-          sub="Edit name, avatar, and preferences"
-          onClick={() => openModal('account-settings', {})}
-        />
-        <Row
-          icon="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-          label="Billing & Plan"
-          sub={`${currentPlanLabel}${isTrial && trialDaysLeft !== null ? ` · ${trialDaysLeft} days remaining` : ''}`}
-          onClick={() => openModal('billing', {})}
-        />
-        <Row
-          icon="M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z"
-          label="Keyboard Shortcuts"
-          sub="Speed up your workflow"
-          onClick={() => openModal('shortcuts', {})}
-        />
+          color:'var(--t4)', marginBottom:10 }}>Settings</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          <Row
+            accent="#6366f1"
+            icon="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+            label="Account Settings"
+            sub="Edit name, avatar, and preferences"
+            onClick={() => openModal('account-settings', {})}
+          />
+          <Row
+            accent="#22c55e"
+            icon="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+            label="Billing & Plan"
+            sub={currentPlanLabel}
+            badge={isTrial && trialDaysLeft !== null ? `${trialDaysLeft} days left` : (isPro ? 'Active' : null)}
+            badgeColor={isTrial ? '#f59e0b' : '#22c55e'}
+            onClick={() => openModal('billing', {})}
+          />
+          <Row
+            accent="#8b5cf6"
+            icon="M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z"
+            label="Keyboard Shortcuts"
+            sub="Speed up your workflow"
+            onClick={() => openModal('shortcuts', {})}
+          />
+        </div>
       </div>
 
       {/* ── Log out ── */}
