@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
+import { projects as projectsApi, collaborators as collabsApi, prefetch } from '../lib/api.js'
 import { Spinner, C } from '../components/ui/index.jsx'
 
 // Per-cover gradient palette — seeded by project id so a project keeps its color
@@ -23,19 +23,30 @@ function timeAgo(iso) {
 }
 
 // ── Album-style card ────────────────────────────────────────────────────────
+// Hovering a card warms what opening it needs: the project's data (details +
+// stems, deduped into the same cache ProjectView reads on mount) and the
+// ProjectView chunk. So the click lands on an already-loaded page.
+function warmProject(id) {
+  if (!id) return
+  prefetch(`/projects/${id}`)
+  prefetch(`/projects/${id}/files`)
+  import('./ProjectView.jsx').catch(() => {})
+}
+
 function ProjectCard({ p, role, onClick }) {
   const [a, b]  = ART[hash(p.id || p.title) % ART.length]
   const isOwner = role === 'Owner'
   const sub     = [p.type, isOwner ? timeAgo(p.created_at) : 'Invited'].filter(Boolean).join(' · ')
 
   return (
-    <button onClick={onClick} className="proj-card" style={{
+    <button onClick={onClick} className="proj-card"
+      onFocus={() => warmProject(p.id)} style={{
       display:'flex', flexDirection:'column', gap:12, padding:12,
       borderRadius:14, border:'none', cursor:'pointer', textAlign:'left',
       background:'transparent', fontFamily:'inherit',
       transition:'background .15s',
     }}
-      onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.06)'
+      onMouseEnter={e => { warmProject(p.id); e.currentTarget.style.background='rgba(var(--fg),.06)'
         e.currentTarget.querySelector('.proj-play').style.opacity='1'
         e.currentTarget.querySelector('.proj-play').style.transform='translateY(0)' }}
       onMouseLeave={e => { e.currentTarget.style.background='transparent'
