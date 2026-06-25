@@ -24,7 +24,7 @@ export default function Splash({ onDone }) {
   return (
     <div style={{
       height: '100vh', width: '100vw',
-      background: '#08080f',
+      background: '#000000',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
