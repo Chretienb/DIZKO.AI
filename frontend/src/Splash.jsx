@@ -88,7 +88,7 @@ export default function Splash({ onDone }) {
             background:`linear-gradient(100deg, #fff 30%, ${C.coral} 50%, ${C.pink} 60%, #fff 80%)`,
             backgroundSize:'220% 100%', WebkitBackgroundClip:'text', backgroundClip:'text',
             WebkitTextFillColor:'transparent', animation:'sheen 3.4s ease-in-out infinite' }}>
-            Dizko.ai
+            Dizko
           </div>
           <div style={{ marginTop:11, fontSize:13, color:'rgba(255,255,255,.42)', letterSpacing:'.05em', fontWeight:500 }}>
             Music collaboration, reimagined.
