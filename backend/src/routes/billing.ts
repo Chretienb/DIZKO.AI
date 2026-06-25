@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { stripe, PLAN_LIMITS, priceIdToPlan, planToPriceId } from '../lib/stripe'
+import { stripe, PLAN_LIMITS, priceIdToPlan, planToPriceId, TRIAL_DAYS, TRIAL_MS, TRIAL_STORAGE_BYTES } from '../lib/stripe'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import type { HonoVariables } from '../types'
@@ -12,13 +12,39 @@ billing.get('/status', requireAuth, async (c) => {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('plan, subscription_status, trial_end, storage_used_bytes, storage_limit_bytes, stripe_customer_id, stripe_subscription_id')
+    .select('plan, subscription_status, trial_end, storage_used_bytes, storage_limit_bytes, stripe_customer_id, stripe_subscription_id, created_at')
     .eq('id', userId)
     .single()
 
   if (error || !profile) return c.json({ data: null, error: 'Profile not found', status: 404 }, 404)
 
   const p = profile as any
+
+  // ── Trial self-heal (repo is the source of truth, not a DB trigger) ──────────
+  // A fresh free_trial account should have: trial_end = signup + TRIAL_DAYS, and
+  // PRO-LEVEL storage (the trial is a trial OF Pro). Backfill either if missing so
+  // the "2-month Pro trial" is guaranteed in code — never an accident or a 0-days
+  // fallback. We only heal an ACTIVE, never-paid trial; we never touch paid or
+  // canceled accounts, and never downgrade.
+  const onFreeTrial = p.plan === 'free_trial' && !p.stripe_subscription_id
+    && p.subscription_status !== 'canceled' && p.subscription_status !== 'active'
+  if (onFreeTrial) {
+    const heal: Record<string, any> = {}
+    if (!p.trial_end) {
+      const base = p.created_at ? new Date(p.created_at).getTime() : Date.now()
+      p.trial_end = new Date(base + TRIAL_MS).toISOString()
+      heal.trial_end = p.trial_end
+    }
+    const stillTrialing = new Date(p.trial_end).getTime() > Date.now()
+    if (stillTrialing && p.storage_limit_bytes < TRIAL_STORAGE_BYTES) {
+      p.storage_limit_bytes = TRIAL_STORAGE_BYTES   // grant Pro-level storage for the trial
+      heal.storage_limit_bytes = TRIAL_STORAGE_BYTES
+    }
+    if (Object.keys(heal).length) {
+      supabase.from('profiles').update(heal).eq('id', userId)
+        .then(({ error: e }) => { if (e) console.error('[billing] trial heal error:', e.message) })
+    }
+  }
 
   // Compute actual storage from stems table — source of truth.
   // This is accurate even if the increment_storage RPC is not deployed or drifted.
@@ -41,7 +67,6 @@ billing.get('/status', requireAuth, async (c) => {
         if (e) console.error('[billing] storage sync error:', e.message)
         else   console.log(`[billing] healed storage for ${userId}: ${p.storage_used_bytes} → ${actualBytes}`)
       })
-      .catch(() => {})
   }
 
   const trialEnd    = new Date(p.trial_end)
@@ -106,7 +131,7 @@ billing.post('/checkout', requireAuth, async (c) => {
   }
 
   // Calculate trial end from existing profile (respects signup date)
-  const trialEnd     = new Date(p?.trial_end ?? Date.now() + 60 * 86_400_000)
+  const trialEnd     = new Date(p?.trial_end ?? Date.now() + TRIAL_MS)
   const trialEndUnix = Math.floor(trialEnd.getTime() / 1000)
   const now          = Math.floor(Date.now() / 1000)
   const hasTrialLeft = trialEndUnix > now + 86_400 // more than 1 day left
