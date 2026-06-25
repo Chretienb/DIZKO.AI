@@ -695,7 +695,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   const STATUS_COLOR = { trialing:'#f59e0b', active:'#22c55e', past_due:'#ef4444', canceled:'#6b7280' }
 
   return (
-    <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#111">
+    <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#22c55e">
       <div style={{ borderRadius:14, background:'linear-gradient(135deg,#0f0f0f,#1a0810)',
         padding:'18px 20px', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
@@ -796,7 +796,7 @@ export function ModalKeyboardShortcuts({ onClose }) {
   ]
 
   return (
-    <Modal title="Keyboard Shortcuts" sub="Speed up your workflow" onClose={onClose} accent="#6366f1">
+    <Modal title="Keyboard Shortcuts" sub="Speed up your workflow" onClose={onClose} accent="#8b5cf6">
       <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
         {GROUPS.map(g => (
           <div key={g.title}>
