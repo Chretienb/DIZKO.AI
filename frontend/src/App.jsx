@@ -606,6 +606,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // path so it never competes with the page you're actually on.
   React.useEffect(() => {
     if (!user?.id) return
+    // Don't pre-warm other pages' chunks while on an audio page (Studio / a
+    // project) — those pages are busy warming stem bytes for instant playback,
+    // and competing high-priority script downloads would delay the first stem
+    // click. Hover-prefetch still covers navigating AWAY from here instantly.
+    const p = window.location.pathname
+    if (p.startsWith('/studio') || /^\/projects\/[^/]+$/.test(p)) return
     const warm = () => ['projects', 'studio', 'projectView', 'library', 'collaborators']
       .forEach(k => ROUTE_LOADERS[k]?.().catch(() => {}))
     const ric = window.requestIdleCallback
