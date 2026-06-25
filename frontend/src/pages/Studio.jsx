@@ -1293,6 +1293,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               if (id) addToBoard(id)
             }}
             style={{ display:'flex', flexDirection:'column', gap:10, padding:14,
+              minHeight: isMobile ? 260 : 420,   // always keep visible droppable space below placed stems
               background: dragOver ? `${C.coral}08` : 'transparent', transition:'background .15s' }}>
             {stems.filter(s=>s.instrument==='original').map(s => {
               const n = parsedNotes(s)
@@ -1411,6 +1412,18 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                 />
               )
             })}
+
+            {/* Persistent "drop more" cue — visible whenever the board has tracks
+                but stems remain to add, so there's always an obvious target. */}
+            {boardStems.length > 0 && boardStems.length < mixerStems.length && (
+              <div style={{ borderRadius:14, border:`2px dashed ${dragOver ? C.coral : C.border}`,
+                background: dragOver ? `${C.coral}0c` : 'transparent',
+                padding:'18px', flex:1, minHeight:96, display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+                color: dragOver ? C.coral : C.t3, transition:'border-color .15s, background .15s, color .15s' }}>
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span style={{ fontSize:13, fontWeight:600 }}>{dragOver ? 'Drop to add to your mix' : 'Drag another stem here'}</span>
+              </div>
+            )}
           </div>
           </div>
 
