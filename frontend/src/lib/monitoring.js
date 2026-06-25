@@ -18,7 +18,17 @@ export function initMonitoring() {
     // Link a frontend trace to its backend trace by propagating headers to the API.
     tracePropagationTargets: ['localhost', '/api', /https:\/\/app\.dizko\.ai\/api/],
     // Browser SDK already auto-captures uncaught errors + unhandled rejections.
-    ignoreErrors: ['Session expired. Please log in again.'],
+    ignoreErrors: [
+      'Session expired. Please log in again.',
+      // Stale-deploy lazy-chunk failures — main.jsx now auto-reloads into the
+      // fresh build, so these are recovered, not real crashes. (React.lazy
+      // surfaces them as "_result.default" / "reading 'default'".)
+      /dynamically imported module/i,
+      /module script/i,
+      /ChunkLoadError|Loading chunk/i,
+      /_result/,
+      /reading 'default'|access property "default"/,
+    ],
   })
 }
 
