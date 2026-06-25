@@ -12,6 +12,18 @@ initMonitoring()
 // After a deploy, Vite chunk hashes change; an open tab can fail to lazy-load an
 // old chunk. Vite fires this — reload once to grab the new build (vs. erroring).
 window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadForNewBuild() })
+
+// React.lazy() failures don't always fire vite:preloadError — they surface as a
+// thrown "e._result.default is undefined" / "Cannot read 'default'" or a rejected
+// dynamic import. Catch those too and reload once (reloadForNewBuild throttles to
+// one reload / 10s, so a stray false-positive can't loop).
+const isChunkError = (m) => {
+  const s = String(m || '')
+  return /dynamically imported module|module script|ChunkLoadError|Loading chunk/i.test(s)
+      || /_result|evaluating 'e\._result|reading 'default'|access property "default"/.test(s)
+}
+window.addEventListener('error', (e) => { if (isChunkError(e?.message)) reloadForNewBuild() })
+window.addEventListener('unhandledrejection', (e) => { if (isChunkError(e?.reason?.message ?? e?.reason)) reloadForNewBuild() })
 import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'

@@ -38,11 +38,15 @@ async function withStore(mode, fn) {
   const d = await db()
   if (!d) return null
   return new Promise((resolve) => {
-    let out = null
-    const tx = d.transaction(STORE, mode)
-    const store = tx.objectStore(STORE)
-    const r = fn(store)
-    if (r) r.onsuccess = () => { out = r.result }
+    let out = null, tx
+    // d.transaction() throws InvalidStateError if the connection is closing
+    // (e.g. navigating away mid-write) — guard it instead of rejecting.
+    try {
+      tx = d.transaction(STORE, mode)
+      const store = tx.objectStore(STORE)
+      const r = fn(store)
+      if (r) r.onsuccess = () => { out = r.result }
+    } catch { resolve(null); return }
     tx.oncomplete = () => resolve(out ?? null)
     tx.onerror    = () => resolve(null)
     tx.onabort    = () => resolve(null)

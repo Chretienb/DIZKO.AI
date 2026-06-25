@@ -63,7 +63,10 @@ export default function NotificationBell({ user }) {
 
   React.useEffect(() => {
     if (!user?.id) return
-    const ch = supabase.channel(`notifs:${user.id}`)
+    // Unique topic per subscription — removeChannel is async, so reusing a fixed
+    // topic on remount can hit a still-subscribed channel and throw "cannot add
+    // postgres_changes callbacks after subscribe()".
+    const ch = supabase.channel(`notifs:${user.id}:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
         filter:`user_id=eq.${user.id}` }, () => load())
       .subscribe()
@@ -137,7 +140,7 @@ export function NotificationsPage({ user }) {
 
   React.useEffect(() => {
     if (!user?.id) return
-    const ch = supabase.channel(`notifs-page:${user.id}`)
+    const ch = supabase.channel(`notifs-page:${user.id}:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',
         filter:`user_id=eq.${user.id}` }, () => load())
       .subscribe()
