@@ -730,7 +730,8 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
       {(() => {
         const usedB  = billingStatus?.storage_used_bytes  ?? 0
         const limB   = billingStatus?.storage_limit_bytes ?? 1
-        const fmt    = n => n >= 1_000_000_000 ? `${(n/1_000_000_000).toFixed(1)} GB` : n >= 1_000_000 ? `${(n/1_000_000).toFixed(0)} MB` : `${(n/1000).toFixed(0)} KB`
+        // Binary units (1024³) so a 50 GiB plan reads "50 GB" — see Account.jsx fmtBytes.
+        const fmt    = n => n >= 1_073_741_824 ? `${(n/1_073_741_824).toFixed(1)} GB` : n >= 1_048_576 ? `${(n/1_048_576).toFixed(0)} MB` : `${(n/1024).toFixed(0)} KB`
         const barW   = usedB > 0 ? Math.max(1, storagePct) : 0
         return (
           <div style={{ padding:'12px 14px', background:C.surface2, borderRadius:10, border:`1px solid ${C.border}`, marginBottom:18 }}>
