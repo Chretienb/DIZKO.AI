@@ -8,15 +8,45 @@ import logo from './assets/logo.png'
 import folderIcon from './assets/open-folder.png'
 
 // ── Extracted page components ──────────────────────────────────────────────
-// Route components are lazy-loaded so each page ships as its own chunk
-// (keeps the initial bundle small — see vite build output).
-const PageDashboardNew     = lazy(() => import('./pages/Dashboard.jsx'))
-const PageProjectsNew      = lazy(() => import('./pages/Projects.jsx'))
-const PageStudioNew        = lazy(() => import('./pages/Studio.jsx'))
-const PageCollaboratorsNew = lazy(() => import('./pages/Collaborators.jsx'))
-const PageLibraryNew       = lazy(() => import('./pages/Library.jsx'))
-const PageAnalyticsNew     = lazy(() => import('./pages/Analytics.jsx'))
-const ProjectView          = lazy(() => import('./pages/ProjectView.jsx'))
+// Route components are lazy-loaded so each page ships as its own chunk (keeps the
+// initial bundle small — see vite build output). The SAME loader is reused to
+// PREFETCH a page's chunk on nav hover / browser idle, so switching pages is
+// instant — the chunk is already in memory before you click, no Suspense spinner.
+// (import() dedupes by specifier, so a prefetch warms the exact chunk lazy() uses.)
+const ROUTE_LOADERS = {
+  dashboard:     () => import('./pages/Dashboard.jsx'),
+  projects:      () => import('./pages/Projects.jsx'),
+  studio:        () => import('./pages/Studio.jsx'),
+  collaborators: () => import('./pages/Collaborators.jsx'),
+  library:       () => import('./pages/Library.jsx'),
+  analytics:     () => import('./pages/Analytics.jsx'),
+  projectView:   () => import('./pages/ProjectView.jsx'),
+}
+const PageDashboardNew     = lazy(ROUTE_LOADERS.dashboard)
+const PageProjectsNew      = lazy(ROUTE_LOADERS.projects)
+const PageStudioNew        = lazy(ROUTE_LOADERS.studio)
+const PageCollaboratorsNew = lazy(ROUTE_LOADERS.collaborators)
+const PageLibraryNew       = lazy(ROUTE_LOADERS.library)
+const PageAnalyticsNew     = lazy(ROUTE_LOADERS.analytics)
+const ProjectView          = lazy(ROUTE_LOADERS.projectView)
+
+// nav path → page-chunk key, for hover/idle prefetch.
+const PATH_TO_CHUNK = {
+  '/': 'dashboard', '/projects': 'projects', '/studio': 'studio',
+  '/collaborators': 'collaborators', '/library': 'library', '/analytics': 'analytics',
+}
+function prefetchRouteChunk(path) {
+  const k = PATH_TO_CHUNK[path]
+  if (k) ROUTE_LOADERS[k]?.().catch(() => {})
+}
+// Warm a nav target before the click: its JS chunk AND its first data fetch
+// (NAV_PREFETCH lists the API paths each page loads). Both are deduped/cached,
+// so hovering repeatedly is cheap. Defined here; NAV_PREFETCH is read at call
+// time (hover), by which point it's initialized.
+function warmNav(path) {
+  prefetchRouteChunk(path)
+  ;(NAV_PREFETCH[path] || []).forEach(p => prefetch(p))
+}
 const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.TermsPage })))
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
@@ -570,6 +600,19 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // Background uploads: resume any left in IndexedDB after a refresh, and show a
   // single live-progress toast driven by the uploader (it runs above the router
   // so uploads continue across page changes).
+  // After first paint, warm the common page chunks during idle time so even the
+  // FIRST navigation is instant (hover-prefetch covers anything not pre-warmed).
+  // Cheap + safe: import() dedupes, and idle scheduling keeps it off the critical
+  // path so it never competes with the page you're actually on.
+  React.useEffect(() => {
+    if (!user?.id) return
+    const warm = () => ['projects', 'studio', 'projectView', 'library', 'collaborators']
+      .forEach(k => ROUTE_LOADERS[k]?.().catch(() => {}))
+    const ric = window.requestIdleCallback
+    const id = ric ? ric(warm, { timeout: 3000 }) : setTimeout(warm, 1200)
+    return () => { if (ric) window.cancelIdleCallback?.(id); else clearTimeout(id) }
+  }, [user?.id])
+
   React.useEffect(() => {
     if (!user?.id) return
     import('./lib/backgroundUploader.js').then(m => m.resumeAll()).catch(() => {})
@@ -781,6 +824,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               return (
                 <button key={n.id} onClick={() => navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
+                  onFocus={() => warmNav(n.path)}
                   style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0,
                     display:'flex', alignItems:'center', fontFamily:'inherit',
                     flexDirection: expanded ? 'row' : 'column',
@@ -789,7 +833,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     borderRadius: expanded ? 11 : 0,
                     background: expanded && on ? 'rgba(var(--fg),.1)' : 'transparent',
                     color: on ? '#fff' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
-                  onMouseEnter={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
+                  onMouseEnter={e => { warmNav(n.path); if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
                   <span style={{ width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                     background: (!expanded && on) ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
