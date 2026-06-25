@@ -193,7 +193,7 @@ export function detectInstrument(filename) {
   if (/\b(brass|horns?|trumpet|trombone|tuba)\b/.test(f))              return 'brass'
   if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(f))          return 'wind'
   if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(f)) return 'fx'
-  if (/\b(vocal|voice|vox|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|lyric)\b/.test(f)) return 'vocals'
+  if (/\b(vocal|voice|vox|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|lyric|tags?|chops?|runs|takes?|rec)\b/.test(f)) return 'vocals'
   if (/\b(lead|melody|arp|hook)\b/.test(f))                            return 'lead'
   return ''
 }

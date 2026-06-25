@@ -71,7 +71,7 @@ function detectInstrument(filename: string): string {
   if (/\b(sax|saxophone|flute|clarinet|oboe|wind)\b/.test(n))          return 'wind'
   if (/\b(fx|riser|uplifter|downlifter|sweep|swoosh|whoosh|impact|foley|atmos|ambient|drone|noise|transition|siren|texture)\b/.test(n)) return 'fx'
   // Vocals + roles last so instrument words win.
-  if (/\b(vocal|vox|voice|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap)\b/.test(n)) return 'vocals'
+  if (/\b(vocal|vox|voice|sing|choir|acapella|acappella|adlib|bgv|bv|backing|harmon|stack|chant|verse|chorus|rap|tags?|chops?|runs|takes?|rec)\b/.test(n)) return 'vocals'
   if (/\b(lead|melody|arp|hook)\b/.test(n))                            return 'lead'
   if (/\b(demo|rough)\b/.test(n))                                      return 'demo'
   return 'recording'
