@@ -892,7 +892,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
-        <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', background:C.bg, padding: isMobile ? '16px' : '24px',
+        <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', overflowX:'hidden', minWidth:0, background:C.bg,
+          padding: isMobile ? '14px 12px' : '24px',
           paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
