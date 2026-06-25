@@ -1374,6 +1374,7 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
     }
 
     // Large files — one multipart upload each (parallel init).
+    let initError = null   // first real init failure (e.g. "Storage limit reached")
     if (largePrepared.length) {
       const results = await Promise.allSettled(largePrepared.map(p => filesApi.multipartInit(selProj.id, {
         file_name: p.name, file_size: p.blob.size, content_type: p.type, instrument: instrOf(p),
@@ -1386,21 +1387,28 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
           recs.push({ id: d.id, projectId: selProj.id, name: p.name, blob: p.blob,
             storagePath: d.storage_path, contentType: d.content_type, instrument: d.instrument || instrOf(p),
             multipart: { uploadId: d.upload_id, partSize: d.part_size, partCount: d.part_count } })
-        } else if (r.status === 'rejected' && /access|collaborat|request/i.test(r.reason?.message || '')) {
-          blocked.push({ file_name: p.name })
+        } else if (r.status === 'rejected') {
+          const msg = r.reason?.message || ''
+          if (/access|collaborat|request/i.test(msg)) blocked.push({ file_name: p.name })
+          else if (!initError) initError = msg   // surface storage-limit / other init errors
         }
       })
     }
 
-    // Nothing to transfer (all blocked, or init returned no rows) — never close
-    // silently; tell the user what happened.
+    // Nothing to transfer (all blocked, over storage, or init returned no rows) —
+    // never close silently; tell the user exactly what happened.
     if (recs.length === 0) {
       setUploading(false); onClose()
-      addToast?.(blocked.length
-        ? `${blocked.length} file${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`
-        : 'Upload couldn’t start — please try again', { type: 'info' })
+      addToast?.(initError
+        ? initError
+        : blocked.length
+          ? `${blocked.length} file${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`
+          : 'Upload couldn’t start — please try again', { type: 'info' })
       return
     }
+    // Some uploaded but a big one was rejected (e.g. it tipped over the limit) —
+    // don't let it fail silently.
+    if (initError) addToast?.(initError, { type: 'info' })
 
     // Cache bytes in IndexedDB for refresh-resumability — BEST EFFORT. On a full
     // disk (or private mode) IndexedDB rejects; that must NOT abort the upload,
