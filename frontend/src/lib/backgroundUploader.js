@@ -11,6 +11,21 @@ let pending = []
 let running = 0
 let prog = { total: 0, done: 0, failed: 0 }
 const inFlight = new Set()
+const retries  = new Map()   // stem id → attempt count, for capped backoff
+
+// Re-queue a record for another attempt AFTER a delay, WITHOUT re-counting it in
+// the progress total (that's only for genuinely-new uploads via enqueue). This is
+// how we "never give up": a stem that didn't finalize keeps coming back until its
+// bytes are confirmed in R2. The blob lives in IndexedDB, so this also survives a
+// refresh (resumeAll re-loads it).
+function requeue(rec, delay) {
+  setTimeout(() => {
+    if (inFlight.has(rec.id)) return
+    inFlight.add(rec.id)
+    pending.push(rec)
+    pump()
+  }, delay)
+}
 
 const emit = () => window.dispatchEvent(new CustomEvent('dizko:upload_progress', { detail: { ...prog, active: running + pending.length } }))
 const filesUpdated = (projectId) => { cacheBust(`/projects/${projectId}/files`); window.dispatchEvent(new CustomEvent('dizko:files_updated', { detail: { projectId } })) }
@@ -44,31 +59,31 @@ async function handle(rec) {
   // finalize: markUploaded verifies the bytes are really in R2 (409 = not there).
   try { await putBytes(rec) } catch {}
 
-  // Finalize, retrying a 409 once in case of brief PUT→HEAD consistency lag.
-  let incomplete = false
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      await filesApi.markUploaded(rec.id, { instrument: rec.instrument })
-      await delPending(rec.id)                // bytes confirmed in R2 → done
-      prog.done++
-      inFlight.delete(rec.id); filesUpdated(rec.projectId); emit()
-      return
-    } catch (e) {
-      incomplete = /incomplete|not in storage|HTTP 409/i.test(e?.message || '')
-      if (incomplete && attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue }
-      break
+  try {
+    await filesApi.markUploaded(rec.id, { instrument: rec.instrument })
+    await delPending(rec.id)                // bytes confirmed in R2 → done
+    retries.delete(rec.id)
+    prog.done++
+    inFlight.delete(rec.id); filesUpdated(rec.projectId); emit()
+    return
+  } catch (e) {
+    // We NEVER mark a stem 'failed'. The bytes are still in the browser (memory +
+    // IndexedDB) so the stem keeps playing locally and we simply keep trying until
+    // R2 confirms the object. 409 (bytes not in R2 yet) and network blips both
+    // re-PUT on the next pass; capped exponential backoff avoids hammering.
+    const msg = e?.message || ''
+    const retriable = /incomplete|not in storage|HTTP 409/i.test(msg) || isRetryable(msg)
+    inFlight.delete(rec.id)
+    if (retriable) {
+      const n = (retries.get(rec.id) || 0) + 1
+      retries.set(rec.id, n)
+      const delay = Math.min(30000, 800 * 2 ** Math.min(n, 5)) + Math.random() * 500
+      requeue(rec, delay)
     }
+    // A non-retriable error (e.g. auth) leaves the stem 'uploading' + cached;
+    // resumeAll on the next app load picks it back up. Still never 'failed'.
+    filesUpdated(rec.projectId); emit()
   }
-
-  if (incomplete) {
-    // Bytes genuinely aren't in R2 → real failure. KEEP the cache so a refresh
-    // (resumeAll) re-uploads it; the stem shows a retry hint, not a dead end.
-    prog.failed++
-    await filesApi.update(rec.id, { notes: JSON.stringify({ status: 'failed', type: 'take', error: 'Upload was interrupted' }) }).catch(() => {})
-  }
-  // else: transient finalize error (network) — leave 'uploading' + cache; resume
-  // / reconcile will heal it. Don't touch prog so the toast doesn't over-report.
-  inFlight.delete(rec.id); filesUpdated(rec.projectId); emit()
 }
 
 function pump() {

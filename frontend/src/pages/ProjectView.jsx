@@ -88,7 +88,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // PLAYABLE after a refresh, resume the background upload, and reconcile any
   // whose bytes already reached R2 (heals "stuck loading" after a reload).
   useEffect(() => {
-    const uploading = files.filter(f => { try { return parseNotes(f).status === 'uploading' } catch { return false } })
+    const uploading = files.filter(f => { try { const s = parseNotes(f).status; return s === 'uploading' || s === 'failed' } catch { return false } })
     if (!uploading.length) { reconciledRef.current = false; return }
     let alive = true
     ;(async () => {
@@ -909,10 +909,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     // refresh); not yet from the cloud. 'failed' = the PUT failed.
                     const isUploading = notes.status === 'uploading'
                     const isFailed    = notes.status === 'failed'
-                    const preview     = isUploading ? (getUploadPreview(f.id) || cachedUrls[f.id] || null) : null
-                    const canPlay     = (!isUploading && !isFailed) || !!preview
-                    const sub     = isUploading ? 'Uploading…'
-                                  : isFailed    ? 'Upload interrupted — refresh to resume'
+                    // "Pending" = bytes still settling into the cloud (uploading, or a
+                    // legacy 'failed' row the uploader is still retrying). Either way it
+                    // stays playable from the local copy (this session, or IndexedDB
+                    // after a refresh) and the uploader keeps going until R2 confirms —
+                    // it never dead-ends.
+                    const isPending   = isUploading || isFailed
+                    const preview     = isPending ? (getUploadPreview(f.id) || cachedUrls[f.id] || null) : null
+                    const canPlay     = !isPending || !!preview
+                    const sub     = isPending ? 'Uploading…'
                                   : [dur, notes.bpm && `${Math.round(notes.bpm)} BPM`, notes.key].filter(Boolean).join(' · ')
                     const isSel   = selectedFile?.id === f.id
                     const isActive      = playback.id === f.id
@@ -1005,7 +1010,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           // Bytes still uploading (and no local preview, e.g. after a
                           // refresh) — show a spinner in place of the play button.
                           <div aria-label="Uploading" title="Uploading…" style={{ width:32, height:32, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px solid var(--border)' }}>
-                            <Spinner size={13} color={isFailed ? '#E95A51' : undefined} />
+                            <Spinner size={13} />
                           </div>
                         )}
                       </div>
