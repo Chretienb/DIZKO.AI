@@ -615,54 +615,60 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   // ── Upsell — no card yet ─────────────────────────────────────────────────────
   if (!billingLoaded || !hasCard) return (
     <Modal title="" sub="" onClose={onClose} accent="#E95A51">
-      <div style={{ padding:'0 2px' }}>
+      <div style={{ padding:'2px 2px 0' }}>
 
-        {/* Header */}
-        <div style={{ textAlign:'center', marginBottom:24 }}>
-          <div style={{ width:54, height:54, borderRadius:16, margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center',
-            background:'linear-gradient(135deg,#f4937a,#f28fb8)', boxShadow:'0 8px 24px rgba(233,90,81,.35)' }}>
-            <svg width={25} height={25} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12z"/></svg>
+        {/* Hero */}
+        <div style={{ textAlign:'center', marginBottom:22 }}>
+          <div style={{ width:58, height:58, borderRadius:18, margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center',
+            background:C.grad, boxShadow:`0 12px 32px ${C.coral}55` }}>
+            <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12z"/></svg>
           </div>
-          <div style={{ fontSize:22, fontWeight:900, color:C.t1, letterSpacing:'-.7px', lineHeight:1.15, marginBottom:7 }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 13px', borderRadius:100, marginBottom:13,
+            background:`${C.coral}16`, border:`1px solid ${C.coral}33` }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
+            <span style={{ fontSize:10.5, fontWeight:800, letterSpacing:'.1em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
+          </div>
+          <div style={{ fontSize:25, fontWeight:900, color:C.t1, letterSpacing:'-.9px', lineHeight:1.1, marginBottom:8 }}>
             Start your free trial
           </div>
-          <div style={{ fontSize:13, color:C.t3, lineHeight:1.55 }}>
-            Create projects, invite your crew &amp; export.<br/>Free for 2 months — no charge until month 3.
+          <div style={{ fontSize:13, color:C.t3, lineHeight:1.55, maxWidth:330, margin:'0 auto' }}>
+            Create projects, invite your crew &amp; export. No charge until month 3.
           </div>
         </div>
 
         {/* Plan cards */}
-        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:20 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:18 }}>
           {PLANS.map(p => {
             const on = selPlan === p.id
             return (
               <button key={p.id} onClick={() => setSelPlan(p.id)} style={{
                 display:'flex', alignItems:'center', justifyContent:'space-between',
-                padding:'13px 15px', borderRadius:13, cursor:'pointer', textAlign:'left', fontFamily:'inherit',
+                padding:'15px 16px', borderRadius:15, cursor:'pointer', textAlign:'left', fontFamily:'inherit',
                 border: `1.5px solid ${on ? C.coral : C.border}`,
-                background: on ? `${C.coral}0f` : C.surface2,
-                transition:'all .12s', outline:'none',
+                background: on ? `${C.coral}0d` : C.surface2,
+                boxShadow: on ? `0 6px 22px ${C.coral}22` : 'none',
+                transition:'all .14s', outline:'none',
               }}>
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  {/* Radio dot */}
-                  <div style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                <div style={{ display:'flex', alignItems:'center', gap:13 }}>
+                  {/* Radio / check */}
+                  <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                     border: `2px solid ${on ? C.coral : C.border}`, background: on ? C.coral : 'transparent', transition:'all .15s' }}>
-                    {on && <div style={{ width:6, height:6, borderRadius:'50%', background:'#fff' }} />}
+                    {on && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>}
                   </div>
                   <div>
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:C.t1 }}>{p.label}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                      <span style={{ fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.2px' }}>{p.label}</span>
                       {p.popular && (
-                        <span style={{ fontSize:9, fontWeight:800, padding:'2px 8px', borderRadius:100,
-                          background:C.grad, color:'#fff', letterSpacing:'.06em' }}>POPULAR</span>
+                        <span style={{ fontSize:8.5, fontWeight:800, padding:'2.5px 8px', borderRadius:100,
+                          background:C.grad, color:'#fff', letterSpacing:'.08em' }}>POPULAR</span>
                       )}
                     </div>
-                    <div style={{ fontSize:11.5, color:C.t3 }}>{p.storage} storage · Unlimited everything</div>
+                    <div style={{ fontSize:12, color:C.t3 }}>{p.storage} · Unlimited everything</div>
                   </div>
                 </div>
                 <div style={{ textAlign:'right', flexShrink:0 }}>
-                  <div style={{ fontSize:16, fontWeight:800, color: on ? C.coral : C.t2 }}>${p.price}</div>
-                  <div style={{ fontSize:10, color:C.t3 }}>/mo after trial</div>
+                  <div style={{ fontSize:19, fontWeight:900, color: on ? C.coral : C.t1, letterSpacing:'-.5px' }}>${p.price}</div>
+                  <div style={{ fontSize:10, color:C.t3, marginTop:1 }}>/mo after</div>
                 </div>
               </button>
             )
@@ -680,14 +686,20 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
         {/* CTA */}
         <button onClick={handleCheckout} disabled={acting} style={{
-          width:'100%', height:50, borderRadius:13, border:'none', cursor: acting ? 'default' : 'pointer',
-          background: 'linear-gradient(135deg,#f4937a,#f28fb8)', color:'#fff', fontSize:15, fontWeight:800,
-          fontFamily:'inherit', letterSpacing:'-.2px', marginBottom:10, transition:'opacity .15s',
-          boxShadow:'0 8px 24px rgba(233,90,81,.35)', opacity: acting ? .6 : 1,
-        }}>
-          {acting ? 'Opening Stripe…' : `Start free trial — ${selected.label}`}
+          width:'100%', height:52, borderRadius:15, border:'none', cursor: acting ? 'default' : 'pointer',
+          background: C.grad, color:'#fff', fontSize:15.5, fontWeight:800,
+          fontFamily:'inherit', letterSpacing:'-.2px', marginBottom:11, transition:'transform .15s, box-shadow .15s, opacity .15s',
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+          boxShadow:`0 10px 30px ${C.coral}48`, opacity: acting ? .6 : 1,
+        }}
+          onMouseEnter={e => { if(!acting){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow=`0 14px 38px ${C.coral}5a` } }}
+          onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow=`0 10px 30px ${C.coral}48` }}>
+          {acting ? 'Opening Stripe…' : <>Start free trial — {selected.label} <span style={{ fontSize:17 }}>→</span></>}
         </button>
-        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginBottom:12 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:11, color:C.t3, marginBottom:12 }}>
+          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
           $0 today · ${selected.price}/mo from month 3 · Cancel anytime
         </div>
         <button onClick={onClose} style={{ width:'100%', height:42, borderRadius:12,
