@@ -692,7 +692,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // UPLOADING is contributing — free collaborators must be able to add their
   // stems to projects they're a member of. (Backend gates create/invite/export;
   // upload only requires active membership.)
-  const GATED_MODALS = ['new-project', 'invite']
+  const GATED_MODALS = ['new-project', 'invite', 'upload']
   const openModal = (type, data) => {
     if (GATED_MODALS.includes(type) && !hasAccess) {
       setModal({ type: 'billing', data: {} })
@@ -709,6 +709,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   }
   const closeModal       = () => setModal(null)
   const onProjectCreated = (project) => { setRefresh(k => k + 1); closeModal(); setChecklistDone(d => ({ ...d, 0: true })); if (project?.id) navigate(`/projects/${project.id}`) }
+
+  // Hard paywall: without access, the gated feature pages (Projects, Studio, Crew,
+  // Library, Analytics) render the wall instead of the page — only the Dashboard
+  // + settings stay reachable. The billingLoaded guard avoids flashing the wall
+  // while billing status is still loading. Closing the wall returns to the dash.
+  const gate = (el) => {
+    if (!billingLoaded) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>
+    return hasAccess ? el : <ModalBilling onClose={() => navigate('/')} billingStatus={billingStatus} billingLoaded={billingLoaded} />
+  }
 
   // Getting started checklist
   const [checklistVisible, setChecklistVisible] = React.useState(() => !localStorage.getItem('dizko_checklist_done'))
@@ -948,12 +957,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
-            <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
-            <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/studio"        element={<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/collaborators" element={<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />} />
-            <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/analytics"     element={<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />} />
+            <Route path="/projects"      element={gate(<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />)} />
+            <Route path="/projects/:id"  element={gate(<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
+            <Route path="/studio"        element={gate(<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
+            <Route path="/collaborators" element={gate(<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />)} />
+            <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
+            <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />
