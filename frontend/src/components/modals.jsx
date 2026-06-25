@@ -13,6 +13,7 @@ import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.
 // and re-exported below so existing `from './modals.jsx'` imports keep working.
 import { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
 import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFiles, filesFromDataTransfer } from './modals/upload.jsx'
+import logo from '../assets/logo.png'
 import { setUploadPreview } from '../pages/project/uploadPreview.js'
 import { putPending } from '../lib/uploadStore.js'
 import { enqueue } from '../lib/backgroundUploader.js'
@@ -617,99 +618,144 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     setActing(false)
   }
 
-  // ── Upsell — no card yet (Dizko payment wall) ───────────────────────────────
-  if (!billingLoaded || !hasCard) return (
-    <Modal title="Choose your plan" sub="Free for 2 months — no charge until month 3 · Cancel anytime"
-      onClose={onClose} accent="#E95A51" width={isMobile ? 520 : 660}>
-      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+  // ── Upsell — no card yet (Dizko payment wall: full black, branded) ───────────
+  if (!billingLoaded || !hasCard) {
+    const W = { fg:'#fff', t2:'rgba(255,255,255,.72)', t3:'rgba(255,255,255,.45)', line:'rgba(255,255,255,.1)' }
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,.62)',
+        backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)',
+        display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+        onClick={e => e.target === e.currentTarget && onClose()}>
+        <div role="dialog" aria-modal="true" aria-label="Choose your plan"
+          style={{ width:'100%', maxWidth: isMobile ? 520 : 1000, maxHeight:'92vh', overflowY:'auto',
+            background:'#000', border:`1px solid ${W.line}`, borderRadius:24,
+            boxShadow:`0 30px 90px rgba(0,0,0,.7)`, position:'relative', overflowX:'hidden' }}>
+          {/* accent bar + coral glow */}
+          <div style={{ height:3, background:`linear-gradient(90deg, ${C.coral}, ${C.coral}55)` }}/>
+          <div style={{ position:'absolute', top:-20, right:-30, width:280, height:280, borderRadius:'50%',
+            background:`radial-gradient(circle, ${C.coral}26, transparent 70%)`, pointerEvents:'none' }}/>
 
-        {/* Plan cards — price + CTA on the left, feature checklist on the right */}
-        {PLANS.map(p => {
-          const hot     = p.popular
-          const loading = actingPlan === p.id
-          return (
-            <div key={p.id} style={{
-              display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems:'stretch',
-              borderRadius:18, overflow:'hidden',
-              border:`1.5px solid ${hot ? C.coral : C.border}`,
-              background: hot ? `${C.coral}0a` : C.surface,
-              boxShadow: hot ? `0 8px 28px ${C.coral}1f` : 'none' }}>
+          <div style={{ position:'relative', padding: isMobile ? '24px 20px 26px' : '32px 38px 34px' }}>
 
-              {/* LEFT: name · price · CTA */}
-              <div style={{ width: isMobile ? '100%' : '42%', flexShrink:0, padding:'20px',
-                display:'flex', flexDirection:'column',
-                borderRight: isMobile ? 'none' : `1px solid ${C.border}`,
-                borderBottom: isMobile ? `1px solid ${C.border}` : 'none' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:13 }}>
-                  <span style={{ fontSize:16, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>{p.label}</span>
-                  {hot && (
-                    <span style={{ fontSize:8.5, fontWeight:800, padding:'3px 9px', borderRadius:100,
-                      background:C.grad, color:'#fff', letterSpacing:'.08em' }}>BEST OFFER</span>
-                  )}
-                </div>
-                <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
-                  <span style={{ fontSize:30, fontWeight:900, color:C.t1, letterSpacing:'-1px' }}>${p.price}</span>
-                  <span style={{ fontSize:13, color:C.t3, fontWeight:600 }}>/mo</span>
-                </div>
-                <div style={{ fontSize:11.5, color: hot ? C.coral : C.t3, fontWeight:700, marginTop:5 }}>Free for 2 months</div>
-
-                <div style={{ flex:1, minHeight: isMobile ? 14 : 0 }}/>
-
-                <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
-                  height:44, borderRadius:12, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
-                  fontSize:13.5, fontWeight:800, letterSpacing:'-.1px',
-                  border: hot ? 'none' : `1.5px solid ${C.border}`,
-                  background: hot ? C.grad : 'transparent',
-                  color: hot ? '#fff' : C.t1,
-                  boxShadow: hot ? `0 6px 20px ${C.coral}40` : 'none',
-                  transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
-                  onMouseEnter={e => { if (!acting && !hot) e.currentTarget.style.borderColor=C.coral }}
-                  onMouseLeave={e => { if (!hot) e.currentTarget.style.borderColor=C.border }}>
-                  {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
-                </button>
+            {/* Brand header + close */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: isMobile ? 22 : 28 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <img src={logo} alt="" style={{ width:42, height:42, borderRadius:13, objectFit:'cover',
+                  boxShadow:`0 0 0 1px rgba(255,255,255,.1), 0 0 30px ${C.coral}38` }}/>
+                <span style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>Dizko</span>
               </div>
-
-              {/* RIGHT: feature checklist */}
-              <div style={{ flex:1, padding:'20px 22px', display:'flex', flexDirection:'column', gap:12, justifyContent:'center' }}>
-                {p.features.map(f => (
-                  <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <span style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                      background: hot ? `${C.coral}1f` : 'rgba(var(--fg),.06)' }}>
-                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : C.t2} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
-                    </span>
-                    <span style={{ fontSize:13, color:C.t2, fontWeight:500 }}>{f}</span>
-                  </div>
-                ))}
-              </div>
+              <button onClick={onClose} aria-label="Close dialog" style={{ width:32, height:32, borderRadius:10,
+                background:'rgba(255,255,255,.06)', border:`1px solid ${W.line}`, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center', color:W.t3, transition:'all .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}1a`; e.currentTarget.style.color='#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=W.t3 }}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
-          )
-        })}
 
-        {err && (
-          <div style={{ background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',
-            borderRadius:10, padding:'10px 14px', fontSize:12, color:'#ef4444', fontWeight:600 }}>
-            {err}
+            {/* Title + 2-months-free pill */}
+            <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', marginBottom:8 }}>
+              <h2 style={{ margin:0, fontSize: isMobile ? 27 : 34, fontWeight:900, color:'#fff', letterSpacing:'-1.2px' }}>
+                Choose your plan
+              </h2>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:100,
+                background:`${C.coral}1c`, border:`1px solid ${C.coral}38` }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
+                <span style={{ fontSize:10.5, fontWeight:800, letterSpacing:'.1em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
+              </span>
+            </div>
+            <p style={{ margin:'0 0 26px', fontSize:14, color:W.t3, lineHeight:1.55 }}>
+              Create projects, invite your crew &amp; export. No charge until month 3 · Cancel anytime.
+            </p>
+
+            {err && (
+              <div style={{ background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.3)',
+                borderRadius:12, padding:'12px 15px', marginBottom:16, fontSize:13, color:'#fca5a5', fontWeight:600 }}>
+                {err}
+              </div>
+            )}
+
+            {/* Plan cards — three columns side by side (fits a laptop, no scroll) */}
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:14, alignItems:'stretch' }}>
+              {PLANS.map(p => {
+                const hot     = p.popular
+                const loading = actingPlan === p.id
+                return (
+                  <div key={p.id} style={{
+                    display:'flex', flexDirection:'column', borderRadius:20, padding: isMobile ? '22px' : '24px 22px',
+                    border:`1.5px solid ${hot ? C.coral : W.line}`,
+                    background: hot ? `${C.coral}12` : 'rgba(255,255,255,.03)',
+                    boxShadow: hot ? `0 12px 36px ${C.coral}28` : 'none' }}>
+
+                    {/* name + badge */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, minHeight:24 }}>
+                      <span style={{ fontSize:17, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>{p.label}</span>
+                      {hot && (
+                        <span style={{ fontSize:8.5, fontWeight:800, padding:'3.5px 9px', borderRadius:100,
+                          background:C.grad, color:'#fff', letterSpacing:'.08em' }}>BEST OFFER</span>
+                      )}
+                    </div>
+
+                    {/* price */}
+                    <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
+                      <span style={{ fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1.4px' }}>${p.price}</span>
+                      <span style={{ fontSize:14, color:W.t3, fontWeight:600 }}>/mo</span>
+                    </div>
+                    <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Free for 2 months</div>
+
+                    {/* CTA */}
+                    <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
+                      width:'100%', height:48, borderRadius:13, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
+                      fontSize:14, fontWeight:800, letterSpacing:'-.1px',
+                      border: hot ? 'none' : `1.5px solid rgba(255,255,255,.2)`,
+                      background: hot ? C.grad : 'transparent', color:'#fff',
+                      boxShadow: hot ? `0 8px 24px ${C.coral}48` : 'none',
+                      transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
+                      onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(255,255,255,.04)' } }}
+                      onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(255,255,255,.2)'; e.currentTarget.style.background='transparent' } }}>
+                      {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
+                    </button>
+
+                    {/* divider */}
+                    <div style={{ height:1, background:W.line, margin:'20px 0 16px' }}/>
+
+                    {/* features */}
+                    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                      {p.features.map(f => (
+                        <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <span style={{ width:19, height:19, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                            background: hot ? `${C.coral}26` : 'rgba(255,255,255,.07)' }}>
+                            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : 'rgba(255,255,255,.65)'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                          </span>
+                          <span style={{ fontSize:13, color:W.t2, fontWeight:500 }}>{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Legal + dismiss */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:11.5, color:W.t3, marginTop:22 }}>
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+              </svg>
+              Secure checkout · $0 today · cancel anytime. By continuing you agree to our&nbsp;
+              <a href="/terms" style={{ color:W.t2, textDecoration:'underline' }}>Terms</a>.
+            </div>
+            <button onClick={onClose} style={{ width:'100%', height:42, borderRadius:12, marginTop:6,
+              border:'none', background:'transparent', color:W.t3,
+              fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'color .15s' }}
+              onMouseEnter={e => e.currentTarget.style.color=W.t2}
+              onMouseLeave={e => e.currentTarget.style.color=W.t3}>
+              Maybe later
+            </button>
           </div>
-        )}
-
-        {/* Legal + dismiss */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:11, color:C.t3, marginTop:2 }}>
-          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
-            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-          </svg>
-          $0 today · cancel anytime. By continuing you agree to our&nbsp;
-          <a href="/terms" style={{ color:C.t2, textDecoration:'underline' }}>Terms</a>.
         </div>
-        <button onClick={onClose} style={{ width:'100%', height:40, borderRadius:12,
-          border:'none', background:'transparent', color:C.t3,
-          fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'color .15s' }}
-          onMouseEnter={e => e.currentTarget.style.color=C.t2}
-          onMouseLeave={e => e.currentTarget.style.color=C.t3}>
-          Maybe later
-        </button>
       </div>
-    </Modal>
-  )
+    )
+  }
 
   // ── Management — card on file ─────────────────────────────────────────────────
   const PLAN_LABEL = { free_trial:'Free Trial', pro:'Pro', studio:'Studio', label:'Label' }
