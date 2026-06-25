@@ -980,7 +980,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
       {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
       {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
-      {modal?.type==='account-settings' && <ModalAccountSettings user={user} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
+      {modal?.type==='account-settings' && <ModalAccountSettings user={user} billingStatus={billingStatus} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} billingStatus={billingStatus} billingLoaded={billingLoaded} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}

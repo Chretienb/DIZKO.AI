@@ -326,7 +326,19 @@ export function ModalNewProject({ onClose, onCreated }) {
 
 // ─── MODAL: INVITE ─────────────────────────────────────────────────────────
 // ─── MODAL: ACCOUNT SETTINGS ───────────────────────────────────────────────
-export function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
+export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUpdate }) {
+  // Real plan badge (matches the Account-page pill): amber "Trial · Nd" while
+  // trialing, green plan name once paid, else "Free".
+  const planBadge = (() => {
+    const s = billingStatus?.subscription_status
+    const d = billingStatus?.trial_days_left
+    if (s === 'trialing') return { label: d != null ? `Trial · ${d}d` : 'Trial', color: '#f59e0b' }
+    if (billingStatus?.has_payment_method) {
+      const map = { pro:'Pro', studio:'Studio', label:'Label' }
+      return { label: map[billingStatus?.plan] || 'Pro', color: '#22c55e' }
+    }
+    return { label: 'Free', color: C.t3 }
+  })()
   const [name,        setName]        = useState(user?.full_name || '')
   const [email,       setEmail]       = useState(user?.email || '')
   const [avatarUrl,   setAvatarUrl]   = useState(user?.avatar_url || null)
@@ -419,8 +431,8 @@ export function ModalAccountSettings({ user, onClose, onProfileUpdate }) {
             {uploading ? 'Uploading…' : 'Change photo'}
           </div>
         </div>
-        <span style={{ fontSize:10.5, fontWeight:700, padding:'4px 12px', borderRadius:100,
-          background:`${C.coral}15`, color:C.coral, border:`1px solid ${C.coral}25` }}>Pro</span>
+        <span style={{ fontSize:10.5, fontWeight:700, padding:'4px 12px', borderRadius:100, whiteSpace:'nowrap',
+          background:`${planBadge.color}18`, color:planBadge.color, border:`1px solid ${planBadge.color}30` }}>{planBadge.label}</span>
       </div>
 
       <Field label="Full Name" placeholder="Your name" value={name}
@@ -602,7 +614,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
   // ── Upsell — no card yet ─────────────────────────────────────────────────────
   if (!billingLoaded || !hasCard) return (
-    <Modal title="" sub="" onClose={onClose} accent="#111">
+    <Modal title="" sub="" onClose={onClose} accent="#E95A51">
       <div style={{ padding:'0 2px' }}>
 
         {/* Header */}
@@ -696,18 +708,23 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
   return (
     <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#22c55e">
-      <div style={{ borderRadius:14, background:'linear-gradient(135deg,#0f0f0f,#1a0810)',
-        padding:'18px 20px', marginBottom:18 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+      <div style={{ position:'relative', overflow:'hidden', borderRadius:16,
+        background:'linear-gradient(135deg,#141414,#1c0a12)', border:'1px solid rgba(255,255,255,.08)',
+        boxShadow:'0 10px 30px rgba(0,0,0,.3)', padding:'18px 20px', marginBottom:16 }}>
+        {/* soft accent glow */}
+        <div style={{ position:'absolute', top:-40, right:-30, width:160, height:160, borderRadius:'50%',
+          background:`radial-gradient(circle, ${C.coral}33, transparent 70%)`, pointerEvents:'none' }}/>
+        <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
           <div>
-            <div style={{ fontSize:10, color:'rgba(var(--fg),.35)', fontWeight:700,
+            <div style={{ fontSize:10, color:'rgba(255,255,255,.4)', fontWeight:700,
               letterSpacing:'.1em', textTransform:'uppercase', marginBottom:5 }}>Current Plan</div>
-            <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+            <div style={{ fontSize:21, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
               {PLAN_LABEL[plan] ?? plan}
             </div>
           </div>
-          <span style={{ fontSize:10, fontWeight:700, padding:'4px 12px', borderRadius:100,
-            background: STATUS_COLOR[status] ?? '#6b7280', color:'#fff' }}>
+          <span style={{ fontSize:10, fontWeight:700, padding:'5px 13px', borderRadius:100, letterSpacing:'.02em',
+            background: `${STATUS_COLOR[status] ?? '#6b7280'}26`, color: STATUS_COLOR[status] ?? '#9ca3af',
+            border:`1px solid ${STATUS_COLOR[status] ?? '#6b7280'}55` }}>
             {status === 'trialing' ? `${daysLeft}d left` : status}
           </span>
         </div>
@@ -734,18 +751,18 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         const fmt    = n => n >= 1_073_741_824 ? `${(n/1_073_741_824).toFixed(1)} GB` : n >= 1_048_576 ? `${(n/1_048_576).toFixed(0)} MB` : `${(n/1024).toFixed(0)} KB`
         const barW   = usedB > 0 ? Math.max(1, storagePct) : 0
         return (
-          <div style={{ padding:'12px 14px', background:C.surface2, borderRadius:10, border:`1px solid ${C.border}`, marginBottom:18 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6 }}>
-              <span style={{ fontWeight:600, color:C.t2 }}>Storage</span>
+          <div style={{ padding:'13px 15px', background:C.surface2, borderRadius:12, border:`1px solid ${C.border}`, marginBottom:18 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontSize:12, marginBottom:8 }}>
+              <span style={{ fontWeight:700, color:C.t2 }}>Storage</span>
               <span style={{ fontWeight:700, color:C.t1 }}>{fmt(usedB)} <span style={{ color:C.t3, fontWeight:500 }}>/ {fmt(limB)}</span></span>
             </div>
-            <div style={{ height:4, background:'rgba(var(--fg),.08)', borderRadius:4 }}>
-              <div style={{ width:`${barW}%`, height:'100%',
-                background: storagePct > 90 ? '#ef4444' : C.grad, borderRadius:4, transition:'width .3s' }}/>
+            <div style={{ height:7, background:'rgba(var(--fg),.08)', borderRadius:99, overflow:'hidden' }}>
+              <div style={{ width:`${barW}%`, height:'100%', transition:'width .3s',
+                background: storagePct > 90 ? 'linear-gradient(90deg,#f87171,#ef4444)' : 'linear-gradient(90deg,#22c55e,#16a34a)' }}/>
             </div>
-            {storagePct > 90 && (
-              <div style={{ fontSize:11, color:'#f87171', marginTop:5, fontWeight:600 }}>Storage almost full — upgrade your plan</div>
-            )}
+            <div style={{ fontSize:11, marginTop:6, fontWeight:600, color: storagePct > 90 ? '#f87171' : C.t3 }}>
+              {storagePct > 90 ? 'Storage almost full — upgrade your plan' : `${Math.round(storagePct)}% used`}
+            </div>
           </div>
         )
       })()}
