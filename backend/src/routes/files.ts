@@ -1,6 +1,7 @@
 import { Hono }         from 'hono'
 import { supabase }     from '../lib/supabase'
-import { uploadToR2, deleteFromR2, getR2SignedUrl, getR2PresignedPutUrl, r2ObjectExists, r2KeyFromUrl } from '../lib/r2'
+import { uploadToR2, deleteFromR2, getR2SignedUrl, getR2PresignedPutUrl, r2ObjectExists, r2KeyFromUrl,
+  createMultipartUpload, getR2PresignedPartUrl, listMultipartParts, completeMultipartUpload, abortMultipartUpload } from '../lib/r2'
 import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
@@ -587,6 +588,167 @@ files.post('/:id/uploaded', uploadLimit, async (c) => {
   ;(async () => {
     const { error } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: s.file_size || 0 })
     if (error) console.error('[uploaded] increment_storage rpc error:', error.message)
+  })()
+
+  const instrument = (instrumentHint ? String(instrumentHint).trim() : '') || s.instrument || detectInstrument(s.original_name)
+  await supabase.from('stems').update({
+    notes: JSON.stringify({ status: 'analyzing', type: 'take' }),
+    ...(instrument !== s.instrument ? { instrument } : {}),
+  }).eq('id', id)
+
+  const fileUrl = s.file_url || await getR2SignedUrl(s.storage_path)
+  enrichStemInBackground(id, projectId, user.id, { fileUrl, fileName: s.original_name, contentType: s.mime_type, instrument, instrumentHint, essentiaAnalysis })
+
+  return c.json({ data: { id, status: 'ready' }, error: null, status: 201 }, 201)
+})
+
+// ── Multipart (resumable) uploads ────────────────────────────────────────────
+// For big stems the browser uploads in chunks instead of one all-or-nothing PUT,
+// so a refresh/disconnect resumes from the last completed part (seconds) rather
+// than restarting the whole file, and parts transfer in parallel. The server
+// owns CreateMultipartUpload + Complete (reading ETags from R2 via ListParts), so
+// the browser only PUTs part bytes — no ETag/CORS-ExposeHeaders requirement.
+const MULTIPART_PART_SIZE = 8 * 1024 * 1024  // 8 MB parts (≥5 MB S3 minimum, except the last)
+
+function readMp(notes: string | null): { uploadId?: string; partSize?: number; partCount?: number } {
+  try { return JSON.parse(notes || '{}').mp || {} } catch { return {} }
+}
+
+// /multipart/init — one large file. Access-check + create the stem row + open a
+// multipart upload; the browser then PUTs each part and calls /multipart/complete.
+files.post('/multipart/init', uploadLimit, async (c) => {
+  const user = c.var.user
+  let body: any
+  try { body = await c.req.json() } catch { return c.json({ data: null, error: 'Expected JSON', status: 400 }, 400) }
+  const { project_id, folder_id, file_name, file_size, content_type, instrument: instrumentHint } = body || {}
+  if (!project_id || !file_name) return c.json({ data: null, error: 'project_id and file_name are required', status: 400 }, 400)
+  const size = Number(file_size) || 0
+  if (size > MAX_FILE_BYTES) return c.json({ data: null, error: 'File exceeds 500 MB limit', status: 413 }, 413)
+
+  const [{ data: profile }, { data: project }, { data: existingTrack }] = await Promise.all([
+    supabase.from('profiles').select('storage_used_bytes, storage_limit_bytes').eq('id', user.id).single(),
+    supabase.from('projects').select('owner_id, title').eq('id', project_id).single(),
+    supabase.from('tracks').select('id').eq('project_id', project_id).order('position', { ascending: true }).limit(1).maybeSingle(),
+  ])
+  if (!project) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+  const projectTitle = (project as any)?.title as string | undefined
+  const pf = profile as any
+  if (pf && (pf.storage_used_bytes + size) > pf.storage_limit_bytes) {
+    return c.json({ data: null, error: 'Storage limit reached — upgrade your plan to upload more', status: 403 }, 403)
+  }
+
+  const isOwner = (project as any)?.owner_id === user.id
+  const instrument = (instrumentHint ? String(instrumentHint).trim() : '') || detectInstrument(String(file_name))
+  if (!isOwner) {
+    const { data: collab } = await supabase.from('collaborators').select('role, status').eq('project_id', project_id).eq('user_id', user.id).maybeSingle()
+    if (!collab || (collab as any).status !== 'active') return c.json({ data: null, error: 'You are not a collaborator on this project', status: 403 }, 403)
+    const role = (collab as any).role ?? 'Collaborator'
+    if (!roleCanUpload(role, instrument)) return c.json({ data: null, error: `Request access to upload ${instrument}`, needs_request: true, status: 403 }, 403)
+  }
+
+  let trackId = (existingTrack as { id: string } | null)?.id
+  if (!trackId) {
+    const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(file_name), position: 1 }).select('id').single()
+    if (trackErr) return c.json({ data: null, error: trackErr.message, status: 500 }, 500)
+    trackId = (newTrack as { id: string }).id
+  }
+
+  const contentType = resolveContentType(String(file_name), content_type || '')
+  const storagePath = `takes/${user.id}/${project_id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file_name}`
+  const partSize = MULTIPART_PART_SIZE
+  const partCount = Math.max(1, Math.ceil(size / partSize))
+
+  let uploadId: string
+  try { uploadId = await createMultipartUpload(storagePath, contentType) }
+  catch (e: any) { return c.json({ data: null, error: e?.message || 'Could not start multipart upload', status: 500 }, 500) }
+
+  const fileUrl = await getR2SignedUrl(storagePath)
+  const { data: inserted, error: insErr } = await supabase.from('stems').insert({
+    track_id: trackId, original_name: String(file_name),
+    suggested_name: buildSuggestedName(String(file_name), instrument, null, null, projectTitle),
+    file_url: fileUrl, storage_path: storagePath, file_size: size, mime_type: contentType, instrument,
+    ...(folder_id ? { folder_id } : {}),
+    notes: JSON.stringify({ status: 'uploading', type: 'take', mp: { uploadId, partSize, partCount } }), uploaded_by: user.id,
+  }).select('id').single()
+  if (insErr) { await abortMultipartUpload(storagePath, uploadId); return c.json({ data: null, error: insErr.message, status: 500 }, 500) }
+
+  return c.json({ data: {
+    id: (inserted as any).id, storage_path: storagePath, upload_id: uploadId,
+    part_size: partSize, part_count: partCount, content_type: contentType, instrument,
+  }, error: null, status: 200 }, 200)
+})
+
+// /:id/multipart/part-urls — fresh presigned PUT URLs for the requested parts
+// (re-signable after expiry / for resume), plus which parts R2 already has so the
+// client can skip them.
+files.post('/:id/multipart/part-urls', uploadLimit, async (c) => {
+  const user = c.var.user
+  const id = c.req.param('id')
+  let body: any = {}
+  try { body = await c.req.json() } catch {}
+  const { data: stem } = await supabase.from('stems').select('storage_path, mime_type, uploaded_by, notes').eq('id', id).maybeSingle()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+  const s = stem as any
+  if (s.uploaded_by !== user.id) return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+  const mp = readMp(s.notes)
+  if (!mp.uploadId) return c.json({ data: null, error: 'Not a multipart upload', status: 409 }, 409)
+
+  const want: number[] = Array.isArray(body?.part_numbers) && body.part_numbers.length
+    ? body.part_numbers.map((n: any) => Number(n)).filter((n: number) => n >= 1)
+    : Array.from({ length: mp.partCount || 0 }, (_, i) => i + 1)
+
+  const [done, urlPairs] = await Promise.all([
+    listMultipartParts(s.storage_path, mp.uploadId).then(p => p.map(x => x.PartNumber)).catch(() => [] as number[]),
+    Promise.all(want.map(async n => [n, await getR2PresignedPartUrl(s.storage_path, mp.uploadId!, n)] as const)),
+  ])
+  return c.json({ data: { urls: Object.fromEntries(urlPairs), done }, error: null, status: 200 }, 200)
+})
+
+// /:id/multipart/complete — every part is in R2; assemble the object and finalize
+// exactly like /:id/uploaded (verify, count storage, → analyzing, enrich). If
+// parts are still missing, 409 with the done-list so the client fills the gaps.
+files.post('/:id/multipart/complete', uploadLimit, async (c) => {
+  const user = c.var.user
+  const id = c.req.param('id')
+  let body: any = {}
+  try { body = await c.req.json() } catch {}
+  const { instrument: instrumentHint, analysis: analysisRaw } = body || {}
+
+  const { data: stem } = await supabase.from('stems').select('id, storage_path, original_name, mime_type, instrument, file_url, file_size, uploaded_by, notes').eq('id', id).maybeSingle()
+  if (!stem) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+  const s = stem as any
+  if (s.uploaded_by !== user.id) return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+
+  // Already finalized by a concurrent/earlier call — treat as success (idempotent).
+  let curStatus = 'uploading'; try { curStatus = JSON.parse(s.notes || '{}').status } catch {}
+  if (curStatus !== 'uploading' && curStatus !== 'failed') return c.json({ data: { id, status: 'ready' }, error: null, status: 200 }, 200)
+
+  const mp = readMp(s.notes)
+  if (!mp.uploadId) return c.json({ data: null, error: 'Not a multipart upload', status: 409 }, 409)
+
+  const projectId = await projectIdForStem(id).catch(() => null)
+  if (!projectId) return c.json({ data: null, error: 'Stem not found', status: 404 }, 404)
+
+  const parts = await listMultipartParts(s.storage_path, mp.uploadId).catch(() => [])
+  if (parts.length < (mp.partCount || 0)) {
+    return c.json({ data: { done: parts.map(p => p.PartNumber) }, error: 'Upload incomplete — parts missing', incomplete: true, status: 409 }, 409)
+  }
+
+  try { await completeMultipartUpload(s.storage_path, mp.uploadId, parts) }
+  catch (e: any) {
+    // A late part or transient R2 error — let the client retry (still not 'failed').
+    return c.json({ data: { done: parts.map(p => p.PartNumber) }, error: e?.message || 'Could not complete upload', incomplete: true, status: 409 }, 409)
+  }
+
+  if (!(await r2ObjectExists(s.storage_path).catch(() => false))) {
+    return c.json({ data: null, error: 'Upload incomplete — file not in storage', incomplete: true, status: 409 }, 409)
+  }
+
+  let essentiaAnalysis: any = null
+  try { if (analysisRaw) essentiaAnalysis = JSON.parse(analysisRaw) } catch {}
+  ;(async () => {
+    const { error } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: s.file_size || 0 })
+    if (error) console.error('[multipart/complete] increment_storage rpc error:', error.message)
   })()
 
   const instrument = (instrumentHint ? String(instrumentHint).trim() : '') || s.instrument || detectInstrument(s.original_name)

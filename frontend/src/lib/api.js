@@ -320,6 +320,53 @@ export const files = {
     })
   },
 
+  // ── Multipart (resumable) uploads, for large stems ──
+  // Open a multipart upload: creates the stem row + returns { id, storage_path,
+  // upload_id, part_size, part_count, content_type, instrument }.
+  multipartInit: async (projectId, item, folderId) => {
+    const token = getToken()
+    const res = await fetch(`${BASE}/files/multipart/init`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ project_id: projectId, folder_id: folderId || null, ...item }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (res.status === 401) { setToken(null); window.location.href = '/login' }
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+    return json.data
+  },
+
+  // Fresh presigned PUT URLs for the given part numbers (omit for all), plus the
+  // list of parts R2 already has → { urls: { [n]: url }, done: [n] }.
+  multipartPartUrls: (id, partNumbers) => {
+    const token = getToken()
+    return fetch(`${BASE}/files/${id}/multipart/part-urls`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ part_numbers: partNumbers || null }),
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      return json.data
+    })
+  },
+
+  // Finalize: server assembles the parts (via ListParts) and kicks analysis.
+  // Throws with an "incomplete"/409 message if parts are still missing — the
+  // background uploader treats that as retriable and fills the gaps.
+  multipartComplete: (id, { instrument, analysis } = {}) => {
+    const token = getToken()
+    return fetch(`${BASE}/files/${id}/multipart/complete`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ instrument, analysis }),
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      return json
+    })
+  },
+
   // Classify a file's instrument from its AUDIO (PANNs worker) BEFORE upload, so
   // the modal can show the real instrument instead of the filename guess.
   // Returns { instrument, confidence } | null (null = worker off/unsure; never throws).

@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command,
+  CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, ListPartsCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const r2Client = new S3Client({
@@ -43,6 +44,54 @@ export async function getR2SignedUrl(key: string, expiresIn = 604800): Promise<s
 // Requires the R2 bucket to allow CORS PUT from the app origin.
 export async function getR2PresignedPutUrl(key: string, contentType: string, expiresIn = 3600): Promise<string> {
   return getSignedUrl(r2Client, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }), { expiresIn })
+}
+
+// ── Multipart (resumable) uploads ────────────────────────────────────────────
+// Big stems upload in chunks so a dropped/refreshed connection resumes from the
+// last completed part instead of restarting the whole file, and parts transfer
+// in parallel. The BROWSER PUTs each part via a presigned UploadPart URL, but the
+// SERVER completes the upload (listing the parts + their ETags from R2) — so the
+// browser never needs to read an ETag header, and no extra R2 CORS/ExposeHeaders
+// config is required beyond the PUT rule already in place.
+
+export async function createMultipartUpload(key: string, contentType: string): Promise<string> {
+  const r = await r2Client.send(new CreateMultipartUploadCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }))
+  if (!r.UploadId) throw new Error('R2 did not return an UploadId')
+  return r.UploadId
+}
+
+// Presigned PUT URL for one part. partNumber is 1-based (S3 requirement).
+export async function getR2PresignedPartUrl(key: string, uploadId: string, partNumber: number, expiresIn = 3600): Promise<string> {
+  return getSignedUrl(r2Client, new UploadPartCommand({ Bucket: BUCKET, Key: key, UploadId: uploadId, PartNumber: partNumber }), { expiresIn })
+}
+
+export interface R2Part { PartNumber: number; ETag: string; Size: number }
+
+// Which parts has R2 actually received? Drives both resume (skip done parts) and
+// completion (we never trust the client's ETags — we read them from R2 here).
+export async function listMultipartParts(key: string, uploadId: string): Promise<R2Part[]> {
+  const out: R2Part[] = []
+  let marker: number | undefined
+  do {
+    const r = await r2Client.send(new ListPartsCommand({ Bucket: BUCKET, Key: key, UploadId: uploadId, PartNumberMarker: marker ? String(marker) : undefined }))
+    for (const p of r.Parts ?? []) {
+      if (p.PartNumber && p.ETag) out.push({ PartNumber: p.PartNumber, ETag: p.ETag, Size: p.Size ?? 0 })
+    }
+    marker = r.IsTruncated ? Number(r.NextPartNumberMarker) : undefined
+  } while (marker)
+  return out
+}
+
+export async function completeMultipartUpload(key: string, uploadId: string, parts: R2Part[]): Promise<void> {
+  const ordered = [...parts].sort((a, b) => a.PartNumber - b.PartNumber)
+  await r2Client.send(new CompleteMultipartUploadCommand({
+    Bucket: BUCKET, Key: key, UploadId: uploadId,
+    MultipartUpload: { Parts: ordered.map(p => ({ PartNumber: p.PartNumber, ETag: p.ETag })) },
+  }))
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  try { await r2Client.send(new AbortMultipartUploadCommand({ Bucket: BUCKET, Key: key, UploadId: uploadId })) } catch {}
 }
 
 /**

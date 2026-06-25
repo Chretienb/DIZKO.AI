@@ -53,14 +53,55 @@ async function putBytes(rec) {
   }
 }
 
+const PART_PARALLEL = 4
+
+// Upload a large stem in chunks. The server tells us which parts R2 already has
+// (resume after a refresh/disconnect skips them) and hands back fresh presigned
+// PUT URLs; we PUT only the missing slices, in parallel. ETags are read server-
+// side at completion, so the browser never touches them.
+async function putParts(rec) {
+  const { partSize, partCount } = rec.multipart
+  const all = Array.from({ length: partCount }, (_, i) => i + 1)
+  const { urls, done } = await filesApi.multipartPartUrls(rec.id, all)
+  const doneSet = new Set(done || [])
+  const todo = all.filter(n => !doneSet.has(n))
+  if (!todo.length) return
+
+  let i = 0
+  async function worker() {
+    while (i < todo.length) {
+      const n = todo[i++]
+      const start = (n - 1) * partSize
+      const slice = rec.blob.slice(start, Math.min(start + partSize, rec.blob.size))
+      let url = urls[n]
+      const res = await fetch(url, { method: 'PUT', body: slice })
+      if (res.ok) continue
+      // Expired part URL (403) → re-sign just this part once and retry.
+      if (res.status === 403) {
+        const fresh = await filesApi.multipartPartUrls(rec.id, [n]).catch(() => null)
+        if (fresh?.urls?.[n]) {
+          const res2 = await fetch(fresh.urls[n], { method: 'PUT', body: slice })
+          if (res2.ok) continue
+        }
+      }
+      throw new Error(`part ${n} HTTP ${res.status}`)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PART_PARALLEL, todo.length) }, worker))
+}
+
 async function handle(rec) {
-  // Try the PUT, but DON'T trust a client-side error — a dropped/slow connection
-  // under load can error even when R2 actually got the object. So always try to
-  // finalize: markUploaded verifies the bytes are really in R2 (409 = not there).
-  try { await putBytes(rec) } catch {}
+  // Try the transfer, but DON'T trust a client-side error — a dropped/slow
+  // connection under load can error even when R2 actually got the bytes. So always
+  // try to finalize: the server verifies the object is really in R2 (409 = not).
+  try {
+    if (rec.multipart) await putParts(rec)
+    else await putBytes(rec)
+  } catch {}
 
   try {
-    await filesApi.markUploaded(rec.id, { instrument: rec.instrument })
+    if (rec.multipart) await filesApi.multipartComplete(rec.id, { instrument: rec.instrument })
+    else await filesApi.markUploaded(rec.id, { instrument: rec.instrument })
     await delPending(rec.id)                // bytes confirmed in R2 → done
     retries.delete(rec.id)
     prog.done++
@@ -96,7 +137,9 @@ function pump() {
 
 function finish() { emit(); prog = { total: 0, done: 0, failed: 0 } }
 
-/** Queue records ({id, projectId, name, blob, putUrl, storagePath, contentType, instrument}). */
+/** Queue records ({id, projectId, name, blob, putUrl, storagePath, contentType,
+ *  instrument}). A record may instead carry `multipart: {uploadId, partSize,
+ *  partCount}` — those upload in resumable chunks via putParts/multipartComplete. */
 export function enqueue(recs) {
   const fresh = (recs || []).filter(r => r && r.id && !inFlight.has(r.id))
   if (!fresh.length) return

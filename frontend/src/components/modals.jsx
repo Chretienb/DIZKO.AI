@@ -1332,45 +1332,67 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
       await new Promise(r => setTimeout(r, 0))
     }
 
-    // ONE batch call → every stem row is created as 'uploading' with a presigned
-    // PUT URL. The rows exist immediately, so the project shows all stems the
-    // moment we dispatch — no waiting on the bytes.
-    let init
-    try {
-      init = await filesApi.batchInit(selProj.id, prepared.map(p => ({
-        file_name:    p.name,
-        file_size:    p.blob.size,
-        content_type: p.type,
-        instrument:   (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined,
-      })), folderId)
-    } catch (e) {
-      setUploading(false)
-      addToast?.(e?.message || 'Upload failed to start', { type: 'info' })
-      onClose()
-      return
+    // Create every stem row as 'uploading' so the project shows them instantly.
+    // Small files take ONE presigned PUT (one batch call); large files open a
+    // resumable MULTIPART upload each (chunked + parallel, resumes from the last
+    // completed part after a refresh/disconnect instead of restarting). Either
+    // way the bytes are handed to the background uploader and persisted in
+    // IndexedDB so a stem stays playable + the upload survives a reload.
+    const MULTIPART_THRESHOLD = 8 * 1024 * 1024   // matches the server's 8 MB part size
+    const instrOf = p => (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined
+    const smallPrepared = prepared.filter(p => p.blob.size <= MULTIPART_THRESHOLD)
+    const largePrepared = prepared.filter(p => p.blob.size >  MULTIPART_THRESHOLD)
+
+    let blocked = []
+    const recs = []
+
+    // Small files — existing single-PUT batch path (unchanged).
+    if (smallPrepared.length) {
+      let init
+      try {
+        init = await filesApi.batchInit(selProj.id, smallPrepared.map(p => ({
+          file_name: p.name, file_size: p.blob.size, content_type: p.type, instrument: instrOf(p),
+        })), folderId)
+      } catch (e) {
+        setUploading(false)
+        addToast?.(e?.message || 'Upload failed to start', { type: 'info' })
+        onClose()
+        return
+      }
+      blocked = init?.blocked || []
+      // Pair returned stems to prepared files by (possibly .flac) name.
+      const byName = new Map()
+      for (const p of smallPrepared) { const k = p.name; (byName.get(k) || byName.set(k, []).get(k)).push(p) }
+      for (const s of (init?.stems || [])) {
+        const p = byName.get(s.file_name)?.shift()
+        if (!p) continue
+        setUploadPreview(s.id, p.it.file)   // ORIGINAL file → instant local playback
+        recs.push({ id: s.id, projectId: selProj.id, name: p.name, blob: p.blob,
+          putUrl: s.url, storagePath: s.storage_path, contentType: s.content_type, instrument: instrOf(p) })
+      }
     }
 
-    const blocked = init?.blocked || []
-    // Pair returned stems to prepared files by (possibly .flac) name.
-    const byName = new Map()
-    for (const p of prepared) { const k = p.name; (byName.get(k) || byName.set(k, []).get(k)).push(p) }
-    const pairs = []
-    for (const s of (init?.stems || [])) {
-      const p = byName.get(s.file_name)?.shift()
-      if (p) pairs.push({ stem: s, prepared: p })
+    // Large files — one multipart upload each (parallel init).
+    if (largePrepared.length) {
+      const results = await Promise.allSettled(largePrepared.map(p => filesApi.multipartInit(selProj.id, {
+        file_name: p.name, file_size: p.blob.size, content_type: p.type, instrument: instrOf(p),
+      }, folderId)))
+      results.forEach((r, idx) => {
+        const p = largePrepared[idx]
+        if (r.status === 'fulfilled' && r.value?.id) {
+          const d = r.value
+          setUploadPreview(d.id, p.it.file)
+          recs.push({ id: d.id, projectId: selProj.id, name: p.name, blob: p.blob,
+            storagePath: d.storage_path, contentType: d.content_type, instrument: d.instrument || instrOf(p),
+            multipart: { uploadId: d.upload_id, partSize: d.part_size, partCount: d.part_count } })
+        } else if (r.status === 'rejected' && /access|collaborat|request/i.test(r.reason?.message || '')) {
+          blocked.push({ file_name: p.name })
+        }
+      })
     }
 
-    // Resilient records: persist the bytes in IndexedDB (survive refresh → stay
-    // playable + resumable). The local instant-play preview uses the ORIGINAL
-    // WAV (universal <audio> support) — the FLAC is just what we transfer/store.
-    const recs = pairs.map(({ stem, prepared: p }) => ({
-      id: stem.id, projectId: selProj.id, name: p.name, blob: p.blob,
-      putUrl: stem.url, storagePath: stem.storage_path, contentType: stem.content_type,
-      instrument: (p.it.instrumentUserSet || p.it.instrumentDetected) ? p.it.instrument : undefined,
-    }))
-
-    // Nothing to transfer (all blocked, or the batch returned no rows) — never
-    // close silently; tell the user what happened.
+    // Nothing to transfer (all blocked, or init returned no rows) — never close
+    // silently; tell the user what happened.
     if (recs.length === 0) {
       setUploading(false); onClose()
       addToast?.(blocked.length
@@ -1379,7 +1401,6 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
       return
     }
 
-    for (const { stem, prepared: p } of pairs) setUploadPreview(stem.id, p.it.file)
     // Cache bytes in IndexedDB for refresh-resumability — BEST EFFORT. On a full
     // disk (or private mode) IndexedDB rejects; that must NOT abort the upload,
     // since the bytes are already in memory for the background transfer. Without
