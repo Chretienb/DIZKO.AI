@@ -195,18 +195,18 @@ export default function Waveform({
             <button key={c.id} type="button"
               title={`${c.user_name || 'Someone'} · ${fmtTime(c.timestamp_sec)}\n${c.text || ''}`}
               onClick={e => { e.stopPropagation(); onMarkerClick(c.timestamp_sec) }}
-              style={{ position:'absolute', top:-8, left:`${left}%`, transform:'translateX(-50%)',
-                width:18, height:18, padding:0, border:'none', background:'transparent',
+              style={{ position:'absolute', top:-12, left:`${left}%`, transform:'translateX(-50%)',
+                width:24, height:24, padding:0, border:'none', background:'transparent',
                 cursor:'pointer', zIndex:3, lineHeight:0 }}>
               {/* pin stem down to the bars */}
-              <span style={{ position:'absolute', top:17, left:'50%', transform:'translateX(-50%)',
-                width:1.5, height:height - 8, background:`${color}`, opacity:.5, pointerEvents:'none' }}/>
-              <span style={{ display:'block', width:18, height:18, borderRadius:'50%', overflow:'hidden',
-                border:`2px solid ${color}`, boxShadow:'0 1px 4px rgba(0,0,0,.45)', background:color, position:'relative' }}>
+              <span style={{ position:'absolute', top:23, left:'50%', transform:'translateX(-50%)',
+                width:2, height:height - 8, background:`${color}`, opacity:.6, pointerEvents:'none' }}/>
+              <span style={{ display:'block', width:24, height:24, borderRadius:'50%', overflow:'hidden',
+                border:`2.5px solid ${color}`, boxShadow:`0 2px 8px rgba(0,0,0,.5), 0 0 0 2px var(--bg)`, background:color, position:'relative' }}>
                 {c.avatar_url
                   ? <img src={c.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
                   : <span style={{ display:'flex', width:'100%', height:'100%', alignItems:'center',
-                      justifyContent:'center', fontSize:9, fontWeight:800, color:'#fff' }}>
+                      justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff' }}>
                       {(c.user_name || '?').charAt(0).toUpperCase()}
                     </span>}
               </span>
@@ -218,32 +218,41 @@ export default function Waveform({
           drop a comment pinned at that second. */}
       {onAddCommentAt && duration > 0 && pick && (() => {
         const left = Math.min(98, Math.max(2, (pick.sec / duration) * 100))
+        // Edge-anchor the (wide) composer so it never clips off-screen near the
+        // start/end; the small bubble stays centered on the exact click point.
+        const anchor = composing ? (left < 24 ? 'translateX(0)' : left > 76 ? 'translateX(-100%)' : 'translateX(-50%)')
+                                 : 'translateX(-50%)'
         return (
-          <div ref={pickRef} style={{ position:'absolute', top:-11, left:`${left}%`, transform:'translateX(-50%)', zIndex:4 }}
+          <div ref={pickRef} style={{ position:'absolute', top:-13, left:`${left}%`, transform:anchor, zIndex:4 }}
             onClick={e => e.stopPropagation()}>
             {!composing ? (
               <button type="button" title={`Comment at ${fmtTime(pick.sec)}`}
                 onClick={e => { e.stopPropagation(); setComposing(true) }}
                 style={{ display:'flex', alignItems:'center', justifyContent:'center',
-                  width:20, height:20, borderRadius:'50% 50% 50% 2px', border:'none',
-                  background:color, cursor:'pointer', boxShadow:'0 1px 5px rgba(0,0,0,.5)', padding:0 }}>
-                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round">
+                  width:28, height:28, borderRadius:'50% 50% 50% 3px', border:`2px solid var(--bg)`,
+                  background:color, cursor:'pointer', boxShadow:`0 2px 9px ${color}88`, padding:0 }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round">
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
                 </svg>
               </button>
             ) : (
-              <div style={{ display:'flex', alignItems:'center', gap:5, padding:5, borderRadius:10,
-                background:'var(--surface)', border:'1px solid var(--border)',
-                boxShadow:'0 6px 20px rgba(0,0,0,.5)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:7, padding:7, borderRadius:13,
+                background:'var(--surface)', border:`1px solid ${color}55`,
+                boxShadow:'0 10px 28px rgba(0,0,0,.55)' }}>
+                {/* timestamp chip so it's obvious where the comment lands */}
+                <span style={{ flexShrink:0, fontSize:11.5, fontWeight:800, color, background:`${color}1c`,
+                  border:`1px solid ${color}3a`, padding:'5px 9px', borderRadius:8, fontVariantNumeric:'tabular-nums' }}>
+                  {fmtTime(pick.sec)}
+                </span>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') sendComment(); if (e.key === 'Escape') { setComposing(false); setPick(null) } }}
-                  placeholder={`Comment at ${fmtTime(pick.sec)}…`}
-                  style={{ width:160, height:26, padding:'0 9px', borderRadius:7, border:'1px solid var(--border)',
-                    background:'var(--bg)', color:'var(--t1)', fontSize:12, fontFamily:'inherit', outline:'none' }}/>
+                  placeholder="Leave a comment…"
+                  style={{ width:230, height:36, padding:'0 13px', borderRadius:9, border:'1px solid var(--border)',
+                    background:'var(--bg)', color:'var(--t1)', fontSize:14, fontFamily:'inherit', outline:'none' }}/>
                 <button type="button" onClick={sendComment} disabled={!draft.trim()}
-                  style={{ height:26, padding:'0 10px', borderRadius:7, border:'none', cursor: draft.trim() ? 'pointer' : 'default',
+                  style={{ height:36, padding:'0 16px', borderRadius:9, border:'none', cursor: draft.trim() ? 'pointer' : 'default',
                     background: draft.trim() ? color : 'var(--surface-2)', color: draft.trim() ? '#fff' : 'var(--t3)',
-                    fontSize:11.5, fontWeight:700, fontFamily:'inherit' }}>
+                    fontSize:13, fontWeight:700, fontFamily:'inherit', flexShrink:0 }}>
                   Send
                 </button>
               </div>
