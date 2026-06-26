@@ -40,6 +40,11 @@ import { supabase } from './lib/supabase'
 const TOKEN_KEY  = 'disco_token'
 const AVATAR_KEY = 'disco_avatar_url'   // consistent key — was 'dizko_avatar_url' (typo)
 
+// One-time cleanup: the old un-scoped avatar cache was browser-global, so a new
+// account on a shared browser could inherit a previous account's photo. Purge it;
+// avatars are now cached PER USER under `${AVATAR_KEY}:<sub>`.
+try { localStorage.removeItem(AVATAR_KEY) } catch {}
+
 function userFromToken() {
   try {
     const token = localStorage.getItem(TOKEN_KEY)
@@ -49,8 +54,10 @@ function userFromToken() {
       id:         payload.sub,
       email:      payload.email ?? '',
       full_name:  payload.user_metadata?.full_name  ?? '',
+      // Per-user fallback only — never a shared global key (that leaked PFPs
+      // across accounts on the same browser).
       avatar_url: payload.user_metadata?.avatar_url ??
-                  localStorage.getItem(AVATAR_KEY) ?? null,
+                  localStorage.getItem(`${AVATAR_KEY}:${payload.sub}`) ?? null,
     }
   } catch {
     return null

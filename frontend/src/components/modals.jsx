@@ -374,8 +374,11 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
 
   const applyAvatar = (url) => {
     setAvatarUrl(url)
-    // Persist so it survives page refresh (JWT update is async)
-    localStorage.setItem('disco_avatar_url', url)
+    // Persist so it survives a refresh (the JWT metadata update is async) — keyed
+    // by THIS user's id so it can NEVER bleed into another account on the same
+    // browser. Also purge the old un-scoped global key that caused that leak.
+    if (user?.id) localStorage.setItem(`disco_avatar_url:${user.id}`, url)
+    localStorage.removeItem('disco_avatar_url')
     onProfileUpdate?.({ avatar_url: url })
   }
 
