@@ -79,34 +79,41 @@ function OAuthCallback({ onLogin }) {
   const [status, setStatus] = useState('Finishing sign-in…')
 
   useEffect(() => {
-    // Supabase with detectSessionInUrl:true automatically processes the URL
-    // hash/fragment that Spotify returns. We just need to read the session.
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (error || !session) {
-        setStatus('Sign-in failed — redirecting…')
-        setTimeout(() => navigate('/login'), 2000)
-        return
-      }
+    // detectSessionInUrl exchanges the OAuth `?code=` for a session ASYNCHRONOUSLY
+    // (a network call), so reading getSession() once on mount can race and find
+    // nothing. Instead: take the session if it's already there, otherwise wait for
+    // onAuthStateChange to fire SIGNED_IN, with a timeout before we give up.
+    let done = false
 
-      // Store tokens exactly like email/password login does
+    const complete = (session) => {
+      if (done || !session) return
+      done = true
       setToken(session.access_token)
       setRefreshToken(session.refresh_token)
-
       const u = session.user
       const fullName = u.user_metadata?.full_name
         || u.user_metadata?.name          // Spotify sends "name"
         || u.email?.split('@')[0]
         || ''
-
       onLogin(fullName, false, {
         id:         u.id,
         email:      u.email ?? '',
         full_name:  fullName,
         avatar_url: u.user_metadata?.avatar_url ?? u.user_metadata?.picture ?? null,
       })
-
       navigate('/', { replace: true })
-    })
+    }
+
+    // Already exchanged (e.g. detectSessionInUrl finished during app init)?
+    supabase.auth.getSession().then(({ data }) => complete(data?.session))
+    // Otherwise complete the moment the exchange lands.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => complete(session))
+    // Genuine failure — give the exchange time before bailing.
+    const timer = setTimeout(() => {
+      if (!done) { setStatus('Sign-in failed — redirecting…'); setTimeout(() => navigate('/login'), 1500) }
+    }, 10000)
+
+    return () => { subscription.unsubscribe(); clearTimeout(timer) }
   }, [])
 
   return (
