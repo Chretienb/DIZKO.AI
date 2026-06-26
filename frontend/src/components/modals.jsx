@@ -621,139 +621,156 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     setActing(false)
   }
 
-  // ── Upsell — no card yet (Dizko payment wall: full black, branded) ───────────
+  // ── Upsell — no card yet (Dizko payment wall: FULL PAGE, marketing) ──────────
   if (!billingLoaded || !hasCard) {
-    const W = { fg:'#fff', t2:'rgba(255,255,255,.72)', t3:'rgba(255,255,255,.45)', line:'rgba(255,255,255,.1)' }
+    const W = { t2:'rgba(255,255,255,.72)', t3:'rgba(255,255,255,.5)', t4:'rgba(255,255,255,.38)', line:'rgba(255,255,255,.1)' }
+    const VALUE_PROPS = [
+      { title:'Auto-organized stems', sub:'BPM + key tagged on every upload. No naming, ever.',
+        icon:<><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></> },
+      { title:'Real-time Smart Mix',  sub:'Upload a stem — your team hears the new mix in seconds.',
+        icon:<polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/> },
+      { title:'Your whole crew',      sub:'Producers, engineers, artists — together, on any device.',
+        icon:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></> },
+    ]
     return (
-      <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,.62)',
-        backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)',
-        display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
-        onClick={e => e.target === e.currentTarget && onClose()}>
-        <div role="dialog" aria-modal="true" aria-label="Choose your plan"
-          style={{ width:'100%', maxWidth: isMobile ? 520 : 1000, maxHeight:'92vh', overflowY:'auto',
-            background:'#000', border:`1px solid ${W.line}`, borderRadius:24,
-            boxShadow:`0 30px 90px rgba(0,0,0,.7)`, position:'relative', overflowX:'hidden' }}>
-          {/* accent bar + coral glow */}
-          <div style={{ height:3, background:`linear-gradient(90deg, ${C.coral}, ${C.coral}55)` }}/>
-          <div style={{ position:'absolute', top:-20, right:-30, width:280, height:280, borderRadius:'50%',
-            background:`radial-gradient(circle, ${C.coral}26, transparent 70%)`, pointerEvents:'none' }}/>
+      <div style={{ position:'fixed', inset:0, zIndex:1000, background:'#000', overflowY:'auto', color:'#fff',
+        fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif", WebkitFontSmoothing:'antialiased' }}>
+        {/* ambient glows */}
+        <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#F28FB8'}14, transparent 65%)`, pointerEvents:'none' }}/>
 
-          <div style={{ position:'relative', padding: isMobile ? '24px 20px 26px' : '32px 38px 34px' }}>
+        {/* Top bar */}
+        <div style={{ position:'relative', maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px' : '24px 30px',
+          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <button onClick={onClose} aria-label="Dizko home" style={{ display:'flex', alignItems:'center', gap:11, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
+            <img src={logo} alt="" style={{ width:40, height:40, borderRadius:12, objectFit:'cover', boxShadow:`0 0 0 1px rgba(255,255,255,.1), 0 0 28px ${C.coral}30` }}/>
+            <span style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>Dizko</span>
+          </button>
+          <button onClick={onClose} aria-label="Close" style={{ width:34, height:34, borderRadius:10,
+            background:'rgba(255,255,255,.06)', border:`1px solid ${W.line}`, cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', color:W.t3, transition:'all .12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}1a`; e.currentTarget.style.color='#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=W.t3 }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
 
-            {/* Brand header + close */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: isMobile ? 22 : 28 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                <img src={logo} alt="" style={{ width:42, height:42, borderRadius:13, objectFit:'cover',
-                  boxShadow:`0 0 0 1px rgba(255,255,255,.1), 0 0 30px ${C.coral}38` }}/>
-                <span style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>Dizko</span>
-              </div>
-              <button onClick={onClose} aria-label="Close dialog" style={{ width:32, height:32, borderRadius:10,
-                background:'rgba(255,255,255,.06)', border:`1px solid ${W.line}`, cursor:'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center', color:W.t3, transition:'all .12s' }}
-                onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}1a`; e.currentTarget.style.color='#fff' }}
-                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=W.t3 }}>
-                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
+        {/* Hero */}
+        <div style={{ position:'relative', maxWidth:760, margin:'0 auto', textAlign:'center', padding: isMobile ? '14px 20px 0' : '28px 28px 0' }}>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 14px', borderRadius:100,
+            background:`${C.coral}1c`, border:`1px solid ${C.coral}38`, marginBottom:18 }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
+            <span style={{ fontSize:11, fontWeight:800, letterSpacing:'.12em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
+          </span>
+          <h1 style={{ margin:'0 0 14px', fontSize: isMobile ? 34 : 54, fontWeight:900, letterSpacing:'-2.2px', lineHeight:1.04, color:'#fff' }}>
+            Choose your <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>plan</span>
+          </h1>
+          <p style={{ margin:'0 auto', fontSize: isMobile ? 14.5 : 16, color:W.t3, lineHeight:1.6, maxWidth:480 }}>
+            Create projects, invite your crew &amp; export. No charge until month 3 · Cancel anytime.
+          </p>
+        </div>
 
-            {/* Title + 2-months-free pill */}
-            <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', marginBottom:8 }}>
-              <h2 style={{ margin:0, fontSize: isMobile ? 27 : 34, fontWeight:900, color:'#fff', letterSpacing:'-1.2px' }}>
-                Choose your plan
-              </h2>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:100,
-                background:`${C.coral}1c`, border:`1px solid ${C.coral}38` }}>
-                <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
-                <span style={{ fontSize:10.5, fontWeight:800, letterSpacing:'.1em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
-              </span>
-            </div>
-            <p style={{ margin:'0 0 26px', fontSize:14, color:W.t3, lineHeight:1.55 }}>
-              Create projects, invite your crew &amp; export. No charge until month 3 · Cancel anytime.
-            </p>
+        {err && (
+          <div style={{ maxWidth:520, margin:'22px auto 0', background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.3)',
+            borderRadius:12, padding:'12px 15px', fontSize:13, color:'#fca5a5', fontWeight:600, textAlign:'center' }}>
+            {err}
+          </div>
+        )}
 
-            {err && (
-              <div style={{ background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.3)',
-                borderRadius:12, padding:'12px 15px', marginBottom:16, fontSize:13, color:'#fca5a5', fontWeight:600 }}>
-                {err}
-              </div>
-            )}
-
-            {/* Plan cards — three columns side by side (fits a laptop, no scroll) */}
-            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:14, alignItems:'stretch' }}>
-              {PLANS.map(p => {
-                const hot     = p.popular
-                const loading = actingPlan === p.id
-                return (
-                  <div key={p.id} style={{
-                    display:'flex', flexDirection:'column', borderRadius:20, padding: isMobile ? '22px' : '24px 22px',
-                    border:`1.5px solid ${hot ? C.coral : W.line}`,
-                    background: hot ? `${C.coral}12` : 'rgba(255,255,255,.03)',
-                    boxShadow: hot ? `0 12px 36px ${C.coral}28` : 'none' }}>
-
-                    {/* name + badge */}
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, minHeight:24 }}>
-                      <span style={{ fontSize:17, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>{p.label}</span>
-                      {hot && (
-                        <span style={{ fontSize:8.5, fontWeight:800, padding:'3.5px 9px', borderRadius:100,
-                          background:C.grad, color:'#fff', letterSpacing:'.08em' }}>BEST OFFER</span>
-                      )}
-                    </div>
-
-                    {/* price */}
-                    <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
-                      <span style={{ fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1.4px' }}>${p.price}</span>
-                      <span style={{ fontSize:14, color:W.t3, fontWeight:600 }}>/mo</span>
-                    </div>
-                    <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Free for 2 months</div>
-
-                    {/* CTA */}
-                    <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
-                      width:'100%', height:48, borderRadius:13, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
-                      fontSize:14, fontWeight:800, letterSpacing:'-.1px',
-                      border: hot ? 'none' : `1.5px solid rgba(255,255,255,.2)`,
-                      background: hot ? C.grad : 'transparent', color:'#fff',
-                      boxShadow: hot ? `0 8px 24px ${C.coral}48` : 'none',
-                      transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
-                      onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(255,255,255,.04)' } }}
-                      onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(255,255,255,.2)'; e.currentTarget.style.background='transparent' } }}>
-                      {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
-                    </button>
-
-                    {/* divider */}
-                    <div style={{ height:1, background:W.line, margin:'20px 0 16px' }}/>
-
-                    {/* features */}
-                    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                      {p.features.map(f => (
-                        <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <span style={{ width:19, height:19, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                            background: hot ? `${C.coral}26` : 'rgba(255,255,255,.07)' }}>
-                            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : 'rgba(255,255,255,.65)'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
-                          </span>
-                          <span style={{ fontSize:13, color:W.t2, fontWeight:500 }}>{f}</span>
-                        </div>
-                      ))}
-                    </div>
+        {/* Plans */}
+        <div style={{ position:'relative', maxWidth:1040, margin:'0 auto', padding: isMobile ? '28px 20px 0' : '44px 30px 0' }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:14, alignItems:'stretch' }}>
+            {PLANS.map(p => {
+              const hot     = p.popular
+              const loading = actingPlan === p.id
+              return (
+                <div key={p.id} style={{
+                  display:'flex', flexDirection:'column', borderRadius:20, padding: isMobile ? '22px' : '26px 24px',
+                  border:`1.5px solid ${hot ? C.coral : W.line}`,
+                  background: hot ? `${C.coral}12` : 'rgba(255,255,255,.03)',
+                  boxShadow: hot ? `0 14px 40px ${C.coral}2a` : 'none' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, minHeight:24 }}>
+                    <span style={{ fontSize:18, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>{p.label}</span>
+                    {hot && (
+                      <span style={{ fontSize:8.5, fontWeight:800, padding:'3.5px 9px', borderRadius:100,
+                        background:C.grad, color:'#fff', letterSpacing:'.08em' }}>BEST OFFER</span>
+                    )}
                   </div>
-                )
-              })}
-            </div>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
+                    <span style={{ fontSize:38, fontWeight:900, color:'#fff', letterSpacing:'-1.5px' }}>${p.price}</span>
+                    <span style={{ fontSize:14, color:W.t3, fontWeight:600 }}>/mo</span>
+                  </div>
+                  <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Free for 2 months</div>
+                  <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
+                    width:'100%', height:50, borderRadius:13, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
+                    fontSize:14.5, fontWeight:800, letterSpacing:'-.1px',
+                    border: hot ? 'none' : `1.5px solid rgba(255,255,255,.2)`,
+                    background: hot ? C.grad : 'transparent', color:'#fff',
+                    boxShadow: hot ? `0 8px 24px ${C.coral}48` : 'none',
+                    transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
+                    onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(255,255,255,.04)' } }}
+                    onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(255,255,255,.2)'; e.currentTarget.style.background='transparent' } }}>
+                    {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
+                  </button>
+                  <div style={{ height:1, background:W.line, margin:'20px 0 16px' }}/>
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    {p.features.map(f => (
+                      <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <span style={{ width:19, height:19, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                          background: hot ? `${C.coral}26` : 'rgba(255,255,255,.07)' }}>
+                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : 'rgba(255,255,255,.65)'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                        </span>
+                        <span style={{ fontSize:13, color:W.t2, fontWeight:500 }}>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
-            {/* Legal + dismiss */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:11.5, color:W.t3, marginTop:22 }}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+        {/* Marketing — why Dizko */}
+        <div style={{ position:'relative', maxWidth:1040, margin:'0 auto', padding: isMobile ? '40px 20px 0' : '64px 30px 0' }}>
+          <div style={{ textAlign:'center', marginBottom: isMobile ? 24 : 34 }}>
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', color:C.coral, marginBottom:10 }}>Why Dizko</div>
+            <h2 style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'#fff', letterSpacing:'-1px' }}>
+              Everything you need to make music together
+            </h2>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 14 : 18 }}>
+            {VALUE_PROPS.map(v => (
+              <div key={v.title} style={{ padding:'24px', borderRadius:18, background:'rgba(255,255,255,.03)', border:`1px solid ${W.line}` }}>
+                <div style={{ width:46, height:46, borderRadius:13, display:'flex', alignItems:'center', justifyContent:'center',
+                  background:`${C.coral}16`, border:`1px solid ${C.coral}28`, marginBottom:16 }}>
+                  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{v.icon}</svg>
+                </div>
+                <div style={{ fontSize:16, fontWeight:800, color:'#fff', letterSpacing:'-.3px', marginBottom:7 }}>{v.title}</div>
+                <div style={{ fontSize:13.5, color:W.t3, lineHeight:1.55 }}>{v.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ position:'relative', marginTop: isMobile ? 40 : 60, borderTop:`1px solid ${W.line}` }}>
+          <div style={{ maxWidth:1040, margin:'0 auto', padding: isMobile ? '24px 20px 36px' : '28px 30px 48px', textAlign:'center' }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:12.5, color:W.t3, marginBottom:14 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
               </svg>
-              Secure checkout · $0 today · cancel anytime. By continuing you agree to our&nbsp;
+              Secure checkout · $0 today · cancel anytime · By continuing you agree to our&nbsp;
               <a href="/terms" style={{ color:W.t2, textDecoration:'underline' }}>Terms</a>.
             </div>
-            <button onClick={onClose} style={{ width:'100%', height:42, borderRadius:12, marginTop:6,
-              border:'none', background:'transparent', color:W.t3,
-              fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'color .15s' }}
-              onMouseEnter={e => e.currentTarget.style.color=W.t2}
-              onMouseLeave={e => e.currentTarget.style.color=W.t3}>
-              Maybe later
-            </button>
+            <div>
+              <button onClick={onClose} style={{ height:40, padding:'0 18px', borderRadius:11,
+                border:'none', background:'transparent', color:W.t4,
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'color .15s' }}
+                onMouseEnter={e => e.currentTarget.style.color=W.t2}
+                onMouseLeave={e => e.currentTarget.style.color=W.t4}>
+                Maybe later
+              </button>
+            </div>
           </div>
         </div>
       </div>
