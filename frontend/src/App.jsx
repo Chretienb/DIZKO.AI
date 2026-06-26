@@ -847,7 +847,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     gap: expanded ? 12 : 3, padding: expanded ? '7px 10px' : '3px 0',
                     borderRadius: expanded ? 11 : 0,
                     background: expanded && on ? 'rgba(var(--fg),.1)' : 'transparent',
-                    color: on ? '#fff' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
+                    color: on ? 'var(--t1)' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
                   onMouseEnter={e => { warmNav(n.path); if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
                   <span style={{ width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',

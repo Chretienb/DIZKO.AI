@@ -205,7 +205,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         : (
           <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'24px 24px 8px' }}>
             <img src={ufoImg} alt="" style={{ width:'100%', maxWidth:400, borderRadius:14, display:'block', marginBottom:20 }}/>
-            <div style={{ fontSize:23, fontWeight:800, color:'#fff', letterSpacing:'-.6px', marginBottom:9 }}>No projects in sight</div>
+            <div style={{ fontSize:23, fontWeight:800, color:DK.t1, letterSpacing:'-.6px', marginBottom:9 }}>No projects in sight</div>
             <div style={{ fontSize:13.5, color:DK.t3, lineHeight:1.6 }}>
               Looks like your up next list is empty.<br/>Create a project to see it here.
             </div>
@@ -316,7 +316,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
                 background:`#000 center/cover no-repeat`, backgroundImage:`url(${astronautImg})` }}/>
               {/* Headline */}
               <div style={{ textAlign:'center', padding:'18px 6px 4px' }}>
-                <div style={{ fontSize: isMobile ? 20 : 23, fontWeight:800, color:'#fff', letterSpacing:'-.6px', marginBottom:8 }}>
+                <div style={{ fontSize: isMobile ? 20 : 23, fontWeight:800, color:DK.t1, letterSpacing:'-.6px', marginBottom:8 }}>
                   Your next hit starts here
                 </div>
                 <div style={{ fontSize:13.5, color:DK.t3, lineHeight:1.55, maxWidth:380, margin:'0 auto' }}>
