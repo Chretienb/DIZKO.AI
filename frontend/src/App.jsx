@@ -810,9 +810,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {(
         /* ── Icon-only rail — used on both desktop and mobile ── */
         <>
-          {/* Collapse / expand toggle (desktop) — icon only, pinned at the top above Home */}
+          {/* Top bar — logo (left) when expanded + collapse toggle. Collapsed shows
+              just the toggle, centered. */}
           {!isMobile && (
-            <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex', justifyContent: expanded ? 'flex-end' : 'center', flexShrink:0 }}>
+            <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex', alignItems:'center', justifyContent: expanded ? 'space-between' : 'center', flexShrink:0 }}>
+              {expanded && (
+                <button onClick={() => navigate('/')} aria-label="Dizko home"
+                  style={{ display:'flex', alignItems:'center', gap:9, background:'none', border:'none', cursor:'pointer', padding:'0 0 0 4px', fontFamily:'inherit' }}>
+                  <img src={logo} alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.08)` }}/>
+                  <span style={{ fontSize:17, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>Dizko</span>
+                </button>
+              )}
               <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
                 style={{ width:34, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
