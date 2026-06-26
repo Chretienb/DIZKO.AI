@@ -24,11 +24,17 @@ function paint(canvas, peaks, color, progress, muted) {
 
   ctx.clearRect(0, 0, W * dpr, H * dpr)
 
+  // On light mode the faint "upcoming" bars wash out, so use a stronger alpha
+  // (and a darker muted grey) than in dark mode for clear contrast on white.
+  const light = document.documentElement.getAttribute('data-theme') === 'light'
+  const unplayedAlpha = light ? '80' : '44'                    // ~50% vs ~27%
+  const mutedFill     = light ? 'rgba(110,110,110,0.55)' : 'rgba(150,150,150,0.3)'
+
   for (let i = 0; i < n; i++) {
     const h = Math.max(dpr, peaks[i] * H * dpr * 0.85)
     ctx.fillStyle = muted
-      ? 'rgba(150,150,150,0.3)'
-      : i < playX ? color : color + '44'
+      ? mutedFill
+      : i < playX ? color : color + unplayedAlpha
     ctx.fillRect(i * barW, mid - h/2, Math.max(barW - dpr, dpr), h)
   }
 }

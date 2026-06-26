@@ -623,7 +623,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
 
   // ── Upsell — no card yet (Dizko payment wall: FULL PAGE, marketing) ──────────
   if (!billingLoaded || !hasCard) {
-    const W = { t2:'rgba(255,255,255,.72)', t3:'rgba(255,255,255,.5)', t4:'rgba(255,255,255,.38)', line:'rgba(255,255,255,.1)' }
+    const W = { t2:'var(--t2)', t3:'var(--t3)', t4:'rgba(var(--fg),.4)', line:'var(--border)' }
     const VALUE_PROPS = [
       { title:'Auto-organized stems', sub:'BPM + key tagged on every upload. No naming, ever.',
         icon:<><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></> },
@@ -633,7 +633,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         icon:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></> },
     ]
     return (
-      <div style={{ position:'fixed', inset:0, zIndex:1000, background:'#000', overflowY:'auto', color:'#fff',
+      <div style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', overflowY:'auto', color:'var(--t1)',
         fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif", WebkitFontSmoothing:'antialiased' }}>
         {/* ambient glows */}
         <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
@@ -643,14 +643,14 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         <div style={{ position:'relative', maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px' : '24px 30px',
           display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <button onClick={onClose} aria-label="Dizko home" style={{ display:'flex', alignItems:'center', gap:11, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
-            <img src={logo} alt="" style={{ width:40, height:40, borderRadius:12, objectFit:'cover', boxShadow:`0 0 0 1px rgba(255,255,255,.1), 0 0 28px ${C.coral}30` }}/>
-            <span style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>Dizko</span>
+            <img src={logo} alt="" style={{ width:40, height:40, borderRadius:12, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.12), 0 0 28px ${C.coral}30` }}/>
+            <span style={{ fontSize:19, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>Dizko</span>
           </button>
           <button onClick={onClose} aria-label="Close" style={{ width:34, height:34, borderRadius:10,
-            background:'rgba(255,255,255,.06)', border:`1px solid ${W.line}`, cursor:'pointer',
+            background:'rgba(var(--fg),.06)', border:`1px solid ${W.line}`, cursor:'pointer',
             display:'flex', alignItems:'center', justifyContent:'center', color:W.t3, transition:'all .12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}1a`; e.currentTarget.style.color='#fff' }}
-            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.06)'; e.currentTarget.style.color=W.t3 }}>
+            onMouseEnter={e => { e.currentTarget.style.background=`${C.coral}1a`; e.currentTarget.style.color='var(--t1)' }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color=W.t3 }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -662,7 +662,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
             <span style={{ fontSize:11, fontWeight:800, letterSpacing:'.12em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
           </span>
-          <h1 style={{ margin:'0 0 14px', fontSize: isMobile ? 34 : 54, fontWeight:900, letterSpacing:'-2.2px', lineHeight:1.04, color:'#fff' }}>
+          <h1 style={{ margin:'0 0 14px', fontSize: isMobile ? 34 : 54, fontWeight:900, letterSpacing:'-2.2px', lineHeight:1.04, color:'var(--t1)' }}>
             Choose your <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>plan</span>
           </h1>
           <p style={{ margin:'0 auto', fontSize: isMobile ? 14.5 : 16, color:W.t3, lineHeight:1.6, maxWidth:480 }}>
@@ -687,29 +687,29 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
                 <div key={p.id} style={{
                   display:'flex', flexDirection:'column', borderRadius:20, padding: isMobile ? '22px' : '26px 24px',
                   border:`1.5px solid ${hot ? C.coral : W.line}`,
-                  background: hot ? `${C.coral}12` : 'rgba(255,255,255,.03)',
+                  background: hot ? `${C.coral}12` : 'rgba(var(--fg),.03)',
                   boxShadow: hot ? `0 14px 40px ${C.coral}2a` : 'none' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, minHeight:24 }}>
-                    <span style={{ fontSize:18, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>{p.label}</span>
+                    <span style={{ fontSize:18, fontWeight:900, color:'var(--t1)', letterSpacing:'-.4px' }}>{p.label}</span>
                     {hot && (
                       <span style={{ fontSize:8.5, fontWeight:800, padding:'3.5px 9px', borderRadius:100,
                         background:C.grad, color:'#fff', letterSpacing:'.08em' }}>BEST OFFER</span>
                     )}
                   </div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
-                    <span style={{ fontSize:38, fontWeight:900, color:'#fff', letterSpacing:'-1.5px' }}>${p.price}</span>
+                    <span style={{ fontSize:38, fontWeight:900, color:'var(--t1)', letterSpacing:'-1.5px' }}>${p.price}</span>
                     <span style={{ fontSize:14, color:W.t3, fontWeight:600 }}>/mo</span>
                   </div>
                   <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Free for 2 months</div>
                   <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
                     width:'100%', height:50, borderRadius:13, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
                     fontSize:14.5, fontWeight:800, letterSpacing:'-.1px',
-                    border: hot ? 'none' : `1.5px solid rgba(255,255,255,.2)`,
-                    background: hot ? C.grad : 'transparent', color:'#fff',
+                    border: hot ? 'none' : `1.5px solid rgba(var(--fg),.22)`,
+                    background: hot ? C.grad : 'transparent', color: hot ? '#fff' : 'var(--t1)',
                     boxShadow: hot ? `0 8px 24px ${C.coral}48` : 'none',
                     transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
-                    onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(255,255,255,.04)' } }}
-                    onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(255,255,255,.2)'; e.currentTarget.style.background='transparent' } }}>
+                    onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
+                    onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(var(--fg),.22)'; e.currentTarget.style.background='transparent' } }}>
                     {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
                   </button>
                   <div style={{ height:1, background:W.line, margin:'20px 0 16px' }}/>
@@ -717,8 +717,8 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
                     {p.features.map(f => (
                       <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
                         <span style={{ width:19, height:19, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                          background: hot ? `${C.coral}26` : 'rgba(255,255,255,.07)' }}>
-                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : 'rgba(255,255,255,.65)'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                          background: hot ? `${C.coral}26` : 'rgba(var(--fg),.07)' }}>
+                          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={hot ? C.coral : 'rgba(var(--fg),.55)'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
                         </span>
                         <span style={{ fontSize:13, color:W.t2, fontWeight:500 }}>{f}</span>
                       </div>
@@ -734,18 +734,18 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         <div style={{ position:'relative', maxWidth:1040, margin:'0 auto', padding: isMobile ? '40px 20px 0' : '64px 30px 0' }}>
           <div style={{ textAlign:'center', marginBottom: isMobile ? 24 : 34 }}>
             <div style={{ fontSize:11, fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', color:C.coral, marginBottom:10 }}>Why Dizko</div>
-            <h2 style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'#fff', letterSpacing:'-1px' }}>
+            <h2 style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px' }}>
               Everything you need to make music together
             </h2>
           </div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 14 : 18 }}>
             {VALUE_PROPS.map(v => (
-              <div key={v.title} style={{ padding:'24px', borderRadius:18, background:'rgba(255,255,255,.03)', border:`1px solid ${W.line}` }}>
+              <div key={v.title} style={{ padding:'24px', borderRadius:18, background:'rgba(var(--fg),.03)', border:`1px solid ${W.line}` }}>
                 <div style={{ width:46, height:46, borderRadius:13, display:'flex', alignItems:'center', justifyContent:'center',
                   background:`${C.coral}16`, border:`1px solid ${C.coral}28`, marginBottom:16 }}>
                   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{v.icon}</svg>
                 </div>
-                <div style={{ fontSize:16, fontWeight:800, color:'#fff', letterSpacing:'-.3px', marginBottom:7 }}>{v.title}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px', marginBottom:7 }}>{v.title}</div>
                 <div style={{ fontSize:13.5, color:W.t3, lineHeight:1.55 }}>{v.sub}</div>
               </div>
             ))}
