@@ -104,6 +104,20 @@ function OAuthCallback({ onLogin }) {
       navigate('/', { replace: true })
     }
 
+    // If Supabase/Spotify bounced back with an explicit error (in the query OR the
+    // hash), show the REAL reason instead of a generic failure.
+    const url  = new URL(window.location.href)
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''))
+    const errCode = url.searchParams.get('error')             || hash.get('error')
+    const errDesc = url.searchParams.get('error_description') || hash.get('error_description')
+    console.log('[oauth callback] url:', window.location.href, '| error:', errCode, '| desc:', errDesc)
+    if (errCode) {
+      done = true
+      setStatus(`Sign-in failed: ${decodeURIComponent(errDesc || errCode)}`)
+      setTimeout(() => navigate('/login'), 8000)
+      return
+    }
+
     // Already exchanged (e.g. detectSessionInUrl finished during app init)?
     supabase.auth.getSession().then(({ data }) => complete(data?.session))
     // Otherwise complete the moment the exchange lands.
