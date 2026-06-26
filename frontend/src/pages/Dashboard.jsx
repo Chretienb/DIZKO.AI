@@ -5,6 +5,8 @@ import { projects as projectsApi, files as filesApi, collaborators as collabsApi
 import { supabase } from '../lib/supabase.js'
 import { Spinner } from '../components/ui/index.jsx'
 import { timeAgo } from '../lib/utils.js'
+import astronautImg from '../assets/empty/astronaut-studio.jpg'
+import ufoImg       from '../assets/empty/ufo-no-projects.jpg'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pn(f) { try { return JSON.parse(f?.notes || '{}') } catch { return {} } }
@@ -200,7 +202,15 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   const rightList = (
     <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'4px 8px 12px', display:'flex', flexDirection:'column', gap:2 }}>
       {tab === 'upnext' && (projList.length ? projList.map(projectRow)
-        : <div style={{ padding:'40px 16px', textAlign:'center', color:DK.t3, fontSize:13 }}>No projects yet.</div>)}
+        : (
+          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'24px 24px 8px' }}>
+            <img src={ufoImg} alt="" style={{ width:'100%', maxWidth:400, borderRadius:14, display:'block', marginBottom:20 }}/>
+            <div style={{ fontSize:23, fontWeight:800, color:'#fff', letterSpacing:'-.6px', marginBottom:9 }}>No projects in sight</div>
+            <div style={{ fontSize:13.5, color:DK.t3, lineHeight:1.6 }}>
+              Looks like your up next list is empty.<br/>Create a project to see it here.
+            </div>
+          </div>
+        ))}
       {tab === 'stems' && (stemList.length ? stemList.map(stemRow)
         : <div style={{ padding:'40px 16px', textAlign:'center', color:DK.t3, fontSize:13 }}>No stems in this project.</div>)}
       {tab === 'people' && (people.length ? people.map((p, i) => (
@@ -300,9 +310,19 @@ export default function PageDashboard({ openModal, user, playTrack }) {
               </div>
             </div>
           ) : (
-            <div style={{ flex:1, minHeight:300, borderRadius:16, border:'1px dashed rgba(var(--fg),.12)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
-              <p style={{ margin:0, color:DK.t3, fontSize:13 }}>No projects yet</p>
-              <button onClick={() => openModal('new-project', {})} style={{ height:36, padding:'0 18px', borderRadius:9, border:'none', background:DK.red, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:DK.font }}>+ New Project</button>
+            <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', overflowY:'auto' }}>
+              {/* Astronaut hero */}
+              <div style={{ flex:'1 1 auto', minHeight: isMobile ? 220 : 200, borderRadius:16, overflow:'hidden',
+                background:`#000 center/cover no-repeat`, backgroundImage:`url(${astronautImg})` }}/>
+              {/* Headline */}
+              <div style={{ textAlign:'center', padding:'18px 6px 4px' }}>
+                <div style={{ fontSize: isMobile ? 20 : 23, fontWeight:800, color:'#fff', letterSpacing:'-.6px', marginBottom:8 }}>
+                  Your next hit starts here
+                </div>
+                <div style={{ fontSize:13.5, color:DK.t3, lineHeight:1.55, maxWidth:380, margin:'0 auto' }}>
+                  Create your first project and bring your ideas to life. Collaborate, create, and make music like never before.
+                </div>
+              </div>
             </div>
           )}
         </div>
