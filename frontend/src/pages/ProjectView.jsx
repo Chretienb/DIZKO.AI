@@ -421,6 +421,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     </div>
   )
 
+  // Loaded but no project = the backend denied access (not owner / not an active
+  // collaborator). Show a clean message instead of an empty shell.
+  if (!project) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', flexDirection:'column', gap:14, textAlign:'center', padding:24 }}>
+      <div style={{ fontSize:16, fontWeight:700, color:'var(--t1)' }}>You don’t have access to this project</div>
+      <p style={{ margin:0, fontSize:13, color:'var(--t3)', maxWidth:320, lineHeight:1.5 }}>Ask the owner to invite you, then it’ll show up on your dashboard.</p>
+      <a href="/" style={{ height:40, padding:'0 18px', borderRadius:10, background:'#E95A51', color:'#fff', fontSize:13, fontWeight:700, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>Back to dashboard</a>
+    </div>
+  )
+
   const isOwner  = project?.owner_id === user?.id
   const status   = project?.status || 'Draft'
 

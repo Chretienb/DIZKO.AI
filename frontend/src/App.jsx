@@ -692,7 +692,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // UPLOADING is contributing — free collaborators must be able to add their
   // stems to projects they're a member of. (Backend gates create/invite/export;
   // upload only requires active membership.)
-  const GATED_MODALS = ['new-project', 'invite', 'upload']
+  // 'upload' is NOT gated: invited collaborators (no paid plan) must be able to
+  // add their stems to projects they're a member of. The backend already gates
+  // uploads by project membership + role, so the paywall doesn't need to.
+  const GATED_MODALS = ['new-project', 'invite']
   const openModal = (type, data) => {
     if (GATED_MODALS.includes(type) && !hasAccess) {
       setModal({ type: 'billing', data: {} })
@@ -966,7 +969,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
             <Route path="/projects"      element={gate(<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />)} />
-            <Route path="/projects/:id"  element={gate(<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
+            {/* NOT paywall-gated: an invited collaborator (no paid plan) can open
+                the projects they're a member of and add stems. The backend 403s
+                anyone who isn't the owner or an active collaborator. */}
+            <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/studio"        element={gate(<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
             <Route path="/collaborators" element={gate(<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />)} />
             <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
