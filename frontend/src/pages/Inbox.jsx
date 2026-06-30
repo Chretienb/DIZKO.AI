@@ -78,9 +78,31 @@ export default function PageInbox({ openModal, user }) {
   const block = async (t) => {
     setMenuFor(null)
     if (!window.confirm(`Block ${t.name}? They won't be able to message you, and this chat will be hidden.`)) return
-    setThreads(list => list.filter(x => x.user_id !== t.user_id))
+    const prev = threads
+    setThreads(list => list.filter(x => x.user_id !== t.user_id))   // optimistic
     if (selId === t.user_id) setSelId(null)
-    try { await messagesApi.block(t.user_id) } catch {}
+    try {
+      await messagesApi.block(t.user_id)
+      load()   // reconcile with server so the UI reflects the real blocked state
+    } catch (e) {
+      setThreads(prev)   // roll back — the block didn't persist
+      alert(e?.message || `Couldn't block ${t.name}. Please try again.`)
+    }
+  }
+
+  const deleteChat = async (t) => {
+    setMenuFor(null)
+    if (!window.confirm(`Delete your conversation with ${t.name}? This removes the messages for good.`)) return
+    const prev = threads
+    setThreads(list => list.filter(x => x.user_id !== t.user_id))   // optimistic
+    if (selId === t.user_id) setSelId(null)
+    try {
+      await messagesApi.deleteConversation(t.user_id)
+      load()
+    } catch (e) {
+      setThreads(prev)
+      alert(e?.message || `Couldn't delete this chat. Please try again.`)
+    }
   }
 
   const filtered = q.trim() ? threads.filter(t => t.name.toLowerCase().includes(q.trim().toLowerCase())) : threads
@@ -130,8 +152,9 @@ export default function PageInbox({ openModal, user }) {
                 {menuFor === t.user_id && (
                   <>
                     <div onClick={(e) => { e.stopPropagation(); setMenuFor(null) }} style={{ position:'fixed', inset:0, zIndex:5 }} />
-                    <div style={{ position:'absolute', top:44, right:10, zIndex:6, background:C.bg, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:'0 10px 30px rgba(0,0,0,.25)', overflow:'hidden', minWidth:140 }}>
-                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'#ef4444', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Block user</button>
+                    <div style={{ position:'absolute', top:44, right:10, zIndex:6, background:C.bg, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:'0 10px 30px rgba(0,0,0,.25)', overflow:'hidden', minWidth:160 }}>
+                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:C.t1, fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Block user</button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteChat(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', borderTop:`1px solid ${C.border}`, cursor:'pointer', background:'transparent', color:'#ef4444', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Delete chat</button>
                     </div>
                   </>
                 )}

@@ -446,6 +446,7 @@ export const messagesApi = {
   blocks:       () => request('GET', '/messages/blocks'),
   block:        (userId) => post(`/messages/block/${userId}`),
   unblock:      (userId) => del(`/messages/block/${userId}`),
+  deleteConversation: (userId) => del(`/messages/conversation/${userId}`),
   /** @returns {Promise<import('./types').ApiResponse<Message[]>>} */
   conversation: (userId) => get(`/messages/${userId}`),
   /** @returns {Promise<import('./types').ApiResponse<Message>>} */

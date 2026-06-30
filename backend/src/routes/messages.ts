@@ -6,6 +6,7 @@ import { notify, emailUser } from '../lib/notificationService'
 import { firstSeen } from '../lib/redisStore'
 import { getUsersByIds } from '../lib/users'
 import { censorProfanity } from '../lib/profanity'
+import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import type { HonoVariables } from '../types'
 
 // Both directions of a block between two users.
@@ -116,7 +117,11 @@ messages.post('/block/:userId', async (c) => {
   const target = c.req.param('userId')
   if (target === me) return c.json({ data: null, error: "You can't block yourself.", status: 400 }, 400)
   const { error } = await supabase.from('blocks').insert({ blocker_id: me, blocked_id: target })
-  if (error && (error as any).code !== '23505') return c.json({ data: null, error: error.message, status: 500 }, 500)
+  if (error) {
+    if ((error as any).code === '23505') return c.json({ data: { blocked: true }, error: null, status: 200 }) // already blocked
+    if ((error as any).code === '23503') return c.json({ data: null, error: 'This account can no longer be blocked (it may have been removed).', status: 400 }, 400)
+    return c.json({ data: null, error: error.message, status: 500 }, 500)
+  }
   return c.json({ data: { blocked: true }, error: null, status: 200 })
 })
 
@@ -126,6 +131,20 @@ messages.delete('/block/:userId', async (c) => {
   const { error } = await supabase.from('blocks').delete().eq('blocker_id', me).eq('blocked_id', c.req.param('userId'))
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { blocked: false }, error: null, status: 200 })
+})
+
+// DELETE /messages/conversation/:userId — remove a whole conversation. Useful
+// for ghost threads (the other account was removed and can't be blocked) or to
+// just clear a chat. Deletes every message between the two users.
+messages.delete('/conversation/:userId', async (c) => {
+  const me     = c.var.user.id
+  const target = c.req.param('userId')
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .or(`and(from_user_id.eq.${me},to_user_id.eq.${target}),and(from_user_id.eq.${target},to_user_id.eq.${me})`)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { deleted: true }, error: null, status: 200 })
 })
 
 // GET /messages/:userId — fetch conversation between me and another user
@@ -162,6 +181,10 @@ messages.post('/', sanitize, async (c) => {
   if (!to_user_id || !text?.trim()) {
     return c.json({ data: null, error: 'to_user_id and text are required', status: 400 }, 400)
   }
+
+  // Messaging is a paid feature.
+  const ent = await getCreatorEntitlement(me)
+  if (!ent.entitled) return c.json(subscriptionRequired('send messages'), 402)
 
   // Refuse if either side has blocked the other.
   if (await isBlockedBetween(me, to_user_id)) {

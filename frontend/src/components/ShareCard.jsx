@@ -103,27 +103,27 @@ export default function ShareCard({ kind, item, profile, onClose }) {
 
         {/* Cover image control */}
         <input ref={fileRef} type="file" accept="image/*" onChange={pickImage} style={{ display:'none' }} />
-        <div style={{ display:'flex', gap:9, marginBottom:11 }}>
+        <div style={{ display:'flex', justifyContent:'center', gap:18, marginBottom:14 }}>
           <button onClick={() => fileRef.current?.click()}
-            style={{ flex:1, padding:'9px', borderRadius:11, border:'1px solid rgba(255,255,255,.15)', cursor:'pointer', background:'transparent', color:'#fff', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.65)', fontSize:12.5, fontWeight:500, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:6 }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             {customBg ? 'Change photo' : 'Use my photo'}
           </button>
           {customBg && (
             <button onClick={() => setCustomBg(null)}
-              style={{ padding:'9px 14px', borderRadius:11, border:'1px solid rgba(255,255,255,.15)', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.7)', fontSize:12.5, fontWeight:600, fontFamily:'inherit' }}>
-              Record
+              style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.45)', fontSize:12.5, fontWeight:500, fontFamily:'inherit' }}>
+              Use record
             </button>
           )}
         </div>
 
         <button onClick={shareImage} disabled={busy}
-          style={{ width:'100%', padding:'12px', borderRadius:12, border:'none', cursor:'pointer', background:'#fff', color:'#111', fontSize:14, fontWeight:800, fontFamily:'inherit', marginBottom:9, opacity:busy?.6:1 }}>
+          style={{ width:'100%', padding:'13px', borderRadius:14, border:'none', cursor:'pointer', background:'#fff', color:'#111', fontSize:14, fontWeight:600, fontFamily:'inherit', marginBottom:6, opacity:busy?.6:1 }}>
           {busy ? 'Preparing…' : 'Share image'}
         </button>
-        <div style={{ display:'flex', gap:9 }}>
-          <button onClick={download} disabled={busy} style={{ flex:1, padding:'10px', borderRadius:11, border:'1px solid rgba(255,255,255,.15)', cursor:'pointer', background:'transparent', color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Download</button>
-          <button onClick={copyLink} style={{ flex:1, padding:'10px', borderRadius:11, border:'1px solid rgba(255,255,255,.15)', cursor:'pointer', background:'transparent', color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+        <div style={{ display:'flex', justifyContent:'center', gap:24, marginTop:10 }}>
+          <button onClick={download} disabled={busy} style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.7)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Download</button>
+          <button onClick={copyLink} style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.7)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>{copied ? 'Copied ✓' : 'Copy link'}</button>
         </div>
         <div style={{ fontSize:11.5, color:'rgba(255,255,255,.4)', textAlign:'center', marginTop:12, lineHeight:1.5 }}>
           Post to your IG story, then add a link sticker — the link’s already copied.

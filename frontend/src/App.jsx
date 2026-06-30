@@ -1007,7 +1007,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/collaborators" element={gate(<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />)} />
             <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />)} />
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
-            <Route path="/inbox"         element={<PageInbox openModal={openModal} user={user} />} />
+            <Route path="/inbox"         element={gate(<PageInbox openModal={openModal} user={user} />)} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />

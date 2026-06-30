@@ -7,6 +7,7 @@ import { getUsersByIds } from '../lib/users'
 import { getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { notify } from '../lib/notificationService'
 import { censorProfanity } from '../lib/profanity'
+import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import type { HonoVariables } from '../types'
 
 // Authenticated half of the social-showcase layer: profile editing, handle
@@ -102,8 +103,10 @@ showcase.patch('/me', sanitize, async (c) => {
       .slice(0, 8)
   }
 
-  // Can't go public without a handle — the profile URL needs one.
+  // Going public is a paid feature, and needs a handle for the profile URL.
   if (patch.profile_public === true) {
+    const ent = await getCreatorEntitlement(me)
+    if (!ent.entitled) return c.json(subscriptionRequired('make your profile public'), 402)
     const { data: prof } = await supabase.from('profiles').select('handle').eq('id', me).maybeSingle()
     if (!prof || !(prof as any).handle) {
       return c.json({ data: null, error: 'Claim a handle before making your profile public.', status: 400 }, 400)
