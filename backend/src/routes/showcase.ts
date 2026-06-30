@@ -33,17 +33,18 @@ function normalizeHandle(raw: unknown): string | null {
 // ── GET /showcase/me — my profile + my showcase (for editing) ─────────────────
 showcase.get('/me', async (c) => {
   const me = c.var.user.id
-  const { data: prof } = await supabase
-    .from('profiles')
-    .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count')
-    .eq('id', me).maybeSingle()
-
-  const { data: items } = await supabase
-    .from('showcase_items')
-    .select('id, stem_id, caption, position, like_count, play_count, stem:stems ( suggested_name, original_name, instrument )')
-    .eq('user_id', me)
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: false })
+  const [{ data: prof }, { data: items }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count')
+      .eq('id', me).maybeSingle(),
+    supabase
+      .from('showcase_items')
+      .select('id, stem_id, caption, position, like_count, play_count, preview_only, link, stem:stems ( suggested_name, original_name, instrument )')
+      .eq('user_id', me)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: false }),
+  ])
 
   return c.json({
     data: {
@@ -51,6 +52,7 @@ showcase.get('/me', async (c) => {
       items: (items ?? []).map((i: any) => ({
         id: i.id, stem_id: i.stem_id, caption: i.caption ?? null, position: i.position,
         like_count: i.like_count, play_count: i.play_count,
+        preview_only: !!i.preview_only, link: i.link ?? null,
         title: i.stem?.suggested_name || i.stem?.original_name || 'Untitled',
         instrument: i.stem?.instrument ?? null,
       })),
@@ -153,11 +155,16 @@ showcase.patch('/items/:id', sanitize, async (c) => {
   const patch: Record<string, unknown> = {}
   if ('caption' in b)  patch.caption  = b.caption ? String(b.caption).slice(0, 280) : null
   if ('position' in b && Number.isFinite(Number(b.position))) patch.position = Math.max(0, Math.trunc(Number(b.position)))
+  if ('preview_only' in b) patch.preview_only = !!b.preview_only
+  if ('link' in b) {
+    const l = b.link ? String(b.link).trim().slice(0, 500) : ''
+    patch.link = l ? (/^https?:\/\//i.test(l) ? l : `https://${l}`) : null
+  }
   if (Object.keys(patch).length === 0) return c.json({ data: null, error: 'Nothing to update', status: 400 }, 400)
 
   const { data, error } = await supabase.from('showcase_items')
     .update(patch).eq('id', id).eq('user_id', me)   // user_id scope = can only edit your own
-    .select('id, caption, position').maybeSingle()
+    .select('id, caption, position, preview_only, link').maybeSingle()
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   if (!data) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
   return c.json({ data, error: null, status: 200 })
@@ -243,6 +250,7 @@ showcase.post('/items/:id/comment', sanitize, async (c) => {
   const b = (c.var.body ?? {}) as Record<string, unknown>
   const text = typeof b.text === 'string' ? censorProfanity(b.text.trim().slice(0, 500)) : ''
   const ts   = Math.max(0, Number(b.timestamp_sec) || 0)
+  const parentId = typeof b.parent_id === 'string' ? b.parent_id : null
   if (!text) return c.json({ data: null, error: 'Comment text is required', status: 400 }, 400)
 
   // Item must exist and belong to a public profile.
@@ -251,9 +259,16 @@ showcase.post('/items/:id/comment', sanitize, async (c) => {
   const { data: prof } = await supabase.from('profiles').select('profile_public').eq('id', (item as any).user_id).single()
   if (!prof || !(prof as any).profile_public) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
 
+  // A reply must point at a top-level comment on the SAME item.
+  let parent: string | null = null
+  if (parentId) {
+    const { data: pc } = await supabase.from('showcase_comments').select('id, showcase_item_id, parent_id').eq('id', parentId).maybeSingle()
+    if (pc && (pc as any).showcase_item_id === itemId) parent = (pc as any).parent_id ?? (pc as any).id   // flatten nested replies to one level
+  }
+
   const { data, error } = await supabase.from('showcase_comments')
-    .insert({ showcase_item_id: itemId, user_id: me, text, timestamp_sec: ts })
-    .select('id, timestamp_sec, text, created_at').single()
+    .insert({ showcase_item_id: itemId, user_id: me, text, timestamp_sec: parent ? 0 : ts, parent_id: parent })
+    .select('id, timestamp_sec, text, created_at, parent_id').single()
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
   const meta = (await getUsersByIds([me])).get(me)

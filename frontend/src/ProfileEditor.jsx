@@ -1,28 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { showcaseApi, projects as projectsApi, files as filesApi, auth as authApi } from './lib/api.js'
-import { C, Avatar } from './components/ui/index.jsx'
+import { C, Avatar, Spinner } from './components/ui/index.jsx'
+
+// One shared loading row — the brand equalizer spinner + label — so every
+// loading state in this editor looks the same instead of bare text.
+function Loading({ label = 'Loading…', pad = '40px 0' }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:pad }}>
+      <Spinner size={26} />
+      <span style={{ fontSize:12.5, color:C.t3 }}>{label}</span>
+    </div>
+  )
+}
 
 // Producer-facing editor for the public showcase profile. Claim a handle, edit
 // name/bio/links, replace the photo (which updates the account pfp too), flip
 // the profile public, and curate which library files appear at /u/<handle>.
 export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const navigate = useNavigate()
-  const [loading, setLoading]   = useState(true)
-  const [profile, setProfile]   = useState(null)
-  const [items, setItems]       = useState([])
+  const cached = showcaseApi.meCache()   // last snapshot → instant paint
+  const [loading, setLoading]   = useState(!cached)
+  const [profile, setProfile]   = useState(cached?.profile || null)
+  const [items, setItems]       = useState(cached?.items || [])
   const [saving, setSaving]     = useState(false)
   const [msg, setMsg]           = useState(null)
 
   // editable fields
-  const [handle, setHandle]           = useState('')
+  const cp = cached?.profile || {}
+  const [handle, setHandle]           = useState(cp.handle || '')
   const [handleState, setHandleState] = useState(null) // null | checking | ok | taken | invalid
-  const [displayName, setDisplayName] = useState('')
-  const [bio, setBio]                 = useState('')
-  const [links, setLinks]             = useState('')
-  const [avatar, setAvatar]           = useState(user?.avatar_url || null)
+  const [displayName, setDisplayName] = useState(cp.display_name || user?.full_name || '')
+  const [bio, setBio]                 = useState(cp.bio || '')
+  const [links, setLinks]             = useState(Array.isArray(cp.links) ? cp.links.join('\n') : '')
+  const [avatar, setAvatar]           = useState(cp.avatar_url || user?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [isPublic, setIsPublic]       = useState(false)
+  const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
   const avatarInput = useRef()
 
   // add-from-library picker
@@ -36,16 +49,22 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const previewAudio = useRef()
 
   useEffect(() => {
+    const hadCache = !!cached
     showcaseApi.me().then(r => {
+      // If we already painted from cache, just refresh the read-only profile
+      // (stats) and leave the user's editable fields / item edits untouched —
+      // me() has already refreshed the snapshot for the next open.
       const pr = r?.data?.profile || {}
       setProfile(pr)
-      setItems(r?.data?.items || [])
-      setHandle(pr.handle || '')
-      setDisplayName(pr.display_name || user?.full_name || '')
-      setBio(pr.bio || '')
-      setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
-      setAvatar(pr.avatar_url || user?.avatar_url || null)
-      setIsPublic(!!pr.profile_public)
+      if (!hadCache) {
+        setItems(r?.data?.items || [])
+        setHandle(pr.handle || '')
+        setDisplayName(pr.display_name || user?.full_name || '')
+        setBio(pr.bio || '')
+        setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
+        setAvatar(pr.avatar_url || user?.avatar_url || null)
+        setIsPublic(!!pr.profile_public)
+      }
     }).catch(() => {}).finally(() => setLoading(false))
     projectsApi.list().then(r => setProjList(r?.data || [])).catch(() => {})
   }, [])
@@ -153,9 +172,28 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
     try { await showcaseApi.removeItem(id) } catch { /* best-effort */ }
   }
 
-  // Per-track caption ("write something"). Edits locally, saves on blur/enter.
-  const setCaption  = (id, caption) => setItems(list => list.map(i => i.id === id ? { ...i, caption } : i))
-  const saveCaption = async (id, caption) => { try { await showcaseApi.updateItem(id, { caption: caption?.trim() || null }) } catch {} }
+  // Per-track edits stay LOCAL until the user hits Save — so changes feel
+  // intentional (dirty → Saving… → Saved ✓) instead of silently dropping.
+  const editItem = (id, patch) => setItems(list => list.map(i =>
+    i.id === id ? { ...i, ...patch, _dirty: true, _saved: false } : i))
+
+  const saveItem = async (id) => {
+    const it = items.find(i => i.id === id)
+    if (!it) return
+    setItems(list => list.map(i => i.id === id ? { ...i, _saving: true } : i))
+    try {
+      await showcaseApi.updateItem(id, {
+        caption: it.caption?.trim() || null,
+        preview_only: !!it.preview_only,
+        link: it.link?.trim() || null,
+      })
+      setItems(list => list.map(i => i.id === id ? { ...i, _saving: false, _dirty: false, _saved: true } : i))
+      setTimeout(() => setItems(list => list.map(i => i.id === id ? { ...i, _saved: false } : i)), 2200)
+    } catch (e) {
+      setItems(list => list.map(i => i.id === id ? { ...i, _saving: false } : i))
+      alert(e?.message || 'Could not save — try again')
+    }
+  }
 
   // Closing returns to your public page (not the app), if you have a handle.
   const handleClose = () => {
@@ -198,7 +236,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
         .pe-col > div:last-child { margin-bottom:0; }
       `}</style>
       <div style={panel}>
-        {loading ? <div style={{ color:C.t3, padding:'60px 0', textAlign:'center' }}>Loading…</div> : (
+        {loading ? <Loading pad="80px 0" /> : (
           <>
           <div className="pe-grid">
             {/* ── Left column ── */}
@@ -305,9 +343,38 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                         <button onClick={() => removeItem(i.id)} title="Remove from profile"
                           style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'5px 12px', cursor:'pointer', color:C.t2, fontSize:12, fontWeight:600, fontFamily:'inherit', flexShrink:0 }}>Remove</button>
                       </div>
-                      <input value={i.caption || ''} onChange={e => setCaption(i.id, e.target.value)} onBlur={e => saveCaption(i.id, e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }} maxLength={280} placeholder="Write a caption… (e.g. “made in 20 min, DM for the pack”)"
+                      <input value={i.caption || ''} onChange={e => editItem(i.id, { caption: e.target.value })}
+                        maxLength={280} placeholder="Write a caption… (e.g. “made in 20 min, DM for the pack”)"
                         style={{ ...input, marginTop:10, fontSize:12.5, padding:'8px 11px' }} />
+                      <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:10, flexWrap:'wrap' }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.04em' }}>Public plays</span>
+                        <div style={{ display:'inline-flex', padding:2, borderRadius:9, background:C.bg, border:`1px solid ${C.border}` }}>
+                          {[['full','Full audio'],['preview','30s preview']].map(([val, lbl]) => {
+                            const active = (val === 'preview') === !!i.preview_only
+                            return (
+                              <button key={val} onClick={() => editItem(i.id, { preview_only: val === 'preview' })}
+                                style={{ border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:700, padding:'6px 14px', borderRadius:7,
+                                  background: active ? C.grad : 'transparent', color: active ? '#fff' : C.t2 }}>{lbl}</button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <input type="url" value={i.link || ''} onChange={e => editItem(i.id, { link: e.target.value })}
+                        maxLength={500} placeholder="Add a link… (buy, free download, booking — optional)"
+                        style={{ ...input, marginTop:8, fontSize:12.5, padding:'8px 11px' }} />
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, marginTop:10 }}>
+                        {i._saved && <span style={{ fontSize:12, fontWeight:600, color:'#2bb673', display:'inline-flex', alignItems:'center', gap:5 }}>
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Saved
+                        </span>}
+                        {i._dirty && !i._saved && <span style={{ fontSize:12, color:C.t3 }}>Unsaved changes</span>}
+                        <button onClick={() => saveItem(i.id)} disabled={!i._dirty || i._saving}
+                          style={{ border:'none', borderRadius:9, padding:'8px 20px', fontFamily:'inherit', fontSize:12.5, fontWeight:700,
+                            cursor: (!i._dirty || i._saving) ? 'default' : 'pointer',
+                            background: (!i._dirty || i._saving) ? 'rgba(var(--fg),.10)' : C.grad,
+                            color: (!i._dirty || i._saving) ? C.t3 : '#fff', transition:'background .12s' }}>
+                          {i._saving ? 'Saving…' : 'Save changes'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -375,7 +442,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                   </>
                 )}
                 {pickProject && (
-                  loadingFiles ? <div style={{ fontSize:12.5, color:C.t3, padding:'8px 2px' }}>Loading tracks…</div> :
+                  loadingFiles ? <Loading label="Loading tracks…" pad="24px 0" /> :
                   pickFiles.length === 0 ? (
                     <div style={{ fontSize:12.5, color:C.t3, padding:'10px 2px' }}>Every track here is already on your profile. 🎉</div>
                   ) : (() => {

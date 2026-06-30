@@ -477,6 +477,24 @@ export const foldersApi = {
   moveFile: (stemId, folderId)   => patch('/folders/move-file', { stem_id: stemId, folder_id: folderId }),
 }
 
+// ── Public profile SWR cache ──────────────────────────────────────────────────
+// Public reads use a raw fetch (not the auth `get` cache), so they get their own
+// tiny cache: prefetch on hover warms it, and profile() serves it instantly then
+// revalidates in the background.
+const _pubCache = new Map()   // handle(lower) → { data, ts, promise }
+const PUB_TTL   = 30_000
+function _pubFetch(handle) {
+  const key = String(handle).toLowerCase()
+  const token = getToken()
+  const promise = fetch(`${BASE}/u/${encodeURIComponent(handle)}`, {
+    credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+    .then(r => r.json())
+    .then(d => { _pubCache.set(key, { data: d, ts: Date.now() }); return d })
+  _pubCache.set(key, { ...(_pubCache.get(key) || {}), promise })
+  return promise
+}
+
 // ── Public collaboration-invite pages (#78) ──────────────────────────────────
 export const publicApi = {
   // Unauthenticated pitch read — plain fetch (no auth/refresh/redirect).
@@ -484,15 +502,22 @@ export const publicApi = {
   // Request to join — auth required (request() = cookie auth + refresh).
   requestJoin: (id, note) => request('POST', `/p/${id}/request`, note ? { note } : {}),
 
-  // Public producer profile. Optional auth: send the token IF present so a
-  // logged-in viewer gets is_following / liked flags, but never redirect on 401.
+  // Public producer profile — SWR-cached so revisits / back-forward / a hover
+  // prefetch are instant. Optional auth: send the token IF present so a logged-in
+  // viewer gets is_following / liked flags, but never redirect on 401.
   profile: async (handle) => {
-    const token = getToken()
-    const r = await fetch(`${BASE}/u/${encodeURIComponent(handle)}`, {
-      credentials: 'include',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    return r.json()
+    const key = String(handle).toLowerCase()
+    const e = _pubCache.get(key)
+    if (e?.data && Date.now() - e.ts < PUB_TTL) { _pubFetch(handle).catch(() => {}); return e.data } // serve stale, revalidate
+    if (e?.promise) return e.promise
+    return _pubFetch(handle)
+  },
+  // Warm a producer's profile (e.g. on card hover) so the click is instant.
+  prefetchProfile: (handle) => {
+    const key = String(handle).toLowerCase()
+    const e = _pubCache.get(key)
+    if (e?.promise || (e?.data && Date.now() - e.ts < PUB_TTL)) return  // already warm / in-flight
+    _pubFetch(handle).catch(() => {})
   },
   // Public comment list for a showcased track.
   itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
@@ -509,20 +534,33 @@ export const publicApi = {
 }
 
 // ── Social showcase (authenticated: profile editing, curation, follow/like) ───
+// `me()` is SWR-cached so reopening the editor paints instantly from the last
+// snapshot while it revalidates in the background. Mutations clear the cache.
+let _meCache = null   // { data, ts }
+const ME_TTL = 60_000
+const _invalidateMe = () => { _meCache = null }
+
 export const showcaseApi = {
-  me:            ()                 => request('GET', '/showcase/me'),
-  updateProfile: (patchBody)        => patch('/showcase/me', patchBody),
-  setHandle:     (handle)           => post('/showcase/me/handle', { handle }),
+  me: async () => {
+    const r = await request('GET', '/showcase/me')
+    if (r?.data) _meCache = { data: r.data, ts: Date.now() }
+    return r
+  },
+  // Synchronous read of the last snapshot (null if none / expired) — lets the
+  // editor render its form immediately instead of waiting on the network.
+  meCache:       ()                 => (_meCache && Date.now() - _meCache.ts < ME_TTL) ? _meCache.data : null,
+  updateProfile: (patchBody)        => { _invalidateMe(); return patch('/showcase/me', patchBody) },
+  setHandle:     (handle)           => { _invalidateMe(); return post('/showcase/me/handle', { handle }) },
   checkHandle:   (handle)           => request('GET', `/showcase/handle-check?handle=${encodeURIComponent(handle)}`),
-  addItem:       (stem_id, caption) => post('/showcase/items', { stem_id, caption }),
-  updateItem:    (id, patchBody)    => patch(`/showcase/items/${id}`, patchBody),
-  removeItem:    (id)               => del(`/showcase/items/${id}`),
+  addItem:       (stem_id, caption) => { _invalidateMe(); return post('/showcase/items', { stem_id, caption }) },
+  updateItem:    (id, patchBody)    => { _invalidateMe(); return patch(`/showcase/items/${id}`, patchBody) },
+  removeItem:    (id)               => { _invalidateMe(); return del(`/showcase/items/${id}`) },
   downloadUrl:   (id)               => request('GET', `/showcase/items/${id}/download`),
   follow:        (userId)           => post(`/showcase/follow/${userId}`),
   unfollow:      (userId)           => del(`/showcase/follow/${userId}`),
   like:          (itemId)           => post(`/showcase/items/${itemId}/like`),
   unlike:        (itemId)           => del(`/showcase/items/${itemId}/like`),
-  comment:       (itemId, text, timestamp_sec) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec }),
+  comment:       (itemId, text, timestamp_sec, parent_id) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec, parent_id }),
   deleteComment: (commentId)        => del(`/showcase/comments/${commentId}`),
   repost:        (itemId)           => post(`/showcase/items/${itemId}/repost`),
   unrepost:      (itemId)           => del(`/showcase/items/${itemId}/repost`),

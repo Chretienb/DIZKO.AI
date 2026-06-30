@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { publicApi, showcaseApi, messagesApi } from './lib/api'
 import { getToken } from './lib/utils.js'
-import { DEMO_PROFILES, getDemoProfile, demoToProfile } from './lib/demoProfiles.js'
+import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
+import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
 
 const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
 const BASE = '/api'
@@ -28,6 +30,9 @@ export default function PublicProfile() {
   const [tab, setTab]               = useState('tracks') // tracks | reposts
   const [reposts, setReposts]       = useState(null)
   const [repostsLoading, setRepostsLoading] = useState(false)
+  const [discoverOpen, setDiscoverOpen] = useState(false)
+  const [railCollapsed, setRailCollapsed] = useState(() => { try { return localStorage.getItem('dizko_pubrail') === '0' } catch { return false } })
+  const toggleRail = () => setRailCollapsed(v => { const n = !v; try { localStorage.setItem('dizko_pubrail', n ? '0' : '1') } catch {} ; return n })
   const myId = useMemo(() => { try { return JSON.parse(atob(getToken().split('.')[1])).sub } catch { return null } }, [])
 
   const isDemo = !!p?.demo
@@ -169,40 +174,96 @@ export default function PublicProfile() {
     } catch (e) { alert(e.message || 'Download unavailable') }
   }
 
+  const railNav = (label, icon, onClick, active = false) => (
+    <button onClick={onClick} className={`pp-railitem${active ? ' on' : ''}`}
+      style={{ width:'100%', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:12, padding:'7px 10px', borderRadius:11, fontFamily:'inherit',
+        background: active ? 'rgba(var(--fg),.1)' : 'transparent', color: active ? '#fff' : 'rgba(var(--fg),.45)', transition:'color .12s, background .12s' }}>
+      <span style={{ width:42, height:42, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>{icon}</span>
+      <span className="pp-raillabel" style={{ fontSize:13.5, fontWeight:500, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{label}</span>
+    </button>
+  )
+
   const Shell = ({ children }) => (
-    <div style={{ minHeight:'100vh', padding:'0 16px 60px', overflowX:'hidden', boxSizing:'border-box',
-      background:'radial-gradient(90% 40% at 50% 0%, rgba(244,147,122,.13), transparent 55%), #0b0b10',
-      color:'#f1f1f3', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>
-      <div style={{ width:'100%', maxWidth:980, margin:'0 auto' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0 10px' }}>
-          <a href="/" style={{ display:'flex', alignItems:'center', gap:9, textDecoration:'none' }}>
-            <img src="/logo.png" alt="Dizko" style={{ width:30, height:30, borderRadius:9, objectFit:'cover' }} />
-            <span style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', color:'#f1f1f3' }}>dizko</span>
+    <div className={`pp-shell${railCollapsed ? ' pp-collapsed' : ''}`} style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
+      background:'var(--bg)',
+      color:'var(--t1)', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>
+      <style>{`
+        .pp-rail { display:none; }
+        .pp-topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; }
+        .pp-topbar-logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
+        .pp-content { padding:0 16px 60px; }
+        .pp-railitem:not(.on):hover { background:rgba(var(--fg),.05); color:rgba(var(--fg),.75); }
+        @media (min-width:1000px) {
+          .pp-rail { display:flex; width:240px; }
+          .pp-content { padding-left:240px; }
+          .pp-topbar { justify-content:flex-end; padding-top:14px; }
+          .pp-topbar-logo { display:none; }
+          .pp-shell.pp-collapsed .pp-rail { width:76px; }
+          .pp-shell.pp-collapsed .pp-content { padding-left:76px; }
+          .pp-shell.pp-collapsed .pp-railitem { justify-content:center; }
+          .pp-shell.pp-collapsed .pp-raillabel, .pp-shell.pp-collapsed .pp-logo-text, .pp-shell.pp-collapsed .pp-rail-join { display:none; }
+          .pp-shell.pp-collapsed .pp-railtop { flex-direction:column; gap:12px; }
+        }
+      `}</style>
+
+      {/* Sidebar — public-app nav (desktop only), styled like the studio rail */}
+      <aside className="pp-rail" style={{ position:'fixed', left:0, top:0, bottom:0, flexDirection:'column', gap:4,
+        padding:'14px 12px 18px', borderRight:'1px solid rgba(var(--fg),.07)', background:'rgba(0,0,0,.28)', zIndex:5, boxSizing:'border-box' }}>
+        <div className="pp-railtop" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'2px 4px 16px' }}>
+          <a href="/" className="pp-logo" style={{ display:'flex', alignItems:'center', gap:9, textDecoration:'none', minWidth:0 }}>
+            <img src="/logo.png" alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', flexShrink:0, boxShadow:'0 0 0 1px rgba(var(--fg),.08)' }} />
+            <span className="pp-logo-text" style={{ fontWeight:900, fontSize:17, letterSpacing:'-.5px', color:'var(--t1)' }}>dizko</span>
           </a>
-          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-            {getToken() && <button onClick={backToApp} style={navLink}>← Back to app</button>}
-            {getToken() && myHandle && (
-              <button onClick={() => { navigate(`/u/${myHandle}`); window.scrollTo(0,0) }} title="Go to my profile"
-                className="pp-me" style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 5px 4px 13px', borderRadius:100, cursor:'pointer',
-                  background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.12)', fontFamily:'inherit' }}>
-                <span style={{ fontSize:12, fontWeight:700, color:'#f1f1f3' }}>My profile</span>
-                <div style={{ width:30, height:30, borderRadius:'50%', overflow:'hidden', flexShrink:0,
-                  background: myAvatar ? `center/cover url(${myAvatar})` : C.grad, border:'1.5px solid rgba(255,255,255,.25)' }} />
-              </button>
-            )}
-          </div>
+          <button onClick={toggleRail} aria-label="Collapse" title={railCollapsed ? 'Expand' : 'Collapse'}
+            style={{ width:30, height:28, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" style={{ transform: railCollapsed ? 'rotate(180deg)' : 'none', transition:'transform .15s' }}><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
         </div>
-        {children}
+        {railNav('Profile', <UserCircle size={22} weight={p?.is_self ? 'fill' : 'regular'} />, () => { navigate(getToken() ? (myHandle ? `/u/${myHandle}` : '/login?join=1') : '/login?join=1'); window.scrollTo(0,0) }, !!p?.is_self)}
+        {railNav('Discover', <MagnifyingGlass size={22} />, () => setDiscoverOpen(true))}
+        {getToken() && railNav('Messages', <ChatCircle size={22} />, () => { try { sessionStorage.setItem('dizko_pub_return', window.location.pathname + window.location.search) } catch {} ; navigate('/inbox') })}
+        {getToken() && railNav('Add tracks', <PhPlus size={22} />, () => navigate('/library?profile=1'))}
+        {getToken() && railNav('Share', <ShareNetwork size={22} />, () => shareProfile())}
+        <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:4 }}>
+          {!getToken() && <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit', marginBottom:6 }}>Join Dizko</button>}
+          {railNav('Terms & Policies', <FileText size={22} />, () => { try { sessionStorage.setItem('dizko_pub_return', window.location.pathname + window.location.search) } catch {} ; navigate('/terms') })}
+        </div>
+      </aside>
+
+      {/* Content */}
+      <div className="pp-content">
+        <div style={{ width:'100%', maxWidth:980, margin:'0 auto' }}>
+          {/* Top bar — logo hidden on desktop (sidebar has it); actions kept */}
+          <div className="pp-topbar">
+            <a href="/" className="pp-topbar-logo">
+              <img src="/logo.png" alt="Dizko" style={{ width:30, height:30, borderRadius:9, objectFit:'cover' }} />
+              <span style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', color:'var(--t1)' }}>dizko</span>
+            </a>
+            <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+              {getToken() && <button onClick={backToApp} style={navLink}>← Back to app</button>}
+              {getToken() && myHandle && (
+                <button onClick={() => { navigate(`/u/${myHandle}`); window.scrollTo(0,0) }} title="Go to my profile"
+                  className="pp-me" style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 5px 4px 13px', borderRadius:100, cursor:'pointer',
+                    background:'rgba(var(--fg),.06)', border:'1px solid rgba(var(--fg),.12)', fontFamily:'inherit' }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:'var(--t1)' }}>My profile</span>
+                  <div style={{ width:30, height:30, borderRadius:'50%', overflow:'hidden', flexShrink:0,
+                    background: myAvatar ? `center/cover url(${myAvatar})` : C.grad, border:'1.5px solid rgba(var(--fg),.25)' }} />
+                </button>
+              )}
+            </div>
+          </div>
+          {children}
+        </div>
       </div>
     </div>
   )
 
-  if (state === 'loading')  return <Shell><div style={{ textAlign:'center', color:'rgba(255,255,255,.5)', fontSize:14, paddingTop:60 }}>Loading…</div></Shell>
+  if (state === 'loading')  return <Shell><div style={{ textAlign:'center', color:'rgba(var(--fg),.5)', fontSize:14, paddingTop:60 }}>Loading…</div></Shell>
   if (state === 'notfound') return (
     <Shell>
       <div style={{ textAlign:'center', paddingTop:50 }}>
         <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>Profile not found</div>
-        <div style={{ fontSize:13.5, color:'rgba(255,255,255,.5)', marginBottom:22 }}>This producer may be private or the handle doesn’t exist.</div>
+        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>This producer may be private or the handle doesn’t exist.</div>
         <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to Dizko →</a>
       </div>
     </Shell>
@@ -224,40 +285,48 @@ export default function PublicProfile() {
         /* Decorative record is a desktop nicety — hide it on phones so the
            tracks aren't pushed down. */
         @media (max-width: 859px) { .pp-deco { display:none; } }
+        /* Your own Add tracks / Share live in the sidebar on desktop; keep them
+           in the header only when the sidebar is hidden (mobile / narrow). */
+        .pp-self-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        @media (min-width: 1000px) { .pp-self-actions { display:none; } }
       `}</style>
       <div className="pp-grid">
       <div className="pp-left">
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:18, padding:'14px 4px 18px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:18, padding:'14px 4px 14px' }}>
         <div style={{ width:88, height:88, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-          border:'2px solid rgba(255,255,255,.12)', boxShadow:'0 10px 30px rgba(0,0,0,.5)',
+          border:'2px solid rgba(var(--fg),.12)', boxShadow:'0 10px 30px rgba(0,0,0,.5)',
           background: p.avatar_url ? `center/cover url(${p.avatar_url})` : C.grad }} />
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', gap:26, marginBottom:8 }}>
+          <div style={{ display:'flex', gap:26 }}>
             <Stat n={items.length} label="tracks" />
             <Stat n={p.follower_count} label="followers" />
             <Stat n={p.following_count} label="following" />
           </div>
-          {p.is_self ? (
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={() => navigate('/library?profile=1')} style={{ ...ghostBtn, border:'none', background:'rgba(255,255,255,.08)' }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                Add tracks
-              </button>
-              <button onClick={shareProfile} title="Share profile" style={{ ...ghostBtn, border:'none', background:'rgba(255,255,255,.08)' }}>{shareIcon} Share</button>
-            </div>
-          ) : (
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={toggleFollow}
-                style={following ? ghostBtn : { ...ghostBtn, background:'rgba(233,90,81,.16)', border:'1px solid rgba(233,90,81,.4)', color:'#fff' }}>
-                {following ? 'Following' : 'Follow'}
-              </button>
-              <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
-              <button onClick={() => contact('collab')} style={ghostBtn}>Collab</button>
-              <button onClick={shareProfile} title="Share profile" style={ghostBtn}>{shareIcon} Share</button>
-            </div>
-          )}
         </div>
+      </div>
+
+      {/* Actions — under the stats */}
+      <div style={{ padding:'0 4px 18px' }}>
+        {p.is_self ? (
+          <div className="pp-self-actions">
+            <button onClick={() => navigate('/library?profile=1')} style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Add tracks
+            </button>
+            <button onClick={shareProfile} title="Share profile" style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>{shareIcon} Share</button>
+          </div>
+        ) : (
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={toggleFollow}
+              style={following ? ghostBtn : { ...ghostBtn, background:'rgba(233,90,81,.16)', border:'1px solid rgba(233,90,81,.4)', color:'#fff' }}>
+              {following ? 'Following' : 'Follow'}
+            </button>
+            <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
+            <button onClick={() => contact('collab')} style={ghostBtn}>Collab</button>
+            <button onClick={shareProfile} title="Share profile" style={ghostBtn}>{shareIcon} Share</button>
+          </div>
+        )}
       </div>
 
       {/* Identity */}
@@ -266,8 +335,8 @@ export default function PublicProfile() {
           <div style={{ fontSize:16, fontWeight:800 }}>{p.display_name}</div>
           {isDemo && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(244,147,122,.18)', color:C.coral }}>DEMO</span>}
         </div>
-        <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
-        {p.bio && <div style={{ fontSize:13.5, lineHeight:1.5, color:'rgba(255,255,255,.78)', whiteSpace:'pre-wrap' }}>{p.bio}</div>}
+        <div style={{ fontSize:13, color:'rgba(var(--fg),.45)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
+        {p.bio && <div style={{ fontSize:13.5, lineHeight:1.5, color:'rgba(var(--fg),.78)', whiteSpace:'pre-wrap' }}>{p.bio}</div>}
         {Array.isArray(p.links) && p.links.length > 0 && (
           <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginTop:10 }}>
             {p.links.map((l, i) => (
@@ -287,11 +356,11 @@ export default function PublicProfile() {
 
       <div className="pp-right">
       {/* Tabs */}
-      <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'1px solid rgba(255,255,255,.08)' }}>
+      <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'1px solid rgba(var(--fg),.08)' }}>
         {[['tracks', `Tracks${items.length ? ` · ${items.length}` : ''}`], ['reposts', 'Reposts']].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700, padding:'8px 12px',
-              color: tab === k ? '#fff' : 'rgba(255,255,255,.45)', borderBottom: tab === k ? `2px solid ${C.coral}` : '2px solid transparent', marginBottom:-1 }}>
+              color: tab === k ? '#fff' : 'rgba(var(--fg),.45)', borderBottom: tab === k ? `2px solid ${C.coral}` : '2px solid transparent', marginBottom:-1 }}>
             {label}
           </button>
         ))}
@@ -299,15 +368,15 @@ export default function PublicProfile() {
 
       {tab === 'tracks' ? (
         items.length === 0 ? (
-          <div style={{ borderRadius:18, overflow:'hidden', border:'1px solid rgba(255,255,255,.08)', background:'#0e0e12' }}>
+          <div style={{ borderRadius:18, overflow:'hidden', border:'1px solid rgba(var(--fg),.08)', background:'#0e0e12' }}>
             <img src="/share/eras.png" alt="" style={{ width:'100%', display:'block' }} />
             <div style={{ padding:'22px 24px 28px', textAlign:'center' }}>
               <div style={{ fontSize:16, fontWeight:800, marginBottom:6 }}>{p.is_self ? 'Showcase your first track' : 'No tracks showcased yet.'}</div>
               {p.is_self && (
                 <>
-                  <div style={{ fontSize:13, color:'rgba(255,255,255,.55)', marginBottom:18 }}>Pick your best sounds from your library to show the world.</div>
+                  <div style={{ fontSize:13, color:'rgba(var(--fg),.55)', marginBottom:18 }}>Pick your best sounds from your library to show the world.</div>
                   <button onClick={() => navigate('/library?profile=1')}
-                    style={{ padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer', background:'rgba(255,255,255,.12)', color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
+                    style={{ padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer', background:'rgba(var(--fg),.12)', color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
                     + Add from your library
                   </button>
                 </>
@@ -327,9 +396,9 @@ export default function PublicProfile() {
           </div>
         )
       ) : (
-        repostsLoading || reposts === null ? <div style={{ color:'rgba(255,255,255,.4)', fontSize:13, padding:'30px 0', textAlign:'center' }}>Loading…</div> :
+        repostsLoading || reposts === null ? <div style={{ color:'rgba(var(--fg),.4)', fontSize:13, padding:'30px 0', textAlign:'center' }}>Loading…</div> :
         reposts.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'46px 24px', borderRadius:16, border:'1px dashed rgba(255,255,255,.12)', color:'rgba(255,255,255,.5)', fontSize:13 }}>
+          <div style={{ textAlign:'center', padding:'46px 24px', borderRadius:16, border:'1px dashed rgba(var(--fg),.12)', color:'rgba(var(--fg),.5)', fontSize:13 }}>
             {p.is_self ? 'Tracks you repost will show here. Repost beats you love to share them with your followers.' : `${p.display_name} hasn’t reposted anything yet.`}
           </div>
         ) : (
@@ -345,12 +414,12 @@ export default function PublicProfile() {
 
       {!getToken() && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexWrap:'wrap',
-          marginTop:24, padding:'16px 18px', borderRadius:14, background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.08)' }}>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,.7)', lineHeight:1.5 }}>
+          marginTop:24, padding:'16px 18px', borderRadius:14, background:'rgba(var(--fg),.04)', border:'1px solid rgba(var(--fg),.08)' }}>
+          <div style={{ fontSize:13, color:'rgba(var(--fg),.7)', lineHeight:1.5 }}>
             Like, follow & download <span style={{ color:'#fff', fontWeight:600 }}>{p.display_name}</span>’s work.
           </div>
           <button onClick={() => navigate('/login?join=1')}
-            style={{ flexShrink:0, padding:'8px 18px', borderRadius:10, border:'none', cursor:'pointer', background:'#fff', color:'#111', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+            style={{ flexShrink:0, padding:'8px 18px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
             Join Dizko
           </button>
         </div>
@@ -358,7 +427,7 @@ export default function PublicProfile() {
       </div>{/* /pp-right */}
       </div>{/* /pp-grid */}
 
-      <DiscoverProducers currentHandle={p.handle} navigate={navigate} />
+      <div id="pp-discover"><DiscoverProducers currentHandle={p.handle} navigate={navigate} /></div>
 
       {dm && <DmThread profile={p} kind={dm.kind} isDemo={isDemo} myId={myId} onClose={() => setDm(null)} onError={flashToast} />}
 
@@ -366,6 +435,29 @@ export default function PublicProfile() {
         <ShareCard kind={shareCard.kind} item={shareCard.item}
           profile={{ handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }}
           onClose={() => setShareCard(null)} />
+      )}
+
+      {/* Discover — full-screen pop-in from the bottom-right (portaled to body so
+          it covers the sidebar instead of rendering inside the padded content) */}
+      {discoverOpen && createPortal(
+        <div style={{ position:'fixed', inset:0, zIndex:1100, background:'var(--bg)', color:'var(--t1)', display:'flex', flexDirection:'column',
+          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+          <style>{`@keyframes ppDiscover{from{transform:scale(.4) translate(45%,45%);opacity:0}to{transform:scale(1) translate(0,0);opacity:1}}`}</style>
+          <div style={{ display:'flex', justifyContent:'flex-end', padding:'16px 22px 0' }}>
+            <button onClick={() => setDiscoverOpen(false)} aria-label="Close"
+              style={{ width:34, height:34, borderRadius:10, border:'none', cursor:'pointer', background:'rgba(var(--fg),.07)', color:'rgba(var(--fg),.7)', fontSize:17 }}>✕</button>
+          </div>
+          <div style={{ flex:1, overflowY:'auto', padding:'8px 24px 40px', maxWidth:920, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
+            <div style={{ textAlign:'center', marginBottom:26 }}>
+              <div style={{ fontSize:32, fontWeight:900, letterSpacing:'-.8px' }}>Discover</div>
+              <div style={{ fontSize:14, color:'rgba(var(--fg),.5)', marginTop:7 }}>Producers and fresh sounds across Dizko 🎧</div>
+            </div>
+            <DiscoverProducers currentHandle={p?.handle} layout="grid" bare
+              navigate={(path) => { setDiscoverOpen(false); navigate(path); window.scrollTo(0, 0) }} />
+            <ReelsRow onOpen={(h) => { setDiscoverOpen(false); navigate(`/u/${h}`); window.scrollTo(0, 0) }} />
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Smooth sign-up nudge — calm, contextual, not a hard redirect */}
@@ -386,21 +478,21 @@ export default function PublicProfile() {
               display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'ppFade .18s ease' }}>
             <style>{`@keyframes ppFade{from{opacity:0}to{opacity:1}} @keyframes ppRise{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
             <div onClick={e => e.stopPropagation()}
-              style={{ width:'100%', maxWidth:360, background:'#15151b', border:'1px solid rgba(255,255,255,.1)', borderRadius:20,
+              style={{ width:'100%', maxWidth:360, background:'var(--surface)', border:'1px solid rgba(var(--fg),.1)', borderRadius:20,
                 padding:'26px 24px', textAlign:'center', animation:'ppRise .22s cubic-bezier(.2,.7,.2,1)' }}>
-              <div style={{ width:60, height:60, borderRadius:'50%', margin:'0 auto 16px', background: p.avatar_url ? `center/cover url(${p.avatar_url})` : C.grad, border:'2px solid rgba(255,255,255,.12)' }} />
+              <div style={{ width:60, height:60, borderRadius:'50%', margin:'0 auto 16px', background: p.avatar_url ? `center/cover url(${p.avatar_url})` : C.grad, border:'2px solid rgba(var(--fg),.12)' }} />
               <div style={{ fontSize:17, fontWeight:800, marginBottom:7, letterSpacing:'-.2px' }}>{c.t}</div>
-              <div style={{ fontSize:13, color:'rgba(255,255,255,.6)', lineHeight:1.5, marginBottom:22 }}>{c.s}</div>
+              <div style={{ fontSize:13, color:'rgba(var(--fg),.6)', lineHeight:1.5, marginBottom:22 }}>{c.s}</div>
               <button onClick={() => navigate('/login?join=1')}
-                style={{ width:'100%', padding:'12px', borderRadius:12, border:'none', cursor:'pointer', background:'#fff', color:'#111', fontSize:14, fontWeight:700, fontFamily:'inherit', marginBottom:10 }}>
+                style={{ width:'100%', padding:'12px', borderRadius:12, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:14, fontWeight:700, fontFamily:'inherit', marginBottom:10 }}>
                 Create a free account
               </button>
               <button onClick={() => navigate('/login')}
-                style={{ width:'100%', padding:'11px', borderRadius:12, border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.7)', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
+                style={{ width:'100%', padding:'11px', borderRadius:12, border:'none', cursor:'pointer', background:'transparent', color:'rgba(var(--fg),.7)', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
                 I already have an account
               </button>
               <button onClick={() => setAuthPrompt(null)}
-                style={{ marginTop:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.4)', fontSize:12.5, fontFamily:'inherit' }}>
+                style={{ marginTop:6, background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.4)', fontSize:12.5, fontFamily:'inherit' }}>
                 Maybe later
               </button>
             </div>
@@ -410,7 +502,7 @@ export default function PublicProfile() {
 
       {toast && (
         <div style={{ position:'fixed', bottom:26, left:'50%', transform:'translateX(-50%)', zIndex:1001,
-          padding:'11px 22px', borderRadius:100, background:'#fff', color:'#111', fontSize:13, fontWeight:700, boxShadow:'0 10px 30px rgba(0,0,0,.35)' }}>{toast}</div>
+          padding:'11px 22px', borderRadius:100, background:'var(--t1)', color:'var(--bg)', fontSize:13, fontWeight:700, boxShadow:'0 10px 30px rgba(0,0,0,.35)' }}>{toast}</div>
       )}
     </Shell>
   )
@@ -449,31 +541,31 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
       style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,.6)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', padding:18, animation:'ppFade .18s ease' }}>
       <style>{`@keyframes ppFade{from{opacity:0}to{opacity:1}}@keyframes ppRise{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
       <div onClick={e => e.stopPropagation()}
-        style={{ width:'100%', maxWidth:400, height:'min(78vh, 540px)', background:'#15151b', border:'1px solid rgba(255,255,255,.1)',
+        style={{ width:'100%', maxWidth:400, height:'min(78vh, 540px)', background:'var(--surface)', border:'1px solid rgba(var(--fg),.1)',
           borderRadius:20, display:'flex', flexDirection:'column', overflow:'hidden', animation:'ppRise .22s cubic-bezier(.2,.7,.2,1)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:11, padding:'14px 16px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:11, padding:'14px 16px', borderBottom:'1px solid rgba(var(--fg),.07)' }}>
           <div style={{ width:36, height:36, borderRadius:'50%', flexShrink:0, background: profile.avatar_url ? `center/cover url(${profile.avatar_url})` : C.grad }} />
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:14, fontWeight:700, lineHeight:1.2 }}>{profile.display_name}</div>
-            <div style={{ fontSize:11.5, color:'rgba(255,255,255,.45)' }}>@{profile.handle}</div>
+            <div style={{ fontSize:11.5, color:'rgba(var(--fg),.45)' }}>@{profile.handle}</div>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ width:30, height:30, borderRadius:8, background:'rgba(255,255,255,.06)', border:'none', cursor:'pointer', color:'rgba(255,255,255,.6)', fontSize:15, lineHeight:1 }}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{ width:30, height:30, borderRadius:8, background:'rgba(var(--fg),.06)', border:'none', cursor:'pointer', color:'rgba(var(--fg),.6)', fontSize:15, lineHeight:1 }}>✕</button>
         </div>
 
         <div style={{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:8 }}>
-          {loading ? <div style={{ color:'rgba(255,255,255,.4)', fontSize:13, textAlign:'center', marginTop:20 }}>Loading…</div> :
+          {loading ? <div style={{ color:'rgba(var(--fg),.4)', fontSize:13, textAlign:'center', marginTop:20 }}>Loading…</div> :
            thread.length === 0 ? (
             <div style={{ margin:'auto', textAlign:'center', padding:'0 10px' }}>
-              <div style={{ width:56, height:56, borderRadius:'50%', margin:'0 auto 12px', background: profile.avatar_url ? `center/cover url(${profile.avatar_url})` : C.grad, border:'2px solid rgba(255,255,255,.1)' }} />
+              <div style={{ width:56, height:56, borderRadius:'50%', margin:'0 auto 12px', background: profile.avatar_url ? `center/cover url(${profile.avatar_url})` : C.grad, border:'2px solid rgba(var(--fg),.1)' }} />
               <div style={{ fontSize:14.5, fontWeight:700, marginBottom:4 }}>{kind === 'collab' ? `Collab with ${profile.display_name}` : profile.display_name}</div>
-              <div style={{ fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.5 }}>{kind === 'collab' ? 'Pitch your idea and start something together.' : 'Start the conversation — say hi 👋'}</div>
+              <div style={{ fontSize:12.5, color:'rgba(var(--fg),.5)', lineHeight:1.5 }}>{kind === 'collab' ? 'Pitch your idea and start something together.' : 'Start the conversation — say hi 👋'}</div>
             </div>
           ) : thread.map(m => {
             const mine = m.from_user_id === myId
             return (
               <div key={m.id} style={{ display:'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{ maxWidth:'76%', padding:'9px 14px', borderRadius:18, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word',
-                  background: mine ? C.coral : 'rgba(255,255,255,.09)', color:'#fff',
+                  background: mine ? C.coral : 'rgba(var(--fg),.09)', color: mine ? '#fff' : 'var(--t1)',
                   borderBottomRightRadius: mine ? 5 : 18, borderBottomLeftRadius: mine ? 18 : 5 }}>{m.text}</div>
               </div>
             )
@@ -481,11 +573,11 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
           <div ref={endRef} />
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'12px 14px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'12px 14px', borderTop:'1px solid rgba(var(--fg),.07)' }}>
           <input autoFocus value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Message…"
-            style={{ flex:1, minWidth:0, padding:'11px 16px', borderRadius:100, border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)', color:'#fff', fontSize:13.5, fontFamily:'inherit', outline:'none' }} />
+            style={{ flex:1, minWidth:0, padding:'11px 16px', borderRadius:100, border:'1px solid rgba(var(--fg),.12)', background:'rgba(var(--fg),.05)', color:'#fff', fontSize:13.5, fontFamily:'inherit', outline:'none' }} />
           <button onClick={send} disabled={!text.trim() || sending} aria-label="Send"
-            style={{ flexShrink:0, width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer', background: text.trim() ? C.coral : 'rgba(255,255,255,.12)', color:'#fff', fontSize:15, transition:'background .15s', opacity:sending?.6:1 }}>➤</button>
+            style={{ flexShrink:0, width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer', background: text.trim() ? C.coral : 'rgba(var(--fg),.12)', color:'#fff', fontSize:15, transition:'background .15s', opacity:sending?.6:1 }}>➤</button>
         </div>
       </div>
     </div>
@@ -494,7 +586,7 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
 
 // Isolated so typing in the search box only re-renders this block — not the
 // whole profile (which made each keystroke feel laggy / letter-by-letter).
-function DiscoverProducers({ currentHandle, navigate }) {
+function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = false }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
 
@@ -523,34 +615,39 @@ function DiscoverProducers({ currentHandle, navigate }) {
       <style>{`
         .pp-discover { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
         .pp-discover::-webkit-scrollbar { height:6px; }
-        .pp-discover::-webkit-scrollbar-thumb { background:rgba(255,255,255,.12); border-radius:3px; }
-        .pp-pcard { flex:0 0 148px; scroll-snap-align:start; transition:transform .12s ease, border-color .12s ease, background .12s ease; }
-        .pp-pcard:hover { transform:translateY(-3px); border-color:rgba(244,147,122,.4)!important; background:rgba(255,255,255,.06)!important; }
+        .pp-discover::-webkit-scrollbar-thumb { background:rgba(var(--fg),.12); border-radius:3px; }
+        .pp-discover > .pp-pcard { flex:0 0 148px; scroll-snap-align:start; }
+        .pp-dgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px; }
+        .pp-pcard { transition:transform .12s ease, border-color .12s ease, background .12s ease; }
+        .pp-pcard:hover { transform:translateY(-3px); border-color:rgba(244,147,122,.4)!important; background:rgba(var(--fg),.06)!important; }
       `}</style>
-      <div style={{ marginTop:44 }}>
-        <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'#f1f1f3', marginBottom:14 }}>Discover</div>
+      <div style={{ marginTop: bare ? 0 : 44 }}>
+        {!bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Discover</div>}
 
-        <div style={{ position:'relative', marginBottom:18, maxWidth:380 }}>
-          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth={2} strokeLinecap="round"
-            style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <div style={{ position:'relative', maxWidth: bare ? 460 : 380, margin: bare ? '0 auto 26px' : '0 0 18px' }}>
+          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="rgba(var(--fg),.35)" strokeWidth={2} strokeLinecap="round"
+            style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or @handle"
-            style={{ width:'100%', padding:'9px 12px 9px 34px', borderRadius:10, border:'1px solid rgba(255,255,255,.1)', background:'rgba(255,255,255,.04)', color:'#fff', fontSize:13, fontFamily:'inherit', boxSizing:'border-box', outline:'none' }} />
+            style={{ width:'100%', padding: bare ? '12px 14px 12px 40px' : '9px 12px 9px 34px', borderRadius: bare ? 100 : 10, border:'1px solid rgba(var(--fg),.1)', background:'rgba(var(--fg),.04)', color:'#fff', fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box', outline:'none' }} />
         </div>
 
-        {searching && results === null ? <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)', padding:'8px 2px' }}>Searching…</div> :
-         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)', padding:'8px 2px' }}>No users found for “{q}”.</div> : (
-          <div className="pp-discover">
+        {bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Producers</div>}
+
+        {searching && results === null ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>Searching…</div> :
+         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>No users found for “{q}”.</div> : (
+          <div className={layout === 'grid' ? 'pp-dgrid' : 'pp-discover'}>
             {list.map(d => {
               const tracks = d.items?.length ?? d.trackCount
               return (
-                <button key={d.handle} className="pp-pcard" onClick={() => { navigate(`/u/${d.handle}`); window.scrollTo(0, 0) }}
-                  style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:4, padding:'20px 14px', borderRadius:16, cursor:'pointer',
-                    background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.08)', fontFamily:'inherit', color:'#f1f1f3' }}>
-                  <div style={{ width:68, height:68, borderRadius:'50%', marginBottom:8, background: d.avatar_url ? `center/cover url(${d.avatar_url})` : C.grad, border:'2px solid rgba(255,255,255,.12)' }} />
+                <button key={d.handle} className="pp-pcard"
+                  onClick={() => { navigate(`/u/${d.handle}`); window.scrollTo(0, 0) }}
+                  onMouseEnter={() => { if (!isDemoHandle(d.handle)) publicApi.prefetchProfile(d.handle) }}
+                  style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:3, padding:'20px 14px', borderRadius:16, cursor:'pointer',
+                    background:'rgba(var(--fg),.035)', border:'1px solid rgba(var(--fg),.07)', fontFamily:'inherit', color:'var(--t1)' }}>
+                  <div style={{ width:64, height:64, borderRadius:'50%', marginBottom:10, background: d.avatar_url ? `center/cover url(${d.avatar_url})` : C.grad, border:'2px solid rgba(var(--fg),.1)' }} />
                   <div style={{ fontSize:13.5, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{d.display_name}</div>
-                  <div style={{ fontSize:11.5, color:'rgba(255,255,255,.4)' }}>@{d.handle}</div>
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,.55)', marginTop:6 }}>{fmt(d.follower_count)} followers{tracks != null ? ` · ${tracks} tracks` : ''}</div>
-                  <span style={{ marginTop:12, fontSize:11.5, fontWeight:700, color:C.coral }}>View</span>
+                  <div style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>@{d.handle}</div>
+                  <div style={{ fontSize:11, color:'rgba(var(--fg),.5)', marginTop:7 }}>{fmt(d.follower_count)} followers{tracks != null ? ` · ${tracks} tracks` : ''}</div>
                 </button>
               )
             })}
@@ -561,11 +658,75 @@ function DiscoverProducers({ currentHandle, navigate }) {
   )
 }
 
+// "Reels" — a shuffled strip of playable audio from producers. Tap play to
+// listen, tap the card to jump to that producer's profile.
+function ReelsRow({ onOpen }) {
+  const audioRef = useRef(null)
+  const [playingId, setPlayingId] = useState(null)
+
+  const reels = useMemo(() => {
+    const all = []
+    for (const d of DEMO_PROFILES) {
+      for (const it of (d.items || [])) {
+        if (it.audio) all.push({ id: `${d.handle}-${it.id}`, audio: it.audio, title: it.title, instrument: it.instrument, plays: it.play_count, owner: { handle: d.handle, display_name: d.display_name, avatar_url: d.avatar_url } })
+      }
+    }
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[all[i], all[j]] = [all[j], all[i]] }
+    return all
+  }, [])
+
+  const toggle = (r) => {
+    const el = audioRef.current
+    if (!el) return
+    if (playingId === r.id) { el.pause(); setPlayingId(null); return }
+    el.src = r.audio
+    el.play().then(() => setPlayingId(r.id)).catch(() => setPlayingId(null))
+  }
+
+  if (reels.length === 0) return null
+
+  return (
+    <div style={{ marginTop:36 }}>
+      <style>{`
+        .pp-reels { display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; -webkit-overflow-scrolling:touch; }
+        .pp-reels::-webkit-scrollbar { height:6px; } .pp-reels::-webkit-scrollbar-thumb { background:rgba(var(--fg),.12); border-radius:3px; }
+        .pp-reel { transition:transform .14s ease; }
+        .pp-reel:hover { transform:translateY(-3px); }
+      `}</style>
+      <audio ref={audioRef} onEnded={() => setPlayingId(null)} style={{ display:'none' }} />
+      <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:4 }}>Fresh sounds</div>
+      <div style={{ fontSize:12, color:'rgba(var(--fg),.4)', marginBottom:14 }}>Tap to listen · tap the card to open the producer.</div>
+      <div className="pp-reels">
+        {reels.map(r => {
+          const playing = playingId === r.id
+          return (
+            <div key={r.id} className="pp-reel" onClick={() => onOpen(r.owner.handle)}
+              onMouseEnter={() => { if (!isDemoHandle(r.owner.handle)) publicApi.prefetchProfile(r.owner.handle) }}
+              style={{ position:'relative', flex:'0 0 158px', height:248, borderRadius:18, overflow:'hidden', cursor:'pointer',
+                background: r.owner.avatar_url ? `center/cover url(${r.owner.avatar_url})` : C.grad, border: playing ? `2px solid ${C.coral}` : '2px solid transparent' }}>
+              <div style={{ position:'absolute', inset:0, background:'linear-gradient(transparent 25%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.92))' }} />
+              <button onClick={(e) => { e.stopPropagation(); toggle(r) }} aria-label="Play"
+                style={{ position:'absolute', top:'40%', left:'50%', transform:'translate(-50%,-50%)', width:50, height:50, borderRadius:'50%', border:'none', cursor:'pointer',
+                  background:'rgba(var(--fg),.92)', color:'var(--bg)', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 20px rgba(0,0,0,.4)' }}>
+                {playing ? '❚❚' : '▶'}
+              </button>
+              <div style={{ position:'absolute', left:0, right:0, bottom:0, padding:'12px 13px', color:'#fff' }}>
+                <div style={{ fontSize:13, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.title}</div>
+                <div style={{ fontSize:11.5, color:'rgba(255,255,255,.8)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>@{r.owner.handle}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function Stat({ n, label }) {
   return (
     <div style={{ textAlign:'center' }}>
       <div style={{ fontSize:15, fontWeight:800 }}>{fmt(n)}</div>
-      <div style={{ fontSize:11.5, color:'rgba(255,255,255,.45)' }}>{label}</div>
+      <div style={{ fontSize:11.5, color:'rgba(var(--fg),.45)' }}>{label}</div>
     </div>
   )
 }
@@ -575,7 +736,11 @@ const btn = (bg, color) => ({
   background:bg, color, fontSize:13.5, fontWeight:700, fontFamily:'inherit',
 })
 
-const navLink = { background:'none', border:'none', cursor:'pointer', fontSize:12.5, color:'rgba(255,255,255,.6)', fontWeight:600, fontFamily:'inherit' }
+const navLink = { background:'none', border:'none', cursor:'pointer', fontSize:12.5, color:'rgba(var(--fg),.6)', fontWeight:600, fontFamily:'inherit' }
+
+const Ico = ({ d, size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d={d} /></svg>
+)
 
 const shareIcon = (
   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -584,8 +749,8 @@ const shareIcon = (
 )
 
 // Subtle, small action button used on your own profile (Add tracks / Share).
-const ghostBtn = { padding:'6px 14px', borderRadius:9, border:'1px solid rgba(255,255,255,.18)', background:'transparent',
-  color:'rgba(255,255,255,.85)', fontSize:12.5, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
+const ghostBtn = { padding:'6px 14px', borderRadius:9, border:'1px solid rgba(var(--fg),.18)', background:'transparent',
+  color:'rgba(var(--fg),.85)', fontSize:12.5, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
   display:'inline-flex', alignItems:'center', gap:6 }
 
 function fmt(n) {

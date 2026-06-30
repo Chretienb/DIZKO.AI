@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 
@@ -13,6 +13,9 @@ const APP_URL      = 'https://dizko.ai'
 function LegalLayout({ title, children }) {
   const navigate = useNavigate()
   useEffect(() => { window.scrollTo(0, 0) }, [title])
+  // If we arrived here from the public app, offer a way straight back.
+  const [pubReturn] = useState(() => { try { return sessionStorage.getItem('dizko_pub_return') } catch { return null } })
+  const goBack = () => { try { sessionStorage.removeItem('dizko_pub_return') } catch {} ; navigate(pubReturn) }
 
   return (
     <div style={{ minHeight:'100vh', background:'#fafafa', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
@@ -20,9 +23,15 @@ function LegalLayout({ title, children }) {
       {/* Nav */}
       <div style={{ borderBottom:'1px solid rgba(0,0,0,.07)', background:'#fff', position:'sticky', top:0, zIndex:10 }}>
         <div style={{ maxWidth:760, margin:'0 auto', padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <button onClick={()=>navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
-            <img src={logo} alt="Dizko.AI" style={{ height:28 }}/>
-          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            {pubReturn && (
+              <button onClick={goBack} aria-label="Back" title="Back"
+                style={{ width:32, height:32, borderRadius:9, border:'1px solid rgba(0,0,0,.12)', background:'#fff', color:'#111', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✕</button>
+            )}
+            <button onClick={()=>navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+              <img src={logo} alt="Dizko.AI" style={{ height:28 }}/>
+            </button>
+          </div>
           <div style={{ display:'flex', gap:16 }}>
             {[['Terms','/terms'],['Privacy','/privacy'],['Cookies','/cookies']].map(([label, path])=>(
               <a key={path} href={path} style={{ fontSize:13, fontWeight:600, color: window.location.pathname===path ? C.coral : '#888', textDecoration:'none' }}>{label}</a>

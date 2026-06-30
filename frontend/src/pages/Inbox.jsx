@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { messagesApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { getToken } from '../lib/utils.js'
@@ -10,6 +11,10 @@ import { timeAgo } from '../lib/utils.js'
 // on mobile. Messages from public profiles land here too.
 export default function PageInbox({ openModal, user }) {
   const isMobile = React.useContext(MobileCtx)
+  const navigate = useNavigate()
+  // If we arrived here from the public app, offer a way straight back.
+  const [pubReturn] = useState(() => { try { return sessionStorage.getItem('dizko_pub_return') } catch { return null } })
+  const goBackToPublic = () => { try { sessionStorage.removeItem('dizko_pub_return') } catch {} ; navigate(pubReturn) }
   const myId = useMemo(() => { try { return JSON.parse(atob(getToken().split('.')[1])).sub } catch { return null } }, [])
 
   const [threads, setThreads] = useState([])
@@ -191,6 +196,10 @@ export default function PageInbox({ openModal, user }) {
       <div style={{ display:'flex', alignItems:'center', gap:10, margin:'0 0 6px' }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Inbox</h1>
         {totalUnread > 0 && <span style={{ minWidth:20, height:20, padding:'0 6px', borderRadius:10, background:C.coral, color:'#fff', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{totalUnread}</span>}
+        {pubReturn && (
+          <button onClick={goBackToPublic} aria-label="Back to profile" title="Back to profile"
+            style={{ marginLeft:'auto', width:32, height:32, borderRadius:9, border:`1px solid ${C.border}`, background:C.surface, color:C.t1, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✕</button>
+        )}
       </div>
       <div style={{ fontSize:13, color:C.t3, marginBottom:18 }}>Messages from collaborators and your public profile.</div>
 

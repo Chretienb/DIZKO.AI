@@ -83,15 +83,15 @@ publicProfile.get('/item/:itemId/comments', readLimit, async (c) => {
 
   const { data: rows } = await supabase
     .from('showcase_comments')
-    .select('id, user_id, timestamp_sec, text, created_at')
+    .select('id, user_id, timestamp_sec, text, created_at, parent_id')
     .eq('showcase_item_id', itemId)
-    .order('timestamp_sec', { ascending: true })
+    .order('created_at', { ascending: true })
 
   const authors = await getUsersByIds([...new Set((rows ?? []).map((r: any) => r.user_id))])
   const data = (rows ?? []).map((r: any) => {
     const a = authors.get(r.user_id)
     return {
-      id: r.id, timestamp_sec: r.timestamp_sec, text: r.text, created_at: r.created_at,
+      id: r.id, timestamp_sec: r.timestamp_sec, text: r.text, created_at: r.created_at, parent_id: r.parent_id ?? null,
       author: a?.full_name || a?.email?.split('@')[0] || 'Listener',
       avatar: a?.avatar_url ?? null,
     }
@@ -211,7 +211,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
   // Showcase grid — explicit allow-list; NO file_url / storage_path ever leaves here.
   const { data: items } = await supabase
     .from('showcase_items')
-    .select('id, caption, position, like_count, play_count, comment_count, repost_count, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
+    .select('id, caption, position, like_count, play_count, comment_count, repost_count, preview_only, link, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
     .eq('user_id', p.id)
     .order('position', { ascending: true })
     .order('created_at', { ascending: false })
@@ -263,6 +263,8 @@ publicProfile.get('/:handle', readLimit, async (c) => {
           play_count: i.play_count,
           comment_count: i.comment_count ?? 0,
           repost_count: i.repost_count ?? 0,
+          preview_only: !!i.preview_only,
+          link:       i.link ?? null,
           liked:      likedSet.has(i.id),
           reposted:   repostedSet.has(i.id),
           stream_url: `/u/item/${i.id}/stream`,
