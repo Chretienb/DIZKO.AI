@@ -2,12 +2,131 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
-import { notify } from '../lib/notificationService'
+import { notify, emailUser } from '../lib/notificationService'
+import { firstSeen } from '../lib/redisStore'
+import { getUsersByIds } from '../lib/users'
+import { censorProfanity } from '../lib/profanity'
 import type { HonoVariables } from '../types'
+
+// Both directions of a block between two users.
+async function isBlockedBetween(a: string, b: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('blocks')
+    .select('blocker_id')
+    .or(`and(blocker_id.eq.${a},blocked_id.eq.${b}),and(blocker_id.eq.${b},blocked_id.eq.${a})`)
+    .maybeSingle()
+  return !!data
+}
 
 const messages = new Hono<{ Variables: HonoVariables }>()
 
 messages.use('*', requireAuth)
+
+// Email the recipient ONLY if a message is still unread after a short delay.
+// Opening the conversation marks it read → no email is sent. A back-and-forth
+// burst collapses into a single email per sender→recipient via the dedup window,
+// so an active chat never floods the inbox.
+const MESSAGE_EMAIL_DELAY_MS = Number(process.env.MESSAGE_EMAIL_DELAY_MS) || 2 * 60_000
+const MESSAGE_EMAIL_DEDUP_MS = Number(process.env.MESSAGE_EMAIL_DEDUP_MS) || 15 * 60_000
+
+function scheduleUnreadEmail(opts: {
+  messageId:   string
+  recipientId: string
+  senderId:    string
+  senderName:  string
+  snippet:     string
+}): void {
+  const { messageId, recipientId, senderId, senderName, snippet } = opts
+  const timer = setTimeout(async () => {
+    try {
+      // If they opened the chat in the meantime, the message is marked read → skip.
+      const { data: msg } = await supabase
+        .from('messages')
+        .select('read')
+        .eq('id', messageId)
+        .single()
+      if (!msg || (msg as any).read) return
+
+      // Collapse a burst into one email per sender→recipient within the window.
+      const fresh = await firstSeen(`msg-email:${recipientId}:${senderId}`, MESSAGE_EMAIL_DEDUP_MS)
+      if (!fresh) return
+
+      await emailUser({
+        userId:    recipientId,
+        type:      'message',
+        title:     `New message from ${senderName}`,
+        body:      snippet,
+        actionUrl: '/collaborators',
+      })
+    } catch (e) {
+      console.error('[messages] unread-email failed:', (e as Error).message)
+    }
+  }, MESSAGE_EMAIL_DELAY_MS)
+  // Don't let a pending nudge keep the process alive on shutdown.
+  ;(timer as any).unref?.()
+}
+
+// GET /messages/threads — inbox: one row per conversation, newest first.
+// Registered BEFORE /:userId so "threads" isn't treated as a user id.
+messages.get('/threads', async (c) => {
+  const me = c.var.user.id
+
+  const { data: rows, error } = await supabase
+    .from('messages')
+    .select('from_user_id, to_user_id, text, read, created_at')
+    .or(`from_user_id.eq.${me},to_user_id.eq.${me}`)
+    .order('created_at', { ascending: false })
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  // Group by the other participant; first hit (newest) sets the preview.
+  const threads = new Map<string, any>()
+  for (const m of (rows ?? []) as any[]) {
+    const other = m.from_user_id === me ? m.to_user_id : m.from_user_id
+    if (!threads.has(other)) {
+      threads.set(other, { user_id: other, last_text: m.text, last_at: m.created_at, last_from_me: m.from_user_id === me, unread: 0 })
+    }
+    if (m.to_user_id === me && !m.read) threads.get(other).unread++
+  }
+
+  // Hide conversations with anyone blocked (either direction).
+  const { data: blockRows } = await supabase
+    .from('blocks').select('blocker_id, blocked_id').or(`blocker_id.eq.${me},blocked_id.eq.${me}`)
+  const blocked = new Set<string>()
+  for (const b of (blockRows ?? []) as any[]) blocked.add(b.blocker_id === me ? b.blocked_id : b.blocker_id)
+
+  const visible = [...threads.values()].filter(t => !blocked.has(t.user_id))
+  const users = await getUsersByIds(visible.map(t => t.user_id))
+  const data = visible.map(t => {
+    const u = users.get(t.user_id)
+    return { ...t, name: u?.full_name || u?.email?.split('@')[0] || 'User', avatar: u?.avatar_url ?? null }
+  })
+  return c.json({ data, error: null, status: 200 })
+})
+
+// GET /messages/blocks — ids I've blocked (registered before /:userId)
+messages.get('/blocks', async (c) => {
+  const me = c.var.user.id
+  const { data } = await supabase.from('blocks').select('blocked_id').eq('blocker_id', me)
+  return c.json({ data: (data ?? []).map((b: any) => b.blocked_id), error: null, status: 200 })
+})
+
+// POST /messages/block/:userId — block a user
+messages.post('/block/:userId', async (c) => {
+  const me = c.var.user.id
+  const target = c.req.param('userId')
+  if (target === me) return c.json({ data: null, error: "You can't block yourself.", status: 400 }, 400)
+  const { error } = await supabase.from('blocks').insert({ blocker_id: me, blocked_id: target })
+  if (error && (error as any).code !== '23505') return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { blocked: true }, error: null, status: 200 })
+})
+
+// DELETE /messages/block/:userId — unblock
+messages.delete('/block/:userId', async (c) => {
+  const me = c.var.user.id
+  const { error } = await supabase.from('blocks').delete().eq('blocker_id', me).eq('blocked_id', c.req.param('userId'))
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { blocked: false }, error: null, status: 200 })
+})
 
 // GET /messages/:userId — fetch conversation between me and another user
 messages.get('/:userId', async (c) => {
@@ -44,9 +163,16 @@ messages.post('/', sanitize, async (c) => {
     return c.json({ data: null, error: 'to_user_id and text are required', status: 400 }, 400)
   }
 
+  // Refuse if either side has blocked the other.
+  if (await isBlockedBetween(me, to_user_id)) {
+    return c.json({ data: null, error: 'You can’t message this user.', status: 403 }, 403)
+  }
+
+  const clean = censorProfanity(text.trim())   // censor bad words before storing
+
   const { data, error } = await supabase
     .from('messages')
-    .insert({ from_user_id: me, to_user_id, text: text.trim() })
+    .insert({ from_user_id: me, to_user_id, text: clean })
     .select()
     .single()
 
@@ -60,12 +186,21 @@ messages.post('/', sanitize, async (c) => {
     type:         'message',
     recipientIds: [to_user_id],
     title:        `Message from ${senderName}`,
-    body:         text.trim().slice(0, 100),
+    body:         clean.slice(0, 100),
     actorId:      me,
-    actionUrl:    '/collaborators',
+    actionUrl:    '/inbox',
     dedupKey:     `msg:${me}:${to_user_id}`,
     dedupWindow:  30_000,
   }).catch(() => null)
+
+  // Follow-up: email the recipient only if they haven't read it after a short delay.
+  scheduleUnreadEmail({
+    messageId:   (data as any).id,
+    recipientId: to_user_id,
+    senderName,
+    senderId:    me,
+    snippet:     clean.slice(0, 100),
+  })
 
   return c.json({ data, error: null, status: 201 }, 201)
 })

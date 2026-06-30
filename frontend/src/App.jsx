@@ -20,6 +20,7 @@ const ROUTE_LOADERS = {
   collaborators: () => import('./pages/Collaborators.jsx'),
   library:       () => import('./pages/Library.jsx'),
   analytics:     () => import('./pages/Analytics.jsx'),
+  inbox:         () => import('./pages/Inbox.jsx'),
   projectView:   () => import('./pages/ProjectView.jsx'),
 }
 const PageDashboardNew     = lazy(ROUTE_LOADERS.dashboard)
@@ -28,6 +29,7 @@ const PageStudioNew        = lazy(ROUTE_LOADERS.studio)
 const PageCollaboratorsNew = lazy(ROUTE_LOADERS.collaborators)
 const PageLibraryNew       = lazy(ROUTE_LOADERS.library)
 const PageAnalyticsNew     = lazy(ROUTE_LOADERS.analytics)
+const PageInbox            = lazy(ROUTE_LOADERS.inbox)
 const ProjectView          = lazy(ROUTE_LOADERS.projectView)
 
 // nav path → page-chunk key, for hover/idle prefetch.
@@ -51,7 +53,7 @@ const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default:
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
-import { House, UsersThree, BookOpen, ChartBar, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
+import { House, UsersThree, BookOpen, ChartBar, ChatCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
@@ -125,6 +127,7 @@ export class ErrorBoundary extends React.Component {
 export { MobileCtx, useIsMobile } from './lib/mobile'
 
 import { getToken, timeAgo, firstName, getGreeting, todayLabel, initials } from './lib/utils.js'
+import posthog from './lib/posthog.js'
 
 // ── useConfirm — replaces browser confirm() with inline state ─────────────────
 // Returns [pendingId, confirm(id), cancel] — call confirm(id) to arm,
@@ -282,6 +285,8 @@ const NAV = [
   { id:'studio',        path:'/studio',         label:'Studio',       icon:'M4 21V14M4 10V3M12 21V12M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' },
   // Crew — headphones (music-specific, not generic people icon)
   { id:'collaborators', path:'/collaborators',  label:'Crew',         icon:'M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z' },
+  // Inbox — message bubble (DMs, incl. from public profiles)
+  { id:'inbox',         path:'/inbox',          label:'Inbox',        icon:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' },
   // Vault — stacked layers (library of stems)
   { id:'library',       path:'/library',        label:'Vault',        icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
   // Stats — heartbeat/pulse waveform
@@ -633,7 +638,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
         if (toastId == null) toastId = addToast(msg, { type: 'new', duration: 0, progress, sub })
         else updateToast(toastId, { msg, progress, sub })
       } else {
-        const msg = failed ? `${done} uploaded · ${failed} couldn’t upload — re-add them`
+        if (done > 0) posthog.capture('stem_uploaded', { count: done, failed })
+        const msg = failed ? `${done} uploaded · ${failed} couldn't upload — re-add them`
                            : `${done} stem${done > 1 ? 's' : ''} uploaded — mixing now`
         if (toastId != null) { updateToast(toastId, { msg, sub: null, progress: undefined, type: failed ? 'info' : 'success' }, { duration: 6000 }); toastId = null }
         else addToast(msg, { type: failed ? 'info' : 'success' })
@@ -673,6 +679,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const [playlist,   setPlaylist]   = useState([])
 
   const playTrack = useCallback((file, list = []) => {
+    posthog.capture('audio_played', { file_id: file?.id, instrument: file?.instrument, mime_type: file?.mime_type })
     setNowPlaying(file)
     setPlaylist(list.length > 0 ? list : [file])
   }, [])
@@ -698,6 +705,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const GATED_MODALS = ['new-project', 'invite']
   const openModal = (type, data) => {
     if (GATED_MODALS.includes(type) && !hasAccess) {
+      posthog.capture('paywall_hit', { feature: type })
       setModal({ type: 'billing', data: {} })
       return
     }
@@ -711,7 +719,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     setModal({ type, data })
   }
   const closeModal       = () => setModal(null)
-  const onProjectCreated = (project) => { setRefresh(k => k + 1); closeModal(); setChecklistDone(d => ({ ...d, 0: true })); if (project?.id) navigate(`/projects/${project.id}`) }
+  const onProjectCreated = (project) => {
+    posthog.capture('project_created', { project_id: project?.id, title: project?.title })
+    setRefresh(k => k + 1); closeModal(); setChecklistDone(d => ({ ...d, 0: true })); if (project?.id) navigate(`/projects/${project.id}`)
+  }
 
   // Hard paywall: without access, the gated feature pages (Projects, Studio, Crew,
   // Library, Analytics) render the wall instead of the page — only the Dashboard
@@ -841,6 +852,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               { id:'projects',      path:'/projects',      label:'Projects', Icon: MasonryIcon },
               { id:'studio',        path:'/studio',        label:'Studio',   Icon: StudioMic },
               { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
+              { id:'inbox',         path:'/inbox',         label:'Inbox',    Icon: ChatCircle },
               { id:'library',       path:'/library',       label:'Library',  Icon: BookOpen },
               // Stats hidden from the rail for MVP — route + page kept, bring it back later.
               // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
@@ -975,8 +987,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/studio"        element={gate(<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
             <Route path="/collaborators" element={gate(<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />)} />
-            <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
+            <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />)} />
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
+            <Route path="/inbox"         element={<PageInbox openModal={openModal} user={user} />} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />

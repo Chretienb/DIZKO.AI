@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, foldersApi, collaborators as collabsApi, messagesApi, cacheBust } from '../lib/api.js'
+import posthog from '../lib/posthog.js'
 import { Spinner } from '../components/ui/index.jsx'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
@@ -147,6 +148,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         collabsApi.listByProject(projectId).catch(() => ({ data: [] })),
       ])
       setProject(projRes.data)
+      posthog.capture('project_viewed', { project_id: projectId })
       setAllProjects(allProjsRes.data || [])
       setFolders(foldersRes.data || [])
       setCollabs(collabsRes.data || [])

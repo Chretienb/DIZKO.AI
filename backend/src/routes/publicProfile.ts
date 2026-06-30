@@ -1,0 +1,207 @@
+import { Hono } from 'hono'
+import { getCookie } from 'hono/cookie'
+import { supabase, verifyToken } from '../lib/supabase'
+import { rateLimit } from '../middleware/rateLimit'
+import { getUsersByIds } from '../lib/users'
+import { getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
+import type { HonoVariables } from '../types'
+
+// Public producer profiles (the "social showcase" layer). Everything here is
+// UNAUTHENTICATED read — it must only ever expose:
+//   • a profile whose `profile_public` is true, and
+//   • stems that the owner explicitly added to `showcase_items`.
+// It never reads private project/collaborator tables, and returns an explicit
+// allow-list of safe fields. Mirrors publicShare.ts. Any write (follow, like,
+// download, comment) lives in showcase.ts behind requireAuth.
+const publicProfile = new Hono<{ Variables: HonoVariables }>()
+
+const readLimit   = rateLimit({ max: 100, windowMs: 60_000 })
+const streamLimit = rateLimit({ max: 240, windowMs: 60_000 })
+
+// Optional auth: if a valid token is present, return the viewer's id so we can
+// annotate follow/like state — but never reject. Anonymous visitors are fine.
+async function viewerId(c: any): Promise<string | null> {
+  const cookieToken  = getCookie(c, 'auth_token')
+  const bearerHeader = c.req.header('Authorization')
+  const token = cookieToken || (bearerHeader?.startsWith('Bearer ') ? bearerHeader.slice(7) : null)
+  if (!token) return null
+  try { return (await verifyToken(token) as any)?.id ?? null } catch { return null }
+}
+
+// ── GET /u/item/:itemId/stream — public preview playback ──────────────────────
+// Registered BEFORE /:handle so "item" is treated as a literal path, not a
+// handle. Redirects to a short-lived signed URL for the COMPRESSED preview (or
+// an already-compressed original) — never the HQ master, which stays gated.
+publicProfile.get('/item/:itemId/stream', streamLimit, async (c) => {
+  const itemId = c.req.param('itemId')
+
+  const { data: item } = await supabase
+    .from('showcase_items')
+    .select('id, user_id, stem:stems ( notes, storage_path, file_url, mime_type )')
+    .eq('id', itemId)
+    .maybeSingle()
+
+  if (!item) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+
+  // Owner's profile must be public for the stream to resolve.
+  const { data: prof } = await supabase
+    .from('profiles').select('profile_public').eq('id', (item as any).user_id).single()
+  if (!prof || !(prof as any).profile_public) {
+    return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+  }
+
+  const stem = (item as any).stem
+  // Analysis (incl. the mp3 preview key) is packed as JSON in stems.notes.
+  let preview: string | null = null
+  try { preview = JSON.parse(stem?.notes || '{}').preview ?? null } catch { /* unparseable notes */ }
+
+  // Prefer the generated mp3 preview. Otherwise fall back to the original
+  // (already-compressed formats stream fine; a raw WAV/FLAC without a preview
+  // still falls back for now — generating previews on publish is the hardening
+  // follow-up so the HQ master is never what the public stream serves).
+  const key = preview || stem?.storage_path || r2KeyFromUrl(stem?.file_url)
+  if (!key) return c.json({ data: null, error: 'Unavailable', status: 404 }, 404)
+
+  // Best-effort, eventually-consistent play count.
+  supabase.rpc('increment_showcase_play', { p_item: itemId }).then(() => {}, () => {})
+
+  const url = await getR2SignedUrl(key, 3600) // 1h — long enough to play, short enough not to be a durable link
+  return c.redirect(url, 302)
+})
+
+// ── GET /u/item/:itemId/comments — public comment list for a showcased track ──
+publicProfile.get('/item/:itemId/comments', readLimit, async (c) => {
+  const itemId = c.req.param('itemId')
+
+  // Item must belong to a public profile.
+  const { data: item } = await supabase
+    .from('showcase_items').select('user_id').eq('id', itemId).maybeSingle()
+  if (!item) return c.json({ data: [], error: null, status: 200 })
+  const { data: prof } = await supabase
+    .from('profiles').select('profile_public').eq('id', (item as any).user_id).single()
+  if (!prof || !(prof as any).profile_public) return c.json({ data: [], error: null, status: 200 })
+
+  const { data: rows } = await supabase
+    .from('showcase_comments')
+    .select('id, user_id, timestamp_sec, text, created_at')
+    .eq('showcase_item_id', itemId)
+    .order('timestamp_sec', { ascending: true })
+
+  const authors = await getUsersByIds([...new Set((rows ?? []).map((r: any) => r.user_id))])
+  const data = (rows ?? []).map((r: any) => {
+    const a = authors.get(r.user_id)
+    return {
+      id: r.id, timestamp_sec: r.timestamp_sec, text: r.text, created_at: r.created_at,
+      author: a?.full_name || a?.email?.split('@')[0] || 'Listener',
+      avatar: a?.avatar_url ?? null,
+    }
+  })
+  return c.json({ data, error: null, status: 200 })
+})
+
+// ── GET /u/search?q= — search public producer profiles (handle / name) ────────
+// Scales to many profiles: indexed, public-only, ranked by followers, capped.
+publicProfile.get('/search', readLimit, async (c) => {
+  const raw = (c.req.query('q') || '').trim().toLowerCase().slice(0, 50)
+  const q = raw.replace(/[^a-z0-9_ ]/g, '')   // keep the .or() filter string safe
+  if (q.length < 1) return c.json({ data: [], error: null, status: 200 })
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, handle, display_name, avatar_url, follower_count')
+    .eq('profile_public', true)
+    .not('handle', 'is', null)
+    .or(`handle.ilike.%${q}%,display_name.ilike.%${q}%`)
+    .order('follower_count', { ascending: false })
+    .limit(20)
+
+  const metas = await getUsersByIds((data ?? []).map((d: any) => d.id))
+  const out = (data ?? []).map((d: any) => ({
+    handle: d.handle,
+    display_name: d.display_name || metas.get(d.id)?.full_name || d.handle,
+    avatar_url: d.avatar_url || metas.get(d.id)?.avatar_url || null,
+    follower_count: d.follower_count,
+  }))
+  return c.json({ data: out, error: null, status: 200 })
+})
+
+// ── GET /u/:handle — public profile + showcase grid ───────────────────────────
+publicProfile.get('/:handle', readLimit, async (c) => {
+  const handle = c.req.param('handle').toLowerCase()
+  const me = await viewerId(c)
+
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('id, handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count')
+    .eq('handle', handle)
+    .maybeSingle()
+
+  // 404 (not 403) for missing/private — never reveal a private profile exists.
+  // Exception: the owner can always preview their own page (even while private).
+  if (!prof || (!(prof as any).profile_public && me !== (prof as any).id)) {
+    return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+  }
+  const p = prof as any
+
+  // Showcase grid — explicit allow-list; NO file_url / storage_path ever leaves here.
+  const { data: items } = await supabase
+    .from('showcase_items')
+    .select('id, caption, position, like_count, play_count, comment_count, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
+    .eq('user_id', p.id)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: false })
+
+  // Viewer-specific state (so logged-in visitors get correct button states in one round-trip).
+  let isFollowing = false
+  const likedSet = new Set<string>()
+  if (me) {
+    const [{ data: f }, { data: likes }] = await Promise.all([
+      supabase.from('follows').select('following_id').eq('follower_id', me).eq('following_id', p.id).maybeSingle(),
+      supabase.from('showcase_likes').select('showcase_item_id').eq('user_id', me)
+        .in('showcase_item_id', (items ?? []).map((i: any) => i.id)),
+    ])
+    isFollowing = !!f
+    for (const l of (likes ?? []) as any[]) likedSet.add(l.showcase_item_id)
+  }
+
+  // Fall back to auth metadata for display name / avatar when the profile hasn't set its own.
+  const meta = (await getUsersByIds([p.id])).get(p.id)
+  const displayName = p.display_name || meta?.full_name || meta?.email?.split('@')[0] || 'Dizko artist'
+  const avatar      = p.avatar_url   || meta?.avatar_url || null
+
+  return c.json({
+    data: {
+      id:              p.id,
+      handle:          p.handle,
+      display_name:    displayName,
+      bio:             p.bio ?? null,
+      avatar_url:      avatar,
+      links:           Array.isArray(p.links) ? p.links : [],
+      follower_count:  p.follower_count,
+      following_count: p.following_count,
+      is_following:    isFollowing,
+      is_self:         me === p.id,
+      items: (items ?? []).map((i: any) => {
+        let meta: any = {}; try { meta = JSON.parse(i.stem?.notes || '{}') } catch { /* unparseable */ }
+        return {
+          id:         i.id,
+          title:      i.stem?.suggested_name || i.stem?.original_name || 'Untitled',
+          instrument: i.stem?.instrument ?? null,
+          bpm:        meta.bpm ?? null,
+          musical_key: meta.key ?? null,
+          peaks:      meta.peaks ?? null,
+          caption:    i.caption ?? null,
+          like_count: i.like_count,
+          play_count: i.play_count,
+          comment_count: i.comment_count ?? 0,
+          liked:      likedSet.has(i.id),
+          stream_url: `/u/item/${i.id}/stream`,
+        }
+      }),
+    },
+    error: null,
+    status: 200,
+  })
+})
+
+export default publicProfile

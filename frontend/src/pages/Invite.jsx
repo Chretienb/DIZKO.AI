@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
 import { C, Spinner } from '../components/ui/index.jsx'
+import posthog from '../lib/posthog.js'
 
 const ROLES = [
   { name:'Vocalist',     can:'vocals, harmonies',  color:'#8b5cf6' },
@@ -53,6 +54,7 @@ export default function PageInvite() {
     const ok   = validEmails.filter((_, i) => results[i].status === 'fulfilled')
     const fail = validEmails.filter((_, i) => results[i].status === 'rejected')
     if (ok.length) {
+      posthog.capture('collaborator_invited', { count: ok.length, role, project_id: selId })
       window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 2 } }))
       if (fail.length === 0) { setSentList(ok); return }
       setSentList(null); setRows(fail)

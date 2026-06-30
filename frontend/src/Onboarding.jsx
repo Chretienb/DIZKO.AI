@@ -3,6 +3,7 @@ import { projects as projectsApi } from './lib/api'
 import { useIsMobile } from './lib/mobile'
 import logo   from './assets/logo.png'
 import studio from './assets/studio2.png'
+import posthog from './lib/posthog.js'
 
 const C = {
   coral: '#F4937A',
@@ -80,6 +81,7 @@ export default function Onboarding({ onComplete, user }) {
     setLoading(true); setErr('')
     try {
       await projectsApi.create({ title: title.trim(), type })
+      posthog.capture('onboarding_completed', { project_type: type })
       window.dispatchEvent(new CustomEvent('dizko:project_created'))
       onComplete()
     } catch (e) {

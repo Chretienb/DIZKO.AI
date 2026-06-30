@@ -25,6 +25,7 @@
     "fflate": "^0.8.3",
     "html-to-image": "^1.11.13",
     "libflacjs": "^5.4.0",
+    "posthog-js": "^1.395.0",
     "prop-types": "^15.8.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.5",

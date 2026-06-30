@@ -4,10 +4,13 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './index.css'
 import { initMonitoring } from './lib/monitoring.js'
+import { initPostHog } from './lib/posthog.js'
+import posthog from './lib/posthog.js'
 import App           from './App.jsx'
 import { reloadForNewBuild } from './App.jsx'
 
 initMonitoring()
+initPostHog()
 
 // After a deploy, Vite chunk hashes change; an open tab can fail to lazy-load an
 // old chunk. Vite fires this — reload once to grab the new build (vs. erroring).
@@ -32,6 +35,7 @@ import ResetPassword from './ResetPassword.jsx'
 import { TermsPage as Terms, PrivacyPage as Privacy, CookiesPage } from './pages/Legal.jsx'
 import CookieConsent from './components/CookieConsent.jsx'
 import PublicPitch from './PublicPitch.jsx'
+import PublicProfile from './PublicProfile.jsx'
 import { auth, setToken, setRefreshToken } from './lib/api'
 import { ErrorBoundary } from './App.jsx'
 import { ThemeProvider } from './lib/theme.jsx'
@@ -158,6 +162,7 @@ function WelcomePage({ userName, onClear }) {
 function BillingSuccess({ onStart }) {
   const navigate = useNavigate()
   useEffect(() => {
+    posthog.capture('subscription_started')
     onStart()
     navigate('/', { replace: true })
   }, [])
@@ -230,6 +235,7 @@ function Root() {
       <Route path="/terms"          element={<Terms />} />
       <Route path="/cookies"        element={<CookiesPage />} />
       <Route path="/p/:id"          element={<PublicPitch />} />
+      <Route path="/u/:handle"      element={<PublicProfile />} />
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />

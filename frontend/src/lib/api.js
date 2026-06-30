@@ -441,6 +441,11 @@ export const smartBounce = (projectId, folderId, stemIds, board) => post(`/proje
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 export const messagesApi = {
+  /** Inbox — one row per conversation, newest first. */
+  threads:      () => request('GET', '/messages/threads'),
+  blocks:       () => request('GET', '/messages/blocks'),
+  block:        (userId) => post(`/messages/block/${userId}`),
+  unblock:      (userId) => del(`/messages/block/${userId}`),
   /** @returns {Promise<import('./types').ApiResponse<Message[]>>} */
   conversation: (userId) => get(`/messages/${userId}`),
   /** @returns {Promise<import('./types').ApiResponse<Message>>} */
@@ -478,6 +483,39 @@ export const publicApi = {
   pitch: async (id) => { const r = await fetch(`${BASE}/p/${id}`); return r.json() },
   // Request to join — auth required (request() = cookie auth + refresh).
   requestJoin: (id, note) => request('POST', `/p/${id}/request`, note ? { note } : {}),
+
+  // Public producer profile. Optional auth: send the token IF present so a
+  // logged-in viewer gets is_following / liked flags, but never redirect on 401.
+  profile: async (handle) => {
+    const token = getToken()
+    const r = await fetch(`${BASE}/u/${encodeURIComponent(handle)}`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    return r.json()
+  },
+  // Public comment list for a showcased track.
+  itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
+  // Search public producer profiles by handle / display name.
+  searchProfiles: async (q) => { const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(q)}`); return r.json() },
+}
+
+// ── Social showcase (authenticated: profile editing, curation, follow/like) ───
+export const showcaseApi = {
+  me:            ()                 => request('GET', '/showcase/me'),
+  updateProfile: (patchBody)        => patch('/showcase/me', patchBody),
+  setHandle:     (handle)           => post('/showcase/me/handle', { handle }),
+  checkHandle:   (handle)           => request('GET', `/showcase/handle-check?handle=${encodeURIComponent(handle)}`),
+  addItem:       (stem_id, caption) => post('/showcase/items', { stem_id, caption }),
+  updateItem:    (id, patchBody)    => patch(`/showcase/items/${id}`, patchBody),
+  removeItem:    (id)               => del(`/showcase/items/${id}`),
+  downloadUrl:   (id)               => request('GET', `/showcase/items/${id}/download`),
+  follow:        (userId)           => post(`/showcase/follow/${userId}`),
+  unfollow:      (userId)           => del(`/showcase/follow/${userId}`),
+  like:          (itemId)           => post(`/showcase/items/${itemId}/like`),
+  unlike:        (itemId)           => del(`/showcase/items/${itemId}/like`),
+  comment:       (itemId, text, timestamp_sec) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec }),
+  deleteComment: (commentId)        => del(`/showcase/comments/${commentId}`),
 }
 
 // ── Stem comments ─────────────────────────────────────────────────────────────

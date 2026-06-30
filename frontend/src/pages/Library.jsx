@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, foldersApi } from '../lib/api.js'
 import { Spinner, C } from '../components/ui/index.jsx'
+import ProfileEditor from '../ProfileEditor.jsx'
 
 function timeAgo(iso) {
   if (!iso) return ''
@@ -21,15 +22,18 @@ const STATUS_DOT = s => ({
   'Draft':       'rgba(var(--fg),.25)',
 }[s] || 'rgba(var(--fg),.25)')
 
-export default function PageLibrary({ openModal, user }) {
+export default function PageLibrary({ openModal, user, onProfileUpdate }) {
   const navigate  = useNavigate()
   const isMobile  = React.useContext(MobileCtx)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [projects,    setProjects]    = useState([])
   const [activeId,    setActiveId]    = useState(null)
   const [folders,     setFolders]     = useState([])
   const [loading,     setLoading]     = useState(true)
   const [loadingFolders, setLoadingFolders] = useState(false)
+  // Public-profile editor (opens via the button or ?profile=1 from /u/<handle>).
+  const [showProfile, setShowProfile] = useState(() => searchParams.get('profile') === '1')
 
   const activeProject = projects.find(p => p.id === activeId)
 
@@ -78,8 +82,15 @@ export default function PageLibrary({ openModal, user }) {
     </div>
   )
 
+  const closeProfile = () => {
+    setShowProfile(false)
+    if (searchParams.get('profile')) { searchParams.delete('profile'); setSearchParams(searchParams, { replace: true }) }
+  }
+
   return (
     <div>
+      {showProfile && <ProfileEditor user={user} onClose={closeProfile} onProfileUpdate={onProfileUpdate} />}
+
       <h1 style={{ margin:'0 0 20px', fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Library</h1>
 
       <div style={{ display:'flex', gap:14, alignItems:'start' }}>

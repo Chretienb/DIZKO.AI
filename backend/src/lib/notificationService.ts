@@ -118,6 +118,23 @@ export async function notify(payload: NotifPayload): Promise<void> {
   )
 }
 
+/**
+ * Send ONLY an email to a user — no in-app row, no push. Used for deferred /
+ * follow-up emails (e.g. "you have an unread message") where the in-app + push
+ * notifications already fired at event time and we just want to nudge the inbox.
+ */
+export async function emailUser(opts: {
+  userId:     string
+  type:       NotifType | string
+  title:      string
+  body:       string
+  actionUrl?: string
+  subject?:   string
+}): Promise<void> {
+  const html = brandedEmailHtml(opts.type, opts.title, opts.body, opts.actionUrl)
+  await sendEmail(opts.userId, opts.subject ?? opts.title, html)
+}
+
 // ── Channel 1: In-app (Supabase Realtime) ─────────────────────────────────────
 async function saveInApp(
   userId: string,

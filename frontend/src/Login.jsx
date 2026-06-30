@@ -4,6 +4,7 @@ import studio from './assets/studio2.png'
 import { auth, setToken, setRefreshToken, publicApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
+import posthog from './lib/posthog.js'
 
 const C = {
   coral: '#F4937A', rose: '#E8709A', amber: '#F5C97A', pink: '#F28FB8',
@@ -133,6 +134,13 @@ export default function Login({ onLogin }) {
         if (joinId) { localStorage.removeItem('dizko_join_intent'); await publicApi.requestJoin(joinId) }
       } catch {}
       const fullName = res.data.user?.user_metadata?.full_name ?? ''
+      const userId = res.data.user?.id
+      posthog.identify(userId, { name: fullName })
+      if (isNewUser) {
+        posthog.capture('user_signed_up', { name: fullName })
+      } else {
+        posthog.capture('user_logged_in')
+      }
       onLogin(fullName, isNewUser, { ...res.data.user, avatar_url: res.data.user?.user_metadata?.avatar_url })
     } catch (err) {
       setFormError(err.message || 'Something went wrong. Please try again.')
