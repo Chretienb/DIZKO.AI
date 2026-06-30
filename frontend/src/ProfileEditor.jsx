@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { showcaseApi, projects as projectsApi, files as filesApi, auth as authApi } from './lib/api.js'
 import { C, Avatar } from './components/ui/index.jsx'
 
@@ -6,6 +7,7 @@ import { C, Avatar } from './components/ui/index.jsx'
 // name/bio/links, replace the photo (which updates the account pfp too), flip
 // the profile public, and curate which library files appear at /u/<handle>.
 export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
+  const navigate = useNavigate()
   const [loading, setLoading]   = useState(true)
   const [profile, setProfile]   = useState(null)
   const [items, setItems]       = useState([])
@@ -27,6 +29,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const [projList, setProjList]       = useState([])
   const [projQuery, setProjQuery]     = useState('')
   const [pickProject, setPickProject] = useState('')
+  const [fileQuery, setFileQuery]     = useState('')
   const [pickFiles, setPickFiles]     = useState([])
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [previewId, setPreviewId]     = useState(null)   // file being previewed
@@ -60,6 +63,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   }, [handle])
 
   useEffect(() => {
+    setFileQuery('')
     if (!pickProject) { setPickFiles([]); return }
     setLoadingFiles(true)
     filesApi.list(pickProject)
@@ -149,6 +153,17 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
     try { await showcaseApi.removeItem(id) } catch { /* best-effort */ }
   }
 
+  // Per-track caption ("write something"). Edits locally, saves on blur/enter.
+  const setCaption  = (id, caption) => setItems(list => list.map(i => i.id === id ? { ...i, caption } : i))
+  const saveCaption = async (id, caption) => { try { await showcaseApi.updateItem(id, { caption: caption?.trim() || null }) } catch {} }
+
+  // Closing returns to your public page (not the app), if you have a handle.
+  const handleClose = () => {
+    const h = profile?.handle || handle
+    if (h) { navigate(`/u/${h}`); window.scrollTo(0, 0) }
+    else onClose()
+  }
+
   const liveHandle = profile?.handle
   const handleHint = {
     checking: <span style={{ color:C.t3 }}>checking…</span>,
@@ -161,8 +176,8 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const overlay = { position:'fixed', inset:0, zIndex:1000, background:C.bg, display:'flex', flexDirection:'column', overflowY:'auto' }
   const header  = { position:'sticky', top:0, zIndex:2, display:'flex', alignItems:'center', justifyContent:'space-between',
     padding:'16px 20px', background:C.bg, borderBottom:`1px solid ${C.border}` }
-  const panel   = { width:'100%', maxWidth:1040, margin:'0 auto', padding:'22px 24px 80px', boxSizing:'border-box' }
-  const card    = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:20, marginBottom:16 }
+  const panel   = { width:'100%', maxWidth:1040, margin:'0 auto', padding:'clamp(16px,4vw,22px) clamp(14px,4vw,24px) 80px', boxSizing:'border-box' }
+  const card    = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:'clamp(14px,4vw,20px)', marginBottom:14 }
   const cardTitle = { fontSize:11, fontWeight:800, color:C.t3, textTransform:'uppercase', letterSpacing:'.08em', marginBottom:16 }
   const label = { fontSize:12, fontWeight:700, color:C.t2, marginBottom:6, display:'block' }
   const input = { width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.bg, color:C.t1, fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box' }
@@ -174,7 +189,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
 
       <div style={header}>
         <div style={{ fontSize:17, fontWeight:800, color:C.t1 }}>Public profile</div>
-        <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:22, lineHeight:1 }}>✕</button>
+        <button onClick={handleClose} title="Back to my profile" style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:22, lineHeight:1 }}>✕</button>
       </div>
 
       <style>{`
@@ -277,17 +292,22 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20 }}>
                   {items.map((i, idx) => (
-                    <div key={i.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:12, background:C.bg, border:`1px solid ${C.border}` }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:C.t3, width:18, textAlign:'right', flexShrink:0 }}>{String(idx+1).padStart(2,'0')}</span>
-                      <div style={{ width:36, height:36, borderRadius:9, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background:`${C.coral}14`, color:C.coral }}>
-                        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <div key={i.id} style={{ padding:'10px 12px', borderRadius:12, background:C.bg, border:`1px solid ${C.border}` }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <span style={{ fontSize:11, fontWeight:800, color:C.t3, width:18, textAlign:'right', flexShrink:0 }}>{String(idx+1).padStart(2,'0')}</span>
+                        <div style={{ width:36, height:36, borderRadius:9, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background:`${C.coral}14`, color:C.coral }}>
+                          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:C.t1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{i.title}</div>
+                          <div style={{ fontSize:11, color:C.t3 }}>{[i.instrument, `${i.play_count||0} plays`, `${i.like_count||0} likes`].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <button onClick={() => removeItem(i.id)} title="Remove from profile"
+                          style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'5px 12px', cursor:'pointer', color:C.t2, fontSize:12, fontWeight:600, fontFamily:'inherit', flexShrink:0 }}>Remove</button>
                       </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:C.t1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{i.title}</div>
-                        <div style={{ fontSize:11, color:C.t3 }}>{[i.instrument, `${i.play_count||0} plays`, `${i.like_count||0} likes`].filter(Boolean).join(' · ')}</div>
-                      </div>
-                      <button onClick={() => removeItem(i.id)} title="Remove from profile"
-                        style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'5px 12px', cursor:'pointer', color:C.t2, fontSize:12, fontWeight:600, fontFamily:'inherit', flexShrink:0 }}>Remove</button>
+                      <input value={i.caption || ''} onChange={e => setCaption(i.id, e.target.value)} onBlur={e => saveCaption(i.id, e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }} maxLength={280} placeholder="Write a caption… (e.g. “made in 20 min, DM for the pack”)"
+                        style={{ ...input, marginTop:10, fontSize:12.5, padding:'8px 11px' }} />
                     </div>
                   ))}
                 </div>
@@ -358,9 +378,18 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                   loadingFiles ? <div style={{ fontSize:12.5, color:C.t3, padding:'8px 2px' }}>Loading tracks…</div> :
                   pickFiles.length === 0 ? (
                     <div style={{ fontSize:12.5, color:C.t3, padding:'10px 2px' }}>Every track here is already on your profile. 🎉</div>
-                  ) : (
+                  ) : (() => {
+                    const fq = fileQuery.trim().toLowerCase()
+                    const files = fq ? pickFiles.filter(f => (f.suggested_name || f.original_name || '').toLowerCase().includes(fq)) : pickFiles
+                    return (
+                    <>
+                      <div style={{ position:'relative', marginBottom:8 }}>
+                        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round" style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+                        <input value={fileQuery} onChange={e => setFileQuery(e.target.value)} placeholder="Search tracks…" style={{ ...input, paddingLeft:33, fontSize:12.5 }} />
+                      </div>
+                      {files.length === 0 ? <div style={{ fontSize:12.5, color:C.t3, padding:'8px 2px' }}>No tracks match “{fileQuery}”.</div> : (
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                      {pickFiles.map(f => {
+                      {files.map(f => {
                         const playing = previewId === f.id
                         return (
                         <div key={f.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 12px', borderRadius:10, background:C.bg, border:`1px solid ${playing ? C.coral : C.border}` }}>
@@ -380,7 +409,10 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                         )
                       })}
                     </div>
-                  )
+                      )}
+                    </>
+                    )
+                  })()
                 )}
               </div>
             </div>

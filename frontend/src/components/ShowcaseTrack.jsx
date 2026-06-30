@@ -18,7 +18,7 @@ function genPeaks(seed, n = 72) {
 // One showcased track: play button + interactive waveform with timestamped
 // comment pins (click the wave to seek, click a pin to replay from there) + a
 // comments panel. Only one track plays at a time (coordinated via a window event).
-export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccount, onLike, onDownload, onShare }) {
+export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccount, onLike, onDownload, onShare, onRemove, onRepost, originalOwner, onOpenOwner }) {
   const audioRef = useRef(null)
   const waveRef  = useRef(null)
   const [playing, setPlaying]   = useState(false)
@@ -30,7 +30,13 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
   const [atTime, setAtTime]     = useState(null)         // pin a comment to this moment
   const [busy, setBusy]         = useState(false)
 
-  const peaks = useMemo(() => (Array.isArray(item.peaks) && item.peaks.length ? item.peaks : genPeaks(item.id)), [item.id])
+  const rawPeaks = useMemo(() => (Array.isArray(item.peaks) && item.peaks.length ? item.peaks : genPeaks(item.id)), [item.id])
+  // Resample to many thin bars for a light, delicate waveform (not chunky).
+  const peaks = useMemo(() => {
+    const N = 96, src = rawPeaks
+    if (src.length === N) return src
+    return Array.from({ length: N }, (_, i) => src[Math.floor(i * src.length / N)] ?? 0.2)
+  }, [rawPeaks])
   const maxPeak = useMemo(() => Math.max(...peaks, 0.001), [peaks])
 
   // Pause this track if another one starts.
@@ -115,112 +121,140 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
         onEnded={() => { setPlaying(false); setCur(0) }}
         style={{ display:'none' }} />
 
+      <style>{`
+        .sc-act { background:none; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-family:inherit; font-size:12.5px; font-weight:600; padding:4px; border-radius:8px; transition:color .12s; }
+        .sc-cmt .sc-del { opacity:0; transition:opacity .12s; }
+        .sc-cmt:hover .sc-del { opacity:1; }
+      `}</style>
+
+      {/* Original-author credit (reposts only) */}
+      {originalOwner && (
+        <div onClick={() => originalOwner.handle && onOpenOwner?.(originalOwner.handle)}
+          style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px 0', cursor: originalOwner.handle ? 'pointer' : 'default' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <div style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, background: originalOwner.avatar_url ? `center/cover url(${originalOwner.avatar_url})` : C.grad }} />
+          <span style={{ fontSize:11.5, color:'rgba(255,255,255,.5)' }}>{originalOwner.display_name}{originalOwner.handle ? ` · @${originalOwner.handle}` : ''}</span>
+        </div>
+      )}
+
       {/* Top row */}
-      <div style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 14px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'clamp(10px,3vw,13px)', padding:'clamp(11px,3.5vw,13px) clamp(12px,4vw,15px)' }}>
         <button onClick={togglePlay} aria-label="Play"
-          style={{ width:44, height:44, borderRadius:'50%', flexShrink:0, border:'none', cursor:'pointer',
-            background:C.grad, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>
+          style={{ width:'clamp(40px,11vw,46px)', height:'clamp(40px,11vw,46px)', borderRadius:'50%', flexShrink:0, cursor:'pointer',
+            border:'1px solid rgba(255,255,255,.16)', background: playing ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.05)',
+            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, transition:'background .15s' }}>
           {playing ? '❚❚' : '▶'}
         </button>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:14, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{item.title}</div>
-          <div style={{ fontSize:11.5, color:'rgba(255,255,255,.45)', marginTop:2 }}>
+          <div style={{ fontSize:'clamp(13px, 3.6vw, 14.5px)', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{item.title}</div>
+          <div style={{ fontSize:'clamp(10.5px, 3vw, 11.5px)', color:'rgba(255,255,255,.4)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {[item.instrument, item.bpm && `${item.bpm} BPM`, item.musical_key].filter(Boolean).join(' · ') || 'Audio'}
             {' · '}{fmt(item.play_count)} plays
           </div>
         </div>
-        <button onClick={() => onLike(item)} aria-label="Like"
-          style={{ background:'none', border:'none', cursor:'pointer', color:item.liked?C.coral:'rgba(255,255,255,.55)',
-            fontSize:12.5, fontWeight:600, display:'flex', flexDirection:'column', alignItems:'center', gap:2, width:34 }}>
-          <span style={{ fontSize:17 }}>{item.liked ? '♥' : '♡'}</span>{fmt(item.like_count)}
-        </button>
-        <button onClick={toggleComments} aria-label="Comments"
-          style={{ background:'none', border:'none', cursor:'pointer', color:open?C.coral:'rgba(255,255,255,.55)',
-            fontSize:12.5, fontWeight:600, display:'flex', flexDirection:'column', alignItems:'center', gap:2, width:34 }}>
-          <span style={{ fontSize:16 }}>💬</span>{fmt(item.comment_count ?? (comments?.length||0))}
-        </button>
-        <button onClick={() => onDownload(item)} aria-label="Download"
-          style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.55)', fontSize:18, padding:'0 2px' }}>⤓</button>
-        <button onClick={() => onShare?.(item)} aria-label="Share" title="Share track"
-          style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.55)', padding:'0 2px', display:'flex', alignItems:'center' }}>
-          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:'clamp(6px, 2.5vw, 10px)', flexShrink:0 }}>
+          <button className="sc-act" onClick={() => onLike(item)} aria-label="Like" style={{ color:item.liked?C.coral:'rgba(255,255,255,.5)' }}>
+            <svg width={17} height={17} viewBox="0 0 24 24" fill={item.liked?C.coral:'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            {fmt(item.like_count)}
+          </button>
+          <button className="sc-act" onClick={toggleComments} aria-label="Comments" style={{ color:open?C.coral:'rgba(255,255,255,.5)' }}>
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            {fmt(item.comment_count ?? (comments?.length||0))}
+          </button>
+          {onRepost && (
+            <button className="sc-act" onClick={() => onRepost(item)} aria-label="Repost" title={item.reposted ? 'Reposted' : 'Repost'} style={{ color:item.reposted?C.coral:'rgba(255,255,255,.5)' }}>
+              <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              {fmt(item.repost_count ?? 0)}
+            </button>
+          )}
+          <button className="sc-act" onClick={() => onShare?.(item)} aria-label="Share" title="Share track" style={{ color:'rgba(255,255,255,.5)' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </button>
+          <button className="sc-act" onClick={() => onDownload(item)} aria-label="Download" style={{ color:'rgba(255,255,255,.5)' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+          {ownerIsSelf && onRemove && (
+            <button className="sc-act" onClick={() => onRemove(item)} aria-label="Remove from profile" title="Remove from profile" style={{ color:'rgba(255,255,255,.5)' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+          )}
+        </div>
       </div>
 
-      {item.caption && <div style={{ fontSize:12.5, color:'rgba(255,255,255,.7)', padding:'0 14px 10px', lineHeight:1.4 }}>{item.caption}</div>}
+      {item.caption && <div style={{ fontSize:12.5, color:'rgba(255,255,255,.7)', padding:'0 15px 10px', lineHeight:1.4 }}>{item.caption}</div>}
 
       {/* Waveform */}
-      <div style={{ padding:'2px 14px 12px' }}>
+      <div style={{ padding:'2px clamp(12px,4vw,15px) 13px' }}>
         <div ref={waveRef} onClick={onWaveClick} title="Click anywhere to play & comment at that moment"
-          style={{ position:'relative', height:50, display:'flex', alignItems:'center', gap:2, cursor:'crosshair' }}>
+          style={{ position:'relative', height:46, display:'flex', alignItems:'center', justifyContent:'space-between', gap:0, cursor:'crosshair', overflow:'hidden' }}>
           {peaks.map((v, i) => {
             const passed = (i / peaks.length) * 100 <= playheadPct
-            return <div key={i} style={{ flex:1, height:`${Math.max(8, (v/maxPeak)*100)}%`, borderRadius:2,
-              background: passed ? C.coral : 'rgba(255,255,255,.18)', transition:'background .1s' }} />
+            return <div key={i} style={{ width:1.5, flexShrink:0, height:`${Math.max(6, (v/maxPeak)*100)}%`, borderRadius:1,
+              background: passed ? C.coral : 'rgba(255,255,255,.22)', transition:'background .1s' }} />
           })}
-          {/* Playhead */}
-          {playing && <div style={{ position:'absolute', top:0, bottom:0, left:`${playheadPct}%`, width:2, background:'#fff', opacity:.8 }} />}
-          {/* Comment pins */}
+          {playing && <div style={{ position:'absolute', top:0, bottom:0, left:`${playheadPct}%`, width:1.5, background:'#fff', opacity:.9 }} />}
           {dur > 0 && sorted.filter(c => c.timestamp_sec > 0).map(c => (
             <button key={c.id} title={`${c.author}: ${c.text}`}
               onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_sec, true) }}
-              style={{ position:'absolute', top:-4, left:`${Math.min(99,(c.timestamp_sec/dur)*100)}%`, transform:'translateX(-50%)',
-                width:14, height:14, borderRadius:'50%', border:'2px solid #0b0b10', background:C.coral, cursor:'pointer', padding:0 }} />
+              style={{ position:'absolute', top:-5, left:`${Math.min(99,(c.timestamp_sec/dur)*100)}%`, transform:'translateX(-50%)',
+                width:13, height:13, borderRadius:'50%', border:'2px solid #0b0b10', background:C.coral, cursor:'pointer', padding:0 }} />
           ))}
         </div>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:10.5, color:'rgba(255,255,255,.4)', marginTop:5 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:10.5, color:'rgba(255,255,255,.4)', marginTop:6 }}>
           <span>{fmtTime(cur)}</span>
-          <span style={{ color:'rgba(255,255,255,.3)' }}>click the wave to comment</span>
+          <span style={{ color:'rgba(255,255,255,.28)' }}>tap the wave to comment</span>
           <span>{dur ? fmtTime(dur) : '--:--'}</span>
         </div>
       </div>
 
-      {/* Comments panel */}
+      {/* Comments */}
       {open && (
-        <div style={{ borderTop:'1px solid rgba(255,255,255,.08)', padding:'12px 14px' }}>
-          {comments === null ? <div style={{ fontSize:12, color:'rgba(255,255,255,.4)' }}>Loading…</div> : (
+        <div style={{ borderTop:'1px solid rgba(255,255,255,.07)', padding:'14px 15px' }}>
+          {comments === null ? <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)' }}>Loading…</div> : (
             <>
               {sorted.length === 0 ? (
-                <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)', marginBottom:12 }}>No comments yet — drop the first one.</div>
+                <div style={{ fontSize:12.5, color:'rgba(255,255,255,.4)', marginBottom:14 }}>No comments yet — drop the first one.</div>
               ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:11, marginBottom:12, maxHeight:240, overflowY:'auto' }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:14, marginBottom:14, maxHeight:260, overflowY:'auto' }}>
                   {sorted.map(c => (
-                    <div key={c.id} style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
-                      <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+                    <div key={c.id} className="sc-cmt" style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                      <div style={{ width:30, height:30, borderRadius:'50%', flexShrink:0, overflow:'hidden',
                         background: c.avatar ? `center/cover url(${c.avatar})` : C.grad }} />
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12.5 }}>
-                          <span style={{ fontWeight:700 }}>{c.author}</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontSize:12.5, fontWeight:700 }}>{c.author}</span>
                           {c.timestamp_sec > 0 && (
-                            <button onClick={() => seekTo(c.timestamp_sec, true)}
-                              style={{ marginLeft:7, padding:'1px 6px', borderRadius:6, border:'none', cursor:'pointer',
-                                background:'rgba(244,147,122,.18)', color:C.coral, fontSize:10.5, fontWeight:700, fontFamily:'inherit' }}>
+                            <button onClick={() => seekTo(c.timestamp_sec, true)} title="Play from here"
+                              style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:100, border:'none', cursor:'pointer',
+                                background:'rgba(244,147,122,.16)', color:C.coral, fontSize:10.5, fontWeight:700, fontFamily:'inherit' }}>
                               ▶ {fmtTime(c.timestamp_sec)}
                             </button>
                           )}
                         </div>
-                        <div style={{ fontSize:12.5, color:'rgba(255,255,255,.82)', marginTop:2, lineHeight:1.4, wordBreak:'break-word' }}>{c.text}</div>
+                        <div style={{ fontSize:13, color:'rgba(255,255,255,.85)', marginTop:3, lineHeight:1.45, wordBreak:'break-word' }}>{c.text}</div>
                       </div>
                       {(ownerIsSelf || c.author === 'You') && (
-                        <button onClick={() => removeComment(c.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.3)', fontSize:13 }}>✕</button>
+                        <button className="sc-del" onClick={() => removeComment(c.id)} aria-label="Delete"
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.35)', fontSize:13, flexShrink:0 }}>✕</button>
                       )}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Composer */}
-              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              {/* Composer — pill with a time-pin and send */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 6px 5px 12px', borderRadius:100,
+                border:'1px solid rgba(255,255,255,.13)', background:'rgba(255,255,255,.04)' }}>
                 <button onClick={() => setAtTime(atTime == null ? cur : null)} title="Pin to current time"
-                  style={{ flexShrink:0, padding:'7px 10px', borderRadius:9, border:`1px solid ${atTime!=null?C.coral:'rgba(255,255,255,.15)'}`, cursor:'pointer',
-                    background: atTime!=null?'rgba(244,147,122,.15)':'transparent', color:atTime!=null?C.coral:'rgba(255,255,255,.6)', fontSize:11.5, fontWeight:700, fontFamily:'inherit' }}>
+                  style={{ flexShrink:0, padding:'4px 9px', borderRadius:100, border:'none', cursor:'pointer',
+                    background: atTime!=null ? C.coral : 'rgba(255,255,255,.1)', color:'#fff', fontSize:11, fontWeight:700, fontFamily:'inherit' }}>
                   @ {fmtTime(atTime != null ? atTime : cur)}
                 </button>
                 <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==='Enter' && addComment()}
                   placeholder={getToken() ? 'Add a comment…' : 'Sign in to comment…'}
-                  style={{ flex:1, minWidth:0, padding:'8px 12px', borderRadius:9, border:'1px solid rgba(255,255,255,.15)', background:'rgba(255,255,255,.05)', color:'#fff', fontSize:13, fontFamily:'inherit' }} />
-                <button onClick={addComment} disabled={!text.trim()||busy}
-                  style={{ flexShrink:0, padding:'8px 14px', borderRadius:9, border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit', opacity:(!text.trim()||busy)?.5:1 }}>Post</button>
+                  style={{ flex:1, minWidth:0, padding:'6px 4px', border:'none', background:'transparent', color:'#fff', fontSize:13, fontFamily:'inherit', outline:'none' }} />
+                <button onClick={addComment} disabled={!text.trim()||busy} aria-label="Post"
+                  style={{ flexShrink:0, width:34, height:34, borderRadius:'50%', border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:14, opacity:(!text.trim()||busy)?.45:1 }}>➤</button>
               </div>
             </>
           )}

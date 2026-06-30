@@ -292,4 +292,35 @@ showcase.delete('/comments/:id', async (c) => {
   return c.json({ data: { ok: true }, error: null, status: 200 })
 })
 
+// ── POST/DELETE /showcase/items/:id/repost — repost someone's track ───────────
+showcase.post('/items/:id/repost', async (c) => {
+  const me = c.var.user.id
+  const itemId = c.req.param('id')
+  const { data: item } = await supabase.from('showcase_items').select('user_id').eq('id', itemId).maybeSingle()
+  if (!item) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+  if ((item as any).user_id === me) return c.json({ data: null, error: "You can't repost your own track.", status: 400 }, 400)
+
+  const { data: prof } = await supabase.from('profiles').select('profile_public').eq('id', (item as any).user_id).single()
+  if (!prof || !(prof as any).profile_public) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+
+  const { error } = await supabase.from('reposts').insert({ user_id: me, showcase_item_id: itemId })
+  if (error && (error as any).code !== '23505') return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  const meta = (await getUsersByIds([me])).get(me)
+  const name = meta?.full_name || meta?.email?.split('@')[0] || 'Someone'
+  notify({
+    type: 'invite', recipientIds: [(item as any).user_id], title: `${name} reposted your track`,
+    body: 'Your track is reaching new ears 🔥', actorId: me, dedupKey: `repost:${me}:${itemId}`, dedupWindow: 60_000,
+  }).catch(() => null)
+
+  return c.json({ data: { reposted: true }, error: null, status: 200 })
+})
+
+showcase.delete('/items/:id/repost', async (c) => {
+  const me = c.var.user.id
+  const { error } = await supabase.from('reposts').delete().eq('user_id', me).eq('showcase_item_id', c.req.param('id'))
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { reposted: false }, error: null, status: 200 })
+})
+
 export default showcase

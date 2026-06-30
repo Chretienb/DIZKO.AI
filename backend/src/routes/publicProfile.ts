@@ -125,6 +125,71 @@ publicProfile.get('/search', readLimit, async (c) => {
   return c.json({ data: out, error: null, status: 200 })
 })
 
+// Resolve original-author display cards (handle / name / avatar) for reposts.
+async function ownerCards(ids: string[]): Promise<Map<string, any>> {
+  const m = new Map<string, any>()
+  if (!ids.length) return m
+  const [{ data: profs }, metas] = await Promise.all([
+    supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', ids),
+    getUsersByIds(ids),
+  ])
+  for (const id of ids) {
+    const pr = (profs ?? []).find((x: any) => x.id === id) as any
+    const meta = metas.get(id)
+    m.set(id, {
+      handle:       pr?.handle ?? null,
+      display_name: pr?.display_name || meta?.full_name || pr?.handle || 'Dizko artist',
+      avatar_url:   pr?.avatar_url || meta?.avatar_url || null,
+    })
+  }
+  return m
+}
+
+// ── GET /u/:handle/reposts — tracks this profile has reposted (crediting original)
+publicProfile.get('/:handle/reposts', readLimit, async (c) => {
+  const handle = c.req.param('handle').toLowerCase()
+  const me = await viewerId(c)
+
+  const { data: prof } = await supabase.from('profiles').select('id, profile_public').eq('handle', handle).maybeSingle()
+  if (!prof || (!(prof as any).profile_public && me !== (prof as any).id)) return c.json({ data: [], error: null, status: 200 })
+
+  const { data: reps } = await supabase
+    .from('reposts')
+    .select('created_at, item:showcase_items ( id, user_id, caption, like_count, play_count, comment_count, repost_count, stem:stems ( suggested_name, original_name, instrument, notes ) )')
+    .eq('user_id', (prof as any).id)
+    .order('created_at', { ascending: false })
+
+  const list = (reps ?? []).filter((r: any) => r.item)   // skip originals that were deleted
+  const owners = await ownerCards([...new Set(list.map((r: any) => r.item.user_id))])
+
+  const likedSet = new Set<string>(), repostedSet = new Set<string>()
+  if (me && list.length) {
+    const ids = list.map((r: any) => r.item.id)
+    const [{ data: likes }, { data: myreps }] = await Promise.all([
+      supabase.from('showcase_likes').select('showcase_item_id').eq('user_id', me).in('showcase_item_id', ids),
+      supabase.from('reposts').select('showcase_item_id').eq('user_id', me).in('showcase_item_id', ids),
+    ])
+    for (const l of (likes ?? []) as any[]) likedSet.add(l.showcase_item_id)
+    for (const r of (myreps ?? []) as any[]) repostedSet.add(r.showcase_item_id)
+  }
+
+  const data = list.map((r: any) => {
+    const i = r.item
+    let meta: any = {}; try { meta = JSON.parse(i.stem?.notes || '{}') } catch { /* unparseable */ }
+    return {
+      id: i.id,
+      title: i.stem?.suggested_name || i.stem?.original_name || 'Untitled',
+      instrument: i.stem?.instrument ?? null, bpm: meta.bpm ?? null, musical_key: meta.key ?? null, peaks: meta.peaks ?? null,
+      caption: i.caption ?? null, like_count: i.like_count, play_count: i.play_count,
+      comment_count: i.comment_count ?? 0, repost_count: i.repost_count ?? 0,
+      liked: likedSet.has(i.id), reposted: repostedSet.has(i.id),
+      stream_url: `/u/item/${i.id}/stream`,
+      owner: owners.get(i.user_id) ?? null,
+    }
+  })
+  return c.json({ data, error: null, status: 200 })
+})
+
 // ── GET /u/:handle — public profile + showcase grid ───────────────────────────
 publicProfile.get('/:handle', readLimit, async (c) => {
   const handle = c.req.param('handle').toLowerCase()
@@ -146,7 +211,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
   // Showcase grid — explicit allow-list; NO file_url / storage_path ever leaves here.
   const { data: items } = await supabase
     .from('showcase_items')
-    .select('id, caption, position, like_count, play_count, comment_count, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
+    .select('id, caption, position, like_count, play_count, comment_count, repost_count, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
     .eq('user_id', p.id)
     .order('position', { ascending: true })
     .order('created_at', { ascending: false })
@@ -154,14 +219,17 @@ publicProfile.get('/:handle', readLimit, async (c) => {
   // Viewer-specific state (so logged-in visitors get correct button states in one round-trip).
   let isFollowing = false
   const likedSet = new Set<string>()
+  const repostedSet = new Set<string>()
   if (me) {
-    const [{ data: f }, { data: likes }] = await Promise.all([
+    const itemIds = (items ?? []).map((i: any) => i.id)
+    const [{ data: f }, { data: likes }, { data: reps }] = await Promise.all([
       supabase.from('follows').select('following_id').eq('follower_id', me).eq('following_id', p.id).maybeSingle(),
-      supabase.from('showcase_likes').select('showcase_item_id').eq('user_id', me)
-        .in('showcase_item_id', (items ?? []).map((i: any) => i.id)),
+      supabase.from('showcase_likes').select('showcase_item_id').eq('user_id', me).in('showcase_item_id', itemIds),
+      supabase.from('reposts').select('showcase_item_id').eq('user_id', me).in('showcase_item_id', itemIds),
     ])
     isFollowing = !!f
     for (const l of (likes ?? []) as any[]) likedSet.add(l.showcase_item_id)
+    for (const r of (reps ?? []) as any[]) repostedSet.add(r.showcase_item_id)
   }
 
   // Fall back to auth metadata for display name / avatar when the profile hasn't set its own.
@@ -194,7 +262,9 @@ publicProfile.get('/:handle', readLimit, async (c) => {
           like_count: i.like_count,
           play_count: i.play_count,
           comment_count: i.comment_count ?? 0,
+          repost_count: i.repost_count ?? 0,
           liked:      likedSet.has(i.id),
+          reposted:   repostedSet.has(i.id),
           stream_url: `/u/item/${i.id}/stream`,
         }
       }),

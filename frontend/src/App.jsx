@@ -695,6 +695,19 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     prevPathRef.current = location.pathname
   }, [location.pathname])
 
+  // Inbox unread badge — refetch on navigation, focus, and a light interval.
+  const [inboxUnread, setInboxUnread] = React.useState(0)
+  React.useEffect(() => {
+    if (!user?.id) return
+    let live = true
+    const f = () => messagesApi.unread().then(r => { if (live) setInboxUnread(r?.data?.unread || 0) }).catch(() => {})
+    f()
+    const iv = setInterval(f, 30_000)
+    const onFocus = () => f()
+    window.addEventListener('focus', onFocus)
+    return () => { live = false; clearInterval(iv); window.removeEventListener('focus', onFocus) }
+  }, [user?.id, location.pathname])
+
   // Owner-pays: creating projects and inviting are paid (owner) actions, but
   // UPLOADING is contributing — free collaborators must be able to add their
   // stems to projects they're a member of. (Backend gates create/invite/export;
@@ -873,9 +886,14 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     color: on ? 'var(--t1)' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
                   onMouseEnter={e => { warmNav(n.path); if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
-                  <span style={{ width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                  <span style={{ position:'relative', width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                     background: (!expanded && on) ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
                     <n.Icon size={isMobile ? 19 : 22} weight={on ? 'bold' : 'regular'} />
+                    {n.id === 'inbox' && inboxUnread > 0 && (
+                      <span style={{ position:'absolute', top:2, right:2, minWidth:16, height:16, padding:'0 4px', borderRadius:8,
+                        background:'#E95A51', color:'#fff', fontSize:9.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                        lineHeight:1, border:'2px solid var(--bg)' }}>{inboxUnread > 99 ? '99+' : inboxUnread}</span>
+                    )}
                   </span>
                   <span style={{ fontSize: expanded ? 13.5 : (isMobile ? 9 : 9.5), fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
                 </button>

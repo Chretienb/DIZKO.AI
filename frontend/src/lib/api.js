@@ -498,6 +498,14 @@ export const publicApi = {
   itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
   // Search public producer profiles by handle / display name.
   searchProfiles: async (q) => { const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(q)}`); return r.json() },
+  // Tracks a profile has reposted (each credits the original author).
+  reposts: async (handle) => {
+    const token = getToken()
+    const r = await fetch(`${BASE}/u/${encodeURIComponent(handle)}/reposts`, {
+      credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    return r.json()
+  },
 }
 
 // ── Social showcase (authenticated: profile editing, curation, follow/like) ───
@@ -516,6 +524,8 @@ export const showcaseApi = {
   unlike:        (itemId)           => del(`/showcase/items/${itemId}/like`),
   comment:       (itemId, text, timestamp_sec) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec }),
   deleteComment: (commentId)        => del(`/showcase/comments/${commentId}`),
+  repost:        (itemId)           => post(`/showcase/items/${itemId}/repost`),
+  unrepost:      (itemId)           => del(`/showcase/items/${itemId}/repost`),
 }
 
 // ── Stem comments ─────────────────────────────────────────────────────────────
