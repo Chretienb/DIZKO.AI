@@ -6,6 +6,7 @@ import { getToken } from './lib/utils.js'
 import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
+import { Spinner } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
 
 const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
@@ -14,15 +15,24 @@ const BASE = '/api'
 // Public producer profile — the social showcase. No app shell, no login to view.
 // Logged-out visitors can browse + stream previews; following, liking, and
 // HQ downloads require an account (we stash intent and route to /login).
-export default function PublicProfile() {
-  const { handle } = useParams()
+export default function PublicProfile({ embedded = false }) {
+  const { handle: paramHandle } = useParams()
+  // Embedded (inside the studio app shell): show MY profile, resolved from my
+  // own handle instead of a URL param — no second sidebar, app rail stays.
   const navigate = useNavigate()
   const [state, setState]   = useState('loading')   // loading | notfound | ready
   const [p, setP]           = useState(null)
   const [items, setItems]   = useState([])
   const [following, setFollowing] = useState(false)
-  const [myHandle, setMyHandle]   = useState(null)   // logged-in viewer's own handle → "My profile"
-  const [myAvatar, setMyAvatar]   = useState(null)
+  // Seed my handle/avatar synchronously from the cached /showcase/me snapshot so
+  // "Back to my profile" resolves instantly instead of waiting on a round-trip.
+  const _mc = showcaseApi.meCache?.()
+  const [myHandle, setMyHandle]   = useState(_mc?.profile?.handle || null)   // logged-in viewer's own handle
+  const [myAvatar, setMyAvatar]   = useState(_mc?.profile?.avatar_url || null)
+  const [myHandleLoaded, setMyHandleLoaded] = useState(!!_mc)
+  // A URL handle wins (viewing a specific profile); with none, embedded /profile
+  // resolves to my own handle.
+  const handle = paramHandle || myHandle
   const [dm, setDm]               = useState(null)   // { kind:'message'|'collab' } — open DM thread
   const [toast, setToast]         = useState(null)
   const [authPrompt, setAuthPrompt] = useState(null) // { action } — smooth sign-up nudge
@@ -39,17 +49,30 @@ export default function PublicProfile() {
 
   // Logged-in viewer's own handle/avatar, for the "My profile" avatar shortcut.
   useEffect(() => {
-    if (!getToken()) return
-    showcaseApi.me().then(r => { const pr = r?.data?.profile || {}; setMyHandle(pr.handle || null); setMyAvatar(pr.avatar_url || null) }).catch(() => {})
+    if (!getToken()) { setMyHandleLoaded(true); return }
+    showcaseApi.me()
+      .then(r => {
+        const pr = r?.data?.profile || {}
+        setMyHandle(pr.handle || null); setMyAvatar(pr.avatar_url || null)
+        // Warm my own profile so "Back to my profile" paints instantly when I'm
+        // currently looking at someone else's page.
+        if (pr.handle && pr.handle !== handle) publicApi.prefetchProfile(pr.handle)
+      })
+      .catch(() => {})
+      .finally(() => setMyHandleLoaded(true))
   }, [])
 
   const flashToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
   // Deep-link to a specific track (?t=<itemId>) — scroll it into view.
+  // Dashboard shortcuts open the overlays directly (?discover=1, ?share=1).
   useEffect(() => {
     if (state !== 'ready') return
-    const t = new URLSearchParams(window.location.search).get('t')
+    const q = new URLSearchParams(window.location.search)
+    const t = q.get('t')
     if (t) setTimeout(() => document.getElementById(`track-${t}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
+    if (q.get('discover') === '1') setDiscoverOpen(true)
+    if (q.get('share') === '1') setShareCard({ kind: 'profile' })
   }, [state])
 
   // Share — native share sheet where available, otherwise copy the link.
@@ -65,6 +88,7 @@ export default function PublicProfile() {
   const shareTrack   = (item) => setShareCard({ kind: 'track', item })
 
   useEffect(() => {
+    if (!handle) return   // embedded: still resolving my own handle
     setTab('tracks'); setReposts(null)   // reset when switching profiles
     // Seeded demo producers render client-side (no DB) so the network feels alive.
     const demo = getDemoProfile(handle)
@@ -175,16 +199,23 @@ export default function PublicProfile() {
   }
 
   const railNav = (label, icon, onClick, active = false) => (
-    <button onClick={onClick} className={`pp-railitem${active ? ' on' : ''}`}
-      style={{ width:'100%', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:12, padding:'7px 10px', borderRadius:11, fontFamily:'inherit',
-        background: active ? 'rgba(var(--fg),.1)' : 'transparent', color: active ? '#fff' : 'rgba(var(--fg),.45)', transition:'color .12s, background .12s' }}>
-      <span style={{ width:42, height:42, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>{icon}</span>
-      <span className="pp-raillabel" style={{ fontSize:13.5, fontWeight:500, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{label}</span>
+    <button onClick={onClick} className="pp-railitem"
+      style={{ width:'100%', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:11, padding:'9px 10px', borderRadius:10, fontFamily:'inherit', textAlign:'left',
+        background:'transparent', color: active ? 'var(--t1)' : 'rgba(var(--fg),.6)', fontSize:13.5, fontWeight:500, transition:'color .12s, background .12s' }}>
+      <span style={{ flexShrink:0, display:'flex' }}>{icon}</span>
+      <span className="pp-raillabel" style={{ lineHeight:1, whiteSpace:'nowrap' }}>{label}</span>
     </button>
   )
 
-  const Shell = ({ children }) => (
-    <div className={`pp-shell${railCollapsed ? ' pp-collapsed' : ''}`} style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
+  // Embedded inside the studio app shell: no own rail / topbar / full-page bg —
+  // just the profile content, so the app's sidebar is the only one on screen.
+  const Shell = embedded
+    ? ({ children }) => (
+        <div style={{ width:'100%', padding:'0 clamp(12px,2.5vw,28px) 60px', minWidth:0,
+          color:'var(--t1)', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>{children}</div>
+      )
+    : ({ children }) => (
+    <div className="pp-shell" style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
       background:'var(--bg)',
       color:'var(--t1)', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>
       <style>{`
@@ -192,42 +223,27 @@ export default function PublicProfile() {
         .pp-topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; }
         .pp-topbar-logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
         .pp-content { padding:0 16px 60px; }
-        .pp-railitem:not(.on):hover { background:rgba(var(--fg),.05); color:rgba(var(--fg),.75); }
+        .pp-railitem:hover { background:rgba(var(--fg),.05); color:var(--t1) !important; }
         @media (min-width:1000px) {
-          .pp-rail { display:flex; width:240px; }
-          .pp-content { padding-left:240px; }
-          .pp-topbar { justify-content:flex-end; padding-top:14px; }
+          .pp-rail { display:flex; width:210px; }
+          .pp-content { padding-right:210px; }
+          .pp-topbar { justify-content:flex-start; padding-top:14px; }
           .pp-topbar-logo { display:none; }
-          .pp-shell.pp-collapsed .pp-rail { width:76px; }
-          .pp-shell.pp-collapsed .pp-content { padding-left:76px; }
-          .pp-shell.pp-collapsed .pp-railitem { justify-content:center; }
-          .pp-shell.pp-collapsed .pp-raillabel, .pp-shell.pp-collapsed .pp-logo-text, .pp-shell.pp-collapsed .pp-rail-join { display:none; }
-          .pp-shell.pp-collapsed .pp-railtop { flex-direction:column; gap:12px; }
         }
       `}</style>
 
-      {/* Sidebar — public-app nav (desktop only), styled like the studio rail */}
-      <aside className="pp-rail" style={{ position:'fixed', left:0, top:0, bottom:0, flexDirection:'column', gap:4,
-        padding:'14px 12px 18px', borderRight:'1px solid rgba(var(--fg),.07)', background:'rgba(0,0,0,.28)', zIndex:5, boxSizing:'border-box' }}>
-        <div className="pp-railtop" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'2px 4px 16px' }}>
-          <a href="/" className="pp-logo" style={{ display:'flex', alignItems:'center', gap:9, textDecoration:'none', minWidth:0 }}>
-            <img src="/logo.png" alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', flexShrink:0, boxShadow:'0 0 0 1px rgba(var(--fg),.08)' }} />
-            <span className="pp-logo-text" style={{ fontWeight:900, fontSize:17, letterSpacing:'-.5px', color:'var(--t1)' }}>dizko</span>
-          </a>
-          <button onClick={toggleRail} aria-label="Collapse" title={railCollapsed ? 'Expand' : 'Collapse'}
-            style={{ width:30, height:28, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" style={{ transform: railCollapsed ? 'rotate(180deg)' : 'none', transition:'transform .15s' }}><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-        </div>
-        {railNav('Profile', <UserCircle size={22} weight={p?.is_self ? 'fill' : 'regular'} />, () => { navigate(getToken() ? (myHandle ? `/u/${myHandle}` : '/login?join=1') : '/login?join=1'); window.scrollTo(0,0) }, !!p?.is_self)}
-        {railNav('Discover', <MagnifyingGlass size={22} />, () => setDiscoverOpen(true))}
-        {getToken() && railNav('Messages', <ChatCircle size={22} />, () => { try { sessionStorage.setItem('dizko_pub_return', window.location.pathname + window.location.search) } catch {} ; navigate('/inbox') })}
-        {getToken() && railNav('Add tracks', <PhPlus size={22} />, () => navigate('/library?profile=1'))}
-        {getToken() && railNav('Share', <ShareNetwork size={22} />, () => shareProfile())}
-        <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:4 }}>
-          {!getToken() && <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit', marginBottom:6 }}>Join Dizko</button>}
-          {railNav('Terms & Policies', <FileText size={22} />, () => { try { sessionStorage.setItem('dizko_pub_return', window.location.pathname + window.location.search) } catch {} ; navigate('/terms') })}
-        </div>
+      {/* Sidebar — public-app nav on the RIGHT (desktop only). Simple, no logo. */}
+      <aside className="pp-rail" style={{ position:'fixed', right:0, top:0, bottom:0, flexDirection:'column', gap:2,
+        padding:'20px 16px 18px', borderLeft:'1px solid rgba(var(--fg),.08)', background:'transparent', zIndex:5, boxSizing:'border-box' }}>
+        {railNav('Discover', <MagnifyingGlass size={20} />, () => setDiscoverOpen(true))}
+        {p?.is_self && railNav('Add tracks', <PhPlus size={20} />, () => navigate('/profile/tracks'))}
+        {p?.is_self && railNav('Edit profile', <UserCircle size={20} />, () => navigate('/profile/edit'))}
+        {railNav('Share', <ShareNetwork size={20} />, () => shareProfile())}
+        {!getToken() && (
+          <div style={{ marginTop:'auto' }}>
+            <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit' }}>Join Dizko</button>
+          </div>
+        )}
       </aside>
 
       {/* Content */}
@@ -242,7 +258,7 @@ export default function PublicProfile() {
             <div style={{ display:'flex', alignItems:'center', gap:16 }}>
               {getToken() && <button onClick={backToApp} style={navLink}>← Back to app</button>}
               {getToken() && myHandle && (
-                <button onClick={() => { navigate(`/u/${myHandle}`); window.scrollTo(0,0) }} title="Go to my profile"
+                <button onClick={() => { navigate('/profile'); window.scrollTo(0,0) }} title="Go to my profile"
                   className="pp-me" style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 5px 4px 13px', borderRadius:100, cursor:'pointer',
                     background:'rgba(var(--fg),.06)', border:'1px solid rgba(var(--fg),.12)', fontFamily:'inherit' }}>
                   <span style={{ fontSize:12, fontWeight:700, color:'var(--t1)' }}>My profile</span>
@@ -258,7 +274,17 @@ export default function PublicProfile() {
     </div>
   )
 
-  if (state === 'loading')  return <Shell><div style={{ textAlign:'center', color:'rgba(var(--fg),.5)', fontSize:14, paddingTop:60 }}>Loading…</div></Shell>
+  // Embedded on /profile with no handle claimed yet → nudge to Edit profile.
+  if (embedded && !paramHandle && myHandleLoaded && !myHandle) return (
+    <Shell>
+      <div style={{ textAlign:'center', paddingTop:60 }}>
+        <div style={{ fontSize:17, fontWeight:800, marginBottom:8 }}>Set up your public profile</div>
+        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>Claim a handle to get your public page at dizko.ai/u/you.</div>
+        <button onClick={() => navigate('/profile/edit')} style={{ border:'none', borderRadius:11, padding:'11px 22px', cursor:'pointer', background:C.coral, color:'#fff', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>Edit profile</button>
+      </div>
+    </Shell>
+  )
+  if (state === 'loading')  return <Shell><div style={{ textAlign:'center', color:'rgba(var(--fg),.5)', fontSize:14, paddingTop:60 }}><Spinner size={26} /></div></Shell>
   if (state === 'notfound') return (
     <Shell>
       <div style={{ textAlign:'center', paddingTop:50 }}>
@@ -274,10 +300,17 @@ export default function PublicProfile() {
       <style>{`
         .pp-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:18px; align-items:start; }
         .pp-left, .pp-right { min-width:0; }
+        .pp-actions { display:none; }
         @media (min-width: 860px) {
           .pp-grid { grid-template-columns: 340px minmax(0,1fr); gap:40px; }
           .pp-left { position:sticky; top:16px; }
         }
+        @media (min-width: 1080px) {
+          .pp-grid.pp-grid-3 { grid-template-columns: 300px minmax(0,1fr) 190px; gap:28px; }
+          .pp-actions { display:flex; flex-direction:column; gap:2px; position:sticky; top:16px;
+            padding-left:22px; border-left:1px solid rgba(var(--fg),.08); }
+        }
+        .pp-actbtn:hover { color:var(--t1) !important; background:rgba(var(--fg),.05) !important; }
         .pp-me > div { transition:border-color .15s; }
         .pp-me:hover > div { border-color:#fff; }
         @keyframes ppSpin { to { transform: rotate(360deg); } }
@@ -290,7 +323,18 @@ export default function PublicProfile() {
         .pp-self-actions { display:flex; gap:8px; flex-wrap:wrap; }
         @media (min-width: 1000px) { .pp-self-actions { display:none; } }
       `}</style>
-      <div className="pp-grid">
+      {/* Viewing someone else inside the app → light way back to your own page. */}
+      {embedded && !p.is_self && (
+        <button onClick={() => { navigate('/profile'); window.scrollTo(0, 0) }}
+          onMouseEnter={e => { e.currentTarget.style.color='var(--t1)'; if (myHandle) publicApi.prefetchProfile(myHandle) }}
+          style={{ display:'inline-flex', alignItems:'center', gap:7, margin:'4px 0 14px', padding:'2px 0',
+            border:'none', cursor:'pointer', background:'transparent', color:'rgba(var(--fg),.5)', fontFamily:'inherit', fontSize:12.5, fontWeight:500, transition:'color .12s' }}
+          onMouseLeave={e => e.currentTarget.style.color='rgba(var(--fg),.5)'}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back to my profile
+        </button>
+      )}
+      <div className={`pp-grid${embedded ? ' pp-grid-3' : ''}`}>
       <div className="pp-left">
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:18, padding:'14px 4px 14px' }}>
@@ -310,7 +354,7 @@ export default function PublicProfile() {
       <div style={{ padding:'0 4px 18px' }}>
         {p.is_self ? (
           <div className="pp-self-actions">
-            <button onClick={() => navigate('/library?profile=1')} style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>
+            <button onClick={() => navigate('/profile/tracks')} style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
               Add tracks
             </button>
@@ -323,8 +367,6 @@ export default function PublicProfile() {
               {following ? 'Following' : 'Follow'}
             </button>
             <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
-            <button onClick={() => contact('collab')} style={ghostBtn}>Collab</button>
-            <button onClick={shareProfile} title="Share profile" style={ghostBtn}>{shareIcon} Share</button>
           </div>
         )}
       </div>
@@ -375,7 +417,7 @@ export default function PublicProfile() {
               {p.is_self && (
                 <>
                   <div style={{ fontSize:13, color:'rgba(var(--fg),.55)', marginBottom:18 }}>Pick your best sounds from your library to show the world.</div>
-                  <button onClick={() => navigate('/library?profile=1')}
+                  <button onClick={() => navigate('/profile/tracks')}
                     style={{ padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer', background:'rgba(var(--fg),.12)', color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
                     + Add from your library
                   </button>
@@ -425,6 +467,27 @@ export default function PublicProfile() {
         </div>
       )}
       </div>{/* /pp-right */}
+
+      {/* Right action rail (desktop). Simple, no highlight. Owner tools when it's
+          your page; just Discover + Share when viewing someone else. */}
+      {embedded && (
+        <aside className="pp-actions">
+          {[
+            { label:'Discover',     icon:<MagnifyingGlass size={19} />, onClick: () => setDiscoverOpen(true) },
+            ...(p.is_self ? [
+              { label:'Add tracks',   icon:<PhPlus size={19} />,     onClick: () => navigate('/profile/tracks') },
+              { label:'Edit profile', icon:<UserCircle size={19} />, onClick: () => navigate('/profile/edit') },
+            ] : []),
+            { label:'Share',        icon:<ShareNetwork size={19} />,    onClick: () => shareProfile() },
+          ].map(a => (
+            <button key={a.label} onClick={a.onClick} className="pp-actbtn"
+              style={{ display:'flex', alignItems:'center', gap:11, width:'100%', padding:'9px 10px', borderRadius:10, border:'none', cursor:'pointer',
+                background:'transparent', color:'rgba(var(--fg),.6)', fontFamily:'inherit', fontSize:13.5, fontWeight:500, textAlign:'left' }}>
+              <span style={{ flexShrink:0, display:'flex' }}>{a.icon}</span>{a.label}
+            </button>
+          ))}
+        </aside>
+      )}
       </div>{/* /pp-grid */}
 
       <div id="pp-discover"><DiscoverProducers currentHandle={p.handle} navigate={navigate} /></div>
@@ -434,6 +497,7 @@ export default function PublicProfile() {
       {shareCard && (
         <ShareCard kind={shareCard.kind} item={shareCard.item}
           profile={{ handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }}
+          canEditPhoto={!!p.is_self}
           onClose={() => setShareCard(null)} />
       )}
 

@@ -41,7 +41,7 @@ showcase.get('/me', async (c) => {
       .eq('id', me).maybeSingle(),
     supabase
       .from('showcase_items')
-      .select('id, stem_id, caption, position, like_count, play_count, preview_only, link, stem:stems ( suggested_name, original_name, instrument )')
+      .select('id, stem_id, caption, position, like_count, play_count, preview_only, links, allow_download, image_url, stem:stems ( suggested_name, original_name, instrument )')
       .eq('user_id', me)
       .order('position', { ascending: true })
       .order('created_at', { ascending: false }),
@@ -53,7 +53,10 @@ showcase.get('/me', async (c) => {
       items: (items ?? []).map((i: any) => ({
         id: i.id, stem_id: i.stem_id, caption: i.caption ?? null, position: i.position,
         like_count: i.like_count, play_count: i.play_count,
-        preview_only: !!i.preview_only, link: i.link ?? null,
+        preview_only: !!i.preview_only,
+        links: Array.isArray(i.links) ? i.links : [],
+        allow_download: i.allow_download !== false,
+        image_url: i.image_url ?? null,
         title: i.stem?.suggested_name || i.stem?.original_name || 'Untitled',
         instrument: i.stem?.instrument ?? null,
       })),
@@ -126,6 +129,7 @@ showcase.post('/items', sanitize, async (c) => {
   const b = (c.var.body ?? {}) as Record<string, unknown>
   const stemId  = typeof b.stem_id === 'string' ? b.stem_id : null
   const caption = typeof b.caption === 'string' ? b.caption.slice(0, 280) : null
+  const image   = typeof b.image_url === 'string' && b.image_url ? b.image_url.slice(0, 1000) : null
   if (!stemId) return c.json({ data: null, error: 'stem_id is required', status: 400 }, 400)
 
   // Ownership: you can only showcase files YOU uploaded.
@@ -141,7 +145,7 @@ showcase.post('/items', sanitize, async (c) => {
   const position = ((last as any)?.position ?? -1) + 1
 
   const { data, error } = await supabase.from('showcase_items')
-    .insert({ user_id: me, stem_id: stemId, caption, position })
+    .insert({ user_id: me, stem_id: stemId, caption, position, image_url: image })
     .select('id, stem_id, caption, position').single()
   if (error) {
     if ((error as any).code === '23505') return c.json({ data: null, error: 'Already on your profile.', status: 409 }, 409)
@@ -159,15 +163,29 @@ showcase.patch('/items/:id', sanitize, async (c) => {
   if ('caption' in b)  patch.caption  = b.caption ? String(b.caption).slice(0, 280) : null
   if ('position' in b && Number.isFinite(Number(b.position))) patch.position = Math.max(0, Math.trunc(Number(b.position)))
   if ('preview_only' in b) patch.preview_only = !!b.preview_only
-  if ('link' in b) {
-    const l = b.link ? String(b.link).trim().slice(0, 500) : ''
-    patch.link = l ? (/^https?:\/\//i.test(l) ? l : `https://${l}`) : null
+  if ('allow_download' in b) patch.allow_download = b.allow_download !== false
+  if ('links' in b && Array.isArray(b.links)) {
+    const norm = (s: unknown) => {
+      const v = typeof s === 'string' ? s.trim().slice(0, 500) : ''
+      if (!v) return null
+      return /^https?:\/\//i.test(v) ? v : `https://${v}`
+    }
+    patch.links = (b.links as unknown[])
+      .map(l => {
+        const o = (l ?? {}) as Record<string, unknown>
+        const url = norm(o.url)
+        if (!url) return null
+        const label = typeof o.label === 'string' ? o.label.trim().slice(0, 40) : ''
+        return { label: label || 'Link', url }
+      })
+      .filter(Boolean)
+      .slice(0, 8)
   }
   if (Object.keys(patch).length === 0) return c.json({ data: null, error: 'Nothing to update', status: 400 }, 400)
 
   const { data, error } = await supabase.from('showcase_items')
     .update(patch).eq('id', id).eq('user_id', me)   // user_id scope = can only edit your own
-    .select('id, caption, position, preview_only, link').maybeSingle()
+    .select('id, caption, position, preview_only, links, allow_download').maybeSingle()
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   if (!data) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
   return c.json({ data, error: null, status: 200 })
@@ -185,11 +203,17 @@ showcase.delete('/items/:id', async (c) => {
 // ── GET /showcase/items/:id/download — gated HQ download (logged-in only) ──────
 const dlLimit = rateLimit({ max: 60, windowMs: 60_000 })
 showcase.get('/items/:id/download', dlLimit, async (c) => {
+  const me = c.var.user.id
   const { data: item } = await supabase
     .from('showcase_items')
-    .select('user_id, stem:stems ( storage_path, file_url, original_name )')
+    .select('user_id, allow_download, stem:stems ( storage_path, file_url, original_name )')
     .eq('id', c.req.param('id')).maybeSingle()
   if (!item) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+
+  // The owner gated downloads off — only they can still pull it.
+  if ((item as any).allow_download === false && (item as any).user_id !== me) {
+    return c.json({ data: null, error: 'Downloads are turned off for this track.', status: 403 }, 403)
+  }
 
   // Owner must be public (same visibility rule as the stream).
   const { data: prof } = await supabase.from('profiles').select('profile_public').eq('id', (item as any).user_id).single()

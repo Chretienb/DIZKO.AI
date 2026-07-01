@@ -235,7 +235,10 @@ function Root() {
       <Route path="/terms"          element={<Terms />} />
       <Route path="/cookies"        element={<CookiesPage />} />
       <Route path="/p/:id"          element={<PublicPitch />} />
-      <Route path="/u/:handle"      element={<PublicProfile />} />
+      {/* Logged-out visitors get the self-contained public page. Logged-in users
+          fall through to the app shell (below), which renders the profile INSIDE
+          the app so the left sidebar stays. */}
+      {!user && <Route path="/u/:handle" element={<PublicProfile />} />}
       <Route path="/welcome" element={
         <WelcomePage userName={userName} onClear={() => setUserName('')} />
       } />

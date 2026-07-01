@@ -20,7 +20,14 @@ function genPeaks(seed, n = 72) {
 // comments panel. Only one track plays at a time (coordinated via a window event).
 export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccount, onLike, onDownload, onShare, onRemove, onRepost, originalOwner, onOpenOwner }) {
   const PREVIEW_SEC = 30
-  const previewOnly = !!item.preview_only
+  const hasAccount  = !!getToken()
+  // Logged-out visitors always get a 30s preview. Signed-in listeners hear
+  // whatever the owner chose (full audio or 30s preview) for this track.
+  const previewOnly = !hasAccount || !!item.preview_only
+  // Download only exists when the owner allows it (owner keeps it for themselves).
+  const canDownload = item.allow_download !== false || ownerIsSelf
+  const links   = Array.isArray(item.links) ? item.links.filter(l => l?.url) : []
+  const artwork = item.image_url || '/share/vinyl-45.png'   // project cover, else vinyl
   const audioRef = useRef(null)
   const waveRef  = useRef(null)
   const [playing, setPlaying]   = useState(false)
@@ -183,10 +190,13 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
       {/* Top row */}
       <div style={{ display:'flex', alignItems:'center', gap:'clamp(10px,3vw,13px)', padding:'clamp(11px,3.5vw,13px) clamp(12px,4vw,15px)' }}>
         <button onClick={togglePlay} aria-label="Play"
-          style={{ width:'clamp(40px,11vw,46px)', height:'clamp(40px,11vw,46px)', borderRadius:'50%', flexShrink:0, cursor:'pointer',
-            border:'1px solid rgba(var(--fg),.16)', background: playing ? 'rgba(var(--fg),.12)' : 'rgba(var(--fg),.05)',
-            color:'var(--t1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, transition:'background .15s' }}>
-          {playing ? '❚❚' : '▶'}
+          style={{ width:'clamp(44px,12vw,52px)', height:'clamp(44px,12vw,52px)', borderRadius:11, flexShrink:0, cursor:'pointer', overflow:'hidden',
+            border:'1px solid rgba(var(--fg),.12)', padding:0, position:'relative',
+            background:`center/cover no-repeat url(${artwork}), rgba(var(--fg),.05)`,
+            display:'flex', alignItems:'center', justifyContent:'center', transition:'transform .12s' }}>
+          <span style={{ position:'absolute', inset:0, background: playing ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.28)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14 }}>
+            {playing ? '❚❚' : '▶'}
+          </span>
         </button>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:'clamp(13px, 3.6vw, 14.5px)', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{item.title}</div>
@@ -214,14 +224,16 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
           <button className="sc-act" onClick={() => onShare?.(item)} aria-label="Share" title="Share track" style={{ color:'rgba(var(--fg),.5)' }}>
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
           </button>
-          {item.link && (
-            <a className="sc-act" href={item.link} target="_blank" rel="noopener noreferrer nofollow" aria-label="Open link" title={item.link} style={{ color:'rgba(var(--fg),.5)', textDecoration:'none' }}>
+          {links.map((l, idx) => (
+            <a key={idx} className="sc-act" href={l.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={l.label || 'Open link'} title={l.label || l.url} style={{ color:'rgba(var(--fg),.5)', textDecoration:'none' }}>
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </a>
+          ))}
+          {canDownload && (
+            <button className="sc-act" onClick={() => onDownload(item)} aria-label="Download" style={{ color:'rgba(var(--fg),.5)' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
           )}
-          <button className="sc-act" onClick={() => onDownload(item)} aria-label="Download" style={{ color:'rgba(var(--fg),.5)' }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </button>
           {ownerIsSelf && onRemove && (
             <button className="sc-act" onClick={() => onRemove(item)} aria-label="Remove from profile" title="Remove from profile" style={{ color:'rgba(var(--fg),.5)' }}>
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>

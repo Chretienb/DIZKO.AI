@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { showcaseApi, projects as projectsApi, files as filesApi, auth as authApi } from './lib/api.js'
 import { C, Avatar, Spinner } from './components/ui/index.jsx'
 
+const LINK_PRESETS = ['Spotify', 'Apple Music', 'YouTube', 'SoundCloud', 'Bandcamp', 'Instagram']
+
 // One shared loading row — the brand equalizer spinner + label — so every
 // loading state in this editor looks the same instead of bare text.
 function Loading({ label = 'Loading…', pad = '40px 0' }) {
@@ -17,7 +19,10 @@ function Loading({ label = 'Loading…', pad = '40px 0' }) {
 // Producer-facing editor for the public showcase profile. Claim a handle, edit
 // name/bio/links, replace the photo (which updates the account pfp too), flip
 // the profile public, and curate which library files appear at /u/<handle>.
-export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
+// mode: 'tracks' → curate the showcase (Add tracks screen); 'profile' → edit
+// identity/bio/links/visibility (Edit profile screen). Split so each lives on
+// its own screen instead of one crowded editor.
+export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = 'tracks' }) {
   const navigate = useNavigate()
   const cached = showcaseApi.meCache()   // last snapshot → instant paint
   const [loading, setLoading]   = useState(!cached)
@@ -159,10 +164,13 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const addItem = async (stem) => {
     // Stop the preview if this track is the one playing.
     if (previewId === stem.id) { previewAudio.current?.pause(); setPreviewId(null) }
+    // Default the track's cover to the source project's image (vinyl fallback is
+    // handled on the public side when this is null).
+    const cover = projList.find(p => p.id === pickProject)?.cover_url || null
     try {
-      const r = await showcaseApi.addItem(stem.id, null)
+      const r = await showcaseApi.addItem(stem.id, null, cover)
       const title = stem.suggested_name || stem.original_name || 'Untitled'
-      setItems(list => [...list, { id: r.data.id, stem_id: stem.id, title, instrument: stem.instrument, caption: null, like_count: 0, play_count: 0 }])
+      setItems(list => [...list, { id: r.data.id, stem_id: stem.id, title, instrument: stem.instrument, caption: null, like_count: 0, play_count: 0, image_url: cover, allow_download: true, links: [] }])
       setPickFiles(list => list.filter(f => f.id !== stem.id))
     } catch (e) { flash(e.message || 'Could not add') }
   }
@@ -177,6 +185,12 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   const editItem = (id, patch) => setItems(list => list.map(i =>
     i.id === id ? { ...i, ...patch, _dirty: true, _saved: false } : i))
 
+  // Multiple external links per track (Spotify / Apple Music / YouTube / …).
+  const itemLinks   = (i) => Array.isArray(i.links) ? i.links : []
+  const addLink     = (i) => editItem(i.id, { links: [...itemLinks(i), { label: 'Spotify', url: '' }] })
+  const setLink     = (i, idx, patch) => editItem(i.id, { links: itemLinks(i).map((l, n) => n === idx ? { ...l, ...patch } : l) })
+  const removeLink  = (i, idx) => editItem(i.id, { links: itemLinks(i).filter((_, n) => n !== idx) })
+
   const saveItem = async (id) => {
     const it = items.find(i => i.id === id)
     if (!it) return
@@ -185,7 +199,8 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
       await showcaseApi.updateItem(id, {
         caption: it.caption?.trim() || null,
         preview_only: !!it.preview_only,
-        link: it.link?.trim() || null,
+        allow_download: it.allow_download !== false,
+        links: itemLinks(it).filter(l => l.url?.trim()),
       })
       setItems(list => list.map(i => i.id === id ? { ...i, _saving: false, _dirty: false, _saved: true } : i))
       setTimeout(() => setItems(list => list.map(i => i.id === id ? { ...i, _saved: false } : i)), 2200)
@@ -196,10 +211,10 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
   }
 
   // Closing returns to your public page (not the app), if you have a handle.
+  // Closing either editor screen returns to your public profile.
   const handleClose = () => {
-    const h = profile?.handle || handle
-    if (h) { navigate(`/u/${h}`); window.scrollTo(0, 0) }
-    else onClose()
+    onClose?.()                         // let the host (Library overlay) tidy up
+    navigate('/profile'); window.scrollTo(0, 0)
   }
 
   const liveHandle = profile?.handle
@@ -226,20 +241,20 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
       <audio ref={previewAudio} onEnded={() => setPreviewId(null)} style={{ display:'none' }} />
 
       <div style={header}>
-        <div style={{ fontSize:17, fontWeight:800, color:C.t1 }}>Public profile</div>
+        <div style={{ fontSize:17, fontWeight:800, color:C.t1 }}>{mode === 'profile' ? 'Edit profile' : 'Your tracks'}</div>
         <button onClick={handleClose} title="Back to my profile" style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:22, lineHeight:1 }}>✕</button>
       </div>
 
       <style>{`
-        .pe-grid { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
-        @media (min-width: 900px) { .pe-grid { grid-template-columns: 1.05fr .95fr; gap:18px; } }
+        .pe-grid { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; max-width:820px; margin:0 auto; }
         .pe-col > div:last-child { margin-bottom:0; }
       `}</style>
       <div style={panel}>
         {loading ? <Loading pad="80px 0" /> : (
           <>
           <div className="pe-grid">
-            {/* ── Left column ── */}
+            {mode === 'profile' && (
+            /* ── Left column: identity / visibility / about ── */
             <div className="pe-col">
             {/* ── Identity ── */}
             <div style={card}>
@@ -307,9 +322,10 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                 {saving ? 'Saving…' : 'Save profile'}
               </button>
             </div>
-            </div>{/* /left column */}
+            </div>
+            )}
 
-            {/* ── Right column ── */}
+            {mode === 'tracks' && (
             <div className="pe-col">
             {/* ── Showcase ── */}
             <div style={card}>
@@ -359,9 +375,45 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                           })}
                         </div>
                       </div>
-                      <input type="url" value={i.link || ''} onChange={e => editItem(i.id, { link: e.target.value })}
-                        maxLength={500} placeholder="Add a link… (buy, free download, booking — optional)"
-                        style={{ ...input, marginTop:8, fontSize:12.5, padding:'8px 11px' }} />
+                      {/* Allow downloads */}
+                      <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:10, flexWrap:'wrap' }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.04em' }}>Downloads</span>
+                        <div style={{ display:'inline-flex', padding:2, borderRadius:9, background:C.bg, border:`1px solid ${C.border}` }}>
+                          {[['on','Allow'],['off','Off']].map(([val, lbl]) => {
+                            const active = (val === 'off') === (i.allow_download === false)
+                            return (
+                              <button key={val} onClick={() => editItem(i.id, { allow_download: val === 'on' })}
+                                style={{ border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:700, padding:'6px 14px', borderRadius:7,
+                                  background: active ? C.grad : 'transparent', color: active ? '#fff' : C.t2 }}>{lbl}</button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Multiple links — Spotify, Apple Music, YouTube … */}
+                      <div style={{ marginTop:12 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.04em' }}>Links</span>
+                        <div style={{ display:'flex', flexDirection:'column', gap:7, marginTop:7 }}>
+                          {itemLinks(i).map((l, idx) => (
+                            <div key={idx} style={{ display:'flex', gap:7, alignItems:'center' }}>
+                              <select value={LINK_PRESETS.includes(l.label) ? l.label : 'Other'} onChange={e => setLink(i, idx, { label: e.target.value === 'Other' ? '' : e.target.value })}
+                                style={{ ...input, width:128, flexShrink:0, fontSize:12, padding:'8px 9px', cursor:'pointer' }}>
+                                {LINK_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                                <option value="Other">Other</option>
+                              </select>
+                              <input type="url" value={l.url || ''} onChange={e => setLink(i, idx, { url: e.target.value })}
+                                maxLength={500} placeholder="https://…"
+                                style={{ ...input, flex:1, fontSize:12.5, padding:'8px 11px' }} />
+                              <button onClick={() => removeLink(i, idx)} aria-label="Remove link" title="Remove link"
+                                style={{ flexShrink:0, width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'none', color:C.t3, cursor:'pointer', fontSize:15, lineHeight:1 }}>×</button>
+                            </div>
+                          ))}
+                          <button onClick={() => addLink(i)}
+                            style={{ alignSelf:'flex-start', background:'none', border:`1px dashed ${C.border}`, borderRadius:8, padding:'7px 13px', cursor:'pointer', color:C.t2, fontSize:12, fontWeight:600, fontFamily:'inherit' }}>
+                            + Add link
+                          </button>
+                        </div>
+                      </div>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, marginTop:10 }}>
                         {i._saved && <span style={{ fontSize:12, fontWeight:600, color:'#2bb673', display:'inline-flex', alignItems:'center', gap:5 }}>
                           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Saved
@@ -483,7 +535,8 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate }) {
                 )}
               </div>
             </div>
-            </div>{/* /right column */}
+            </div>
+            )}
           </div>{/* /pe-grid */}
 
             {msg && (

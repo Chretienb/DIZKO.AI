@@ -22,7 +22,7 @@ export default function PublicProfileToggle() {
 
   const open = async () => {
     if (busy) return
-    if (!handle) { navigate('/library?profile=1'); return }   // claim a handle first
+    if (!handle) { navigate('/profile/edit'); return }   // claim a handle first
     setOn(true); setBusy(true)
     try { await showcaseApi.updateProfile({ profile_public: true }) } catch {}
     navigate(`/u/${handle}`)

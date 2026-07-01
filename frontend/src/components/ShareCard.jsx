@@ -8,7 +8,7 @@ const ORIGIN = typeof window !== 'undefined' ? window.location.origin : ''
 // Dynamic, shareable "vinyl" card. Stamps the producer's @handle + track onto
 // the record (45 RPM for a single track, 33⅓ for a profile), adds a QR, and
 // shares the IMAGE via the native sheet (IG/WhatsApp/etc.) or downloads it.
-export default function ShareCard({ kind, item, profile, onClose }) {
+export default function ShareCard({ kind, item, profile, canEditPhoto = true, onClose }) {
   const cardRef = useRef(null)
   const fileRef = useRef(null)
   const [qr, setQr] = useState(null)
@@ -18,7 +18,9 @@ export default function ShareCard({ kind, item, profile, onClose }) {
 
   const isTrack = kind === 'track'
   const vinyl   = isTrack ? '/share/vinyl-45.png' : '/share/vinyl-33.png'
-  const bg      = customBg || vinyl
+  // Track card defaults to the song's own artwork (the project cover), then vinyl.
+  const defaultBg = (isTrack && item?.image_url) ? item.image_url : vinyl
+  const bg      = customBg || defaultBg
 
   const pickImage = (e) => {
     const f = e.target.files?.[0]
@@ -101,21 +103,23 @@ export default function ShareCard({ kind, item, profile, onClose }) {
           </div>
         </div>
 
-        {/* Cover image control */}
+        {/* Cover image control — only for your own profile/tracks. */}
         <input ref={fileRef} type="file" accept="image/*" onChange={pickImage} style={{ display:'none' }} />
-        <div style={{ display:'flex', justifyContent:'center', gap:18, marginBottom:14 }}>
-          <button onClick={() => fileRef.current?.click()}
-            style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.65)', fontSize:12.5, fontWeight:500, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:6 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            {customBg ? 'Change photo' : 'Use my photo'}
-          </button>
-          {customBg && (
-            <button onClick={() => setCustomBg(null)}
-              style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.45)', fontSize:12.5, fontWeight:500, fontFamily:'inherit' }}>
-              Use record
+        {canEditPhoto && (
+          <div style={{ display:'flex', justifyContent:'center', gap:18, marginBottom:14 }}>
+            <button onClick={() => fileRef.current?.click()}
+              style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.65)', fontSize:12.5, fontWeight:500, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:6 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              {customBg ? 'Change photo' : 'Use my photo'}
             </button>
-          )}
-        </div>
+            {customBg && (
+              <button onClick={() => setCustomBg(null)}
+                style={{ padding:'4px 2px', border:'none', cursor:'pointer', background:'transparent', color:'rgba(255,255,255,.45)', fontSize:12.5, fontWeight:500, fontFamily:'inherit' }}>
+                Use record
+              </button>
+            )}
+          </div>
+        )}
 
         <button onClick={shareImage} disabled={busy}
           style={{ width:'100%', padding:'13px', borderRadius:14, border:'none', cursor:'pointer', background:'#fff', color:'#111', fontSize:14, fontWeight:600, fontFamily:'inherit', marginBottom:6, opacity:busy?.6:1 }}>

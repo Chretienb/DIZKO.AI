@@ -155,7 +155,7 @@ publicProfile.get('/:handle/reposts', readLimit, async (c) => {
 
   const { data: reps } = await supabase
     .from('reposts')
-    .select('created_at, item:showcase_items ( id, user_id, caption, like_count, play_count, comment_count, repost_count, stem:stems ( suggested_name, original_name, instrument, notes ) )')
+    .select('created_at, item:showcase_items ( id, user_id, caption, like_count, play_count, comment_count, repost_count, preview_only, links, allow_download, image_url, stem:stems ( suggested_name, original_name, instrument, notes ) )')
     .eq('user_id', (prof as any).id)
     .order('created_at', { ascending: false })
 
@@ -182,6 +182,10 @@ publicProfile.get('/:handle/reposts', readLimit, async (c) => {
       instrument: i.stem?.instrument ?? null, bpm: meta.bpm ?? null, musical_key: meta.key ?? null, peaks: meta.peaks ?? null,
       caption: i.caption ?? null, like_count: i.like_count, play_count: i.play_count,
       comment_count: i.comment_count ?? 0, repost_count: i.repost_count ?? 0,
+      preview_only: !!i.preview_only,
+      links: Array.isArray(i.links) ? i.links : [],
+      allow_download: i.allow_download !== false,
+      image_url: i.image_url ?? null,
       liked: likedSet.has(i.id), reposted: repostedSet.has(i.id),
       stream_url: `/u/item/${i.id}/stream`,
       owner: owners.get(i.user_id) ?? null,
@@ -211,7 +215,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
   // Showcase grid — explicit allow-list; NO file_url / storage_path ever leaves here.
   const { data: items } = await supabase
     .from('showcase_items')
-    .select('id, caption, position, like_count, play_count, comment_count, repost_count, preview_only, link, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
+    .select('id, caption, position, like_count, play_count, comment_count, repost_count, preview_only, links, allow_download, image_url, created_at, stem:stems ( suggested_name, original_name, instrument, notes )')
     .eq('user_id', p.id)
     .order('position', { ascending: true })
     .order('created_at', { ascending: false })
@@ -264,7 +268,9 @@ publicProfile.get('/:handle', readLimit, async (c) => {
           comment_count: i.comment_count ?? 0,
           repost_count: i.repost_count ?? 0,
           preview_only: !!i.preview_only,
-          link:       i.link ?? null,
+          links:        Array.isArray(i.links) ? i.links : [],
+          allow_download: i.allow_download !== false,
+          image_url:    i.image_url ?? null,
           liked:      likedSet.has(i.id),
           reposted:   repostedSet.has(i.id),
           stream_url: `/u/item/${i.id}/stream`,

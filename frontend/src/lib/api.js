@@ -553,7 +553,7 @@ export const showcaseApi = {
   updateProfile: (patchBody)        => { _invalidateMe(); return patch('/showcase/me', patchBody) },
   setHandle:     (handle)           => { _invalidateMe(); return post('/showcase/me/handle', { handle }) },
   checkHandle:   (handle)           => request('GET', `/showcase/handle-check?handle=${encodeURIComponent(handle)}`),
-  addItem:       (stem_id, caption) => { _invalidateMe(); return post('/showcase/items', { stem_id, caption }) },
+  addItem:       (stem_id, caption, image_url) => { _invalidateMe(); return post('/showcase/items', { stem_id, caption, image_url }) },
   updateItem:    (id, patchBody)    => { _invalidateMe(); return patch(`/showcase/items/${id}`, patchBody) },
   removeItem:    (id)               => { _invalidateMe(); return del(`/showcase/items/${id}`) },
   downloadUrl:   (id)               => request('GET', `/showcase/items/${id}/download`),

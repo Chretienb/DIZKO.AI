@@ -31,6 +31,8 @@ const PageLibraryNew       = lazy(ROUTE_LOADERS.library)
 const PageAnalyticsNew     = lazy(ROUTE_LOADERS.analytics)
 const PageInbox            = lazy(ROUTE_LOADERS.inbox)
 const ProjectView          = lazy(ROUTE_LOADERS.projectView)
+const PublicProfile        = lazy(() => import('./PublicProfile.jsx'))
+const ProfileEditor        = lazy(() => import('./ProfileEditor.jsx'))
 
 // nav path → page-chunk key, for hover/idle prefetch.
 const PATH_TO_CHUNK = {
@@ -53,7 +55,7 @@ const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default:
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
-import { House, UsersThree, BookOpen, ChartBar, ChatCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
+import { House, UsersThree, BookOpen, ChartBar, ChatCircle, UserCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
@@ -145,7 +147,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi, foldersApi, cacheBust } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi, foldersApi, cacheBust, showcaseApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -547,30 +549,6 @@ function TermsIcon({ size = 20 }) {
   )
 }
 
-function SidebarLibrary({ navigate }) {
-  const [latest, setLatest] = React.useState(null)
-  React.useEffect(() => {
-    projectsApi.list().then(r => {
-      const list = r.data || []
-      const sorted = [...list].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
-      setLatest(sorted[0] || null)
-    }).catch(() => {})
-  }, [])
-  if (!latest) return null
-  return (
-    <div style={{ display:'flex', justifyContent:'center', padding:'4px 0' }}>
-      <button onClick={() => navigate(`/projects/${latest.id}`)} title={`Latest · ${latest.title}`}
-        style={{ width:44, height:44, borderRadius:'50%', border:'none', cursor:'pointer', flexShrink:0, padding:0,
-          background:'transparent', display:'flex', alignItems:'center', justifyContent:'center',
-          transition:'transform .12s, box-shadow .12s', boxShadow:'0 4px 16px rgba(233,90,81,.35)' }}
-        onMouseEnter={e=>{ e.currentTarget.style.transform='scale(1.06)'; e.currentTarget.style.boxShadow='0 6px 22px rgba(233,90,81,.5)' }}
-        onMouseLeave={e=>{ e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(233,90,81,.35)' }}>
-        <img src="/favourite.png" alt="Latest" width={44} height={44} style={{ display:'block', borderRadius:'50%' }}/>
-      </button>
-    </div>
-  )
-}
-
 // ─── PAGE: DASHBOARD ──────────────────────────────────────────────────────
 
 
@@ -589,6 +567,14 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       .then(r => { setBillingStatus(r?.data); setBillingLoaded(true) })
       .catch(() => setBillingLoaded(true))
   }, [user?.id])
+
+  // My public-profile handle, for the sidebar Profile shortcut.
+  const [myHandle, setMyHandle] = React.useState(null)
+  React.useEffect(() => {
+    if (!user?.id) return
+    showcaseApi.me().then(r => setMyHandle(r?.data?.profile?.handle || null)).catch(() => {})
+  }, [user?.id])
+  const goProfile = () => navigate('/profile')
 
   const planLabel = { free_trial: 'Free Trial', pro: 'Pro', studio: 'Studio', label: 'Label' }
   const currentPlanLabel = planLabel[billingStatus?.plan] ?? 'Free Trial'
@@ -867,15 +853,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
               { id:'inbox',         path:'/inbox',         label:'Inbox',    Icon: ChatCircle },
               { id:'library',       path:'/library',       label:'Library',  Icon: BookOpen },
+              { id:'profile',                              label:'Profile',  Icon: UserCircle, onClick: goProfile },
               // Stats hidden from the rail for MVP — route + page kept, bring it back later.
               // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
             ].map(n => {
-              const on = currentNav?.id === n.id
+              const onProfile = location.pathname.startsWith('/profile') || location.pathname.startsWith('/u/')
+              const on = n.id === 'profile' ? onProfile : (!onProfile && currentNav?.id === n.id)
               const sz = isMobile ? 38 : 44
               return (
-                <button key={n.id} onClick={() => navigate(n.path)}
+                <button key={n.id} onClick={() => n.onClick ? n.onClick() : navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
-                  onFocus={() => warmNav(n.path)}
+                  onFocus={() => n.path && warmNav(n.path)}
                   style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0,
                     display:'flex', alignItems:'center', fontFamily:'inherit',
                     flexDirection: expanded ? 'row' : 'column',
@@ -884,7 +872,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     borderRadius: expanded ? 11 : 0,
                     background: expanded && on ? 'rgba(var(--fg),.1)' : 'transparent',
                     color: on ? 'var(--t1)' : 'rgba(var(--fg),.42)', transition:'color .12s, background .12s' }}
-                  onMouseEnter={e => { warmNav(n.path); if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
+                  onMouseEnter={e => { if (n.path) warmNav(n.path); if (!on) { e.currentTarget.style.color='rgba(var(--fg),.7)'; if (expanded) e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
                   <span style={{ position:'relative', width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                     background: (!expanded && on) ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
@@ -904,10 +892,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           {/* Divider */}
           <div style={{ height:1, background:'rgba(var(--fg),.07)', margin:'14px 16px', flexShrink:0 }}/>
 
-          {/* Library covers */}
-          <div style={{ flex:1, minHeight:0, overflowY:'auto' }}>
-            <SidebarLibrary navigate={navigate} />
-          </div>
+          {/* Spacer */}
+          <div style={{ flex:1, minHeight:0, overflowY:'auto' }} />
 
           {/* Terms & policies — document+check icon (where the + used to be) */}
           <div style={{ display:'flex', justifyContent:'center', flexShrink:0,
@@ -1008,6 +994,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />)} />
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
             <Route path="/inbox"         element={gate(<PageInbox openModal={openModal} user={user} />)} />
+            <Route path="/profile"        element={<PublicProfile embedded />} />
+            <Route path="/u/:handle"      element={<PublicProfile embedded />} />
+            <Route path="/profile/edit"   element={gate(<ProfileEditor mode="profile" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />)} />
+            <Route path="/profile/tracks" element={gate(<ProfileEditor mode="tracks" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />)} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />

@@ -4,7 +4,6 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, collaborators as collabsApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Spinner } from '../components/ui/index.jsx'
-import PublicProfileToggle from '../components/PublicProfileToggle.jsx'
 import { timeAgo } from '../lib/utils.js'
 import astronautImg from '../assets/empty/astronaut-studio.jpg'
 import ufoImg       from '../assets/empty/ufo-no-projects.jpg'
@@ -256,7 +255,6 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, margin:'0 0 16px' }}>
         <h1 style={{ margin:0, fontSize: isMobile ? 22 : 26, fontWeight:700, color:DK.t1, letterSpacing:'-.7px' }}>Dashboard</h1>
-        <PublicProfileToggle />
       </div>
 
       {/* ── WebPlayer panel ── */}
