@@ -81,7 +81,11 @@ export default function ShareCard({ kind, item, profile, canEditPhoto = true, on
           <div style={{ transform:'scale(calc(min(344px, 100%) / 540))', transformOrigin:'top center' }}>
             {/* ── The card (540×540) ── */}
             <div ref={cardRef} style={{ width:540, height:540, position:'relative', overflow:'hidden',
-              background:`#161616 url(${bg}) center/cover no-repeat`, fontFamily:"'Inter',-apple-system,sans-serif" }}>
+              background:'#161616', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+              {/* Background as a real <img> — html-to-image captures <img> reliably,
+                  but silently drops CSS background-images (why the vinyl vanished). */}
+              <img src={bg} alt="" crossOrigin="anonymous"
+                style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
               {qr && (
                 <div style={{ position:'absolute', top:22, right:22, padding:7, background:'#fff', borderRadius:12, boxShadow:'0 6px 20px rgba(0,0,0,.4)' }}>
                   <img src={qr} alt="" width={78} height={78} style={{ display:'block' }} />
