@@ -150,19 +150,15 @@ export default function Login({ onLogin }) {
   }
 
   const socialLogin = async id => {
-    if (id !== 'spotify') return
-    setSocial('spotify')
+    setSocial(id)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'spotify',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: 'user-read-email user-read-private',
-        },
+        provider: id,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       })
       if (error) throw error
     } catch (err) {
-      setFormError(err.message || 'Spotify login failed')
+      setFormError(err.message || `${id} login failed`)
       setSocial(null)
     }
   }
@@ -402,6 +398,24 @@ export default function Login({ onLogin }) {
               </div>
             ) : (
               <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+                {/* Social sign-in — up top, white Google button */}
+                {tab !== 'forgot' && (
+                  <>
+                    <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'13px',
+                        borderRadius:14, border:'none', background:'#fff', color:'#333',
+                        fontFamily:'inherit', fontSize:14, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
+                      {SOCIALS[0].icon}
+                      {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
+                    </button>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, margin:'14px 0 6px' }}>
+                      <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
+                      <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.28)', letterSpacing:'.06em' }}>OR</span>
+                      <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
+                    </div>
+                  </>
+                )}
 
                 {/* Invite banner — shown when arriving from a project invite link */}
                 {isInvite && tab === 'signup' && (
