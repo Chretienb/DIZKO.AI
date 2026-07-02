@@ -475,6 +475,16 @@ export default function PublicProfile({ embedded = false }) {
           </button>
         </div>
       )}
+      {/* Spotify embed — below the tracks, only when the owner linked one. */}
+      {p.spotify_embed && (
+        <div style={{ marginTop:24 }}>
+          <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:12 }}>On Spotify</div>
+          <iframe title="Spotify" src={`https://open.spotify.com/embed/${p.spotify_embed}?utm_source=dizko`}
+            width="100%" height={p.spotify_embed.startsWith('track/') ? 152 : 352} frameBorder="0" loading="lazy"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            style={{ borderRadius:12, border:'none' }} />
+        </div>
+      )}
       </div>{/* /pp-right */}
 
       {/* Right action rail (desktop). Simple, no highlight. Owner tools when it's

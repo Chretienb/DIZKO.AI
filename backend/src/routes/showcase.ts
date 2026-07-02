@@ -37,7 +37,7 @@ showcase.get('/me', async (c) => {
   const [{ data: prof }, { data: items }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count')
+      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed')
       .eq('id', me).maybeSingle(),
     supabase
       .from('showcase_items')
@@ -104,6 +104,17 @@ showcase.patch('/me', sanitize, async (c) => {
     patch.links = (b.links as unknown[])
       .filter(l => typeof l === 'string' && (l as string).length < 200)
       .slice(0, 8)
+  }
+  // Spotify embed — accept a share link or spotify: URI for a playlist / track /
+  // album / artist; store the normalized "<type>/<id>". Blank clears it.
+  if ('spotify_url' in b) {
+    const raw = b.spotify_url ? String(b.spotify_url).trim() : ''
+    if (!raw) { patch.spotify_embed = null }
+    else {
+      const m = raw.match(/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?|spotify:)(playlist|track|album|artist)[/:]([A-Za-z0-9]+)/i)
+      if (!m) return c.json({ data: null, error: 'Paste a Spotify playlist, album, track, or artist link (Share → Copy link).', status: 400 }, 400)
+      patch.spotify_embed = `${m[1]!.toLowerCase()}/${m[2]}`
+    }
   }
 
   // Going public is a paid feature, and needs a handle for the profile URL.

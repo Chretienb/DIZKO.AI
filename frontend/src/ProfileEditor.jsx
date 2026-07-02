@@ -38,6 +38,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const [displayName, setDisplayName] = useState(cp.display_name || user?.full_name || '')
   const [bio, setBio]                 = useState(cp.bio || '')
   const [links, setLinks]             = useState(Array.isArray(cp.links) ? cp.links.join('\n') : '')
+  const [spotify, setSpotify]         = useState(cp.spotify_embed ? `https://open.spotify.com/${cp.spotify_embed}` : '')
   const [avatar, setAvatar]           = useState(cp.avatar_url || user?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
@@ -67,6 +68,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         setDisplayName(pr.display_name || user?.full_name || '')
         setBio(pr.bio || '')
         setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
+        setSpotify(pr.spotify_embed ? `https://open.spotify.com/${pr.spotify_embed}` : '')
         setAvatar(pr.avatar_url || user?.avatar_url || null)
         setIsPublic(!!pr.profile_public)
       }
@@ -144,6 +146,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
         links: links.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8),
+        spotify_url: spotify.trim(),
         ...overrides,
       }
       const r = await showcaseApi.updateProfile(patch)
@@ -318,9 +321,13 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 <label style={label}>Bio</label>
                 <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={3} placeholder="Tell people what you make…" style={{ ...input, resize:'vertical' }} />
               </div>
-              <div style={{ marginBottom:16 }}>
+              <div style={{ marginBottom:14 }}>
                 <label style={label}>Links <span style={{ fontWeight:500, color:C.t3 }}>(one per line)</span></label>
                 <textarea value={links} onChange={e => setLinks(e.target.value)} rows={2} placeholder="instagram.com/you&#10;soundcloud.com/you" style={{ ...input, resize:'vertical' }} />
+              </div>
+              <div style={{ marginBottom:16 }}>
+                <label style={label}>Spotify <span style={{ fontWeight:500, color:C.t3 }}>(playlist, album, track or artist — embeds on your page)</span></label>
+                <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/album/…" style={input} />
               </div>
               <button onClick={async () => { try { await saveProfile(); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
                 {saving ? 'Saving…' : 'Save profile'}
