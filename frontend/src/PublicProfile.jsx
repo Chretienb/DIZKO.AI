@@ -783,7 +783,12 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
                   style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:3, padding:'20px 14px', borderRadius:16, cursor:'pointer',
                     background:'rgba(var(--fg),.035)', border:'1px solid rgba(var(--fg),.07)', fontFamily:'inherit', color:'var(--t1)' }}>
                   <div style={{ width:64, height:64, borderRadius:'50%', marginBottom:10, background: d.avatar_url ? `center/cover url(${d.avatar_url})` : C.grad, border:'2px solid rgba(var(--fg),.1)' }} />
-                  <div style={{ fontSize:13.5, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{d.display_name}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:4, maxWidth:'100%' }}>
+                    <span style={{ fontSize:13.5, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{d.display_name}</span>
+                    {d.verified && (
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="#1d9bf0" style={{ flexShrink:0 }} aria-label="Verified"><path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.44 0-.863.08-1.256.23C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.393-.15-.816-.23-1.256-.23-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .44 0 .863-.08 1.256-.23.62 1.334 1.926 2.25 3.437 2.25s2.817-.916 3.438-2.25c.393.15.816.23 1.256.23 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.514 1.16-.688 1.943-1.99 1.943-3.486z"/><path d="M10.75 16.518l-3.75-3.75 1.5-1.5 2.25 2.25 4.75-4.75 1.5 1.5z" fill="#fff"/></svg>
+                    )}
+                  </div>
                   <div style={{ fontSize:11.5, color:'rgba(var(--fg),.4)' }}>@{d.handle}</div>
                   <div style={{ fontSize:11, color:'rgba(var(--fg),.5)', marginTop:7 }}>{fmt(d.follower_count)} followers{tracks != null ? ` · ${tracks} tracks` : ''}</div>
                 </button>
