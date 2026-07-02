@@ -253,6 +253,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // it to that family. If it's already in the group, keep its finer tag.
   const [draggingId,   setDraggingId]   = useState(null)
   const [dragOverGroup, setDragOverGroup] = useState(null)
+  const [dragOverFolder, setDragOverFolder] = useState(null)
   const dropToGroup = (stemId, groupKey) => {
     setDragOverGroup(null); setDraggingId(null)
     const f = files.find(x => x.id === stemId)
@@ -261,6 +262,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     if (getGroupKey(f.instrument || 'other') === groupKey) return   // already here — no-op
     setInstrument(stemId, target)
     addToast?.(`Moved to ${GROUPS.find(g => g.key === groupKey)?.label || groupKey} — tagged ${target}`, 'success')
+  }
+
+  // Drag a stem onto a song (folder) in the sidebar to move it there.
+  const dropToSong = async (stemId, folderId) => {
+    setDragOverFolder(null); setDraggingId(null)
+    const f = files.find(x => x.id === stemId)
+    if (!f || f.folder_id === folderId) return   // not found / already in this song
+    const prev = f.folder_id
+    setFiles(list => list.map(x => x.id === stemId ? { ...x, folder_id: folderId } : x))  // optimistic
+    try {
+      await foldersApi.moveFile(stemId, folderId)
+      addToast?.(`Moved to ${folders.find(fl => fl.id === folderId)?.name || 'song'}`, 'success')
+    } catch (e) {
+      setFiles(list => list.map(x => x.id === stemId ? { ...x, folder_id: prev } : x))   // revert
+      addToast?.(e?.message || 'Could not move — try again', 'error')
+    }
   }
 
   const renameFile = async (stemId, name) => {
@@ -527,17 +544,23 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               </div>
             ) : folders.map((folder, i) => {
               const on = folder.id === selectedFolderId
+              const dropHere = draggingId && dragOverFolder === folder.id
               return (
                 <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)}
+                  onDragOver={draggingId ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverFolder !== folder.id) setDragOverFolder(folder.id) }) : undefined}
+                  onDragLeave={draggingId ? (e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolder(f => (f === folder.id ? null : f)) }) : undefined}
+                  onDrop={draggingId ? (e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) dropToSong(id, folder.id) }) : undefined}
                   style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
-                    background: on ? 'var(--surface-2)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s' }}
-                  onMouseEnter={e => { if (!on) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
-                  onMouseLeave={e => { if (!on) e.currentTarget.style.background='transparent' }}>
+                    background: dropHere ? 'rgba(233,90,81,.10)' : on ? 'var(--surface-2)' : 'transparent',
+                    boxShadow: dropHere ? 'inset 0 0 0 2px rgba(233,90,81,.5)' : 'none',
+                    border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s, box-shadow .1s' }}
+                  onMouseEnter={e => { if (!on && !dropHere) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
+                  onMouseLeave={e => { if (!on && !dropHere) e.currentTarget.style.background='transparent' }}>
                   <span style={{ fontSize:11.5, color: on ? '#E95A51' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 700 : 400 }}>{i + 1}</span>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight: on ? 700 : 600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
-                    <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>
-                      {parentFiles.filter(f => f.folder_id === folder.id).length} stems
+                    <div style={{ fontSize:11, color: dropHere ? '#E95A51' : 'var(--t3)', marginTop:1, fontWeight: dropHere ? 700 : 400 }}>
+                      {dropHere ? 'Drop to move here' : `${parentFiles.filter(f => f.folder_id === folder.id).length} stems`}
                     </div>
                   </div>
                   <div style={{ width:8, height:8, borderRadius:'50%', background: on ? '#E95A51' : 'var(--t4)', flexShrink:0 }}/>
@@ -940,7 +963,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       <div key={f.id} className="stem-row"
                         draggable={!isRen}
                         onDragStart={e => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(f.id) }}
-                        onDragEnd={() => { setDraggingId(null); setDragOverGroup(null) }}
+                        onDragEnd={() => { setDraggingId(null); setDragOverGroup(null); setDragOverFolder(null) }}
                         onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) } }}
                         style={{
                           background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
