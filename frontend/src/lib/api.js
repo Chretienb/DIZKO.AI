@@ -522,8 +522,11 @@ export const publicApi = {
   },
   // Public comment list for a showcased track.
   itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
-  // Search public producer profiles by handle / display name.
-  searchProfiles: async (q) => { const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(q)}`); return r.json() },
+  // Search public producer profiles by handle / display name. Empty q = the
+  // default Discover feed (top public profiles).
+  searchProfiles: async (q = '') => { const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(q)}`); return r.json() },
+  // Recent playable tracks from public producers, for the Discover reels.
+  reels: async () => { const r = await fetch(`${BASE}/u/reels`); return r.json() },
   // Tracks a profile has reposted (each credits the original author).
   reposts: async (handle) => {
     const token = getToken()

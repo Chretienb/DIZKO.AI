@@ -664,23 +664,23 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
 
   useEffect(() => {
     const query = q.trim()
-    if (!query) { setResults(null); return }
     const t = setTimeout(() => {
+      // Empty query returns the default Discover feed (real public profiles).
       publicApi.searchProfiles(query).then(r => {
-        const real = r?.data || []
+        const real = (r?.data || []).map(x => ({ ...x, trackCount: x.track_count }))
         const seen = new Set(real.map(x => x.handle))
         const ql = query.toLowerCase()
         const demos = DEMO_PROFILES
-          .filter(d => !seen.has(d.handle) && (d.display_name.toLowerCase().includes(ql) || d.handle.includes(ql)))
+          .filter(d => !seen.has(d.handle) && (!query || d.display_name.toLowerCase().includes(ql) || d.handle.includes(ql)))
           .map(d => ({ handle: d.handle, display_name: d.display_name, avatar_url: d.avatar_url, follower_count: d.follower_count, trackCount: d.items.length }))
-        setResults([...real, ...demos])
+        setResults([...real, ...demos].filter(d => d.handle !== currentHandle))
       }).catch(() => setResults([]))
-    }, 300)
+    }, query ? 300 : 0)
     return () => clearTimeout(t)
-  }, [q])
+  }, [q, currentHandle])
 
   const searching = q.trim().length > 0
-  const list = searching ? (results || []) : DEMO_PROFILES.filter(d => d.handle !== currentHandle)
+  const list = results || []
 
   return (
     <>
@@ -705,8 +705,8 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
 
         {bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Producers</div>}
 
-        {searching && results === null ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>Searching…</div> :
-         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>No users found for “{q}”.</div> : (
+        {results === null ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? 'Searching…' : 'Loading…'}</div> :
+         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? `No users found for “${q}”.` : 'No public producers yet.'}</div> : (
           <div className={layout === 'grid' ? 'pp-dgrid' : 'pp-discover'}>
             {list.map(d => {
               const tracks = d.items?.length ?? d.trackCount
@@ -736,16 +736,25 @@ function ReelsRow({ onOpen }) {
   const audioRef = useRef(null)
   const [playingId, setPlayingId] = useState(null)
 
-  const reels = useMemo(() => {
+  const demoReels = useMemo(() => {
     const all = []
     for (const d of DEMO_PROFILES) {
       for (const it of (d.items || [])) {
-        if (it.audio) all.push({ id: `${d.handle}-${it.id}`, audio: it.audio, title: it.title, instrument: it.instrument, plays: it.play_count, owner: { handle: d.handle, display_name: d.display_name, avatar_url: d.avatar_url } })
+        if (it.audio) all.push({ id: `${d.handle}-${it.id}`, audio: it.audio, title: it.title, instrument: it.instrument, owner: { handle: d.handle, display_name: d.display_name, avatar_url: d.avatar_url } })
       }
     }
-    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[all[i], all[j]] = [all[j], all[i]] }
     return all
   }, [])
+  const [reels, setReels] = useState([])
+  useEffect(() => {
+    publicApi.reels().then(r => {
+      const real = (r?.data || []).map(x => ({ id: x.id, audio: `${BASE}${x.stream_url}`, title: x.title, instrument: x.instrument, owner: x.owner }))
+      const pool = real.length ? real : demoReels
+      const shuffled = [...pool]
+      for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]] }
+      setReels(shuffled)
+    }).catch(() => setReels(demoReels))
+  }, [demoReels])
 
   const toggle = (r) => {
     const el = audioRef.current

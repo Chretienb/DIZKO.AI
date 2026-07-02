@@ -104,24 +104,62 @@ publicProfile.get('/item/:itemId/comments', readLimit, async (c) => {
 publicProfile.get('/search', readLimit, async (c) => {
   const raw = (c.req.query('q') || '').trim().toLowerCase().slice(0, 50)
   const q = raw.replace(/[^a-z0-9_ ]/g, '')   // keep the .or() filter string safe
-  if (q.length < 1) return c.json({ data: [], error: null, status: 200 })
 
-  const { data } = await supabase
+  // Empty query = the default Discover feed: top public profiles by followers.
+  let query = supabase
     .from('profiles')
-    .select('id, handle, display_name, avatar_url, follower_count')
+    .select('id, handle, display_name, avatar_url, follower_count, verified')
     .eq('profile_public', true)
     .not('handle', 'is', null)
-    .or(`handle.ilike.%${q}%,display_name.ilike.%${q}%`)
     .order('follower_count', { ascending: false })
-    .limit(20)
+    .limit(24)
+  if (q.length >= 1) query = query.or(`handle.ilike.%${q}%,display_name.ilike.%${q}%`)
+  const { data } = await query
 
-  const metas = await getUsersByIds((data ?? []).map((d: any) => d.id))
+  const ids = (data ?? []).map((d: any) => d.id)
+  const metas = await getUsersByIds(ids)
+  // Live track counts so the Discover card reflects real showcases.
+  const counts = new Map<string, number>()
+  if (ids.length) {
+    const { data: items } = await supabase.from('showcase_items').select('user_id').in('user_id', ids)
+    for (const i of (items ?? []) as any[]) counts.set(i.user_id, (counts.get(i.user_id) || 0) + 1)
+  }
   const out = (data ?? []).map((d: any) => ({
     handle: d.handle,
     display_name: d.display_name || metas.get(d.id)?.full_name || d.handle,
     avatar_url: d.avatar_url || metas.get(d.id)?.avatar_url || null,
     follower_count: d.follower_count,
+    verified: !!d.verified,
+    track_count: counts.get(d.id) || 0,
   }))
+  return c.json({ data: out, error: null, status: 200 })
+})
+
+// ── GET /u/reels — recent playable tracks from public producers (for the feed) ─
+publicProfile.get('/reels', readLimit, async (c) => {
+  const { data: items } = await supabase
+    .from('showcase_items')
+    .select('id, user_id, created_at, stem:stems ( suggested_name, original_name, instrument )')
+    .order('created_at', { ascending: false })
+    .limit(60)
+  const ids = [...new Set((items ?? []).map((i: any) => i.user_id))]
+  const pub = new Map<string, any>()
+  if (ids.length) {
+    const { data: profs } = await supabase.from('profiles')
+      .select('id, handle, display_name, avatar_url, profile_public').in('id', ids)
+    for (const p of (profs ?? []) as any[]) if (p.profile_public && p.handle) pub.set(p.id, p)
+  }
+  const metas = await getUsersByIds([...pub.keys()])
+  const out = (items ?? []).filter((i: any) => pub.has(i.user_id)).slice(0, 15).map((i: any) => {
+    const p = pub.get(i.user_id)
+    return {
+      id: i.id,
+      title: i.stem?.suggested_name || i.stem?.original_name || 'Untitled',
+      instrument: i.stem?.instrument ?? null,
+      stream_url: `/u/item/${i.id}/stream`,
+      owner: { handle: p.handle, display_name: p.display_name || metas.get(p.id)?.full_name || p.handle, avatar_url: p.avatar_url || metas.get(p.id)?.avatar_url || null },
+    }
+  })
   return c.json({ data: out, error: null, status: 200 })
 })
 
