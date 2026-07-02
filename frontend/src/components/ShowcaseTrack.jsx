@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { publicApi, showcaseApi } from '../lib/api'
-import { getToken } from '../lib/utils.js'
+import { getToken, timeAgo } from '../lib/utils.js'
 
 const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
 const BASE = '/api'
@@ -34,6 +34,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
   const [cur, setCur]           = useState(0)
   const [dur, setDur]           = useState(0)
   const [open, setOpen]         = useState(false)        // comments panel
+  const [cCount, setCCount]     = useState(item.comment_count ?? 0)  // live comment count on the icon
   const [comments, setComments] = useState(isDemo ? (item.demoComments || []) : null)
   const [text, setText]         = useState('')
   const [atTime, setAtTime]     = useState(null)         // pin a comment to this moment
@@ -106,11 +107,12 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
     setBusy(true)
     if (isDemo) {
       setComments(list => [...(list||[]), { id: `local-${Date.now()}`, text: body, timestamp_sec: ts, author: 'You', parent_id: parent, created_at: new Date().toISOString() }])
+      setCCount(n => n + 1)
       setText(''); setAtTime(null); setReplyTo(null); setBusy(false); return
     }
     try {
       const r = await showcaseApi.comment(item.id, body, ts, parent)
-      if (r?.data) setComments(list => [...(list||[]), r.data])
+      if (r?.data) { setComments(list => [...(list||[]), r.data]); setCCount(n => n + 1) }
       setText(''); setAtTime(null); setReplyTo(null)
     } catch (e) { alert(e.message || 'Could not comment') }
     setBusy(false)
@@ -118,9 +120,19 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
 
   const startReply = (c) => { setReplyTo({ id: c.id, author: c.author }); setAtTime(null) }
 
+  const toggleCommentLike = async (c) => {
+    if (!requireAccount({ action: 'like', itemId: item.id })) return
+    const next = !c.liked
+    setComments(list => list.map(x => x.id === c.id ? { ...x, liked: next, like_count: Math.max(0, (x.like_count || 0) + (next ? 1 : -1)) } : x))
+    if (isDemo || String(c.id).startsWith('local-')) return
+    try { next ? await showcaseApi.likeComment(c.id) : await showcaseApi.unlikeComment(c.id) }
+    catch { setComments(list => list.map(x => x.id === c.id ? { ...x, liked: !next, like_count: Math.max(0, (x.like_count || 0) + (next ? -1 : 1)) } : x)) }
+  }
+
   const removeComment = async (id) => {
     if (!window.confirm('Are you sure you want to delete the comment?')) return
     setComments(list => list.filter(c => c.id !== id))
+    setCCount(n => Math.max(0, n - 1))
     if (isDemo || String(id).startsWith('local-')) return
     try { await showcaseApi.deleteComment(id) } catch {}
   }
@@ -140,8 +152,9 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
     <div key={c.id} className="sc-cmt" style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
       <div style={{ width:isReply?24:30, height:isReply?24:30, borderRadius:'50%', flexShrink:0, overflow:'hidden', background: c.avatar ? `center/cover url(${c.avatar})` : C.grad }} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
           <span style={{ fontSize:12.5, fontWeight:700 }}>{c.author}</span>
+          {c.created_at && <span style={{ fontSize:10.5, color:'rgba(var(--fg),.35)' }}>{timeAgo(c.created_at)}</span>}
           {c.timestamp_sec > 0 && (
             <button onClick={() => seekTo(c.timestamp_sec, true)} title="Play from here"
               style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:100, border:'none', cursor:'pointer',
@@ -151,7 +164,15 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
           )}
         </div>
         <div style={{ fontSize:13, color:'rgba(var(--fg),.85)', marginTop:3, lineHeight:1.45, wordBreak:'break-word' }}>{c.text}</div>
-        {!isReply && <button onClick={() => startReply(c)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.4)', fontSize:11.5, fontWeight:600, fontFamily:'inherit', padding:'4px 0 0' }}>Reply</button>}
+        <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:5 }}>
+          <button onClick={() => toggleCommentLike(c)} aria-label="Like comment"
+            style={{ display:'inline-flex', alignItems:'center', gap:5, background:'none', border:'none', cursor:'pointer', padding:0,
+              color: c.liked ? C.coral : 'rgba(var(--fg),.4)', fontSize:11.5, fontWeight:600, fontFamily:'inherit' }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill={c.liked ? C.coral : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            {c.like_count > 0 ? c.like_count : ''}
+          </button>
+          {!isReply && <button onClick={() => startReply(c)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.4)', fontSize:11.5, fontWeight:600, fontFamily:'inherit', padding:0 }}>Reply</button>}
+        </div>
       </div>
       {(ownerIsSelf || c.author === 'You') && (
         <button className="sc-del" onClick={() => removeComment(c.id)} aria-label="Delete"
@@ -218,7 +239,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
           </button>
           <button className="sc-act" onClick={toggleComments} aria-label="Comments" style={{ color:open?C.coral:'rgba(var(--fg),.5)' }}>
             <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            {fmt(item.comment_count ?? (comments?.length||0))}
+            {fmt(cCount)}
           </button>
           {onRepost && (
             <button className="sc-act" onClick={() => onRepost(item)} aria-label="Repost" title={item.reposted ? 'Reposted' : 'Repost'} style={{ color:item.reposted?C.coral:'rgba(var(--fg),.5)' }}>

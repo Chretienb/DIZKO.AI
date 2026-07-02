@@ -451,6 +451,8 @@ export const messagesApi = {
   conversation: (userId) => get(`/messages/${userId}`),
   /** @returns {Promise<import('./types').ApiResponse<Message>>} */
   send:         (toUserId, text) => post('/messages', { to_user_id: toUserId, text }),
+  likeMessage:  (id) => post(`/messages/msg/${id}/like`),
+  deleteMessage:(id) => del(`/messages/msg/${id}`),
   /** @returns {Promise<import('./types').ApiResponse<{ unread: number }>>} */
   unread:       () => get('/messages'),
 }
@@ -588,6 +590,8 @@ export const showcaseApi = {
   unlike:        (itemId)           => del(`/showcase/items/${itemId}/like`),
   comment:       (itemId, text, timestamp_sec, parent_id) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec, parent_id }),
   deleteComment: (commentId)        => del(`/showcase/comments/${commentId}`),
+  likeComment:   (commentId)        => post(`/showcase/comments/${commentId}/like`),
+  unlikeComment: (commentId)        => del(`/showcase/comments/${commentId}/like`),
   repost:        (itemId)           => post(`/showcase/items/${itemId}/repost`),
   unrepost:      (itemId)           => del(`/showcase/items/${itemId}/repost`),
 }

@@ -345,6 +345,20 @@ showcase.delete('/comments/:id', async (c) => {
   return c.json({ data: { ok: true }, error: null, status: 200 })
 })
 
+// ── POST/DELETE /showcase/comments/:id/like — like a comment ──────────────────
+showcase.post('/comments/:id/like', async (c) => {
+  const me = c.var.user.id
+  const { error } = await supabase.from('comment_likes').insert({ comment_id: c.req.param('id'), user_id: me })
+  if (error && (error as any).code !== '23505') return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { liked: true }, error: null, status: 200 })
+})
+showcase.delete('/comments/:id/like', async (c) => {
+  const me = c.var.user.id
+  const { error } = await supabase.from('comment_likes').delete().eq('comment_id', c.req.param('id')).eq('user_id', me)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { liked: false }, error: null, status: 200 })
+})
+
 // ── POST/DELETE /showcase/items/:id/repost — repost someone's track ───────────
 showcase.post('/items/:id/repost', async (c) => {
   const me = c.var.user.id
@@ -361,9 +375,19 @@ showcase.post('/items/:id/repost', async (c) => {
 
   const meta = (await getUsersByIds([me])).get(me)
   const name = meta?.full_name || meta?.email?.split('@')[0] || 'Someone'
+  // Total reposts on this track, for the email/notification.
+  const { count: repostCount } = await supabase.from('reposts')
+    .select('*', { count: 'exact', head: true }).eq('showcase_item_id', itemId)
+  const { data: st } = await supabase.from('showcase_items')
+    .select('stem:stems ( suggested_name, original_name )').eq('id', itemId).maybeSingle()
+  const trackName = (st as any)?.stem?.suggested_name || (st as any)?.stem?.original_name || 'your track'
   notify({
     type: 'invite', recipientIds: [(item as any).user_id], title: `${name} reposted your track`,
-    body: 'Your track is reaching new ears 🔥', actorId: me, dedupKey: `repost:${me}:${itemId}`, dedupWindow: 60_000,
+    body: `${name} reposted “${trackName}” — it now has ${repostCount ?? 1} repost${(repostCount ?? 1) === 1 ? '' : 's'} 🔥`,
+    actorId: me, dedupKey: `repost:${me}:${itemId}`, dedupWindow: 60_000,
+    email: true,
+    emailSubject: `${name} reposted your track on Dizko`,
+    emailHtml: `<p><strong>${name}</strong> just reposted <strong>${String(trackName).replace(/</g, '&lt;')}</strong> to their followers.</p><p>Your track now has <strong>${repostCount ?? 1}</strong> repost${(repostCount ?? 1) === 1 ? '' : 's'} on Dizko. 🔥</p>`,
   }).catch(() => null)
 
   return c.json({ data: { reposted: true }, error: null, status: 200 })

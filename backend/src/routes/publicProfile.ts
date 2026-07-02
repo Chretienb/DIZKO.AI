@@ -83,15 +83,25 @@ publicProfile.get('/item/:itemId/comments', readLimit, async (c) => {
 
   const { data: rows } = await supabase
     .from('showcase_comments')
-    .select('id, user_id, timestamp_sec, text, created_at, parent_id')
+    .select('id, user_id, timestamp_sec, text, created_at, parent_id, like_count')
     .eq('showcase_item_id', itemId)
     .order('created_at', { ascending: true })
+
+  // Which of these has the viewer liked?
+  const me = await viewerId(c)
+  const likedSet = new Set<string>()
+  if (me && (rows ?? []).length) {
+    const { data: likes } = await supabase.from('comment_likes')
+      .select('comment_id').eq('user_id', me).in('comment_id', (rows ?? []).map((r: any) => r.id))
+    for (const l of (likes ?? []) as any[]) likedSet.add(l.comment_id)
+  }
 
   const authors = await getUsersByIds([...new Set((rows ?? []).map((r: any) => r.user_id))])
   const data = (rows ?? []).map((r: any) => {
     const a = authors.get(r.user_id)
     return {
       id: r.id, timestamp_sec: r.timestamp_sec, text: r.text, created_at: r.created_at, parent_id: r.parent_id ?? null,
+      like_count: r.like_count ?? 0, liked: likedSet.has(r.id),
       author: a?.full_name || a?.email?.split('@')[0] || 'Listener',
       avatar: a?.avatar_url ?? null,
     }
@@ -278,6 +288,9 @@ publicProfile.get('/:handle', readLimit, async (c) => {
   const meta = (await getUsersByIds([p.id])).get(p.id)
   const displayName = p.display_name || meta?.full_name || meta?.email?.split('@')[0] || 'Dizko artist'
   const avatar      = p.avatar_url   || meta?.avatar_url || null
+  // How many tracks this profile has reposted (for the Reposts tab count).
+  const { count: repostCount } = await supabase.from('reposts')
+    .select('*', { count: 'exact', head: true }).eq('user_id', p.id)
 
   return c.json({
     data: {
@@ -291,6 +304,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
       following_count: p.following_count,
       verified:        !!p.verified,
       spotify_embed:   p.spotify_embed ?? null,
+      repost_count:    repostCount ?? 0,
       is_following:    isFollowing,
       is_self:         me === p.id,
       items: (items ?? []).map((i: any) => {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { publicApi, showcaseApi, messagesApi } from './lib/api'
-import { getToken } from './lib/utils.js'
+import { getToken, timeAgo } from './lib/utils.js'
 import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
@@ -41,6 +41,7 @@ export default function PublicProfile({ embedded = false }) {
   const [reposts, setReposts]       = useState(null)
   const [repostsLoading, setRepostsLoading] = useState(false)
   const [discoverOpen, setDiscoverOpen] = useState(false)
+  const [spotifyExpanded, setSpotifyExpanded] = useState(false)
   const [railCollapsed, setRailCollapsed] = useState(() => { try { return localStorage.getItem('dizko_pubrail') === '0' } catch { return false } })
   const toggleRail = () => setRailCollapsed(v => { const n = !v; try { localStorage.setItem('dizko_pubrail', n ? '0' : '1') } catch {} ; return n })
   const myId = useMemo(() => { try { return JSON.parse(atob(getToken().split('.')[1])).sub } catch { return null } }, [])
@@ -87,6 +88,13 @@ export default function PublicProfile({ embedded = false }) {
   }
   const shareProfile = () => setShareCard({ kind: 'profile' })
   const shareTrack   = (item) => setShareCard({ kind: 'track', item })
+
+  const removeSpotify = async () => {
+    if (!window.confirm('Remove the Spotify player from your profile?')) return
+    setP(prev => ({ ...prev, spotify_embed: null }))
+    try { await showcaseApi.updateProfile({ spotify_url: '' }) }
+    catch (e) { flashToast(e?.message || 'Could not remove'); setP(prev => ({ ...prev })) }
+  }
 
   useEffect(() => {
     if (!handle) return   // embedded: still resolving my own handle
@@ -408,7 +416,7 @@ export default function PublicProfile({ embedded = false }) {
       <div className="pp-right">
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'1px solid rgba(var(--fg),.08)' }}>
-        {[['tracks', `Tracks${items.length ? ` · ${items.length}` : ''}`], ['reposts', 'Reposts']].map(([k, label]) => (
+        {[['tracks', `Tracks${items.length ? ` · ${items.length}` : ''}`], ['reposts', `Reposts${p.repost_count ? ` · ${p.repost_count}` : ''}`]].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700, padding:'8px 12px',
               color: tab === k ? '#fff' : 'rgba(var(--fg),.45)', borderBottom: tab === k ? `2px solid ${C.coral}` : '2px solid transparent', marginBottom:-1 }}>
@@ -475,16 +483,38 @@ export default function PublicProfile({ embedded = false }) {
           </button>
         </div>
       )}
-      {/* Spotify embed — below the tracks, only when the owner linked one. */}
-      {p.spotify_embed && (
-        <div style={{ marginTop:24 }}>
-          <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:12 }}>On Spotify</div>
-          <iframe title="Spotify" src={`https://open.spotify.com/embed/${p.spotify_embed}?utm_source=dizko`}
-            width="100%" height={p.spotify_embed.startsWith('track/') ? 152 : 352} frameBorder="0" loading="lazy"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            style={{ borderRadius:12, border:'none' }} />
-        </div>
-      )}
+      {/* Spotify embed — compact by default (main track), expandable for albums /
+          playlists. Owner can remove it (with a confirm). */}
+      {p.spotify_embed && (() => {
+        const isMulti = !p.spotify_embed.startsWith('track/')
+        return (
+          <div style={{ marginTop:24 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+              <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)' }}>On Spotify</div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                {isMulti && (
+                  <button onClick={() => setSpotifyExpanded(v => !v)}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.5)', fontSize:12, fontWeight:600, fontFamily:'inherit', padding:'4px 6px' }}>
+                    {spotifyExpanded ? 'Show less ▴' : 'Show all songs ▾'}
+                  </button>
+                )}
+                {p.is_self && (
+                  <button onClick={removeSpotify} title="Remove Spotify" aria-label="Remove Spotify"
+                    style={{ width:26, height:26, borderRadius:7, border:'none', cursor:'pointer', background:'rgba(var(--fg),.06)', color:'rgba(var(--fg),.55)', display:'flex', alignItems:'center', justifyContent:'center' }}
+                    onMouseEnter={e => { e.currentTarget.style.color='#ef4444'; e.currentTarget.style.background='rgba(239,68,68,.1)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color='rgba(var(--fg),.55)'; e.currentTarget.style.background='rgba(var(--fg),.06)' }}>
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            <iframe title="Spotify" src={`https://open.spotify.com/embed/${p.spotify_embed}?utm_source=dizko`}
+              width="100%" height={isMulti && spotifyExpanded ? 380 : 152} frameBorder="0" loading="lazy"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              style={{ borderRadius:12, border:'none', transition:'height .2s' }} />
+          </div>
+        )
+      })()}
       </div>{/* /pp-right */}
 
       {/* Right action rail (desktop). Simple, no highlight. Owner tools when it's
@@ -619,10 +649,24 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
     setSending(false)
   }
 
+  const likeMsg = async (m) => {
+    if (isDemo || String(m.id).startsWith('tmp-')) return
+    const next = !m.liked
+    setThread(l => l.map(x => x.id === m.id ? { ...x, liked: next } : x))
+    try { await messagesApi.likeMessage(m.id) } catch { setThread(l => l.map(x => x.id === m.id ? { ...x, liked: !next } : x)) }
+  }
+  const deleteMsg = async (m) => {
+    if (!window.confirm('Delete this message?')) return
+    const prev = thread
+    setThread(l => l.filter(x => x.id !== m.id))
+    if (isDemo || String(m.id).startsWith('tmp-')) return
+    try { await messagesApi.deleteMessage(m.id) } catch { setThread(prev) }
+  }
+
   return (
     <div onClick={onClose}
       style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,.6)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', padding:18, animation:'ppFade .18s ease' }}>
-      <style>{`@keyframes ppFade{from{opacity:0}to{opacity:1}}@keyframes ppRise{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      <style>{`@keyframes ppFade{from{opacity:0}to{opacity:1}}@keyframes ppRise{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}} .dm-msgdel{opacity:0;transition:opacity .12s} .dm-msg:hover .dm-msgdel{opacity:1} @media (hover:none){.dm-msgdel{opacity:1}}`}</style>
       <div onClick={e => e.stopPropagation()}
         style={{ width:'100%', maxWidth:400, height:'min(78vh, 540px)', background:'var(--surface)', border:'1px solid rgba(var(--fg),.1)',
           borderRadius:20, display:'flex', flexDirection:'column', overflow:'hidden', animation:'ppRise .22s cubic-bezier(.2,.7,.2,1)' }}>
@@ -646,10 +690,21 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
           ) : thread.map(m => {
             const mine = m.from_user_id === myId
             return (
-              <div key={m.id} style={{ display:'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth:'76%', padding:'9px 14px', borderRadius:18, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word',
-                  background: mine ? C.coral : 'rgba(var(--fg),.09)', color: mine ? '#fff' : 'var(--t1)',
-                  borderBottomRightRadius: mine ? 5 : 18, borderBottomLeftRadius: mine ? 18 : 5 }}>{m.text}</div>
+              <div key={m.id} className="dm-msg" style={{ display:'flex', flexDirection:'column', alignItems: mine ? 'flex-end' : 'flex-start', gap:2 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexDirection: mine ? 'row-reverse' : 'row', maxWidth:'82%' }}>
+                  <div onDoubleClick={() => likeMsg(m)} title="Double-click to like"
+                    style={{ position:'relative', padding:'9px 14px', borderRadius:18, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word',
+                      background: mine ? C.coral : 'rgba(var(--fg),.09)', color: mine ? '#fff' : 'var(--t1)',
+                      borderBottomRightRadius: mine ? 5 : 18, borderBottomLeftRadius: mine ? 18 : 5 }}>
+                    {m.text}
+                    {m.liked && <span style={{ position:'absolute', bottom:-9, [mine ? 'left' : 'right']:8, fontSize:12, lineHeight:1, background:'var(--surface)', borderRadius:100, padding:'1px 3px', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}>❤️</span>}
+                  </div>
+                  {mine && !String(m.id).startsWith('tmp-') && (
+                    <button className="dm-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.4)', fontSize:13, flexShrink:0, padding:2 }}>✕</button>
+                  )}
+                </div>
+                {m.created_at && <span style={{ fontSize:10, color:'rgba(var(--fg),.35)', padding:'0 5px' }}>{timeAgo(m.created_at)}</span>}
               </div>
             )
           })}

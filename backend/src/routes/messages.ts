@@ -147,6 +147,28 @@ messages.delete('/conversation/:userId', async (c) => {
   return c.json({ data: { deleted: true }, error: null, status: 200 })
 })
 
+// POST /messages/msg/:id/like — toggle a like (tapback) on a message in my thread.
+messages.post('/msg/:id/like', async (c) => {
+  const me = c.var.user.id
+  const id = c.req.param('id')
+  const { data: msg } = await supabase.from('messages').select('id, from_user_id, to_user_id, liked').eq('id', id).maybeSingle()
+  if (!msg) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
+  const m = msg as any
+  if (m.from_user_id !== me && m.to_user_id !== me) return c.json({ data: null, error: 'Not allowed', status: 403 }, 403)
+  const next = !m.liked
+  const { error } = await supabase.from('messages').update({ liked: next }).eq('id', id)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { liked: next }, error: null, status: 200 })
+})
+
+// DELETE /messages/msg/:id — delete a message you sent.
+messages.delete('/msg/:id', async (c) => {
+  const me = c.var.user.id
+  const { error } = await supabase.from('messages').delete().eq('id', c.req.param('id')).eq('from_user_id', me)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { deleted: true }, error: null, status: 200 })
+})
+
 // GET /messages/:userId — fetch conversation between me and another user
 messages.get('/:userId', async (c) => {
   const me     = c.var.user.id
@@ -162,8 +184,9 @@ messages.get('/:userId', async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  // Mark incoming messages as read
-  supabase
+  // Mark incoming messages as read — MUST await, or the query never executes
+  // (supabase-js builders are lazy) and the unread badge keeps counting.
+  await supabase
     .from('messages')
     .update({ read: true })
     .eq('to_user_id', me)

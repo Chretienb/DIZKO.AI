@@ -77,6 +77,19 @@ export default function PageInbox({ openModal, user }) {
     setSending(false)
   }
 
+  const likeMsg = async (m) => {
+    if (String(m.id).startsWith('tmp-')) return
+    const next = !m.liked
+    setMsgs(p => p.map(x => x.id === m.id ? { ...x, liked: next } : x))
+    try { await messagesApi.likeMessage(m.id) } catch { setMsgs(p => p.map(x => x.id === m.id ? { ...x, liked: !next } : x)) }
+  }
+  const deleteMsg = async (m) => {
+    if (!window.confirm('Delete this message?')) return
+    const prev = msgs
+    setMsgs(p => p.filter(x => x.id !== m.id))
+    try { await messagesApi.deleteMessage(m.id) } catch { setMsgs(prev) }
+  }
+
   const block = async (t) => {
     setMenuFor(null)
     if (!window.confirm(`Block ${t.name}? They won't be able to message you, and this chat will be hidden.`)) return
@@ -189,10 +202,21 @@ export default function PageInbox({ openModal, user }) {
              msgs.map(m => {
                const mine = m.from_user_id === myId
                return (
-                 <div key={m.id} style={{ display:'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-                   <div style={{ maxWidth:'72%', padding:'9px 13px', borderRadius:16, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word',
-                     background: mine ? C.coral : C.surface2, color: mine ? '#fff' : C.t1,
-                     borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4 }}>{m.text}</div>
+                 <div key={m.id} className="ib-msg" style={{ display:'flex', flexDirection:'column', alignItems: mine ? 'flex-end' : 'flex-start', gap:2 }}>
+                   <div style={{ display:'flex', alignItems:'center', gap:6, flexDirection: mine ? 'row-reverse' : 'row', maxWidth:'78%' }}>
+                     <div onDoubleClick={() => likeMsg(m)} title="Double-click to like"
+                       style={{ position:'relative', padding:'9px 13px', borderRadius:16, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word', cursor:'default',
+                         background: mine ? C.coral : C.surface2, color: mine ? '#fff' : C.t1,
+                         borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4 }}>
+                       {m.text}
+                       {m.liked && <span style={{ position:'absolute', bottom:-9, [mine ? 'left' : 'right']:6, fontSize:12, lineHeight:1, background:C.bg, borderRadius:100, padding:'1px 3px', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}>❤️</span>}
+                     </div>
+                     {mine && !String(m.id).startsWith('tmp-') && (
+                       <button className="ib-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
+                         style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:13, flexShrink:0, padding:2 }}>✕</button>
+                     )}
+                   </div>
+                   <span style={{ fontSize:10, color:C.t3, padding:'0 5px' }}>{timeAgo(m.created_at)}</span>
                  </div>
                )
              })}
@@ -213,6 +237,9 @@ export default function PageInbox({ openModal, user }) {
       <style>{`
         .ib-menu { opacity:0; transition:opacity .12s; }
         .ib-row:hover .ib-menu { opacity:1; }
+        .ib-msgdel { opacity:0; transition:opacity .12s; }
+        .ib-msg:hover .ib-msgdel { opacity:1; }
+        @media (hover: none) { .ib-msgdel { opacity:1; } }
         @media (hover: none) { .ib-menu { opacity:1; } }
         .ib-grid { display:grid; grid-template-columns:1fr; gap:20px; align-items:start; }
         @media (min-width: 820px) { .ib-grid { grid-template-columns: 380px 1fr; } }
