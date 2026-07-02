@@ -191,21 +191,25 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const setLink     = (i, idx, patch) => editItem(i.id, { links: itemLinks(i).map((l, n) => n === idx ? { ...l, ...patch } : l) })
   const removeLink  = (i, idx) => editItem(i.id, { links: itemLinks(i).filter((_, n) => n !== idx) })
 
-  const saveItem = async (id) => {
-    const it = items.find(i => i.id === id)
-    if (!it) return
-    setItems(list => list.map(i => i.id === id ? { ...i, _saving: true } : i))
+  // One Save for the whole showcase (Angel's note): flush every edited track,
+  // then exit to the refreshed profile. Add/remove already persist immediately.
+  const [savingAll, setSavingAll] = useState(false)
+  const dirtyCount = items.filter(i => i._dirty).length
+  const saveAll = async () => {
+    if (savingAll) return
+    const dirty = items.filter(i => i._dirty)
+    if (dirty.length === 0) { handleClose(); return }
+    setSavingAll(true)
     try {
-      await showcaseApi.updateItem(id, {
+      await Promise.all(dirty.map(it => showcaseApi.updateItem(it.id, {
         caption: it.caption?.trim() || null,
         preview_only: !!it.preview_only,
         allow_download: it.allow_download !== false,
         links: itemLinks(it).filter(l => l.url?.trim()),
-      })
-      setItems(list => list.map(i => i.id === id ? { ...i, _saving: false, _dirty: false, _saved: true } : i))
-      setTimeout(() => setItems(list => list.map(i => i.id === id ? { ...i, _saved: false } : i)), 2200)
+      })))
+      handleClose()   // saved → leave this screen for the refreshed profile
     } catch (e) {
-      setItems(list => list.map(i => i.id === id ? { ...i, _saving: false } : i))
+      setSavingAll(false)
       alert(e?.message || 'Could not save — try again')
     }
   }
@@ -318,7 +322,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 <label style={label}>Links <span style={{ fontWeight:500, color:C.t3 }}>(one per line)</span></label>
                 <textarea value={links} onChange={e => setLinks(e.target.value)} rows={2} placeholder="instagram.com/you&#10;soundcloud.com/you" style={{ ...input, resize:'vertical' }} />
               </div>
-              <button onClick={() => saveProfile()} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
+              <button onClick={async () => { try { await saveProfile(); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
                 {saving ? 'Saving…' : 'Save profile'}
               </button>
             </div>
@@ -413,19 +417,6 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                             + Add link
                           </button>
                         </div>
-                      </div>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10, marginTop:10 }}>
-                        {i._saved && <span style={{ fontSize:12, fontWeight:600, color:'#2bb673', display:'inline-flex', alignItems:'center', gap:5 }}>
-                          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Saved
-                        </span>}
-                        {i._dirty && !i._saved && <span style={{ fontSize:12, color:C.t3 }}>Unsaved changes</span>}
-                        <button onClick={() => saveItem(i.id)} disabled={!i._dirty || i._saving}
-                          style={{ border:'none', borderRadius:9, padding:'8px 20px', fontFamily:'inherit', fontSize:12.5, fontWeight:700,
-                            cursor: (!i._dirty || i._saving) ? 'default' : 'pointer',
-                            background: (!i._dirty || i._saving) ? 'rgba(var(--fg),.10)' : C.grad,
-                            color: (!i._dirty || i._saving) ? C.t3 : '#fff', transition:'background .12s' }}>
-                          {i._saving ? 'Saving…' : 'Save changes'}
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -538,6 +529,22 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
             </div>
             )}
           </div>{/* /pe-grid */}
+
+            {/* One Save for the whole showcase — sticky at the bottom. */}
+            {mode === 'tracks' && (
+              <div style={{ position:'sticky', bottom:0, marginTop:8, padding:'14px 0 4px',
+                display:'flex', alignItems:'center', justifyContent:'flex-end', gap:12,
+                maxWidth:820, margin:'8px auto 0' }}>
+                {dirtyCount > 0 && <span style={{ fontSize:12.5, color:C.t3 }}>{dirtyCount} unsaved change{dirtyCount > 1 ? 's' : ''}</span>}
+                <button onClick={handleClose} disabled={savingAll}
+                  style={{ border:`1px solid ${C.border}`, borderRadius:11, padding:'11px 18px', background:'transparent', color:C.t2, fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Cancel</button>
+                <button onClick={saveAll} disabled={savingAll}
+                  style={{ border:'none', borderRadius:11, padding:'11px 26px', fontFamily:'inherit', fontSize:13.5, fontWeight:700,
+                    cursor: savingAll ? 'default' : 'pointer', background: C.grad, color:'#fff', opacity: savingAll ? .7 : 1 }}>
+                  {savingAll ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            )}
 
             {msg && (
               <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:3,

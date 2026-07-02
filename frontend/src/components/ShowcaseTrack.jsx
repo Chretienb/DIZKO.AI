@@ -24,8 +24,8 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
   // Logged-out visitors always get a 30s preview. Signed-in listeners hear
   // whatever the owner chose (full audio or 30s preview) for this track.
   const previewOnly = !hasAccount || !!item.preview_only
-  // Download only exists when the owner allows it (owner keeps it for themselves).
-  const canDownload = item.allow_download !== false || ownerIsSelf
+  // Downloads off → the button is gone for everyone, including the owner's own page.
+  const canDownload = item.allow_download !== false
   const links   = Array.isArray(item.links) ? item.links.filter(l => l?.url) : []
   const artwork = item.image_url || '/share/vinyl-45.png'   // project cover, else vinyl
   const audioRef = useRef(null)
@@ -119,6 +119,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
   const startReply = (c) => { setReplyTo({ id: c.id, author: c.author }); setAtTime(null) }
 
   const removeComment = async (id) => {
+    if (!window.confirm('Are you sure you want to delete the comment?')) return
     setComments(list => list.filter(c => c.id !== id))
     if (isDemo || String(id).startsWith('local-')) return
     try { await showcaseApi.deleteComment(id) } catch {}
@@ -187,8 +188,11 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
         </div>
       )}
 
-      {/* Top row */}
-      <div style={{ display:'flex', alignItems:'center', gap:'clamp(10px,3vw,13px)', padding:'clamp(11px,3.5vw,13px) clamp(12px,4vw,15px)' }}>
+      {/* Header: play + title on their own row; the action icons sit on a second
+          row below, so the title/details are never squeezed or truncated next to
+          the icons on mobile (Angel's note). */}
+      <div style={{ padding:'clamp(11px,3.5vw,13px) clamp(12px,4vw,15px)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'clamp(10px,3vw,13px)' }}>
         <button onClick={togglePlay} aria-label="Play"
           style={{ width:'clamp(44px,12vw,52px)', height:'clamp(44px,12vw,52px)', borderRadius:11, flexShrink:0, cursor:'pointer', overflow:'hidden',
             border:'1px solid rgba(var(--fg),.12)', padding:0, position:'relative',
@@ -206,7 +210,8 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
             {previewOnly && <span style={{ color:C.coral, fontWeight:600 }}>{' · '}30s preview</span>}
           </div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'clamp(6px, 2.5vw, 10px)', flexShrink:0 }}>
+        </div>{/* /header row */}
+        <div style={{ display:'flex', alignItems:'center', gap:'clamp(8px, 3vw, 12px)', flexWrap:'wrap', marginTop:12 }}>
           <button className="sc-act" onClick={() => onLike(item)} aria-label="Like" style={{ color:item.liked?C.coral:'rgba(var(--fg),.5)' }}>
             <svg width={17} height={17} viewBox="0 0 24 24" fill={item.liked?C.coral:'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>
             {fmt(item.like_count)}

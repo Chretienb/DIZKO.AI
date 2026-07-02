@@ -90,13 +90,14 @@ export default function PublicProfile({ embedded = false }) {
   useEffect(() => {
     if (!handle) return   // embedded: still resolving my own handle
     setTab('tracks'); setReposts(null)   // reset when switching profiles
-    // Seeded demo producers render client-side (no DB) so the network feels alive.
+    // Prefer the REAL account from the DB; fall back to the seeded client-side
+    // demo only if there's no DB profile (e.g. before @dizko is seeded). This
+    // lets @dizko become a real, followable/messageable account once seeded.
     const demo = getDemoProfile(handle)
-    if (demo) {
+    const useDemo = () => {
       const d = demoToProfile(demo)
       setP(d); setItems(d.items); setFollowing(false); setState('ready')
       document.title = `${d.display_name} (@${d.handle}) · Dizko`
-      return
     }
     publicApi.profile(handle)
       .then(r => {
@@ -104,9 +105,10 @@ export default function PublicProfile({ embedded = false }) {
           setP(r.data); setItems(r.data.items || []); setFollowing(!!r.data.is_following)
           setState('ready')
           document.title = `${r.data.display_name} (@${r.data.handle}) · Dizko`
-        } else setState('notfound')
+        } else if (demo) { useDemo() }
+        else setState('notfound')
       })
-      .catch(() => setState('notfound'))
+      .catch(() => { if (demo) useDemo(); else setState('notfound') })
   }, [handle])
 
   // Anyone can look; doing anything needs an account. Instead of a hard redirect,
@@ -373,9 +375,15 @@ export default function PublicProfile({ embedded = false }) {
 
       {/* Identity */}
       <div style={{ padding:'0 4px 22px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
           <div style={{ fontSize:16, fontWeight:800 }}>{p.display_name}</div>
-          {isDemo && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(244,147,122,.18)', color:C.coral }}>DEMO</span>}
+          {p.verified && (
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="#1d9bf0" aria-label="Verified" title="Verified" style={{ flexShrink:0 }}>
+              <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.44 0-.863.08-1.256.23C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.393-.15-.816-.23-1.256-.23-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .44 0 .863-.08 1.256-.23.62 1.334 1.926 2.25 3.437 2.25s2.817-.916 3.438-2.25c.393.15.816.23 1.256.23 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.514 1.16-.688 1.943-1.99 1.943-3.486z"/>
+              <path d="M10.75 16.518l-3.75-3.75 1.5-1.5 2.25 2.25 4.75-4.75 1.5 1.5z" fill="#fff"/>
+            </svg>
+          )}
+          {isDemo && !p.verified && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(244,147,122,.18)', color:C.coral }}>DEMO</span>}
         </div>
         <div style={{ fontSize:13, color:'rgba(var(--fg),.45)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
         {p.bio && <div style={{ fontSize:13.5, lineHeight:1.5, color:'rgba(var(--fg),.78)', whiteSpace:'pre-wrap' }}>{p.bio}</div>}

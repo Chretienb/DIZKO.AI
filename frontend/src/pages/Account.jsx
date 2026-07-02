@@ -146,6 +146,13 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
           danger
         />
       </div>
+
+      {/* ── Delete account — handled by the team via email ── */}
+      <div style={{ marginTop:16, textAlign:'center', fontSize:12.5, color:'var(--t4)', lineHeight:1.5 }}>
+        Want to delete your account?{' '}
+        <a href="mailto:team@dizko.ai?subject=Delete%20my%20account"
+          style={{ color:C.coral, textDecoration:'none', fontWeight:600 }}>Contact us</a>
+      </div>
     </div>
   )
 }

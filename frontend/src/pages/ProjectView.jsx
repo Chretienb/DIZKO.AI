@@ -10,6 +10,7 @@ import { InstrPicker } from '../components/modals/upload.jsx'
 import StemComments from './project/StemComments.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
+import ProjectSettings from '../components/ProjectSettings.jsx'
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
 import { warmPreviewBytes } from '../lib/audioCache.js'
 import { cachedUrlFor } from '../lib/uploadStore.js'
@@ -34,6 +35,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [renamingId,   setRenamingId]   = useState(null)
   const [renamingProject, setRenamingProject] = useState(false)
   const [shareOpen,    setShareOpen]    = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [projMenu,     setProjMenu]     = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
@@ -194,6 +196,17 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
   const addSong = async (name) => {
     if (!name?.trim()) return
+    // A Single is one song. Adding a second turns it into an Album — confirm first.
+    if (project?.type === 'Single' && folders.length >= 1) {
+      if (!window.confirm('This will turn your Single into an Album. Continue?')) return
+      try {
+        await projectsApi.update(projectId, { type: 'Album' })
+        setProject(prev => ({ ...prev, type: 'Album' }))
+      } catch (e) {
+        addToast?.(e?.message || "Couldn't update the project type", { type: 'error' })
+        return
+      }
+    }
     try {
       const res = await foldersApi.create(projectId, name.trim())
       if (!res?.data) return
@@ -211,6 +224,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         setFiles(prev => prev.map(f => !f.folder_id ? { ...f, folder_id: newFolder.id } : f))
       }
     } catch {}
+  }
+
+  // Delete a song (folder). The stems inside are unassigned, not deleted.
+  const deleteSong = async (folder) => {
+    const n = parentFiles.filter(f => f.folder_id === folder.id).length
+    const msg = n > 0
+      ? `Delete the song "${folder.name}"? Its ${n} stem${n > 1 ? 's' : ''} stay in the project (unassigned), not deleted.`
+      : `Delete the song "${folder.name}"?`
+    if (!window.confirm(msg)) return
+    const prev = folders
+    const remaining = folders.filter(f => f.id !== folder.id)
+    setFolders(remaining)
+    setFiles(list => list.map(f => f.folder_id === folder.id ? { ...f, folder_id: null } : f))
+    if (selectedFolderId === folder.id) setSelectedFolderId(remaining[0]?.id ?? null)
+    try { await foldersApi.remove(folder.id); addToast?.('Song deleted', { type: 'success' }) }
+    catch (e) { setFolders(prev); addToast?.(e?.message || 'Could not delete song', { type: 'error' }) }
   }
 
   // The middle header shows the current SONG when you're in one (the album is
@@ -400,21 +429,18 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const projBpm    = infoFile ? parseNotes(infoFile).bpm : null
   const projKey    = infoFile ? `${parseNotes(infoFile).key || ''}${parseNotes(infoFile).scale === 'minor' ? 'm' : ''}` : null
 
-  // Format/sample-rate for the song's stems (most common extension; vocals are 48k).
-  const songFmt    = (() => {
-    const counts = {}
-    stemsForView.forEach(f => {
-      const ext = (f.original_name || '').split('.').pop()?.toUpperCase()
-      if (ext && ext.length <= 4) counts[ext] = (counts[ext] || 0) + 1
-    })
-    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-    return top ? top[0] : 'WAV'
-  })()
-  const songRate   = stemsForView.some(f => f.instrument === 'vocals') ? '48kHz' : '44.1kHz'
-
   const selNotes   = selectedFile ? parseNotes(selectedFile) : {}
   const selLabels  = selectedFile ? getDetectedLabels(selectedFile, selNotes) : []
-  const selExt     = selectedFile?.mime_type?.split('/')?.[1]?.toUpperCase() || 'WAV'
+  // Friendly container name — prefer the file extension; map raw MIME subtypes
+  // (an .mp3 is `audio/mpeg`, which would otherwise show as "MPEG").
+  const fmtLabel = (file) => {
+    const ext = (file?.original_name || '').split('.').pop()?.toLowerCase()
+    if (ext && ext.length <= 4 && /^[a-z0-9]+$/.test(ext)) return ext === 'mpeg' ? 'MP3' : ext.toUpperCase()
+    const map = { mpeg:'MP3', mp3:'MP3', wav:'WAV', 'x-wav':'WAV', wave:'WAV', aiff:'AIFF', 'x-aiff':'AIFF', flac:'FLAC', ogg:'OGG', 'mp4':'M4A', 'x-m4a':'M4A', aac:'AAC' }
+    const sub = file?.mime_type?.split('/')?.[1]?.toLowerCase()
+    return map[sub] || (sub ? sub.toUpperCase() : 'WAV')
+  }
+  const selExt     = selectedFile ? fmtLabel(selectedFile) : 'WAV'
 
   const selVersions = selectedFile ? (() => {
     const base = stripVersion(selectedFile.original_name || selectedFile.suggested_name)
@@ -563,7 +589,18 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       {dropHere ? 'Drop to move here' : `${parentFiles.filter(f => f.folder_id === folder.id).length} stems`}
                     </div>
                   </div>
-                  <div style={{ width:8, height:8, borderRadius:'50%', background: on ? '#E95A51' : 'var(--t4)', flexShrink:0 }}/>
+                  {isOwner ? (
+                    <span role="button" tabIndex={0} title="Delete song" aria-label="Delete song"
+                      onClick={e => { e.stopPropagation(); deleteSong(folder) }}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSong(folder) } }}
+                      style={{ flexShrink:0, width:26, height:26, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t4)', cursor:'pointer', transition:'color .12s, background .12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color='#ef4444'; e.currentTarget.style.background='rgba(239,68,68,.1)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color='var(--t4)'; e.currentTarget.style.background='transparent' }}>
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </span>
+                  ) : (
+                    <div style={{ width:8, height:8, borderRadius:'50%', background: on ? '#E95A51' : 'var(--t4)', flexShrink:0 }}/>
+                  )}
                 </button>
               )
             })}
@@ -742,23 +779,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:31, minWidth:188,
                         background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:6,
                         boxShadow:'0 12px 32px rgba(0,0,0,.18)' }}>
-                        <button onClick={archiveProject}
+                        <button onClick={() => { setProjMenu(false); setSettingsOpen(true) }}
                           style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
                             border:'none', background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
                             fontSize:13, fontWeight:600, color:'var(--t1)' }}
                           onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.06)'}
                           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 12h4"/></svg>
-                          Archive project
-                        </button>
-                        <button onClick={deleteProject}
-                          style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
-                            border:'none', background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
-                            fontSize:13, fontWeight:600, color:'#ef4444' }}
-                          onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.08)'}
-                          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                          Delete project
+                          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                          Project settings
                         </button>
                       </div>
                     </>
@@ -811,7 +839,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <div style={{ fontSize:12, color:'var(--t3)' }}>
             {stemsForView.length} stem{stemsForView.length!==1?'s':''}
             {project?.updated_at && <><span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>Updated {timeAgo(project.updated_at)}</>}
-            <span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>{songFmt}<span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>{songRate}
           </div>
         </div>
 
@@ -1183,8 +1210,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
                   {[
                     { label:'Format',      val: selExt },
-                    { label:'Sample rate', val: selectedFile.instrument === 'vocals' ? '48kHz' : '44.1kHz' },
-                    { label:'Bit depth',   val: '24-bit' },
                     ...(selNotes.duration ? [{ label:'Duration', val: fmtDur(selNotes.duration) }] : []),
                     ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
                     ...(selectedFile.original_name ? [{ label:'Source file', val: selectedFile.original_name, stack:true }] : []),
@@ -1359,8 +1384,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
               {[
                 { label:'Format',      val: selExt },
-                { label:'Sample rate', val: selectedFile.instrument === 'vocals' ? '48kHz' : '44.1kHz' },
-                { label:'Bit depth',   val: '24-bit' },
                 ...(selNotes.duration ? [{ label:'Duration', val: fmtDur(selNotes.duration) }] : []),
                 ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
               ].map(row => (
@@ -1397,6 +1420,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       {msgCollab && <MessageModal collab={msgCollab} onClose={() => setMsgCollab(null)} onSend={async (c,t) => { try { await messagesApi.send(c.user_id, t) } catch {} }}/>}
       {remCollab && <RemoveModal  collab={remCollab}  onClose={() => setRemCollab(null)}  onConfirm={async () => { setCollabs(p => p.filter(c => c.id !== remCollab.id)); try { await collabsApi.remove(remCollab.id) } catch { loadAll() } }}/>}
       {shareOpen && <ShareCardModal project={project} user={user} onClose={() => setShareOpen(false)} />}
+      {settingsOpen && project && (
+        <ProjectSettings project={project} addToast={addToast}
+          onSaved={(p) => setProject(prev => ({ ...prev, ...p }))}
+          onArchive={isOwner ? archiveProject : undefined}
+          onDelete={isOwner ? deleteProject : undefined}
+          onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   )
 }

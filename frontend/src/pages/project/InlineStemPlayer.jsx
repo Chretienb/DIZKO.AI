@@ -20,6 +20,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
   const [duration, setDuration] = useState(0)
   const [current,  setCurrent]  = useState(0)
   const [loading,  setLoading]  = useState(true)
+  const [unsupported, setUnsupported] = useState(false)   // browser can't decode this format (e.g. AIFF on Chrome)
   const [liked,    setLiked]    = useState(false)
   const [likeCount,setLikeCount]= useState(0)
   const [peaks,    setPeaks]    = useState(() => cachedPeaks(track?.id) || synthPeaks(track?.id))
@@ -53,7 +54,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
   // stops playback.
   useEffect(() => {
     if (!track?.file_url) return
-    setLoading(true)
+    setLoading(true); setUnsupported(false)
     setProgress(0); setCurrent(0); setDuration(0)
     // Instant playback: if the preview's bytes are already cached (memory or
     // IndexedDB across reloads), play a local blob: URL with zero network. Else
@@ -64,8 +65,14 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     warmPreviewBytes(track.preview_url)   // fill the cache so replays/reloads are instant
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
     a.onloadedmetadata = () => setDuration(a.duration)
-    a.oncanplay        = () => setLoading(false)
+    a.oncanplay        = () => { setLoading(false); setUnsupported(false) }
     a.onended          = () => { setPlaying(false); goNext() }
+    // If we're streaming the ORIGINAL file (no transcoded MP3 preview) and the
+    // browser can't decode it — AIFF in Chrome/Firefox, OGG in Safari — the
+    // media element errors with code 4 (SRC_NOT_SUPPORTED). Surface a clear note.
+    a.onerror = () => {
+      if (!track.preview_url && a.error?.code === 4) { setUnsupported(true); setLoading(false); setPlaying(false) }
+    }
     // Autoplay on user-initiated track changes, but stay paused when the project
     // just loaded the featured mix (don't blast audio on open).
     let p
@@ -215,6 +222,24 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
           </button>
         </div>
       </div>
+
+      {/* Format the browser can't decode (e.g. AIFF in Chrome/Firefox). It still
+          uploaded + analyzed fine — just can't preview here. */}
+      {unsupported && (() => {
+        const fmt = ((track.original_name || '').split('.').pop() || '').toUpperCase() || 'This format'
+        const tip = (fmt === 'AIFF' || fmt === 'AIF') ? ' Open this page in Safari to preview it,'
+          : fmt === 'OGG' ? ' Open this page in Chrome or Firefox to preview it,'
+          : ''
+        return (
+          <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 13px', borderRadius:12,
+            background:'rgba(234,159,30,.10)', border:'1px solid rgba(234,159,30,.28)' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#EA9F1E" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div style={{ fontSize:12.5, color:'var(--t2)', lineHeight:1.5 }}>
+              <strong style={{ color:'var(--t1)' }}>{fmt} can’t play in this browser.</strong>{tip} or download the file to listen. Your upload and its analysis worked fine.
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Waveform = scrub bar. Flat placeholder until the REAL peaks decode (no
           misleading random waveform), then the true per-stem bars. */}

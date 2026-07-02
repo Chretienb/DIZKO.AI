@@ -201,7 +201,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
 
   const { data: prof } = await supabase
     .from('profiles')
-    .select('id, handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count')
+    .select('id, handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, verified')
     .eq('handle', handle)
     .maybeSingle()
 
@@ -251,6 +251,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
       links:           Array.isArray(p.links) ? p.links : [],
       follower_count:  p.follower_count,
       following_count: p.following_count,
+      verified:        !!p.verified,
       is_following:    isFollowing,
       is_self:         me === p.id,
       items: (items ?? []).map((i: any) => {

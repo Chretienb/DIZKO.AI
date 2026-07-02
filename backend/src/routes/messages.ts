@@ -216,6 +216,30 @@ messages.post('/', sanitize, async (c) => {
     dedupWindow:  30_000,
   }).catch(() => null)
 
+  // Messages to the official @dizko account are forwarded to the team inbox so a
+  // human sees them (the account itself isn't monitored in-app).
+  try {
+    const { data: recip } = await supabase.from('profiles').select('handle').eq('id', to_user_id).maybeSingle()
+    if ((recip as any)?.handle === 'dizko') {
+      const apiKey = process.env.RESEND_API_KEY
+      if (apiKey) {
+        const senderEmail = sender?.user?.email || 'unknown'
+        fetch('https://api.resend.com/emails', {
+          method:  'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from:     process.env.RESEND_FROM || 'Dizko.ai <team@dizko.ai>',
+            to:       'team@dizko.ai',
+            reply_to: senderEmail,
+            subject:  `New Dizko message from ${senderName}`,
+            html:     `<p><strong>${senderName}</strong> (${senderEmail}) messaged @dizko:</p><blockquote>${clean.replace(/</g, '&lt;')}</blockquote>`,
+          }),
+        }).then(async r => { if (!r.ok) console.error('[dizko dm email]', await r.text()) })
+          .catch(e => console.error('[dizko dm email]', e.message))
+      }
+    }
+  } catch { /* best-effort */ }
+
   // Follow-up: email the recipient only if they haven't read it after a short delay.
   scheduleUnreadEmail({
     messageId:   (data as any).id,

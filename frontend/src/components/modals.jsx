@@ -249,10 +249,11 @@ export function ModalNewProject({ onClose, onCreated }) {
     try {
       const res = await projectsApi.create({ title: title.trim(), type, status })
       const project = res.data
-      // Always create the first song folder — default to "Track 1" if the user
-      // didn't name it, so every project opens with a song to upload into.
+      // Always create the first song folder. For a Single the project IS the
+      // song, so use the album title; otherwise the given name (default Track 1).
       if (project?.id) {
-        await foldersApi.create(project.id, songName.trim() || 'Track 1').catch(() => {})
+        const firstSong = type === 'Single' ? title.trim() : (songName.trim() || 'Track 1')
+        await foldersApi.create(project.id, firstSong).catch(() => {})
       }
       if (project?.id && coverFile) {
         try {
@@ -273,7 +274,7 @@ export function ModalNewProject({ onClose, onCreated }) {
   }
 
   return (
-    <Modal title="New Project" sub="Name your album and its first song" onClose={onClose}>
+    <Modal title="New Project" sub={type === 'Single' ? 'Name your single' : 'Name your album and its first song'} onClose={onClose}>
       {/* Cover picker (optional) */}
       <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:16 }}>
         <input ref={coverInput} type="file" accept="image/*" onChange={pickCover} style={{ display:'none' }} />
@@ -296,12 +297,15 @@ export function ModalNewProject({ onClose, onCreated }) {
         </div>
       </div>
 
-      <Field label="Album / Project Name" placeholder="e.g. Summer Vibes Vol. 2" value={title} onChange={handleTitleChange} />
-      <Field label="First Song Name" placeholder="e.g. Track 1" value={songName} onChange={e => setSongName(e.target.value)} />
+      <Field label={type === 'Single' ? 'Single Name' : 'Album / Project Name'} placeholder="e.g. Summer Vibes Vol. 2" value={title} onChange={handleTitleChange} />
       <div style={{ marginBottom:18 }}>
         <MLabel>Type</MLabel>
         <PillSelect options={types} value={type} onChange={setType} />
       </div>
+      {/* A Single is one song, so the project name IS the song — no separate field. */}
+      {type !== 'Single' && (
+        <Field label="First Song Name" placeholder="e.g. Track 1" value={songName} onChange={e => setSongName(e.target.value)} />
+      )}
       {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
         border:'1px solid rgba(239,68,68,.15)', color:'#ef4444', fontSize:12.5, marginBottom:12 }}>{err}</div>}
       <div style={{ display:'flex', gap:8, paddingTop:4 }}>
