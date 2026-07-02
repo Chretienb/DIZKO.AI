@@ -5,6 +5,17 @@ import { C, Avatar, Spinner } from './components/ui/index.jsx'
 
 const LINK_PRESETS = ['Spotify', 'Apple Music', 'YouTube', 'SoundCloud', 'Bandcamp', 'Instagram']
 
+// Reconstruct a shareable URL from a stored "<provider>:<payload>" embed value.
+function embedToUrl(embed) {
+  if (!embed) return ''
+  const i = embed.indexOf(':'); if (i < 0) return ''
+  const prov = embed.slice(0, i), payload = embed.slice(i + 1)
+  if (prov === 'spotify') return `https://open.spotify.com/${payload}`
+  if (prov === 'apple')   return `https://music.apple.com/${payload}`
+  if (prov === 'youtube') return payload.startsWith('list/') ? `https://www.youtube.com/playlist?list=${payload.slice(5)}` : `https://youtu.be/${payload}`
+  return ''
+}
+
 // One shared loading row — the brand equalizer spinner + label — so every
 // loading state in this editor looks the same instead of bare text.
 function Loading({ label = 'Loading…', pad = '40px 0' }) {
@@ -38,7 +49,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const [displayName, setDisplayName] = useState(cp.display_name || user?.full_name || '')
   const [bio, setBio]                 = useState(cp.bio || '')
   const [links, setLinks]             = useState(Array.isArray(cp.links) ? cp.links.join('\n') : '')
-  const [spotify, setSpotify]         = useState(cp.spotify_embed ? `https://open.spotify.com/${cp.spotify_embed}` : '')
+  const [spotify, setSpotify]         = useState(embedToUrl(cp.music_embed || (cp.spotify_embed ? `spotify:${cp.spotify_embed}` : '')))
   const [avatar, setAvatar]           = useState(cp.avatar_url || user?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
@@ -68,7 +79,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         setDisplayName(pr.display_name || user?.full_name || '')
         setBio(pr.bio || '')
         setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
-        setSpotify(pr.spotify_embed ? `https://open.spotify.com/${pr.spotify_embed}` : '')
+        setSpotify(embedToUrl(pr.music_embed || (pr.spotify_embed ? `spotify:${pr.spotify_embed}` : '')))
         setAvatar(pr.avatar_url || user?.avatar_url || null)
         setIsPublic(!!pr.profile_public)
       }
@@ -146,7 +157,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
         links: links.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8),
-        spotify_url: spotify.trim(),
+        music_url: spotify.trim(),
         ...overrides,
       }
       const r = await showcaseApi.updateProfile(patch)
@@ -326,8 +337,8 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 <textarea value={links} onChange={e => setLinks(e.target.value)} rows={2} placeholder="instagram.com/you&#10;soundcloud.com/you" style={{ ...input, resize:'vertical' }} />
               </div>
               <div style={{ marginBottom:16 }}>
-                <label style={label}>Spotify <span style={{ fontWeight:500, color:C.t3 }}>(playlist, album, track or artist — embeds on your page)</span></label>
-                <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/album/…" style={input} />
+                <label style={label}>Music <span style={{ fontWeight:500, color:C.t3 }}>(Spotify, Apple Music or YouTube — embeds on your page)</span></label>
+                <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…" style={input} />
               </div>
               <button onClick={async () => { try { await saveProfile(); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
                 {saving ? 'Saving…' : 'Save profile'}

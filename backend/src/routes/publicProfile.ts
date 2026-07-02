@@ -249,7 +249,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
 
   const { data: prof } = await supabase
     .from('profiles')
-    .select('id, handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, verified, spotify_embed')
+    .select('id, handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, verified, spotify_embed, music_embed')
     .eq('handle', handle)
     .maybeSingle()
 
@@ -304,6 +304,7 @@ publicProfile.get('/:handle', readLimit, async (c) => {
       following_count: p.following_count,
       verified:        !!p.verified,
       spotify_embed:   p.spotify_embed ?? null,
+      music_embed:     p.music_embed ?? (p.spotify_embed ? `spotify:${p.spotify_embed}` : null),
       repost_count:    repostCount ?? 0,
       is_following:    isFollowing,
       is_self:         me === p.id,

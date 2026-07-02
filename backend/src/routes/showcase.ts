@@ -10,6 +10,26 @@ import { censorProfanity } from '../lib/profanity'
 import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import type { HonoVariables } from '../types'
 
+// Parse a Spotify / Apple Music / YouTube link into a stored "<provider>:<payload>".
+// Returns null if it's not a recognized music link.
+function parseMusicEmbed(raw: string): string | null {
+  // Spotify — playlist / track / album / artist
+  const sp = raw.match(/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?|spotify:)(playlist|track|album|artist)[/:]([A-Za-z0-9]+)/i)
+  if (sp) return `spotify:${sp[1]!.toLowerCase()}/${sp[2]}`
+  // Apple Music — music.apple.com/<country>/<album|playlist|song>/<slug>/<id>[?i=<songId>]
+  const am = raw.match(/music\.apple\.com\/([a-z]{2}\/(?:album|playlist|song)\/[^?\s]+)(\?[^\s]*)?/i)
+  if (am) {
+    const song = (am[2] || '').match(/[?&]i=(\d+)/)
+    return `apple:${am[1]}${song ? `?i=${song[1]}` : ''}`
+  }
+  // YouTube — playlist or single video (watch / youtu.be / shorts / embed)
+  const yl = raw.match(/[?&]list=([A-Za-z0-9_-]+)/)
+  if (yl && /youtube\.com|youtu\.be/i.test(raw)) return `youtube:list/${yl[1]}`
+  const yv = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})/i)
+  if (yv) return `youtube:${yv[1]}`
+  return null
+}
+
 // Authenticated half of the social-showcase layer: profile editing, handle
 // claiming, curating which library files appear publicly, and the social writes
 // (follow, like) + the gated HQ download. The public reads live in
@@ -37,7 +57,7 @@ showcase.get('/me', async (c) => {
   const [{ data: prof }, { data: items }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed')
+      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed, music_embed')
       .eq('id', me).maybeSingle(),
     supabase
       .from('showcase_items')
@@ -105,15 +125,18 @@ showcase.patch('/me', sanitize, async (c) => {
       .filter(l => typeof l === 'string' && (l as string).length < 200)
       .slice(0, 8)
   }
-  // Spotify embed — accept a share link or spotify: URI for a playlist / track /
-  // album / artist; store the normalized "<type>/<id>". Blank clears it.
-  if ('spotify_url' in b) {
-    const raw = b.spotify_url ? String(b.spotify_url).trim() : ''
-    if (!raw) { patch.spotify_embed = null }
+  // Music embed — accept a Spotify / Apple Music / YouTube link; store the
+  // normalized "<provider>:<payload>". Blank clears it. (music_url preferred;
+  // spotify_url kept for backward compatibility.)
+  if ('music_url' in b || 'spotify_url' in b) {
+    const raw = String((b as any).music_url ?? (b as any).spotify_url ?? '').trim()
+    if (!raw) { patch.music_embed = null; patch.spotify_embed = null }
     else {
-      const m = raw.match(/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?|spotify:)(playlist|track|album|artist)[/:]([A-Za-z0-9]+)/i)
-      if (!m) return c.json({ data: null, error: 'Paste a Spotify playlist, album, track, or artist link (Share → Copy link).', status: 400 }, 400)
-      patch.spotify_embed = `${m[1]!.toLowerCase()}/${m[2]}`
+      const embed = parseMusicEmbed(raw)
+      if (!embed) return c.json({ data: null, error: 'Paste a Spotify, Apple Music, or YouTube link.', status: 400 }, 400)
+      patch.music_embed = embed
+      // Keep the legacy Spotify column in sync when it's a Spotify link.
+      patch.spotify_embed = embed.startsWith('spotify:') ? embed.slice('spotify:'.length) : null
     }
   }
 

@@ -90,9 +90,9 @@ export default function PublicProfile({ embedded = false }) {
   const shareTrack   = (item) => setShareCard({ kind: 'track', item })
 
   const removeSpotify = async () => {
-    if (!window.confirm('Remove the Spotify player from your profile?')) return
-    setP(prev => ({ ...prev, spotify_embed: null }))
-    try { await showcaseApi.updateProfile({ spotify_url: '' }) }
+    if (!window.confirm('Remove the music player from your profile?')) return
+    setP(prev => ({ ...prev, music_embed: null, spotify_embed: null }))
+    try { await showcaseApi.updateProfile({ music_url: '' }) }
     catch (e) { flashToast(e?.message || 'Could not remove'); setP(prev => ({ ...prev })) }
   }
 
@@ -483,33 +483,34 @@ export default function PublicProfile({ embedded = false }) {
           </button>
         </div>
       )}
-      {/* Spotify embed — compact by default (main track), expandable for albums /
-          playlists. Owner can remove it (with a confirm). */}
-      {p.spotify_embed && (() => {
-        const isMulti = !p.spotify_embed.startsWith('track/')
+      {/* Music embed — Spotify / Apple Music / YouTube. Compact by default,
+          expandable for albums / playlists. Owner can remove it (with a confirm). */}
+      {p.music_embed && (() => {
+        const e = musicEmbed(p.music_embed)
+        if (!e) return null
         return (
           <div style={{ marginTop:24 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-              <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)' }}>On Spotify</div>
+              <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)' }}>On {e.label}</div>
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                {isMulti && (
+                {e.canExpand && (
                   <button onClick={() => setSpotifyExpanded(v => !v)}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.5)', fontSize:12, fontWeight:600, fontFamily:'inherit', padding:'4px 6px' }}>
                     {spotifyExpanded ? 'Show less ▴' : 'Show all songs ▾'}
                   </button>
                 )}
                 {p.is_self && (
-                  <button onClick={removeSpotify} title="Remove Spotify" aria-label="Remove Spotify"
+                  <button onClick={removeSpotify} title="Remove" aria-label="Remove music"
                     style={{ width:26, height:26, borderRadius:7, border:'none', cursor:'pointer', background:'rgba(var(--fg),.06)', color:'rgba(var(--fg),.55)', display:'flex', alignItems:'center', justifyContent:'center' }}
-                    onMouseEnter={e => { e.currentTarget.style.color='#ef4444'; e.currentTarget.style.background='rgba(239,68,68,.1)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color='rgba(var(--fg),.55)'; e.currentTarget.style.background='rgba(var(--fg),.06)' }}>
+                    onMouseEnter={ev => { ev.currentTarget.style.color='#ef4444'; ev.currentTarget.style.background='rgba(239,68,68,.1)' }}
+                    onMouseLeave={ev => { ev.currentTarget.style.color='rgba(var(--fg),.55)'; ev.currentTarget.style.background='rgba(var(--fg),.06)' }}>
                     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 )}
               </div>
             </div>
-            <iframe title="Spotify" src={`https://open.spotify.com/embed/${p.spotify_embed}?utm_source=dizko`}
-              width="100%" height={isMulti && spotifyExpanded ? 380 : 152} frameBorder="0" loading="lazy"
+            <iframe title={e.label} src={e.src}
+              width="100%" height={e.canExpand && spotifyExpanded ? e.tall : e.short} frameBorder="0" loading="lazy"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
               style={{ borderRadius:12, border:'none', transition:'height .2s' }} />
           </div>
@@ -904,6 +905,26 @@ const shareIcon = (
 const ghostBtn = { padding:'6px 14px', borderRadius:9, border:'1px solid rgba(var(--fg),.18)', background:'transparent',
   color:'rgba(var(--fg),.85)', fontSize:12.5, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
   display:'inline-flex', alignItems:'center', gap:6 }
+
+// Turn a stored "<provider>:<payload>" into an embed iframe descriptor.
+function musicEmbed(embed) {
+  if (!embed) return null
+  const i = embed.indexOf(':'); if (i < 0) return null
+  const prov = embed.slice(0, i), payload = embed.slice(i + 1)
+  if (prov === 'spotify') {
+    const isTrack = payload.startsWith('track/')
+    return { label:'Spotify', src:`https://open.spotify.com/embed/${payload}?utm_source=dizko`, short:152, tall:380, canExpand:!isTrack }
+  }
+  if (prov === 'apple') {
+    const isSong = payload.includes('?i=')
+    return { label:'Apple Music', src:`https://embed.music.apple.com/${payload}`, short:isSong?175:175, tall:450, canExpand:!isSong }
+  }
+  if (prov === 'youtube') {
+    const src = payload.startsWith('list/') ? `https://www.youtube.com/embed/videoseries?list=${payload.slice(5)}` : `https://www.youtube.com/embed/${payload}`
+    return { label:'YouTube', src, short:220, tall:220, canExpand:false }
+  }
+  return null
+}
 
 function fmt(n) {
   n = Number(n) || 0
