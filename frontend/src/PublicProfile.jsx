@@ -72,6 +72,7 @@ export default function PublicProfile({ embedded = false }) {
     const t = q.get('t')
     if (t) setTimeout(() => document.getElementById(`track-${t}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
     if (q.get('discover') === '1') setDiscoverOpen(true)
+    publicApi.prefetchDiscover?.()   // warm the Discover feed + reels so the panel opens instantly
     if (q.get('share') === '1') setShareCard({ kind: 'profile' })
   }, [state])
 

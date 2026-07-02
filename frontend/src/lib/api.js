@@ -496,6 +496,13 @@ function _pubFetch(handle) {
   return promise
 }
 
+// Discover feed + reels caches — served instantly on reopen, revalidated in bg.
+let _discoverCache = null   // { data, ts }
+let _reelsCache    = null
+const DISCOVER_TTL = 60_000
+const _fetchDiscover = () => fetch(`${BASE}/u/search?q=`).then(r => r.json()).then(d => { _discoverCache = { data: d, ts: Date.now() }; return d })
+const _fetchReels    = () => fetch(`${BASE}/u/reels`).then(r => r.json()).then(d => { _reelsCache = { data: d, ts: Date.now() }; return d })
+
 // ── Public collaboration-invite pages (#78) ──────────────────────────────────
 export const publicApi = {
   // Unauthenticated pitch read — plain fetch (no auth/refresh/redirect).
@@ -523,10 +530,25 @@ export const publicApi = {
   // Public comment list for a showcased track.
   itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
   // Search public producer profiles by handle / display name. Empty q = the
-  // default Discover feed (top public profiles).
-  searchProfiles: async (q = '') => { const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(q)}`); return r.json() },
-  // Recent playable tracks from public producers, for the Discover reels.
-  reels: async () => { const r = await fetch(`${BASE}/u/reels`); return r.json() },
+  // default Discover feed (top public profiles) — cached + revalidated so
+  // reopening Discover is instant.
+  searchProfiles: async (q = '') => {
+    const key = q.trim()
+    if (!key) {
+      const c = _discoverCache
+      if (c?.data && Date.now() - c.ts < DISCOVER_TTL) { _fetchDiscover().catch(() => {}); return c.data }  // serve stale, revalidate
+      return _fetchDiscover()
+    }
+    const r = await fetch(`${BASE}/u/search?q=${encodeURIComponent(key)}`); return r.json()
+  },
+  // Recent playable tracks from public producers — cached like the feed.
+  reels: async () => {
+    const c = _reelsCache
+    if (c?.data && Date.now() - c.ts < DISCOVER_TTL) { _fetchReels().catch(() => {}); return c.data }
+    return _fetchReels()
+  },
+  // Warm both Discover caches (call on hover so the panel opens instantly).
+  prefetchDiscover: () => { _fetchDiscover().catch(() => {}); _fetchReels().catch(() => {}) },
   // Tracks a profile has reposted (each credits the original author).
   reposts: async (handle) => {
     const token = getToken()

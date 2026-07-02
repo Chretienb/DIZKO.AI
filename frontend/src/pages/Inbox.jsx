@@ -37,6 +37,8 @@ export default function PageInbox({ openModal, user }) {
   // Open a conversation. Mobile → existing modal; desktop → right pane.
   const open = (t) => {
     setThreads(list => list.map(x => x.user_id === t.user_id ? { ...x, unread: 0 } : x))
+    // Tell the app shell to refresh the inbox badge (this thread is now read).
+    setTimeout(() => window.dispatchEvent(new Event('dizko:inbox_read')), 400)
     if (isMobile) { openModal('message', { user_id: t.user_id, user: { full_name: t.name, avatar_url: t.avatar } }); return }
     setSelId(t.user_id)
   }

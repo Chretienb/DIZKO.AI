@@ -97,9 +97,13 @@ export class ErrorBoundary extends React.Component {
   render() {
     // Don't flash the error screen for a stale-chunk reload — show a quiet notice.
     if (this.state.reloading) return (
-      <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-        background:'var(--bg)', color:'var(--t3)', fontFamily:"'Inter',-apple-system,sans-serif", fontSize:14 }}>
-        Updating to the latest version…
+      <div style={{ height:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:18,
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter',-apple-system,sans-serif", textAlign:'center', padding:24 }}>
+        <style>{`@keyframes dzspin{to{transform:rotate(360deg)}}`}</style>
+        <img src="/logo.png" width={52} height={52} style={{ borderRadius:14 }} alt="" onError={e => { e.currentTarget.style.display='none' }} />
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#F4937A" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
+        <div style={{ fontSize:16, fontWeight:700 }}>Updating to the latest version</div>
+        <div style={{ fontSize:13, color:'var(--t3)' }}>Just a sec — grabbing the newest build.</div>
       </div>
     )
     if (!this.state.error) return this.props.children
@@ -681,7 +685,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     prevPathRef.current = location.pathname
   }, [location.pathname])
 
-  // Inbox unread badge — refetch on navigation, focus, and a light interval.
+  // Inbox unread badge — updates instantly via realtime, plus focus / read /
+  // interval fallbacks.
   const [inboxUnread, setInboxUnread] = React.useState(0)
   React.useEffect(() => {
     if (!user?.id) return
@@ -690,9 +695,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     f()
     const iv = setInterval(f, 30_000)
     const onFocus = () => f()
+    const onRead  = () => f()   // Inbox fires this when a thread is opened/read
     window.addEventListener('focus', onFocus)
-    return () => { live = false; clearInterval(iv); window.removeEventListener('focus', onFocus) }
-  }, [user?.id, location.pathname])
+    window.addEventListener('dizko:inbox_read', onRead)
+    // Realtime: a new message addressed to me bumps the badge immediately.
+    const ch = supabase.channel(`inbox-badge:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user_id=eq.${user.id}` }, f)
+      .subscribe()
+    return () => { live = false; clearInterval(iv); window.removeEventListener('focus', onFocus); window.removeEventListener('dizko:inbox_read', onRead); supabase.removeChannel(ch) }
+  }, [user?.id])
 
   // Owner-pays: creating projects and inviting are paid (owner) actions, but
   // UPLOADING is contributing — free collaborators must be able to add their

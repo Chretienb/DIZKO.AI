@@ -12,9 +12,31 @@ import { reloadForNewBuild } from './App.jsx'
 initMonitoring()
 initPostHog()
 
+// A friendly full-screen "Updating…" overlay, injected straight into the DOM so
+// it paints INSTANTLY on a stale-chunk error — the user never sees a raw code
+// failure, just a branded "new version" screen, before we reload.
+function showUpdatingOverlay() {
+  if (document.getElementById('dizko-updating')) return
+  const el = document.createElement('div')
+  el.id = 'dizko-updating'
+  el.setAttribute('style', [
+    'position:fixed','inset:0','z-index:2147483647','display:flex','flex-direction:column',
+    'align-items:center','justify-content:center','gap:18px','background:#000',
+    "font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif",'color:#fff','text-align:center','padding:24px',
+  ].join(';'))
+  el.innerHTML = `
+    <style>@keyframes dzspin{to{transform:rotate(360deg)}}</style>
+    <img src="/logo.png" width="52" height="52" style="border-radius:14px" alt="" onerror="this.style.display='none'"/>
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F4937A" stroke-width="2.4" stroke-linecap="round" style="animation:dzspin .9s linear infinite"><path d="M12 3a9 9 0 019 9"/></svg>
+    <div style="font-size:16px;font-weight:700">Updating to the latest version</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.55)">Just a sec — grabbing the newest build.</div>`
+  document.body.appendChild(el)
+}
+const handleChunkError = () => { showUpdatingOverlay(); reloadForNewBuild() }
+
 // After a deploy, Vite chunk hashes change; an open tab can fail to lazy-load an
-// old chunk. Vite fires this — reload once to grab the new build (vs. erroring).
-window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadForNewBuild() })
+// old chunk. Vite fires this — show the overlay + reload to grab the new build.
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); handleChunkError() })
 
 // React.lazy() failures don't always fire vite:preloadError — they surface as a
 // thrown "e._result.default is undefined" / "Cannot read 'default'" or a rejected
@@ -25,8 +47,8 @@ const isChunkError = (m) => {
   return /dynamically imported module|module script|ChunkLoadError|Loading chunk/i.test(s)
       || /_result|evaluating 'e\._result|reading 'default'|access property "default"/.test(s)
 }
-window.addEventListener('error', (e) => { if (isChunkError(e?.message)) reloadForNewBuild() })
-window.addEventListener('unhandledrejection', (e) => { if (isChunkError(e?.reason?.message ?? e?.reason)) reloadForNewBuild() })
+window.addEventListener('error', (e) => { if (isChunkError(e?.message)) handleChunkError() })
+window.addEventListener('unhandledrejection', (e) => { if (isChunkError(e?.reason?.message ?? e?.reason)) handleChunkError() })
 import Login         from './Login.jsx'
 import Splash        from './Splash.jsx'
 import Welcome       from './Welcome.jsx'
