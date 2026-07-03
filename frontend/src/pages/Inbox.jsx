@@ -6,6 +6,7 @@ import { getToken } from '../lib/utils.js'
 import { MobileCtx } from '../lib/mobile.js'
 import { Spinner, C, Avatar } from '../components/ui/index.jsx'
 import { timeAgo } from '../lib/utils.js'
+import { track } from '../lib/posthog.js'
 
 // Inbox — two-pane on desktop (conversation list + open thread), single column
 // on mobile. Messages from public profiles land here too.
@@ -72,6 +73,7 @@ export default function PageInbox({ openModal, user }) {
     try {
       const r = await messagesApi.send(selId, t)
       if (r?.data) setMsgs(p => p.map(m => m.id === mine.id ? r.data : m))   // swap in stored (censored) text
+      track('message_sent', { from: 'inbox' })
       setThreads(list => list.map(x => x.user_id === selId ? { ...x, last_text: r?.data?.text || t, last_from_me: true, last_at: new Date().toISOString() } : x))
     } catch (e) { setMsgs(p => p.filter(m => m.id !== mine.id)); alert(e.message || 'Could not send') }
     setSending(false)

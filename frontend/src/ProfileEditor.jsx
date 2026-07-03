@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { showcaseApi, projects as projectsApi, files as filesApi, auth as authApi } from './lib/api.js'
 import { C, Avatar, Spinner } from './components/ui/index.jsx'
+import { track } from './lib/posthog.js'
 
 const LINK_PRESETS = ['Spotify', 'Apple Music', 'YouTube', 'SoundCloud', 'Bandcamp', 'Instagram']
 
@@ -171,6 +172,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
     const next = !isPublic
     if (next && !profile?.handle && !handle) { flash('Claim a handle first'); return }
     setIsPublic(next)
+    if (next) track('profile_made_public')
     try { await saveProfile({ profile_public: next }) }
     catch { setIsPublic(!next) }
   }
@@ -185,6 +187,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
       const r = await showcaseApi.addItem(stem.id, null, cover)
       const title = stem.suggested_name || stem.original_name || 'Untitled'
       setItems(list => [...list, { id: r.data.id, stem_id: stem.id, title, instrument: stem.instrument, caption: null, like_count: 0, play_count: 0, image_url: cover, allow_download: true, links: [] }])
+      track('showcase_track_added')
       setPickFiles(list => list.filter(f => f.id !== stem.id))
     } catch (e) { flash(e.message || 'Could not add') }
   }
@@ -221,6 +224,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         allow_download: it.allow_download !== false,
         links: itemLinks(it).filter(l => l.url?.trim()),
       })))
+      track('showcase_saved', { tracks: items.length })
       handleClose()   // saved → leave this screen for the refreshed profile
     } catch (e) {
       setSavingAll(false)
@@ -340,7 +344,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 <label style={label}>Music <span style={{ fontWeight:500, color:C.t3 }}>(Spotify, Apple Music or YouTube — embeds on your page)</span></label>
                 <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…" style={input} />
               </div>
-              <button onClick={async () => { try { await saveProfile(); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
+              <button onClick={async () => { try { await saveProfile(); track('profile_saved', { has_music: !!spotify.trim() }); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
                 {saving ? 'Saving…' : 'Save profile'}
               </button>
             </div>

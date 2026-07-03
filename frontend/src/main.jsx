@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './index.css'
 import { initMonitoring } from './lib/monitoring.js'
-import { initPostHog } from './lib/posthog.js'
+import { initPostHog, phIdentify, phReset, track } from './lib/posthog.js'
 import posthog from './lib/posthog.js'
 import App           from './App.jsx'
 import { reloadForNewBuild } from './App.jsx'
@@ -204,9 +204,17 @@ function Root() {
     const u = userData ?? userFromToken()
     setUser(u)
     setUserName(name)
+    // Analytics: tie events to this person + record the auth event.
+    phIdentify(u)
+    track(isNewUser ? 'signed_up' : 'logged_in', { method: u?.provider || 'email' })
   }
 
+  // Already logged in on load (returning session) → identify so events attach.
+  useEffect(() => { const u = userFromToken(); if (u) phIdentify(u) }, [])
+
   const handleLogout = () => {
+    track('logged_out')
+    phReset()   // forget the person so a shared device doesn't blend users
     // Clear state immediately so the UI transitions to login with no delay
     setToken(null)
     setRefreshToken(null)

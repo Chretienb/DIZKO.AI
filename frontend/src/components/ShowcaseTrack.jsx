@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { publicApi, showcaseApi } from '../lib/api'
 import { getToken, timeAgo } from '../lib/utils.js'
+import { track } from '../lib/posthog.js'
 
 const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
 const BASE = '/api'
@@ -112,7 +113,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
     }
     try {
       const r = await showcaseApi.comment(item.id, body, ts, parent)
-      if (r?.data) { setComments(list => [...(list||[]), r.data]); setCCount(n => n + 1) }
+      if (r?.data) { setComments(list => [...(list||[]), r.data]); setCCount(n => n + 1); track('comment_posted', { is_reply: !!parent }) }
       setText(''); setAtTime(null); setReplyTo(null)
     } catch (e) { alert(e.message || 'Could not comment') }
     setBusy(false)

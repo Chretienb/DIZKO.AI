@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { publicApi, showcaseApi, messagesApi } from './lib/api'
 import { getToken, timeAgo } from './lib/utils.js'
+import { track } from './lib/posthog.js'
 import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
@@ -135,6 +136,7 @@ export default function PublicProfile({ embedded = false }) {
     const next = !following
     setFollowing(next)
     setP(prev => ({ ...prev, follower_count: Math.max(0, prev.follower_count + (next ? 1 : -1)) }))
+    track(next ? 'producer_followed' : 'producer_unfollowed', { handle: p.handle })
     if (isDemo) return   // demo profiles: local UI only, no API
     try { next ? await showcaseApi.follow(p.id) : await showcaseApi.unfollow(p.id) }
     catch { setFollowing(!next) }   // revert on failure
@@ -145,6 +147,7 @@ export default function PublicProfile({ embedded = false }) {
     const next = !item.liked
     setItems(list => list.map(i => i.id === item.id
       ? { ...i, liked: next, like_count: Math.max(0, i.like_count + (next ? 1 : -1)) } : i))
+    if (next) track('track_liked', { handle: p.handle })
     if (isDemo) return   // demo profiles: local UI only, no API
     try { next ? await showcaseApi.like(item.id) : await showcaseApi.unlike(item.id) }
     catch {
@@ -160,6 +163,7 @@ export default function PublicProfile({ embedded = false }) {
     const apply = (delta) => (list) => list && list.map(i => i.id === item.id
       ? { ...i, reposted: next, repost_count: Math.max(0, (i.repost_count || 0) + delta) } : i)
     setItems(apply(next ? 1 : -1)); setReposts(apply(next ? 1 : -1))
+    if (next) track('track_reposted', { handle: p.handle })
     if (isDemo) return
     try { next ? await showcaseApi.repost(item.id) : await showcaseApi.unrepost(item.id) }
     catch {
@@ -205,6 +209,7 @@ export default function PublicProfile({ embedded = false }) {
       if (r?.data?.url) {
         const a = document.createElement('a')
         a.href = r.data.url; a.download = r.data.filename || ''; document.body.appendChild(a); a.click(); a.remove()
+        track('track_downloaded', { handle: p.handle })
       }
     } catch (e) { alert(e.message || 'Download unavailable') }
   }
@@ -644,7 +649,7 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
     const mine = { id: `tmp-${Date.now()}`, from_user_id: myId, to_user_id: profile.id, text: t, created_at: new Date().toISOString() }
     setThread(list => [...list, mine]); setText('')
     try {
-      if (!isDemo) { const r = await messagesApi.send(profile.id, t); if (r?.data) setThread(list => list.map(m => m.id === mine.id ? r.data : m)) }
+      if (!isDemo) { const r = await messagesApi.send(profile.id, t); if (r?.data) setThread(list => list.map(m => m.id === mine.id ? r.data : m)); track('message_sent', { from: 'public_profile' }) }
       else setTimeout(() => setThread(list => [...list, { id: `r-${Date.now()}`, from_user_id: profile.id, to_user_id: myId, text: 'thanks for reaching out! 🙏 (demo reply)', created_at: new Date().toISOString() }]), 1100)
     } catch (e) { onError?.(e.message || 'Could not send'); setThread(list => list.filter(m => m.id !== mine.id)) }
     setSending(false)

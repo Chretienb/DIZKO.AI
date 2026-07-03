@@ -17,6 +17,7 @@ import logo from '../assets/logo.png'
 import { setUploadPreview } from '../pages/project/uploadPreview.js'
 import { putPending } from '../lib/uploadStore.js'
 import { enqueue } from '../lib/backgroundUploader.js'
+import { track } from '../lib/posthog.js'
 import { encodeToFlac } from '../lib/flac.js'
 
 export { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
@@ -1272,6 +1273,8 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
   const [uploading,     setUploading]     = useState(false)
   const [allDone,       setAllDone]       = useState(false)
   const [requesting,    setRequesting]    = useState(null)
+  // Analytics: record a completed upload batch (fires once when it finishes).
+  useEffect(() => { if (allDone) track('stems_uploaded') }, [allDone])
   // Resolve the real song name (the badge used to read literal "this song").
   const [songLabel,     setSongLabel]     = useState(folderName || '')
   useEffect(() => {
