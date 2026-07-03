@@ -91,7 +91,7 @@ publicProfile.get('/item/:itemId/comments', readLimit, async (c) => {
   const me = await viewerId(c)
   const likedSet = new Set<string>()
   if (me && (rows ?? []).length) {
-    const { data: likes } = await supabase.from('comment_likes')
+    const { data: likes } = await supabase.from('showcase_comment_likes')
       .select('comment_id').eq('user_id', me).in('comment_id', (rows ?? []).map((r: any) => r.id))
     for (const l of (likes ?? []) as any[]) likedSet.add(l.comment_id)
   }

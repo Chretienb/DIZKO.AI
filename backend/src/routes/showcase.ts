@@ -371,13 +371,13 @@ showcase.delete('/comments/:id', async (c) => {
 // ── POST/DELETE /showcase/comments/:id/like — like a comment ──────────────────
 showcase.post('/comments/:id/like', async (c) => {
   const me = c.var.user.id
-  const { error } = await supabase.from('comment_likes').insert({ comment_id: c.req.param('id'), user_id: me })
+  const { error } = await supabase.from('showcase_comment_likes').insert({ comment_id: c.req.param('id'), user_id: me })
   if (error && (error as any).code !== '23505') return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { liked: true }, error: null, status: 200 })
 })
 showcase.delete('/comments/:id/like', async (c) => {
   const me = c.var.user.id
-  const { error } = await supabase.from('comment_likes').delete().eq('comment_id', c.req.param('id')).eq('user_id', me)
+  const { error } = await supabase.from('showcase_comment_likes').delete().eq('comment_id', c.req.param('id')).eq('user_id', me)
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data: { liked: false }, error: null, status: 200 })
 })

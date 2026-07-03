@@ -530,7 +530,11 @@ export const publicApi = {
     _pubFetch(handle).catch(() => {})
   },
   // Public comment list for a showcased track.
-  itemComments: async (itemId) => { const r = await fetch(`${BASE}/u/item/${itemId}/comments`); return r.json() },
+  itemComments: async (itemId) => {
+    const token = getToken()
+    const r = await fetch(`${BASE}/u/item/${itemId}/comments`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    return r.json()
+  },
   // Search public producer profiles by handle / display name. Empty q = the
   // default Discover feed (top public profiles) — cached + revalidated so
   // reopening Discover is instant.
