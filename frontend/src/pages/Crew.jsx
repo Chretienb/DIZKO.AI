@@ -8,12 +8,56 @@ const CREW_EMAIL = 'team@dizko.ai'   // where prospective ambassadors request an
 const C = { coral:'#E95A51', stripe:'#635BFF', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)', surface:'var(--surface)', bg:'var(--bg)' }
 const money = (cents) => `$${((cents || 0) / 100).toFixed(2)}`
 
-const cardS  = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, padding:22 }
-const labelS = { fontSize:10.5, fontWeight:800, color:C.t3, textTransform:'uppercase', letterSpacing:'.09em' }
-const ghostS = { border:`1px solid ${C.border}`, borderRadius:9, padding:'6px 12px', cursor:'pointer', background:'transparent', color:C.t2, fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap' }
+const cardS  = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:28 }
+const labelS = { fontSize:11, fontWeight:700, color:C.t3, letterSpacing:'.02em' }
+const ghostS = { border:'none', borderRadius:10, padding:'9px 16px', cursor:'pointer', background:'transparent', color:C.t2, fontSize:13, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap' }
+const primaryS = { border:'none', borderRadius:10, padding:'11px 20px', cursor:'pointer', background:C.t1, color:C.bg, fontSize:13.5, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap' }
+const dividerS = { height:1, background:C.border }
 
 const Shield = ({ s = 13 }) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>)
 const Check  = () => (<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><polyline points="20 6 9 17 4 12"/></svg>)
+
+// A "payout card" visual, styled like a bank card. In `mock` mode (the
+// invite-only landing page) it shows an illustrative example — no real data,
+// no functionality. On the ambassador dashboard, it shows the ambassador's
+// actual code, pending payout, and tier instead.
+function PayoutCard({ mock, code, pendingCents, tierPct }) {
+  return (
+    <div style={{
+      position:'relative', overflow:'hidden', borderRadius:22, padding:'30px 32px', color:'#fff',
+      height:'100%', boxSizing:'border-box', display:'flex', flexDirection:'column', justifyContent:'space-between',
+      background:'linear-gradient(115deg, #ED6A5E 0%, #C6455F 32%, #6A3FA0 68%, #3E2F8F 100%)',
+      boxShadow:'0 24px 44px -22px rgba(107,63,160,.55)',
+    }}>
+      {/* diagonal sheen */}
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(115deg, rgba(255,255,255,.22) 0%, transparent 30%)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', top:-70, right:-40, width:220, height:220, borderRadius:'50%', background:'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)', pointerEvents:'none' }} />
+
+      <div style={{ position:'relative', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+        <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.07em', textTransform:'uppercase' }}>Dizko Crew</div>
+        {/* chip */}
+        <div style={{ width:38, height:28, borderRadius:6, background:'linear-gradient(135deg, #f3d089, #cfa055)', border:'1px solid rgba(0,0,0,.15)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:24, height:16, borderRadius:3, border:'1px solid rgba(0,0,0,.25)' }} />
+        </div>
+      </div>
+
+      <div style={{ position:'relative', marginTop:26, fontSize:26, fontWeight:700, letterSpacing:'.1em', fontFamily:'ui-monospace, monospace', textShadow:'0 1px 2px rgba(0,0,0,.15)' }}>
+        {mock ? '•••• •••• •••• 4242' : (code || '—')}
+      </div>
+
+      <div style={{ position:'relative', display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginTop:28 }}>
+        <div>
+          <div style={{ fontSize:11.5, opacity:.8, letterSpacing:'.03em' }}>{mock ? "THIS MONTH'S PAYOUT" : 'PENDING PAYOUT'}</div>
+          <div style={{ fontSize:32, fontWeight:800, letterSpacing:'-.5px', marginTop:5 }}>{mock ? '$1,240.00' : money(pendingCents)}</div>
+        </div>
+        {/* network-mark style tier badge */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:52, height:52, borderRadius:'50%', background:'rgba(255,255,255,.16)', border:'1px solid rgba(255,255,255,.3)', fontSize:13, fontWeight:800 }}>
+          {mock ? '17%' : `${tierPct}%`}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const TIERS = [
   { range:'First 10 paying creators', pct:'17%' },
@@ -40,32 +84,32 @@ function CrewPitch() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
       <div style={cardS}>
-        <div style={{ fontSize:15, fontWeight:800, color:C.t1, letterSpacing:'-.2px' }}>Earn while your community creates</div>
-        <div style={{ fontSize:12.5, color:C.t3, marginTop:9, lineHeight:1.65 }}>
-          Every paying creator you bring to Dizko earns you recurring revenue for up to <b style={{ color:C.t2 }}>12 months</b>. Invite the producers, engineers, artists, DJs, and educators who want to shape the future of music.
+        <div style={{ fontSize:16, fontWeight:700, color:C.t1, letterSpacing:'-.3px' }}>Earn while your community creates</div>
+        <div style={{ fontSize:13, color:C.t3, marginTop:10, lineHeight:1.6 }}>
+          Every paying creator you bring to Dizko earns you recurring revenue for up to <span style={{ color:C.t1, fontWeight:600 }}>12 months</span>. Invite the producers, engineers, artists, DJs, and educators who want to shape the future of music.
         </div>
-      </div>
 
-      <div style={cardS}>
+        <div style={{ ...dividerS, margin:'22px 0' }} />
+
         <div style={labelS}>Commission levels</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:12 }}>
+        <div style={{ display:'flex', flexDirection:'column', marginTop:14 }}>
           {TIERS.map((t, i) => (
-            <div key={t.pct} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'10px 0', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
-              <div style={{ fontSize:12.5, color:C.t2, fontWeight:600 }}>{t.range}</div>
-              <span style={{ fontSize:12.5, fontWeight:800, color:C.coral, background:'rgba(233,90,81,.1)', padding:'4px 11px', borderRadius:100, flexShrink:0 }}>{t.pct}</span>
+            <div key={t.pct} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'11px 0', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
+              <div style={{ fontSize:13, color:C.t2 }}>{t.range}</div>
+              <span style={{ fontSize:13, fontWeight:700, color:C.coral, flexShrink:0 }}>{t.pct}</span>
             </div>
           ))}
         </div>
-        <div style={{ fontSize:11, color:C.t3, marginTop:14, paddingTop:12, borderTop:`1px solid ${C.border}`, lineHeight:1.55 }}>
+        <div style={{ fontSize:11.5, color:C.t3, marginTop:12, lineHeight:1.5 }}>
           Only paid subscribers count toward your level. Free trials unlock your commission once they become paying members.
         </div>
       </div>
 
       <div style={cardS}>
         <div style={labelS}>What's included</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:11, marginTop:14 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:13, marginTop:16 }}>
           {INCLUDED.map(i => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, fontSize:12.5, color:C.t2, fontWeight:500 }}><Check />{i}</div>
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, fontSize:13, color:C.t2 }}><Check />{i}</div>
           ))}
         </div>
       </div>
@@ -99,11 +143,12 @@ function Hero({ center }) {
   const narrow = useNarrow()
   return (
     <div style={{ textAlign: center ? 'center' : 'left', maxWidth: center ? 640 : 'none', margin: center ? '0 auto' : 0 }}>
-      <div style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:11, fontWeight:800, color:C.coral, background:'rgba(233,90,81,.1)', border:'1px solid rgba(233,90,81,.25)', padding:'5px 12px', borderRadius:100, letterSpacing:'.04em', textTransform:'uppercase' }}>Dizko Crew</div>
-      <h1 style={{ margin:'14px 0 0', fontSize: narrow ? 24 : (center ? 34 : 30), fontWeight:850, color:C.t1, letterSpacing: narrow ? '-.6px' : '-1px', lineHeight:1.15 }}>Get paid to grow the future of music</h1>
+      <div style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.04em', textTransform:'uppercase' }}>Dizko Crew</div>
+      <h1 style={{ margin:'10px 0 0', fontSize: narrow ? 24 : (center ? 32 : 28), fontWeight:750, color:C.t1, letterSpacing: narrow ? '-.5px' : '-.8px', lineHeight:1.15 }}>Get paid to grow the future of music</h1>
       <div style={{ fontSize: narrow ? 13.5 : 14.5, color:C.t3, marginTop:12, lineHeight:1.6, maxWidth:560, marginLeft: center ? 'auto' : 0, marginRight: center ? 'auto' : 0 }}>
         The best producers don't just make hits — they build communities. Invite yours to Dizko and earn a share of every paid subscription.
       </div>
+      {center && <div style={{ display:'flex', justifyContent:'center', marginTop:28 }}><div style={{ width:'100%', maxWidth:400 }}><PayoutCard mock /></div></div>}
     </div>
   )
 }
@@ -153,8 +198,8 @@ export default function PageCrew() {
     <div style={{ maxWidth:720, margin:'0 auto', padding: narrow ? '26px 16px 56px' : '44px 20px 72px', display:'flex', flexDirection:'column', gap: narrow ? 16 : 24 }}>
       <Hero center />
       <CrewPitch />
-      <div style={{ ...cardS, textAlign:'center', background:'linear-gradient(155deg, rgba(233,90,81,.10), rgba(233,90,81,.015) 70%)', border:'1px solid rgba(233,90,81,.22)' }}>
-        <div style={{ fontSize:15, fontWeight:800, color:C.t1 }}>Dizko Crew is invite-only</div>
+      <div style={{ ...cardS, textAlign:'center' }}>
+        <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>Dizko Crew is invite-only</div>
         <div style={{ fontSize:13, color:C.t3, marginTop:8, lineHeight:1.6 }}>Have an invite link? Open it to join and start earning on every producer you bring in.</div>
         <div style={{ fontSize:13, color:C.t2, marginTop:12, lineHeight:1.6 }}>
           Want to become a Dizko Crew ambassador? Email us at{' '}
@@ -173,87 +218,82 @@ export default function PageCrew() {
   const progress = nextAt ? Math.min(100, Math.round((paying / nextAt) * 100)) : 100
 
   const dashboard = (
-    <div style={{ display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
-      {/* Code hero */}
-      <div style={{ ...cardS, background:'linear-gradient(155deg, rgba(233,90,81,.10), rgba(233,90,81,.015) 70%)', border:'1px solid rgba(233,90,81,.22)', padding:24 }}>
-        <div style={labelS}>Your code</div>
-        <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', marginTop:12 }}>
-          <div style={{ fontSize:34, fontWeight:900, letterSpacing:'.04em', color:C.coral, lineHeight:1 }}>{me.code || '—'}</div>
-          <button onClick={copyCode} style={ghostS}>{codeCopied ? 'Copied ✓' : 'Copy code'}</button>
+    <div style={{ display:'flex', flexDirection:'column', gap:14, minWidth:0 }}>
+      {/* Hero row: payout card + share link, side by side on wide screens */}
+      <div style={{ display:'grid', gridTemplateColumns: narrow ? '1fr' : '360px 1fr', gap:14, alignItems:'stretch' }}>
+        <div style={{ minWidth:0 }}>
+          <PayoutCard code={me.code} pendingCents={me.pending_cents} tierPct={tierPct} />
         </div>
-        <div style={{ fontSize:12.5, color:C.t2, marginTop:12 }}>Customers get <b style={{ color:C.t1 }}>1 month free + 20% off for 6 months</b></div>
-        <div style={{ display:'flex', gap:8, marginTop:16 }}>
-          <input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} style={{ flex:1, minWidth:0, padding:'11px 13px', borderRadius:11, border:`1px solid ${C.border}`, background:C.bg, color:C.t1, fontSize:13, fontFamily:'inherit' }} />
-          <button onClick={copy} style={{ border:'none', borderRadius:11, padding:'0 18px', cursor:'pointer', background:C.coral, color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap' }}>{copied ? 'Copied ✓' : 'Copy link'}</button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12 }}>
-        {[['Paying customers', paying], ['Commission tier', `${tierPct}%`], ['Pending payout', money(me.pending_cents)]].map(([lbl, val]) => (
-          <div key={lbl} style={{ ...cardS, padding:'18px 12px', textAlign:'center' }}>
-            <div style={{ fontSize:23, fontWeight:900, color:C.t1, letterSpacing:'-.3px' }}>{val}</div>
-            <div style={{ fontSize:11, color:C.t3, marginTop:4 }}>{lbl}</div>
+        <div style={{ ...cardS, minWidth:0, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={labelS}>Share your link</span>
+            <button onClick={copyCode} style={{ ...ghostS, padding:'4px 0' }}>{codeCopied ? 'Code copied ✓' : 'Copy code only'}</button>
           </div>
-        ))}
+          <div style={{ fontSize:13, color:C.t3, marginTop:10 }}>Customers get <span style={{ color:C.t1, fontWeight:600 }}>1 month free + 20% off for 6 months</span></div>
+          <div style={{ display:'flex', gap:8, marginTop:16 }}>
+            <input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} style={{ flex:1, minWidth:0, padding:'12px 14px', borderRadius:12, border:`1px solid ${C.border}`, background:C.bg, color:C.t2, fontSize:13, fontFamily:'inherit' }} />
+            <button onClick={copy} style={primaryS}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+          </div>
+        </div>
       </div>
 
       {/* Tier progress */}
       <div style={cardS}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
           <span style={labelS}>Your tier</span>
-          <span style={{ fontSize:13, fontWeight:800, color:C.coral }}>{tierPct}%</span>
+          <span style={{ fontSize:13.5, color:C.t2 }}><span style={{ fontWeight:700, color:C.t1 }}>{paying}</span> paying customer{paying === 1 ? '' : 's'}</span>
         </div>
-        <div style={{ height:7, borderRadius:100, background:C.bg, marginTop:12, overflow:'hidden' }}>
+        <div style={{ height:6, borderRadius:100, background:C.bg, marginTop:14, overflow:'hidden' }}>
           <div style={{ height:'100%', width:`${progress}%`, borderRadius:100, background:C.coral, transition:'width .4s ease' }} />
         </div>
-        <div style={{ fontSize:12, color:C.t3, marginTop:10, lineHeight:1.5 }}>
+        <div style={{ fontSize:12.5, color:C.t3, marginTop:12, lineHeight:1.55 }}>
           {nextAt
-            ? <>Bring in <b style={{ color:C.t2 }}>{nextAt - paying} more</b> paying customer{nextAt - paying === 1 ? '' : 's'} to reach <b style={{ color:C.t2 }}>{nextPct}</b>.</>
-            : <>You're at the top tier — <b style={{ color:C.t2 }}>25%</b>.</>}
+            ? <>Bring in <span style={{ color:C.t2, fontWeight:600 }}>{nextAt - paying} more</span> paying customer{nextAt - paying === 1 ? '' : 's'} to reach <span style={{ color:C.t2, fontWeight:600 }}>{nextPct}</span>.</>
+            : <>You're at the top tier — <span style={{ color:C.t2, fontWeight:600 }}>25%</span>.</>}
           {' '}Paid for 12 months from each customer's first payment.
         </div>
       </div>
 
       {/* Getting paid */}
       <div style={cardS}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
           <span style={labelS}>Getting paid</span>
-          <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:700, color:C.stripe }}><Shield />Secured by Stripe</span>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:600, color:C.t3 }}><Shield />Secured by Stripe</span>
         </div>
         {!me.connected ? (
           <>
-            <div style={{ fontSize:13, color:C.t2, lineHeight:1.6, marginBottom:16 }}>
+            <div style={{ fontSize:13.5, color:C.t2, lineHeight:1.6, marginBottom:18 }}>
               Connect a payout account to receive your commission. Stripe verifies your identity and holds your bank details — it takes about 2 minutes.
             </div>
-            <button onClick={connect} disabled={busy} style={{ border:'none', borderRadius:11, padding:'12px 22px', cursor:busy?'default':'pointer', background:C.coral, color:'#fff', fontSize:14, fontWeight:700, fontFamily:'inherit', opacity:busy?.7:1 }}>
+            <button onClick={connect} disabled={busy} style={{ ...primaryS, padding:'12px 22px', fontSize:14, opacity:busy?.6:1, cursor:busy?'default':'pointer' }}>
               {busy ? 'Opening Stripe…' : 'Connect payout account'}
             </button>
           </>
         ) : verified ? (
           <>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'7px 13px', borderRadius:100, background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.3)', color:'#22c55e', fontSize:12.5, fontWeight:700, marginBottom:16 }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:C.t1, marginBottom:18 }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
               Connected · payouts enabled
             </div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={openStripe} style={{ ...ghostS, color:C.t1, padding:'10px 16px', borderRadius:10, fontSize:13 }}>Update payout info</button>
-              <button onClick={disconnect} disabled={busy} style={{ ...ghostS, color:'#ef4444', padding:'10px 16px', borderRadius:10, fontSize:13 }}>Disconnect</button>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <button onClick={openStripe} style={ghostS}>Update payout info</button>
+              <button onClick={disconnect} disabled={busy} style={{ ...ghostS, color:'#ef4444' }}>Disconnect</button>
             </div>
           </>
         ) : (
           <>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'7px 13px', borderRadius:100, background:'rgba(234,159,30,.12)', border:'1px solid rgba(234,159,30,.3)', color:'#EA9F1E', fontSize:12.5, fontWeight:700, marginBottom:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:C.t1, marginBottom:12 }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:'#EA9F1E', flexShrink:0 }} />
               Onboarding not finished
             </div>
-            <div style={{ fontSize:13, color:C.t2, lineHeight:1.6, marginBottom:14 }}>Stripe still needs a few details before you can be paid.</div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={connect} disabled={busy} style={{ border:'none', borderRadius:10, padding:'10px 18px', cursor:'pointer', background:C.coral, color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>Finish onboarding</button>
-              <button onClick={disconnect} disabled={busy} style={{ ...ghostS, color:'#ef4444', padding:'10px 16px', borderRadius:10, fontSize:13 }}>Disconnect</button>
+            <div style={{ fontSize:13.5, color:C.t2, lineHeight:1.6, marginBottom:18 }}>Stripe still needs a few details before you can be paid.</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <button onClick={connect} disabled={busy} style={primaryS}>Finish onboarding</button>
+              <button onClick={disconnect} disabled={busy} style={{ ...ghostS, color:'#ef4444' }}>Disconnect</button>
             </div>
           </>
         )}
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:16, paddingTop:14, borderTop:`1px solid ${C.border}`, fontSize:11.5, color:C.t3, lineHeight:1.5 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:20, paddingTop:18, borderTop:`1px solid ${C.border}`, fontSize:12, color:C.t3, lineHeight:1.5 }}>
           <span style={{ color:C.t3, flexShrink:0 }}><Shield s={13} /></span>
           Bank details are encrypted and handled securely by Stripe.
         </div>
@@ -262,20 +302,20 @@ export default function PageCrew() {
   )
 
   return (
-    <div style={{ maxWidth:1080, margin:'0 auto', padding:'28px 20px 72px' }}>
+    <div style={{ maxWidth:1080, margin:'0 auto', padding: narrow ? '24px 16px 64px' : '36px 20px 72px' }}>
       {/* Header */}
-      <div style={{ marginBottom:22 }}>
+      <div style={{ marginBottom: narrow ? 20 : 28 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <h1 style={{ margin:0, fontSize:27, fontWeight:800, color:C.t1, letterSpacing:'-.7px' }}>Dizko Crew</h1>
-          <span style={{ ...labelS, fontSize:10, color:C.coral, background:'rgba(233,90,81,.1)', border:'1px solid rgba(233,90,81,.25)', padding:'3px 9px', borderRadius:100 }}>Ambassador</span>
+          <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.6px' }}>Dizko Crew</h1>
+          <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>Ambassador</span>
         </div>
         <div style={{ fontSize:13.5, color:C.t3, marginTop:6 }}>Share your code, earn commission on every paying producer you bring in.</div>
       </div>
 
       {narrow ? (
-        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>{dashboard}<CrewPitch /></div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>{dashboard}<CrewPitch /></div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 340px', gap:22, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 340px', gap:20, alignItems:'start' }}>
           {dashboard}
           <div style={{ position:'sticky', top:20 }}><CrewPitch /></div>
         </div>
