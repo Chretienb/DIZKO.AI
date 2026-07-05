@@ -148,10 +148,19 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
       </div>
 
       {/* ── Delete account — handled by the team via email ── */}
-      <div style={{ marginTop:16, textAlign:'center', fontSize:12.5, color:'var(--t4)', lineHeight:1.5 }}>
-        Want to delete your account?{' '}
-        <a href="mailto:team@dizko.ai?subject=Delete%20my%20account"
-          style={{ color:C.coral, textDecoration:'none', fontWeight:600 }}>Contact us</a>
+      <div style={{ marginTop:20, padding:'16px 18px', borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)' }}>
+        <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>Want to delete your account?</div>
+        <div style={{ fontSize:12.5, color:'var(--t3)', lineHeight:1.6, marginBottom:12 }}>
+          Deleting your account permanently removes your profile, projects, stems, and showcase — this can’t be undone.
+          For your security we handle deletions by hand, so just email us and we’ll fully remove your data within 30 days.
+          See our <a href="/privacy" target="_blank" rel="noreferrer" style={{ color:'var(--brand)', textDecoration:'none', fontWeight:600 }}>Privacy Policy</a> for details.
+        </div>
+        <a href="mailto:team@dizko.ai?subject=Delete%20my%20account&body=Please%20delete%20my%20Dizko%20account%20associated%20with%20this%20email."
+          style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'9px 14px', borderRadius:10, border:'1px solid var(--border)',
+            background:'var(--bg)', color:'var(--t1)', textDecoration:'none', fontSize:13, fontWeight:600 }}>
+          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          team@dizko.ai
+        </a>
       </div>
     </div>
   )

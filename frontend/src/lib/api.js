@@ -464,10 +464,23 @@ export const venuesApi = {
 }
 
 // ── Billing ───────────────────────────────────────────────────────────────────
+const getRef = () => { try { return localStorage.getItem('dizko_ref') || '' } catch { return '' } }
 export const billingApi = {
   status:   ()           => get('/billing/status'),
-  checkout: (plan)       => request('POST', '/billing/checkout', { plan }),
+  // Auto-attach a captured Dizko Crew referral code (?ref=CODE) so the ambassador's
+  // promo code is applied at checkout and the referral is attributed.
+  checkout: (plan)       => request('POST', '/billing/checkout', { plan, ...(getRef() ? { ref: getRef() } : {}) }),
   portal:   ()           => request('POST', '/billing/portal', {}),
+}
+
+// ── Dizko Crew (ambassador program) ───────────────────────────────────────────
+export const crewApi = {
+  me:         () => request('GET',  '/crew/me'),
+  join:       (code) => request('POST', '/crew/join', { code }),
+  status:     () => request('GET',  '/crew/status'),
+  connect:    () => request('POST', '/crew/connect', {}),
+  loginLink:  () => request('POST', '/crew/login-link', {}),
+  disconnect: () => request('POST', '/crew/disconnect', {}),
 }
 
 // ── Folders ───────────────────────────────────────────────────────────────────

@@ -65,9 +65,10 @@ function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass,
         background: on ? C.grad : 'transparent', transition:'background .2s' }}/>
       <div style={{ padding:'10px 16px 12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:5,
-            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>{label}</div>
-          <input type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
+          <label htmlFor={id} style={{ display:'block', fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:5,
+            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>{label}</label>
+          <input id={id} name={id} type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
+            autoComplete={isPw ? 'current-password' : id === 'name' ? 'name' : type === 'email' ? 'email' : undefined}
             onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
             style={{ width:'100%', background:'transparent', border:'none', outline:'none',
               color:'#fff', fontSize:15, fontFamily:'inherit', padding:0, caretColor:C.coral }}/>

@@ -42,7 +42,9 @@ import venueRoutes            from './routes/venues'
 import folderRoutes           from './routes/folders'
 import youtubeRoutes          from './routes/youtube'
 import billingRoutes          from './routes/billing'
+import crewRoutes             from './routes/crew'
 import { startCleanupJob }   from './lib/cleanupJob'
+import { startPayoutJob }    from './lib/payoutJob'
 import { runSmartBounce }    from './lib/smartBounce'
 import { analyzeProject }    from './lib/aiAnalysis'
 import { notify, getProjectMemberIds } from './lib/notificationService'
@@ -111,6 +113,7 @@ app.route('/venues',          venueRoutes)
 app.route('/folders',         folderRoutes)
 app.route('/youtube',         youtubeRoutes)
 app.route('/billing',         billingRoutes)
+app.route('/crew',            crewRoutes)
 app.route('/auth/youtube',   youtubeRoutes)  // alias — matches Google OAuth redirect URI
 
 // ── GET /users/:id — fetch basic profile for a user (for uploader display) ───
@@ -220,6 +223,7 @@ app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
 const PORT = Number(process.env.PORT ?? 4000)
 
 startCleanupJob()
+startPayoutJob()
 
 console.log('\n  Dizko.Ai API')
 console.log(`  Runtime  : Bun ${Bun.version}`)

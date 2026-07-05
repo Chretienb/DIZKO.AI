@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { stripe, PLAN_LIMITS, priceIdToPlan, planToPriceId, TRIAL_DAYS, TRIAL_MS, TRIAL_STORAGE_BYTES } from '../lib/stripe'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
+import { resolveAmbassadorByCode, attributeReferral, syncReferralStatus, markReferralPaid } from '../lib/referrals'
+import { accrueCommissionForInvoice, clawbackCommissionForRefund } from '../lib/commission'
 import type { HonoVariables } from '../types'
 
 const billing = new Hono<{ Variables: HonoVariables }>()
@@ -98,13 +100,18 @@ billing.post('/checkout', requireAuth, async (c) => {
   const userId = c.var.user.id
   const user   = c.var.user
 
-  let body: { price_id?: string; plan?: string } = {}
+  let body: { price_id?: string; plan?: string; ref?: string } = {}
   try { body = await c.req.json() } catch {}
 
   // Prefer the plan name (resolved to a price ID from env) so the frontend never
   // hardcodes Stripe IDs. Still accept a raw price_id for backwards-compat.
   const priceId = body.price_id ?? planToPriceId(body.plan)
   if (!priceId) return c.json({ data: null, error: 'No price configured for that plan — check STRIPE_PRICE_* env vars', status: 400 }, 400)
+
+  // ── Dizko Crew referral: apply the ambassador's promo code + attribute them.
+  // Guards: self-referral (an ambassador using their own code) is ignored.
+  const ambassador = await resolveAmbassadorByCode(body.ref)
+  const applyRef   = !!ambassador && ambassador.user_id !== userId
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -138,15 +145,23 @@ billing.post('/checkout', requireAuth, async (c) => {
 
   const origin = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
 
+  // Subscription data carries the trial (if any) + the ambassador stamp so the
+  // webhook can attribute the referral from the created subscription.
+  const subscriptionData: Record<string, any> = {}
+  if (hasTrialLeft) subscriptionData.trial_end = trialEndUnix
+  if (applyRef)     subscriptionData.metadata  = { ambassador_id: ambassador.id, ambassador_code: ambassador.code }
+
   const session = await stripe.checkout.sessions.create({
     customer:                  customerId,
     mode:                      'subscription',
     payment_method_collection: 'always',
     line_items:                [{ price: priceId, quantity: 1 }],
-    ...(hasTrialLeft ? { subscription_data: { trial_end: trialEndUnix } } : {}),
+    ...(Object.keys(subscriptionData).length ? { subscription_data: subscriptionData } : {}),
+    // Apply the ambassador's promo code (20% off / 6mo) when present.
+    ...(applyRef && ambassador.promotion_code_id ? { discounts: [{ promotion_code: ambassador.promotion_code_id }] } : {}),
     success_url:               `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                `${origin}/billing/cancel`,
-    metadata:                  { supabase_user_id: userId },
+    metadata:                  { supabase_user_id: userId, ...(applyRef ? { ambassador_id: ambassador.id } : {}) },
   })
 
   return c.json({ data: { url: session.url }, error: null, status: 200 })
@@ -221,6 +236,15 @@ billing.post('/webhook', async (c) => {
         storage_limit_bytes:    PLAN_LIMITS[plan] ?? PLAN_LIMITS.pro,
         stripe_subscription_id: sub.id,
       }).eq('stripe_customer_id', customerId)
+
+      // ── Dizko Crew attribution ────────────────────────────────────────────
+      const ambassadorId = sub.metadata?.ambassador_id
+      if (ambassadorId) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('stripe_customer_id', customerId).maybeSingle()
+        if (prof) await attributeReferral({ ambassadorId, userId: (prof as any).id, customerId, status })
+      }
+      if (status === 'active') await markReferralPaid(customerId)
+      else                     await syncReferralStatus(customerId, status)
       break
     }
 
@@ -235,13 +259,23 @@ billing.post('/webhook', async (c) => {
         storage_limit_bytes:    PLAN_LIMITS.free_trial,
         canceled_at:            new Date().toISOString(),
       }).eq('stripe_customer_id', customerId)
+
+      await syncReferralStatus(customerId, 'canceled')  // pauses commission
       break
     }
 
     case 'invoice.payment_succeeded': {
       const invoice    = event.data.object as any
       const customerId = invoice.customer
-      if (invoice.billing_reason === 'subscription_create') break // handled above
+
+      // A real charge (not the $0 trial-start invoice) starts the 12-month window
+      // and accrues this month's commission for the referring ambassador.
+      if ((invoice.amount_paid ?? 0) > 0) {
+        await markReferralPaid(customerId)
+        await accrueCommissionForInvoice(invoice)
+      }
+
+      if (invoice.billing_reason === 'subscription_create') break // profile handled above
 
       await supabase.from('profiles').update({
         subscription_status: 'active',
@@ -256,6 +290,15 @@ billing.post('/webhook', async (c) => {
       await supabase.from('profiles').update({
         subscription_status: 'past_due',
       }).eq('stripe_customer_id', customerId)
+
+      await syncReferralStatus(customerId, 'past_due')
+      break
+    }
+
+    case 'charge.refunded': {
+      const charge = event.data.object as any
+      // Claw back commission proportional to the refunded amount.
+      await clawbackCommissionForRefund(charge)
       break
     }
   }

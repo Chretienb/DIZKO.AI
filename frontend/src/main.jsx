@@ -71,6 +71,20 @@ const AVATAR_KEY = 'disco_avatar_url'   // consistent key — was 'dizko_avatar_
 // avatars are now cached PER USER under `${AVATAR_KEY}:<sub>`.
 try { localStorage.removeItem(AVATAR_KEY) } catch {}
 
+// Capture a Dizko Crew invite from the initial URL *before* any auth redirect can
+// wipe it. Replayed after login in App (isAmbassador effect) → /crew/join/:code.
+try {
+  const m = window.location.pathname.match(/^\/crew\/join\/([A-Za-z0-9_-]+)/)
+  if (m) localStorage.setItem('dizko_crew_invite', m[1])
+} catch {}
+
+// Capture a referral code (?ref=CODE) so the ambassador's promo code is applied
+// at checkout and the referral is attributed — even if they subscribe days later.
+try {
+  const ref = new URLSearchParams(window.location.search).get('ref')
+  if (ref) localStorage.setItem('dizko_ref', ref.trim())
+} catch {}
+
 function userFromToken() {
   try {
     const token = localStorage.getItem(TOKEN_KEY)
