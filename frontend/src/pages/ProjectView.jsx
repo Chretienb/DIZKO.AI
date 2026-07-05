@@ -538,7 +538,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       height: isMobile ? 'calc(100vh - 44px)' : '100vh',
       overflow:'hidden',
       background:'var(--bg)',
-      fontFamily:'"Inter",-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif',
+      fontFamily:'"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif',
       color:'var(--t1)',
     }}>
 

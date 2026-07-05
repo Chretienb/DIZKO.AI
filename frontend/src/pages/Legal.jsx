@@ -5,7 +5,7 @@ import logo from '../assets/logo.png'
 const C = { coral:'#F4937A', grad:'linear-gradient(135deg,#F4937A,#F28FB8)' }
 
 const LAST_UPDATED = 'May 22, 2026'
-const COMPANY      = 'Dizko.AI'
+const COMPANY      = 'dizko.ai'
 const CONTACT      = 'team@dizko.ai'
 const APP_URL      = 'https://dizko.ai'
 
@@ -29,7 +29,7 @@ function LegalLayout({ title, children }) {
                 style={{ width:32, height:32, borderRadius:9, border:'1px solid rgba(0,0,0,.12)', background:'#fff', color:'#111', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✕</button>
             )}
             <button onClick={()=>navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
-              <img src={logo} alt="Dizko.AI" style={{ height:28 }}/>
+              <img src={logo} alt="dizko.ai" style={{ height:28 }}/>
             </button>
           </div>
           <div style={{ display:'flex', gap:16 }}>
@@ -92,34 +92,34 @@ export function LegalFooter() {
 export function TermsPage() {
   return (
     <LegalLayout title="Terms of Service">
-      <P>These Terms of Service ("Terms") govern your access to and use of {COMPANY} ("Dizko", "we", "us"). By creating an account or using our platform, you agree to these Terms.</P>
+      <P>These Terms of Service ("Terms") govern your access to and use of {COMPANY} ("dizko", "we", "us"). By creating an account or using our platform, you agree to these Terms.</P>
 
       <H2>1. Who We Are</H2>
       <P>{COMPANY} is a real-time music collaboration platform that allows producers and artists to upload audio stems, collaborate on projects, and use AI-powered tools to mix and analyze their music.</P>
 
       <H2>2. Your Account</H2>
-      <P>You must be at least 13 years old to use Dizko. You are responsible for maintaining the security of your account and all activity that occurs under it. Notify us immediately at {CONTACT} if you suspect unauthorized access.</P>
+      <P>You must be at least 13 years old to use dizko. You are responsible for maintaining the security of your account and all activity that occurs under it. Notify us immediately at {CONTACT} if you suspect unauthorized access.</P>
 
       <H2>3. Your Music — You Own It</H2>
-      <P>You retain full ownership of all audio files, stems, and content you upload to Dizko. We do not claim any rights to your music.</P>
-      <P>By uploading content, you grant Dizko a limited, non-exclusive license solely to store, process, and deliver your files to you and your designated collaborators. We will never sell, license, or distribute your music to third parties without your explicit consent.</P>
+      <P>You retain full ownership of all audio files, stems, and content you upload to dizko. We do not claim any rights to your music.</P>
+      <P>By uploading content, you grant dizko a limited, non-exclusive license solely to store, process, and deliver your files to you and your designated collaborators. We will never sell, license, or distribute your music to third parties without your explicit consent.</P>
 
       <H2>4. Acceptable Use</H2>
       <P>You agree not to:</P>
       <UL items={[
         'Upload content you do not own or have rights to distribute',
         'Upload content that infringes on any third-party copyright, trademark, or intellectual property rights',
-        'Use Dizko to distribute, sell, or commercially exploit other users\' content without permission',
+        'Use dizko to distribute, sell, or commercially exploit other users\' content without permission',
         'Attempt to reverse engineer, hack, or disrupt the platform',
         'Use automated bots or scripts to access the platform',
         'Upload malicious files or content that violates any applicable law',
       ]}/>
 
       <H2>5. AI Features</H2>
-      <P>Dizko uses Claude by Anthropic to power AI file naming and Smart Mix features. By using these features, your audio metadata (not your audio files) may be processed by Anthropic's API in accordance with their privacy policy. Your audio files are stored exclusively on Cloudflare R2 and are never sent to AI providers.</P>
+      <P>dizko uses Claude by Anthropic to power AI file naming and Smart Mix features. By using these features, your audio metadata (not your audio files) may be processed by Anthropic's API in accordance with their privacy policy. Your audio files are stored exclusively on Cloudflare R2 and are never sent to AI providers.</P>
 
       <H2>6. Subscription and Billing</H2>
-      <P>Dizko offers a 60-day free trial. After the trial period, continued access requires a paid subscription at $14.99/month.</P>
+      <P>dizko offers a 60-day free trial. After the trial period, continued access requires a paid subscription at $14.99/month.</P>
       <UL items={[
         'Subscriptions renew automatically unless cancelled',
         'You may cancel at any time from your account settings',
@@ -134,13 +134,13 @@ export function TermsPage() {
       <P>Free trial accounts retain files for 30 days after trial expiry. Active paid accounts retain files for the duration of the subscription plus 30 days after cancellation. We will notify you by email before any deletion occurs.</P>
 
       <H2>9. Limitation of Liability</H2>
-      <P>To the maximum extent permitted by law, Dizko is not liable for any indirect, incidental, special, or consequential damages, including loss of data, revenue, or profits, arising from your use of the platform. Our total liability shall not exceed the amount you paid us in the 3 months preceding the claim.</P>
+      <P>To the maximum extent permitted by law, dizko is not liable for any indirect, incidental, special, or consequential damages, including loss of data, revenue, or profits, arising from your use of the platform. Our total liability shall not exceed the amount you paid us in the 3 months preceding the claim.</P>
 
       <H2>10. Termination</H2>
       <P>We reserve the right to suspend or terminate accounts that violate these Terms, with or without notice. You may delete your account at any time from settings. Upon deletion, your data will be removed within 30 days.</P>
 
       <H2>11. Changes to Terms</H2>
-      <P>We may update these Terms from time to time. We will notify you by email at least 14 days before material changes take effect. Continued use of Dizko after changes constitutes acceptance.</P>
+      <P>We may update these Terms from time to time. We will notify you by email at least 14 days before material changes take effect. Continued use of dizko after changes constitutes acceptance.</P>
 
       <H2>12. Contact</H2>
       <P>Questions about these Terms? Email us at <a href={`mailto:${CONTACT}`} style={{ color:C.coral }}>{CONTACT}</a></P>
@@ -164,7 +164,7 @@ export function PrivacyPage() {
 
       <H2>2. How We Use Your Information</H2>
       <UL items={[
-        'To provide, operate, and improve the Dizko platform',
+        'To provide, operate, and improve the dizko platform',
         'To send transactional emails (account confirmation, billing receipts)',
         'To suggest music venues near your location',
         'To detect and prevent fraud or abuse',
@@ -173,7 +173,7 @@ export function PrivacyPage() {
       <P>We do not sell your personal information to third parties. Ever.</P>
 
       <H2>3. Third-Party Services</H2>
-      <P>We use the following third-party services to operate Dizko:</P>
+      <P>We use the following third-party services to operate dizko:</P>
       <UL items={[
         'Supabase — database and authentication',
         'Cloudflare R2 — audio file storage',
@@ -208,7 +208,7 @@ export function PrivacyPage() {
       <P>We retain your account data for as long as your account is active. Audio files are retained per the terms in our Terms of Service. After account deletion, all personal data is removed within 30 days.</P>
 
       <H2>9. Children's Privacy</H2>
-      <P>Dizko is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal data, contact us at {CONTACT}.</P>
+      <P>dizko is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal data, contact us at {CONTACT}.</P>
 
       <H2>10. Changes to This Policy</H2>
       <P>We will notify you by email of any material changes to this policy at least 14 days in advance.</P>
@@ -251,7 +251,7 @@ export function CookiesPage() {
       ]}/>
 
       <H2>3. Why We Need Essential Cookies</H2>
-      <P>The auth cookies are required for Dizko to function. Without them you cannot stay logged in and cannot access your projects or audio files. These cookies cannot be disabled without breaking the application.</P>
+      <P>The auth cookies are required for dizko to function. Without them you cannot stay logged in and cannot access your projects or audio files. These cookies cannot be disabled without breaking the application.</P>
 
       <H2>4. How to Control Cookies</H2>
       <P>You can control cookies through your browser settings:</P>
@@ -261,7 +261,7 @@ export function CookiesPage() {
         'Firefox: Options → Privacy & Security → Cookies and Site Data',
         'Edge: Settings → Cookies and Site Permissions',
       ]}/>
-      <P>Note: Blocking essential cookies will prevent you from logging in to Dizko.</P>
+      <P>Note: Blocking essential cookies will prevent you from logging in to dizko.</P>
 
       <H2>5. Changes to This Policy</H2>
       <P>We will update this policy if we add new cookies or change how we use existing ones. Check the "Last updated" date at the top of this page.</P>

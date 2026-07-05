@@ -27,7 +27,7 @@ export default function Splash({ onDone }) {
       background: '#000000',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+      fontFamily: "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing: 'antialiased',
       overflow: 'hidden',
       position: 'relative',
@@ -77,7 +77,7 @@ export default function Splash({ onDone }) {
           <div style={{ position:'absolute', width:116, height:116, borderRadius:30,
             border:`1px solid ${C.coral}33`, animation:'ringPulse 2.4s ease-in-out infinite' }}/>
           {/* logo tile */}
-          <img src={logo} alt="Dizko.ai" style={{ width:94, height:94, borderRadius:24, objectFit:'cover',
+          <img src={logo} alt="dizko.ai" style={{ width:94, height:94, borderRadius:24, objectFit:'cover',
             boxShadow:`0 0 0 1px rgba(255,255,255,.08), 0 22px 60px ${C.coral}4a`,
             position:'relative', zIndex:1 }}/>
         </div>
@@ -88,7 +88,7 @@ export default function Splash({ onDone }) {
             background:`linear-gradient(100deg, #fff 30%, ${C.coral} 50%, ${C.pink} 60%, #fff 80%)`,
             backgroundSize:'220% 100%', WebkitBackgroundClip:'text', backgroundClip:'text',
             WebkitTextFillColor:'transparent', animation:'sheen 3.4s ease-in-out infinite' }}>
-            Dizko
+            dizko
           </div>
           <div style={{ marginTop:11, fontSize:13, color:'rgba(255,255,255,.42)', letterSpacing:'.05em', fontWeight:500 }}>
             Music collaboration, reimagined.

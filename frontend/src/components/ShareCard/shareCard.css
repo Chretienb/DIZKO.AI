@@ -1,4 +1,4 @@
-/* Faded Polaroid / indie share card — Dizko brand, modernized: cleaner type,
+/* Faded Polaroid / indie share card — dizko brand, modernized: cleaner type,
    calmer tilt, softer depth. Rendered to PNG via html-to-image, so overlays use
    real divs (not ::before/::after) for reliable capture. Base 360×640; exported
    at higher pixelRatio for crispness. */
@@ -6,7 +6,7 @@
   --coral:#f4937a; --coral-strong:#e95a51; --pink:#f28fb8;
   --bg:#0b0b10; --t1:#f1f1f3; --t3:rgba(255,255,255,.5); --paper:#f6f2ec;
   position:relative; width:360px; height:640px; border-radius:22px; overflow:hidden;
-  color:var(--t1); font-family:'Inter',-apple-system,sans-serif;
+  color:var(--t1); font-family:'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   background:
     radial-gradient(75% 50% at 50% 6%, rgba(244,147,122,.18), transparent 62%),
     radial-gradient(65% 45% at 82% 100%, rgba(242,143,184,.12), transparent 58%),

@@ -62,7 +62,7 @@ export default function ShareCardModal({ project, user, onClose }) {
       const blob = await (await fetch(dataUrl)).blob()
       const file = new File([blob], cardFilename(project?.title), { type: 'image/png' })
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: project?.title, text: `${headline} — on Dizko` })
+        await navigator.share({ files: [file], title: project?.title, text: `${headline} — on dizko` })
       } else {
         // Desktop / unsupported → download instead.
         const a = document.createElement('a'); a.href = dataUrl; a.download = file.name; a.click()

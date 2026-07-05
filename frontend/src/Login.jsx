@@ -178,7 +178,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div style={{ height:'100vh', display:'flex', overflow:'hidden',
-      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing:'antialiased' }}>
 
       {/* ══ LEFT — studio photo ══ */}
@@ -200,7 +200,7 @@ export default function Login({ onLogin }) {
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <img src={logo} alt="" style={{ width:56, height:56, borderRadius:16, objectFit:'cover', boxShadow:'0 4px 18px rgba(0,0,0,.4)' }}/>
             <span style={{ fontSize:24, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>
-              Dizko
+              dizko
             </span>
           </div>
         </div>
@@ -216,14 +216,14 @@ export default function Login({ onLogin }) {
               You create.
               <br/>
               <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                We handle
+                dizko keeps
               </span>
               <br/>
-              <span style={{ color:'rgba(255,255,255,.9)' }}>the rest.</span>
+              <span style={{ color:'rgba(255,255,255,.9)' }}>it together.</span>
             </h1>
-            <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:340,
+            <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:360,
               textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
-              Stems organized, BPM &amp; key tagged, an instant reference bounce — all automatically. Your team just plays.
+              Every stem auto-tagged by BPM, key, and instrument. An instant reference bounce the moment it's ready. Real-time collaboration, full version history, and one-click export to your DAW — Ableton or Logic — all in one place, so nothing gets lost in a group chat again.
             </p>
           </div>
 
@@ -477,7 +477,7 @@ export default function Login({ onLogin }) {
             {tab !== 'forgot' && tab !== 'forgot-sent' && (
               <p style={{ margin:'22px 0 0', textAlign:'center', fontSize:13,
                 color:'rgba(255,255,255,.25)' }}>
-                {tab === 'signin' ? "New to Dizko? " : 'Already have an account? '}
+                {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
                 <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
                   style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
                     color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,

@@ -34,12 +34,12 @@ export default function PageAbout() {
           background:'linear-gradient(180deg, rgba(8,6,12,.25) 0%, rgba(8,6,12,.55) 55%, rgba(8,6,12,.92) 100%)' }}/>
         <div style={{ position:'relative', minHeight:400, display:'flex', flexDirection:'column',
           justifyContent:'flex-end', padding:'0 30px 34px' }}>
-          <span style={{ fontSize:12, fontWeight:800, letterSpacing:'.18em', color:C.coral, textTransform:'uppercase', marginBottom:12 }}>About Dizko</span>
+          <span style={{ fontSize:12, fontWeight:800, letterSpacing:'.18em', color:C.coral, textTransform:'uppercase', marginBottom:12 }}>About dizko</span>
           <h1 style={{ margin:0, fontSize:40, lineHeight:1.06, fontWeight:900, letterSpacing:'-1px', color:'#fff', maxWidth:640, textShadow:'0 2px 18px rgba(0,0,0,.45)' }}>
             Where music gets made — together.
           </h1>
           <p style={{ margin:'14px 0 0', fontSize:15.5, lineHeight:1.6, color:'rgba(255,255,255,.85)', maxWidth:580 }}>
-            Dizko is the home studio for collaboration. Upload your stems, build your projects, and create with your crew in real time — no more files lost in DMs and drives.
+            dizko is the home studio for collaboration. Upload your stems, build your projects, and create with your crew in real time — no more files lost in DMs and drives.
           </p>
         </div>
       </div>
@@ -53,7 +53,7 @@ export default function PageAbout() {
         <p style={{ margin:'16px 0 0', fontSize:14.5, lineHeight:1.7, color:C.t2 }}>
           Artists and producers are more connected than ever, yet the work still lives everywhere — stems in text threads,
           rough mixes in voice notes, versions scattered across hard drives. A great idea dies in a group chat because nobody
-          could hear it come together. Dizko brings it into one place built for the way musicians actually work: drop your stems,
+          could hear it come together. dizko brings it into one place built for the way musicians actually work: drop your stems,
           hear them play together instantly, mix and bounce, and keep the whole crew in sync.
         </p>
       </div>
@@ -95,7 +95,7 @@ export default function PageAbout() {
       {/* ── Music made together (gallery) ── */}
       <div style={{ marginTop:48 }}>
         <h2 style={{ margin:'0 0 4px', fontSize:13, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:C.coral }}>Music made together</h2>
-        <p style={{ margin:'0 0 16px', fontSize:14, color:C.t3 }}>Real sessions — the moments Dizko is built for.</p>
+        <p style={{ margin:'0 0 16px', fontSize:14, color:C.t3 }}>Real sessions — the moments dizko is built for.</p>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:14 }}>
           {['/collab-bass.jpg','/collab-band.jpg'].map(src => (
             <div key={src} style={{ borderRadius:16, overflow:'hidden', aspectRatio:'4 / 5',
@@ -111,7 +111,7 @@ export default function PageAbout() {
         <div>
           <h2 style={{ margin:0, fontSize:13, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', color:C.coral }}>The founders</h2>
           <p style={{ margin:'14px 0 0', fontSize:17, lineHeight:1.6, color:C.t1, fontWeight:600, letterSpacing:'-.2px' }}>
-            Dizko started the way most songs do — two friends in a room, trying to finish an idea.
+            dizko started the way most songs do — two friends in a room, trying to finish an idea.
           </p>
           <p style={{ margin:'14px 0 0', fontSize:14, lineHeight:1.75, color:C.t2 }}>
             <strong style={{ color:C.t1 }}>Angel Gutierrez</strong> and <strong style={{ color:C.t1 }}>Chretien Banza</strong> are
@@ -124,7 +124,7 @@ export default function PageAbout() {
             wished we had: a studio where collaboration is instant, your work stays organized, and the focus is on the music.
           </p>
           <p style={{ margin:'14px 0 0', fontSize:14, lineHeight:1.75, color:C.t2 }}>
-            We’re still musicians first. Every feature in Dizko starts from a real session and a real problem we’ve hit ourselves.
+            We’re still musicians first. Every feature in dizko starts from a real session and a real problem we’ve hit ourselves.
           </p>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function PageAbout() {
           <button onClick={() => navigate('/projects')}
             style={{ height:42, padding:'0 22px', borderRadius:11, border:'none', cursor:'pointer', fontFamily:'inherit',
               fontSize:13.5, fontWeight:700, color:'#fff', background:C.grad, boxShadow:`0 6px 18px ${C.coral}40` }}>
-            Open Dizko
+            Open dizko
           </button>
           <button onClick={() => navigate('/help')}
             style={{ height:42, padding:'0 22px', borderRadius:11, cursor:'pointer', fontFamily:'inherit',

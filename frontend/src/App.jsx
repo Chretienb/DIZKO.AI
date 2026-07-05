@@ -100,7 +100,7 @@ export class ErrorBoundary extends React.Component {
     // Don't flash the error screen for a stale-chunk reload — show a quiet notice.
     if (this.state.reloading) return (
       <div style={{ height:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:18,
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter',-apple-system,sans-serif", textAlign:'center', padding:24 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", textAlign:'center', padding:24 }}>
         <style>{`@keyframes dzspin{to{transform:rotate(360deg)}}`}</style>
         <img src="/logo.png" width={52} height={52} style={{ borderRadius:14 }} alt="" onError={e => { e.currentTarget.style.display='none' }} />
         <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#F4937A" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
@@ -111,7 +111,7 @@ export class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children
     return (
       <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter',-apple-system,sans-serif", flexDirection:'column', gap:16 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", flexDirection:'column', gap:16 }}>
         <div style={{ fontSize:32 }}>
           <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.5} strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -331,7 +331,7 @@ const COLLABS = [
 const ACTIVITY = [
   { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>, color:C.coral, bg:'rgba(244,147,122,.12)', ring:`${C.coral}30`, who:'Christian', what:'uploaded a new guitar take for track 2', t:'2 min ago' },
   { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>, color:C.rose, bg:'rgba(232,112,154,.12)', ring:`${C.rose}30`, who:'Maya', what:'added vocals_take_6 to Ocean Waves', t:'38 min ago' },
-  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>, color:C.amber, bg:'rgba(245,201,122,.15)', ring:`${C.amber}40`, who:'Dizko.Ai', what:'auto-named 12 files in Golden Hour', t:'1 hr ago' },
+  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>, color:C.amber, bg:'rgba(245,201,122,.15)', ring:`${C.amber}40`, who:'dizko.ai', what:'auto-named 12 files in Golden Hour', t:'1 hr ago' },
   { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color:'#3b82f6', bg:'rgba(59,130,246,.1)', ring:'rgba(59,130,246,.25)', who:'Dev K.', what:'exported master_v4 to WAV', t:'3 hrs ago' },
 ]
 
@@ -582,7 +582,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   }, [user?.id])
   const goProfile = () => navigate('/profile')
 
-  // Am I a Dizko Crew ambassador? Gates the (invite-only) Crew menu item. Also
+  // Am I a dizko Crew ambassador? Gates the (invite-only) Crew menu item. Also
   // replays a pending invite stashed before login (main.jsx) so the link still
   // works when the invitee wasn't signed in when they clicked it.
   const [isAmbassador, setIsAmbassador] = React.useState(false)
@@ -593,7 +593,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     crewApi.me().then(r => setIsAmbassador(!!r?.data?.enrolled)).catch(() => {})
   }, [user?.id])
   // Live update: the join flow (and the dashboard) fire this once enrolled, so the
-  // sidebar "Dizko Crew" item appears immediately — no page refresh needed.
+  // sidebar "dizko Crew" item appears immediately — no page refresh needed.
   React.useEffect(() => {
     const on = () => setIsAmbassador(true)
     window.addEventListener('dizko:crew-enrolled', on)
@@ -859,10 +859,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           {!isMobile && (
             <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex', alignItems:'center', justifyContent: expanded ? 'space-between' : 'center', flexShrink:0 }}>
               {expanded && (
-                <button onClick={() => navigate('/')} aria-label="Dizko home"
+                <button onClick={() => navigate('/')} aria-label="dizko home"
                   style={{ display:'flex', alignItems:'center', gap:9, background:'none', border:'none', cursor:'pointer', padding:'0 0 0 4px', fontFamily:'inherit' }}>
                   <img src={logo} alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.08)` }}/>
-                  <span style={{ fontSize:17, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>Dizko</span>
+                  <span style={{ fontSize:17, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>dizko</span>
                 </button>
               )}
               <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
@@ -968,7 +968,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     minWidth:190, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12,
                     padding:6, boxShadow:'0 10px 32px rgba(0,0,0,.18)' }}>
                     {[
-                      ...(isAmbassador ? [{ label:'Dizko Crew', icon:'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z', onClick:() => navigate('/crew') }] : []),
+                      ...(isAmbassador ? [{ label:'dizko Crew', icon:'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z', onClick:() => navigate('/crew') }] : []),
                       { label:'Invite friends', icon:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6', onClick:() => openModal('invite', {}) },
                       { label:'Help',           icon:'M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/help') },
                       { label:'About',          icon:'M12 16v-4M12 8h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/about') },
@@ -996,7 +996,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   return (
     <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
-      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* Keyboard skip link — first focusable element, jumps past the nav rail */}

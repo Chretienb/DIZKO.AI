@@ -626,7 +626,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     setActing(false)
   }
 
-  // ── Upsell — no card yet (Dizko payment wall: FULL PAGE, marketing) ──────────
+  // ── Upsell — no card yet (dizko payment wall: FULL PAGE, marketing) ──────────
   if (!billingLoaded || !hasCard) {
     const W = { t2:'var(--t2)', t3:'var(--t3)', t4:'rgba(var(--fg),.4)', line:'var(--border)' }
     const VALUE_PROPS = [
@@ -639,7 +639,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     ]
     return (
       <div style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', overflowY:'auto', color:'var(--t1)',
-        fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif", WebkitFontSmoothing:'antialiased' }}>
+        fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", WebkitFontSmoothing:'antialiased' }}>
         {/* ambient glows */}
         <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#F28FB8'}14, transparent 65%)`, pointerEvents:'none' }}/>
@@ -647,9 +647,9 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         {/* Top bar */}
         <div style={{ position:'relative', maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px' : '24px 30px',
           display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <button onClick={onClose} aria-label="Dizko home" style={{ display:'flex', alignItems:'center', gap:11, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
+          <button onClick={onClose} aria-label="dizko home" style={{ display:'flex', alignItems:'center', gap:11, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
             <img src={logo} alt="" style={{ width:40, height:40, borderRadius:12, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.12), 0 0 28px ${C.coral}30` }}/>
-            <span style={{ fontSize:19, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>Dizko</span>
+            <span style={{ fontSize:19, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>dizko</span>
           </button>
           <button onClick={onClose} aria-label="Close" style={{ width:34, height:34, borderRadius:10,
             background:'rgba(var(--fg),.06)', border:`1px solid ${W.line}`, cursor:'pointer',
@@ -735,10 +735,10 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
           </div>
         </div>
 
-        {/* Marketing — why Dizko */}
+        {/* Marketing — why dizko */}
         <div style={{ position:'relative', maxWidth:1040, margin:'0 auto', padding: isMobile ? '40px 20px 0' : '64px 30px 0' }}>
           <div style={{ textAlign:'center', marginBottom: isMobile ? 24 : 34 }}>
-            <div style={{ fontSize:11, fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', color:C.coral, marginBottom:10 }}>Why Dizko</div>
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', color:C.coral, marginBottom:10 }}>Why dizko</div>
             <h2 style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px' }}>
               Everything you need to make music together
             </h2>

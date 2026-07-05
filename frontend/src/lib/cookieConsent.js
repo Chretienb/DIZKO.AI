@@ -1,4 +1,4 @@
-// Cookie-consent persistence. Dizko only sets an essential, httpOnly auth
+// Cookie-consent persistence. dizko only sets an essential, httpOnly auth
 // cookie (no tracking/analytics cookies), so this records a one-time
 // acknowledgement rather than gating non-essential categories.
 

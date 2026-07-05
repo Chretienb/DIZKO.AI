@@ -9,11 +9,11 @@ import { C } from '../components/ui/index.jsx'
 const CATEGORIES = [
   {
     key: 'getting-started', name: 'Getting Started',
-    Icon: Rocket, desc: 'New to Dizko? Set up your first project.',
+    Icon: Rocket, desc: 'New to dizko? Set up your first project.',
     articles: [
-      { q: 'What is Dizko?', a: 'Dizko is a real-time music collaboration platform. Upload your stems, organize them into projects and songs, mix and bounce them in the Studio, and share with your collaborators — all in one place.' },
+      { q: 'What is dizko?', a: 'dizko is a real-time music collaboration platform. Upload your stems, organize them into projects and songs, mix and bounce them in the Studio, and share with your collaborators — all in one place.' },
       { q: 'How do I create my first project?', a: 'On the Projects page, click “New Project”, give it a name, choose Single or Album, then upload your stems. Your project opens with everything organized by instrument.' },
-      { q: 'How do I upload stems?', a: 'Open a project and click Upload, or drag your audio files straight onto the page. Dizko automatically detects the instrument, key and BPM and names each stem for you.' },
+      { q: 'How do I upload stems?', a: 'Open a project and click Upload, or drag your audio files straight onto the page. dizko automatically detects the instrument, key and BPM and names each stem for you.' },
     ],
   },
   {
@@ -31,7 +31,7 @@ const CATEGORIES = [
     articles: [
       { q: 'How do I play all my stems together?', a: 'Add stems to the board and hit “Play all”. Every stem is locked to one master timeline so they stay perfectly in sync as they play.' },
       { q: 'What is a bounce?', a: 'A bounce plays the stems on your board together so you can hear the full track. Smart Mix can also generate a balanced version with EQ, panning and reverb applied.' },
-      { q: 'Why does the very first play take a moment?', a: 'The first time, Dizko loads and decodes your stems. After that they’re cached, so every replay — and reopening the project later — is basically instant.' },
+      { q: 'Why does the very first play take a moment?', a: 'The first time, dizko loads and decodes your stems. After that they’re cached, so every replay — and reopening the project later — is basically instant.' },
       { q: 'How do I transpose a stem?', a: 'Use the ♪ +/- control on a track to shift its pitch up or down in semitones. The stem stays the same length, so it stays in sync with the rest of the board.' },
     ],
   },
@@ -40,7 +40,7 @@ const CATEGORIES = [
     Icon: UploadSimple, desc: 'Formats, naming and auto-detection.',
     articles: [
       { q: 'What file formats are supported?', a: 'WAV, MP3, FLAC and most common audio formats. Large files upload directly from your browser and resume automatically if your connection drops.' },
-      { q: 'What is the naming convention?', a: 'Dizko uses [SONG][STEM TYPE][KEY][BPM] — for example “TWIN_Bass_Am_102”. If you’ve already given a stem a good name, Dizko keeps it as-is.' },
+      { q: 'What is the naming convention?', a: 'dizko uses [SONG][STEM TYPE][KEY][BPM] — for example “TWIN_Bass_Am_102”. If you’ve already given a stem a good name, dizko keeps it as-is.' },
       { q: 'My upload looked like it did nothing — what happened?', a: 'Very large files are processed in the background so the tab never freezes. Give it a few seconds; the stem appears as soon as it’s registered, and finishes analyzing shortly after.' },
     ],
   },
@@ -57,7 +57,7 @@ const CATEGORIES = [
     key: 'billing', name: 'Accounts & Billing',
     Icon: CreditCard, desc: 'Trial, plans and storage.',
     articles: [
-      { q: 'How does the free trial work?', a: 'Dizko is free for your first 2 months — no charge until month 3. You can create projects, invite your crew and export the whole time.' },
+      { q: 'How does the free trial work?', a: 'dizko is free for your first 2 months — no charge until month 3. You can create projects, invite your crew and export the whole time.' },
       { q: 'How do I manage my plan?', a: 'Go to Account → Billing & Plan to see your current plan, days remaining and payment details.' },
       { q: 'How much storage do I get, and where do I check it?', a: 'Your storage usage and limit are shown on the Account page under your profile.' },
     ],
@@ -66,7 +66,7 @@ const CATEGORIES = [
     key: 'rights', name: 'Rights & Ownership',
     Icon: ShieldCheck, desc: 'Who owns your music and data.',
     articles: [
-      { q: 'Who owns the music I upload?', a: 'You do. You keep full ownership of the content you upload to Dizko. See our Terms of Service for the details.' },
+      { q: 'Who owns the music I upload?', a: 'You do. You keep full ownership of the content you upload to dizko. See our Terms of Service for the details.' },
       { q: 'Can I delete my data?', a: 'Yes. You can delete your account at any time from settings; your data is removed within 30 days.' },
     ],
   },
@@ -74,7 +74,7 @@ const CATEGORIES = [
     key: 'sharing', name: 'Sharing & Export',
     Icon: Export, desc: 'Export bundles and share your work.',
     articles: [
-      { q: 'How do I export my project?', a: 'In the Studio, open Export and choose Board. Dizko packages your stems together with an Ableton (.als) session and a Logic guide so you can keep working in your own DAW.' },
+      { q: 'How do I export my project?', a: 'In the Studio, open Export and choose Board. dizko packages your stems together with an Ableton (.als) session and a Logic guide so you can keep working in your own DAW.' },
       { q: 'What is included in an export?', a: 'Your selected board stems plus session/guide files. Muted stems are left out, so you export exactly the version you’re hearing.' },
       { q: 'How do I share a project?', a: 'Use Share / Invite on a project to add collaborators. They get access based on the role you give them, and changes stay in sync in real time.' },
     ],

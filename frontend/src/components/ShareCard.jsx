@@ -47,7 +47,7 @@ export default function ShareCard({ kind, item, profile, canEditPhoto = true, on
       const dataUrl = await render()
       const file = await toFile(dataUrl, `dizko-${profile.handle}.png`)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${title} on Dizko`, text: `🎧 ${title} — @${profile.handle}`, url }).catch(() => {})
+        await navigator.share({ files: [file], title: `${title} on dizko`, text: `🎧 ${title} — @${profile.handle}`, url }).catch(() => {})
       } else {
         const a = document.createElement('a'); a.href = dataUrl; a.download = `dizko-${profile.handle}.png`; a.click()
       }
@@ -81,7 +81,7 @@ export default function ShareCard({ kind, item, profile, canEditPhoto = true, on
           <div style={{ transform:'scale(calc(min(344px, 100%) / 540))', transformOrigin:'top center' }}>
             {/* ── The card (540×540) ── */}
             <div ref={cardRef} style={{ width:540, height:540, position:'relative', overflow:'hidden',
-              background:'#161616', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+              background:'#161616', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
               {/* Background as a real <img> — html-to-image captures <img> reliably,
                   but silently drops CSS background-images (why the vinyl vanished). */}
               <img src={bg} alt="" crossOrigin="anonymous"

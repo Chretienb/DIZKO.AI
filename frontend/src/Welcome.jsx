@@ -77,7 +77,7 @@ export default function Welcome({ userName, onEnter }) {
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: '40px 24px',
-      fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+      fontFamily: "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing: 'antialiased',
       overflow: 'hidden', position: 'relative',
       opacity: leaving ? 0 : 1,

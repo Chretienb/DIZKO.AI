@@ -82,7 +82,7 @@ export default function PublicProfile({ embedded = false }) {
   const share = async (path, label) => {
     const url = `${window.location.origin}${path}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'Dizko', text: label, url }); return } catch { return }  // cancelled
+      try { await navigator.share({ title: 'dizko', text: label, url }); return } catch { return }  // cancelled
     }
     try { await navigator.clipboard.writeText(url); flashToast('Link copied ✓') }
     catch { flashToast(url) }
@@ -107,14 +107,14 @@ export default function PublicProfile({ embedded = false }) {
     const useDemo = () => {
       const d = demoToProfile(demo)
       setP(d); setItems(d.items); setFollowing(false); setState('ready')
-      document.title = `${d.display_name} (@${d.handle}) · Dizko`
+      document.title = `${d.display_name} (@${d.handle}) · dizko`
     }
     publicApi.profile(handle)
       .then(r => {
         if (r?.data) {
           setP(r.data); setItems(r.data.items || []); setFollowing(!!r.data.is_following)
           setState('ready')
-          document.title = `${r.data.display_name} (@${r.data.handle}) · Dizko`
+          document.title = `${r.data.display_name} (@${r.data.handle}) · dizko`
         } else if (demo) { useDemo() }
         else setState('notfound')
       })
@@ -228,12 +228,12 @@ export default function PublicProfile({ embedded = false }) {
   const Shell = embedded
     ? ({ children }) => (
         <div style={{ width:'100%', padding:'0 clamp(12px,2.5vw,28px) 60px', minWidth:0,
-          color:'var(--t1)', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>{children}</div>
+          color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>{children}</div>
       )
     : ({ children }) => (
     <div className="pp-shell" style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
       background:'var(--bg)',
-      color:'var(--t1)', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>
+      color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
       <style>{`
         .pp-rail { display:none; }
         .pp-topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; }
@@ -257,7 +257,7 @@ export default function PublicProfile({ embedded = false }) {
         {railNav('Share', <ShareNetwork size={20} />, () => shareProfile())}
         {!getToken() && (
           <div style={{ marginTop:'auto' }}>
-            <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit' }}>Join Dizko</button>
+            <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit' }}>Join dizko</button>
           </div>
         )}
       </aside>
@@ -268,7 +268,7 @@ export default function PublicProfile({ embedded = false }) {
           {/* Top bar — logo hidden on desktop (sidebar has it); actions kept */}
           <div className="pp-topbar">
             <a href="/" className="pp-topbar-logo">
-              <img src="/logo.png" alt="Dizko" style={{ width:30, height:30, borderRadius:9, objectFit:'cover' }} />
+              <img src="/logo.png" alt="dizko" style={{ width:30, height:30, borderRadius:9, objectFit:'cover' }} />
               <span style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', color:'var(--t1)' }}>dizko</span>
             </a>
             <div style={{ display:'flex', alignItems:'center', gap:16 }}>
@@ -306,7 +306,7 @@ export default function PublicProfile({ embedded = false }) {
       <div style={{ textAlign:'center', paddingTop:50 }}>
         <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>Profile not found</div>
         <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>This producer may be private or the handle doesn’t exist.</div>
-        <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to Dizko →</a>
+        <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to dizko →</a>
       </div>
     </Shell>
   )
@@ -484,7 +484,7 @@ export default function PublicProfile({ embedded = false }) {
           </div>
           <button onClick={() => navigate('/login?join=1')}
             style={{ flexShrink:0, padding:'8px 18px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
-            Join Dizko
+            Join dizko
           </button>
         </div>
       )}
@@ -560,7 +560,7 @@ export default function PublicProfile({ embedded = false }) {
           it covers the sidebar instead of rendering inside the padded content) */}
       {discoverOpen && createPortal(
         <div style={{ position:'fixed', inset:0, zIndex:1100, background:'var(--bg)', color:'var(--t1)', display:'flex', flexDirection:'column',
-          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
           <style>{`@keyframes ppDiscover{from{transform:scale(.4) translate(45%,45%);opacity:0}to{transform:scale(1) translate(0,0);opacity:1}}`}</style>
           <div style={{ display:'flex', justifyContent:'flex-end', padding:'16px 22px 0' }}>
             <button onClick={() => setDiscoverOpen(false)} aria-label="Close"
@@ -569,7 +569,7 @@ export default function PublicProfile({ embedded = false }) {
           <div style={{ flex:1, overflowY:'auto', padding:'8px 24px 40px', maxWidth:920, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
             <div style={{ textAlign:'center', marginBottom:26 }}>
               <div style={{ fontSize:32, fontWeight:900, letterSpacing:'-.8px' }}>Discover</div>
-              <div style={{ fontSize:14, color:'rgba(var(--fg),.5)', marginTop:7 }}>Producers and fresh sounds across Dizko 🎧</div>
+              <div style={{ fontSize:14, color:'rgba(var(--fg),.5)', marginTop:7 }}>Producers and fresh sounds across dizko 🎧</div>
             </div>
             <DiscoverProducers currentHandle={p?.handle} layout="grid" bare
               navigate={(path) => { setDiscoverOpen(false); navigate(path); window.scrollTo(0, 0) }} />
@@ -590,7 +590,7 @@ export default function PublicProfile({ embedded = false }) {
           collab:   { t:`Collab with ${p.display_name}`,   s:'Invite producers to work on something together.' },
           repost:   { t:'Repost this track',               s:'Share it with your followers — the original stays credited.' },
         }
-        const c = COPY[authPrompt.action] || { t:'Join Dizko', s:'Create a free account to like, follow, comment and download.' }
+        const c = COPY[authPrompt.action] || { t:'Join dizko', s:'Create a free account to like, follow, comment and download.' }
         return (
           <div onClick={() => setAuthPrompt(null)}
             style={{ position:'fixed', inset:0, zIndex:1002, background:'rgba(0,0,0,.6)', backdropFilter:'blur(6px)',

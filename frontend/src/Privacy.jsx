@@ -22,7 +22,7 @@ export default function Privacy() {
   const updated = 'May 18, 2026'
 
   return (
-    <div style={{ fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+    <div style={{ fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing:'antialiased', background:'#fafafa', minHeight:'100vh',
       overflowY:'auto', height:'auto' }}>
 
@@ -32,7 +32,7 @@ export default function Privacy() {
           display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
-              Dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
+              dizko<span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>.ai</span>
             </div>
           </a>
           <div style={{ display:'flex', gap:20 }}>
@@ -60,7 +60,7 @@ export default function Privacy() {
       <div style={{ maxWidth:860, margin:'0 auto', padding:'60px 24px' }}>
 
         <Section title="1. Introduction">
-          <P>Welcome to Dizko.ai ("Company," "we," "our," or "us"). Dizko.ai is a music collaboration platform that helps artists, producers, and their teams organize audio stems, detect BPM conflicts, generate reference bounces, and distribute their music.</P>
+          <P>Welcome to dizko.ai ("Company," "we," "our," or "us"). dizko.ai is a music collaboration platform that helps artists, producers, and their teams organize audio stems, detect BPM conflicts, generate reference bounces, and distribute their music.</P>
           <P>This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform at dizko.ai and any related services (collectively, the "Service"). Please read this policy carefully. If you disagree with its terms, please discontinue use of the Service.</P>
         </Section>
 
@@ -138,9 +138,9 @@ export default function Privacy() {
         </Section>
 
         <Section title="7. YouTube API Services">
-          <P>Dizko.ai uses YouTube API Services to provide listener analytics and venue recommendations. By connecting your YouTube account, you agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>YouTube Terms of Service</a>.</P>
+          <P>dizko.ai uses YouTube API Services to provide listener analytics and venue recommendations. By connecting your YouTube account, you agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>YouTube Terms of Service</a>.</P>
           <P>The YouTube data we access is limited to analytics data (view counts, geography, watch time) through read-only API scopes. We do not access, modify, or delete your YouTube videos or channel settings.</P>
-          <P>Google's privacy policy is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>policies.google.com/privacy</a>. You may revoke Dizko.ai's access to your YouTube data at any time via <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>Google Security Settings</a>.</P>
+          <P>Google's privacy policy is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>policies.google.com/privacy</a>. You may revoke dizko.ai's access to your YouTube data at any time via <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer" style={{ color:C.coral }}>Google Security Settings</a>.</P>
         </Section>
 
         <Section title="8. Security">
@@ -153,7 +153,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="10. International Data Transfers">
-          <P>Dizko.ai operates in the United States. If you access our Service from outside the United States, your information may be transferred to, stored, and processed in the United States and other countries where our service providers operate. By using the Service, you consent to such transfers.</P>
+          <P>dizko.ai operates in the United States. If you access our Service from outside the United States, your information may be transferred to, stored, and processed in the United States and other countries where our service providers operate. By using the Service, you consent to such transfers.</P>
         </Section>
 
         <Section title="11. Changes to This Policy">
@@ -164,7 +164,7 @@ export default function Privacy() {
           <P>If you have questions, concerns, or requests regarding this Privacy Policy, please contact us:</P>
           <div style={{ background:'rgba(244,147,122,.06)', border:'1px solid rgba(244,147,122,.2)',
             borderRadius:14, padding:'20px 24px', marginTop:8 }}>
-            <div style={{ fontWeight:700, color:'#111', marginBottom:6 }}>Dizko.ai</div>
+            <div style={{ fontWeight:700, color:'#111', marginBottom:6 }}>dizko.ai</div>
             <div style={{ color:'#555', lineHeight:1.8 }}>
               Email: <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a><br/>
               Website: <a href="https://dizko.ai" style={{ color:C.coral }}>dizko.ai</a>
@@ -176,7 +176,7 @@ export default function Privacy() {
       {/* Footer */}
       <div style={{ background:'#0a0a0f', padding:'28px 24px', textAlign:'center' }}>
         <div style={{ fontSize:13, color:'rgba(255,255,255,.25)' }}>
-          © {new Date().getFullYear()} Dizko.ai · <a href="/privacy" style={{ color:'rgba(255,255,255,.4)', textDecoration:'none' }}>Privacy</a> · <a href="/terms" style={{ color:'rgba(255,255,255,.4)', textDecoration:'none' }}>Terms</a>
+          © {new Date().getFullYear()} dizko.ai · <a href="/privacy" style={{ color:'rgba(255,255,255,.4)', textDecoration:'none' }}>Privacy</a> · <a href="/terms" style={{ color:'rgba(255,255,255,.4)', textDecoration:'none' }}>Terms</a>
         </div>
       </div>
     </div>

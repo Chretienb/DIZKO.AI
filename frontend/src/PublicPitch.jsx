@@ -39,7 +39,7 @@ export default function PublicPitch() {
   const Shell = ({ children }) => (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24,
       background:'radial-gradient(80% 50% at 50% 0%, rgba(244,147,122,.14), transparent 60%), #0b0b10',
-      color:'#f1f1f3', fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif" }}>
+      color:'#f1f1f3', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
       <div style={{ width:'100%', maxWidth:420, textAlign:'center' }}>
         <div style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', marginBottom:24 }}>dizko<span style={{ color:C.coral }}>.ai</span></div>
         {children}
@@ -52,7 +52,7 @@ export default function PublicPitch() {
     <Shell>
       <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>This link isn’t available</div>
       <div style={{ fontSize:13.5, color:'rgba(255,255,255,.5)', marginBottom:22 }}>It may be private or no longer shared.</div>
-      <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to Dizko →</a>
+      <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to dizko →</a>
     </Shell>
   )
 
@@ -75,7 +75,7 @@ export default function PublicPitch() {
             background:'rgba(34,197,94,.1)', border:'1px solid rgba(34,197,94,.25)', color:'#4ade80', fontSize:14, fontWeight:600, marginBottom:14 }}>
             ✓ {status === 'active' ? "You're already in this project" : `Request sent — ${pitch.owner?.name} will review it`}
           </div>
-          <div><a href="/" style={{ color:'rgba(255,255,255,.5)', fontSize:13, textDecoration:'none' }}>Open Dizko →</a></div>
+          <div><a href="/" style={{ color:'rgba(255,255,255,.5)', fontSize:13, textDecoration:'none' }}>Open dizko →</a></div>
         </div>
       ) : (
         <>

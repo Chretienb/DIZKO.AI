@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { hasConsented, setConsent } from '../lib/cookieConsent.js'
 
 /**
- * One-time cookie notice. Dizko only uses an essential auth cookie, so this is
+ * One-time cookie notice. dizko only uses an essential auth cookie, so this is
  * an acknowledgement (not a category-gating consent manager). Shown until the
  * user accepts; the choice persists in localStorage.
  */

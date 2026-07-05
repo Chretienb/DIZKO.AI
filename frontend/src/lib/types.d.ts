@@ -1,4 +1,4 @@
-// Shared domain types for the Dizko frontend.
+// Shared domain types for the dizko frontend.
 // Mirrors backend/src/types/index.ts so API calls are typed end-to-end.
 // Consumed via JSDoc in .js/.jsx files (see api.js) and by tsc through jsconfig.json.
 

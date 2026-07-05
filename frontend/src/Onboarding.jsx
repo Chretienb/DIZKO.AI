@@ -97,7 +97,7 @@ export default function Onboarding({ onComplete, user }) {
 
   return (
     <div style={{ position:'fixed', inset:0, zIndex:9999, background:'#000', display:'flex',
-      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",
+      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
       WebkitFontSmoothing:'antialiased', overflow:'hidden' }}>
 
       {/* ══ LEFT — big studio photo + welcome (desktop) ══ */}
@@ -113,7 +113,7 @@ export default function Onboarding({ onComplete, user }) {
           <div style={{ position:'relative', zIndex:2, padding:'40px 46px', display:'flex', alignItems:'center', gap:13 }}>
             <img src={logo} alt="" style={{ width:54, height:54, borderRadius:16, objectFit:'cover',
               boxShadow:`0 8px 24px rgba(0,0,0,.5), 0 0 36px ${C.coral}30` }}/>
-            <span style={{ fontSize:25, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>Dizko</span>
+            <span style={{ fontSize:25, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>dizko</span>
           </div>
 
           {/* welcome */}
@@ -172,7 +172,7 @@ export default function Onboarding({ onComplete, user }) {
               <div style={{ display:'flex', alignItems:'center', gap:11, marginBottom:30 }}>
                 <img src={logo} alt="" style={{ width:46, height:46, borderRadius:14, objectFit:'cover',
                   boxShadow:`0 6px 20px rgba(0,0,0,.5), 0 0 30px ${C.coral}28` }}/>
-                <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>Dizko</span>
+                <span style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-.6px' }}>dizko</span>
               </div>
             )}
 
@@ -186,7 +186,7 @@ export default function Onboarding({ onComplete, user }) {
                   <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>handled for you.</span>
                 </h2>
                 <p style={{ margin:'0 0 32px', fontSize:15.5, color:'rgba(255,255,255,.4)', lineHeight:1.65 }}>
-                  Here’s what Dizko does automatically, every session.
+                  Here’s what dizko does automatically, every session.
                 </p>
 
                 <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:34 }}>

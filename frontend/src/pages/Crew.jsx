@@ -34,7 +34,7 @@ function PayoutCard({ mock, code, pendingCents, tierPct }) {
       <div style={{ position:'absolute', top:-70, right:-40, width:220, height:220, borderRadius:'50%', background:'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)', pointerEvents:'none' }} />
 
       <div style={{ position:'relative', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
-        <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.07em', textTransform:'uppercase' }}>Dizko Crew</div>
+        <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.07em', textTransform:'uppercase' }}>dizko Crew</div>
         {/* chip */}
         <div style={{ width:38, height:28, borderRadius:6, background:'linear-gradient(135deg, #f3d089, #cfa055)', border:'1px solid rgba(0,0,0,.15)', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ width:24, height:16, borderRadius:3, border:'1px solid rgba(0,0,0,.25)' }} />
@@ -66,7 +66,7 @@ const TIERS = [
 ]
 const INCLUDED = [
   'Your own referral link', 'Custom referral code', 'Live earnings dashboard',
-  'Referral analytics', 'Monthly payouts', 'Performance tracking', 'Exclusive Dizko Crew badge',
+  'Referral analytics', 'Monthly payouts', 'Performance tracking', 'Exclusive dizko Crew badge',
 ]
 
 // Narrow-screen hook → single column below ~880px.
@@ -86,7 +86,7 @@ function CrewPitch() {
       <div style={cardS}>
         <div style={{ fontSize:16, fontWeight:700, color:C.t1, letterSpacing:'-.3px' }}>Earn while your community creates</div>
         <div style={{ fontSize:13, color:C.t3, marginTop:10, lineHeight:1.6 }}>
-          Every paying creator you bring to Dizko earns you recurring revenue for up to <span style={{ color:C.t1, fontWeight:600 }}>12 months</span>. Invite the producers, engineers, artists, DJs, and educators who want to shape the future of music.
+          Every paying creator you bring to dizko earns you recurring revenue for up to <span style={{ color:C.t1, fontWeight:600 }}>12 months</span>. Invite the producers, engineers, artists, DJs, and educators who want to shape the future of music.
         </div>
 
         <div style={{ ...dividerS, margin:'22px 0' }} />
@@ -143,17 +143,17 @@ function Hero({ center }) {
   const narrow = useNarrow()
   return (
     <div style={{ textAlign: center ? 'center' : 'left', maxWidth: center ? 640 : 'none', margin: center ? '0 auto' : 0 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.04em', textTransform:'uppercase' }}>Dizko Crew</div>
+      <div style={{ fontSize:11, fontWeight:700, color:C.coral, letterSpacing:'.04em', textTransform:'uppercase' }}>dizko Crew</div>
       <h1 style={{ margin:'10px 0 0', fontSize: narrow ? 24 : (center ? 32 : 28), fontWeight:750, color:C.t1, letterSpacing: narrow ? '-.5px' : '-.8px', lineHeight:1.15 }}>Get paid to grow the future of music</h1>
       <div style={{ fontSize: narrow ? 13.5 : 14.5, color:C.t3, marginTop:12, lineHeight:1.6, maxWidth:560, marginLeft: center ? 'auto' : 0, marginRight: center ? 'auto' : 0 }}>
-        The best producers don't just make hits — they build communities. Invite yours to Dizko and earn a share of every paid subscription.
+        The best producers don't just make hits — they build communities. Invite yours to dizko and earn a share of every paid subscription.
       </div>
       {center && <div style={{ display:'flex', justifyContent:'center', marginTop:28 }}><div style={{ width:'100%', maxWidth:400 }}><PayoutCard mock /></div></div>}
     </div>
   )
 }
 
-// Dizko Crew — ambassador dashboard + program marketing.
+// dizko Crew — ambassador dashboard + program marketing.
 export default function PageCrew() {
   const [params, setParams] = useSearchParams()
   const [me, setMe]   = useState(null)   // null = loading
@@ -199,10 +199,10 @@ export default function PageCrew() {
       <Hero center />
       <CrewPitch />
       <div style={{ ...cardS, textAlign:'center' }}>
-        <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>Dizko Crew is invite-only</div>
+        <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>dizko Crew is invite-only</div>
         <div style={{ fontSize:13, color:C.t3, marginTop:8, lineHeight:1.6 }}>Have an invite link? Open it to join and start earning on every producer you bring in.</div>
         <div style={{ fontSize:13, color:C.t2, marginTop:12, lineHeight:1.6 }}>
-          Want to become a Dizko Crew ambassador? Email us at{' '}
+          Want to become a dizko Crew ambassador? Email us at{' '}
           <a href={`mailto:${CREW_EMAIL}`} style={{ color:C.coral, fontWeight:700, textDecoration:'none' }}>{CREW_EMAIL}</a>
         </div>
       </div>
@@ -306,7 +306,7 @@ export default function PageCrew() {
       {/* Header */}
       <div style={{ marginBottom: narrow ? 20 : 28 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.6px' }}>Dizko Crew</h1>
+          <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.6px' }}>dizko Crew</h1>
           <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>Ambassador</span>
         </div>
         <div style={{ fontSize:13.5, color:C.t3, marginTop:6 }}>Share your code, earn commission on every paying producer you bring in.</div>
