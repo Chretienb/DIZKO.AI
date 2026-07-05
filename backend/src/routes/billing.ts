@@ -157,8 +157,13 @@ billing.post('/checkout', requireAuth, async (c) => {
     payment_method_collection: 'always',
     line_items:                [{ price: priceId, quantity: 1 }],
     ...(Object.keys(subscriptionData).length ? { subscription_data: subscriptionData } : {}),
-    // Apply the ambassador's promo code (20% off / 6mo) when present.
-    ...(applyRef && ambassador.promotion_code_id ? { discounts: [{ promotion_code: ambassador.promotion_code_id }] } : {}),
+    // Apply the ambassador's promo code (20% off / 6mo) when we already know it
+    // from the ?ref= link. Otherwise let Stripe show its own "Add promotion
+    // code" field, so someone who was only told the bare code (not sent the
+    // link) can still type it in — Stripe doesn't allow both on one session.
+    ...(applyRef && ambassador.promotion_code_id
+      ? { discounts: [{ promotion_code: ambassador.promotion_code_id }] }
+      : { allow_promotion_codes: true }),
     success_url:               `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                `${origin}/billing/cancel`,
     metadata:                  { supabase_user_id: userId, ...(applyRef ? { ambassador_id: ambassador.id } : {}) },
@@ -219,6 +224,21 @@ billing.post('/webhook', async (c) => {
         stripe_subscription_id: subId,
         subscription_status:    'trialing',
       }).eq('id', userId)
+
+      // Attribute the referral off whatever promo code Stripe actually recorded
+      // on this session — covers both the silent ?ref= link AND someone typing
+      // the code into Stripe's own "Add promotion code" field at checkout.
+      try {
+        const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ['discounts.promotion_code'] })
+        const discount = full.discounts?.[0] as any
+        const promoId = typeof discount?.promotion_code === 'string' ? discount.promotion_code : discount?.promotion_code?.id
+        if (promoId) {
+          const { data: amb } = await supabase.from('ambassadors').select('id, user_id').eq('promotion_code_id', promoId).maybeSingle()
+          if (amb && (amb as any).user_id !== userId) {
+            await attributeReferral({ ambassadorId: (amb as any).id, userId, customerId: session.customer, status: 'trialing' })
+          }
+        }
+      } catch (e) { console.error('[webhook] checkout promo attribution failed:', (e as Error).message) }
       break
     }
 
