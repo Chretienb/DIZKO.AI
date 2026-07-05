@@ -1,8 +1,10 @@
 /**
- * Pure TypeScript BPM + key detection — no Python, no native deps.
- * Reads WAV PCM data directly from a Buffer.
- * Same algorithm as dizko_ai.py: onset energy autocorrelation + chroma key.
+ * BPM (via music-tempo, MIT-licensed) + key (chroma) detection — no Python,
+ * no native deps. Reads WAV PCM data directly from a Buffer.
  */
+
+// @ts-ignore — no published types for this package
+import MusicTempo from 'music-tempo'
 
 const CHROMA_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
 
@@ -56,55 +58,31 @@ function readWavBuffer(buf: Buffer): { samples: Float32Array; sampleRate: number
   }
 }
 
-// ── BPM via onset strength + autocorrelation ───────────────────────────────────
-function detectBPM(samples: Float32Array, sampleRate: number): number {
-  const HOP  = Math.floor(sampleRate * 0.01)   // 10 ms hop
-  const WIN  = HOP * 4
-  const n    = Math.floor((samples.length - WIN) / HOP)
-  if (n < 10) return 120
+// ── BPM via music-tempo (Dixon's "Beatroot" beat-tracking algorithm) ───────────
+// Onset-interval histogramming + multi-agent beat tracking — meaningfully fewer
+// half/double-tempo (octave) errors than the old naive-autocorrelation detector.
+// Returns null (rather than guessing) when no tempo can be extracted — the
+// caller/UI should let the user set BPM manually in that case.
+function detectBPM(samples: Float32Array, sampleRate: number): number | null {
+  if (samples.length < sampleRate * 2) return null  // too short to analyze meaningfully
 
-  // RMS energy per frame
-  const energy = new Float32Array(n)
-  for (let i = 0; i < n; i++) {
-    let s = 0
-    const off = i * HOP
-    for (let j = 0; j < WIN; j++) s += (samples[off + j] ?? 0) ** 2
-    energy[i] = Math.sqrt(s / WIN)
+  try {
+    // music-tempo's internal hop/window sizes are raw SAMPLE counts tuned
+    // assuming 44.1kHz input (441-sample hop == 10ms). Scale hopSize to the
+    // real sample rate so a 48kHz (or any non-44.1kHz) file doesn't get a
+    // systematically wrong tempo — the exact class of bug we're fixing.
+    const hopSize = Math.round(sampleRate * 0.01)
+    const mt = new MusicTempo(samples, { hopSize })
+    const bpm = Number(mt.tempo)
+    if (!Number.isFinite(bpm) || bpm <= 0) return null
+
+    let out = bpm
+    while (out > 180) out /= 2
+    while (out < 60)  out *= 2
+    return Math.round(out)
+  } catch {
+    return null  // e.g. "Tempo extraction failed" on near-silent clips
   }
-
-  // Half-wave rectified first-order difference = onset strength
-  const onset = new Float32Array(n)
-  for (let i = 1; i < n; i++) onset[i] = Math.max(0, (energy[i] ?? 0) - (energy[i - 1] ?? 0))
-
-  // Autocorrelation over tempo-relevant lag range (40–200 BPM)
-  const fps    = sampleRate / HOP
-  const minLag = Math.floor(fps * 60 / 200)
-  const maxLag = Math.min(Math.floor(fps * 60 / 40), Math.floor(n / 2))
-  if (maxLag <= minLag) return 120
-
-  // Compute autocorrelation for each lag
-  const acorr = new Float32Array(maxLag + 1)
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let sum = 0
-    for (let i = 0; i < n - lag; i++) sum += (onset[i] ?? 0) * (onset[i + lag] ?? 0)
-    acorr[lag] = sum
-  }
-
-  // Harmonic weighting — lags whose double/half also score well get a bonus
-  let bestLag = minLag, bestScore = -1
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let score = acorr[lag] ?? 0
-    for (const h of [2, 3, 0.5]) {
-      const hLag = Math.round(lag * h)
-      if (hLag >= minLag && hLag <= maxLag) score += (acorr[hLag] ?? 0) * 0.5
-    }
-    if (score > bestScore) { bestScore = score; bestLag = lag }
-  }
-
-  let bpm = fps * 60 / bestLag
-  while (bpm > 180) bpm /= 2
-  while (bpm < 60)  bpm *= 2
-  return Math.round(bpm)
 }
 
 // ── Key via chroma features (FFT-based) ───────────────────────────────────────

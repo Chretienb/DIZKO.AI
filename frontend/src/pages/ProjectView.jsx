@@ -33,6 +33,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [loading,      setLoading]      = useState(true)
   const [selectedFile, setSelectedFile] = useState(null)
   const [renamingId,   setRenamingId]   = useState(null)
+  const [bpmEditing,   setBpmEditing]   = useState(false)
   const [renamingProject, setRenamingProject] = useState(false)
   const [shareOpen,    setShareOpen]    = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -320,6 +321,33 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     } catch (e) {
       setFiles(prev => prev.map(f => f.id === stemId ? {...f, suggested_name: prevName} : f))  // revert
       addToast?.(`Couldn't rename: ${e.message}`, 'error')
+    }
+  }
+
+  // Manual BPM override — bpm lives inside the notes JSON blob, so the
+  // optimistic local update rewrites that string rather than a flat field.
+  const saveBpm = async (stemId, bpmValue) => {
+    const file = files.find(f => f.id === stemId)
+    if (!file) return
+    const prevNotes = file.notes
+    const bpm = bpmValue === '' ? null : Number(bpmValue)
+    if (bpm !== null && (!Number.isFinite(bpm) || bpm < 20 || bpm > 400)) {
+      addToast?.('BPM must be a number between 20 and 400', 'error')
+      return
+    }
+    const newNotes = JSON.stringify({ ...parseNotes(file), bpm, bpmManual: bpm !== null })
+    setFiles(prev => prev.map(f => f.id === stemId ? { ...f, notes: newNotes } : f))
+    // selectedFile is a separate snapshot, not derived from `files` — update it
+    // too, or the detail panel (which reads selectedFile directly) keeps
+    // showing the old BPM even though the row/header already updated.
+    setSelectedFile(prev => prev && prev.id === stemId ? { ...prev, notes: newNotes } : prev)
+    setBpmEditing(false)
+    try {
+      await filesApi.update(stemId, { bpm })
+    } catch (e) {
+      setFiles(prev => prev.map(f => f.id === stemId ? { ...f, notes: prevNotes } : f))  // revert
+      setSelectedFile(prev => prev && prev.id === stemId ? { ...prev, notes: prevNotes } : prev)
+      addToast?.(`Couldn't update BPM: ${e.message}`, 'error')
     }
   }
 
@@ -991,7 +1019,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         draggable={!isRen}
                         onDragStart={e => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(f.id) }}
                         onDragEnd={() => { setDraggingId(null); setDragOverGroup(null); setDragOverFolder(null) }}
-                        onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); if (isMobile && ns) setMobileDetailOpen(true) } }}
+                        onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); setBpmEditing(false); if (isMobile && ns) setMobileDetailOpen(true) } }}
                         style={{
                           background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid #E95A51' : (isFinals ? '1px solid #C8E8A0' : S.border),
@@ -1225,6 +1253,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right' }}>{row.val}</span>
                     </div>
                   ))}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
+                    <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>BPM{selNotes.bpmManual ? ' (manual)' : ''}</span>
+                    {bpmEditing ? (
+                      <input type="number" autoFocus defaultValue={selNotes.bpm ? Math.round(selNotes.bpm) : ''}
+                        placeholder="—" min={20} max={400}
+                        onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
+                        onBlur={e => saveBpm(selectedFile.id, e.target.value)}
+                        style={{ width:64, fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
+                          border:'1.5px solid #E95A51', borderRadius:6, outline:'none', padding:'2px 6px', fontFamily:'inherit' }}/>
+                    ) : (
+                      <span onClick={() => setBpmEditing(true)} title="Click to edit"
+                        style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
+                        {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {selLabels.length > 0 && (
                   <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
@@ -1392,6 +1436,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   <span style={{ fontSize:13, fontWeight:600, color:'var(--t1)' }}>{row.val}</span>
                 </div>
               ))}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:13, color:'var(--t3)' }}>BPM{selNotes.bpmManual ? ' (manual)' : ''}</span>
+                {bpmEditing ? (
+                  <input type="number" autoFocus defaultValue={selNotes.bpm ? Math.round(selNotes.bpm) : ''}
+                    placeholder="—" min={20} max={400}
+                    onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
+                    onBlur={e => saveBpm(selectedFile.id, e.target.value)}
+                    style={{ width:70, fontSize:13, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
+                      border:'1.5px solid #E95A51', borderRadius:6, outline:'none', padding:'3px 8px', fontFamily:'inherit' }}/>
+                ) : (
+                  <span onClick={() => setBpmEditing(true)}
+                    style={{ fontSize:13, fontWeight:600, color:'var(--t1)', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
+                    {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
+                  </span>
+                )}
+              </div>
             </div>
             {selLabels.length > 0 && (
               <div style={{ marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>

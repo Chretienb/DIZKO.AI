@@ -20,6 +20,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "hono": "^4.7.10",
     "jszip": "^3.10.1",
+    "music-tempo": "^1.0.3",
     "resend": "^6.12.3",
     "rollup": "^4.60.4",
     "stripe": "^22.1.1",

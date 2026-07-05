@@ -7,6 +7,7 @@ import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
+import { validateManualBpm, mergeBpmIntoNotes } from '../lib/stemNotes'
 import { transcodeToPreview, decodeToWav, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
@@ -1177,6 +1178,17 @@ files.patch('/:id', sanitize, async (c) => {
   const body    = c.var.body as Record<string, unknown>
   const updates: Record<string, unknown> = {}
   for (const key of allowed) { if (key in body) updates[key] = body[key] }
+
+  // Manual BPM override — bpm lives inside the `notes` JSON blob, not its own
+  // column, so merge it in rather than letting the client overwrite the whole
+  // blob (that would risk clobbering peaks/audio_features it doesn't know about).
+  if ('bpm' in body) {
+    const validated = validateManualBpm(body.bpm)
+    if (!validated.ok) return c.json({ data: null, error: validated.error, status: 400 }, 400)
+
+    const { data: current } = await supabase.from('stems').select('notes').eq('id', c.req.param('id')).single()
+    updates.notes = mergeBpmIntoNotes((current as any)?.notes, validated.bpm)
+  }
 
   if (Object.keys(updates).length === 0)
     return c.json({ data: null, error: 'No updatable fields provided', status: 400 }, 400)
