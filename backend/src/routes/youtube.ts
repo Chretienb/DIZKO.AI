@@ -8,7 +8,7 @@ const yt = new Hono<{ Variables: HonoVariables }>()
 const CLIENT_ID     = process.env.YOUTUBE_CLIENT_ID     ?? ''
 const CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET ?? ''
 const REDIRECT_URI  = process.env.YOUTUBE_REDIRECT_URI  ?? 'http://localhost:4000/auth/youtube/callback'
-const FRONTEND      = process.env.FRONTEND_ORIGIN       ?? 'http://localhost:5173'
+const FRONTEND      = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',

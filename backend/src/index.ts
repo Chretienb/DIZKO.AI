@@ -63,7 +63,7 @@ app.use('*', secureHeaders())
 app.use(
   '*',
   cors({
-    origin: process.env.FRONTEND_ORIGIN ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+    origin: (process.env.FRONTEND_ORIGIN ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173').trim(),
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Authorization', 'Content-Type'],
     credentials: true,
@@ -230,7 +230,7 @@ console.log(`  Runtime  : Bun ${Bun.version}`)
 console.log(`  Framework: Hono`)
 console.log(`  Port     : ${PORT}`)
 console.log(`  Supabase : ${process.env.SUPABASE_URL ?? '⚠  not configured'}`)
-console.log(`  CORS     : ${process.env.FRONTEND_ORIGIN ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'}`)
+console.log(`  CORS     : ${(process.env.FRONTEND_ORIGIN ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173').trim()}`)
 console.log(`  Claude   : ${process.env.ANTHROPIC_API_KEY ? '✓ configured' : '⚠  not set (Smart Mix / AI feedback disabled)'}\n`)
 
 export default {

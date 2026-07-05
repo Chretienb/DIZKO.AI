@@ -181,7 +181,7 @@ billing.post('/portal', requireAuth, async (c) => {
   const customerId = (profile as any)?.stripe_customer_id
   if (!customerId) return c.json({ data: null, error: 'No billing account found', status: 404 }, 404)
 
-  const origin  = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+  const origin  = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
   const session = await stripe.billingPortal.sessions.create({
     customer:   customerId,
     return_url: `${origin}/account`,

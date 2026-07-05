@@ -35,7 +35,7 @@ async function runMix(projectId: string, userId: string) {
       recipientName: '',
       projectTitle:  projectId,   // enriched by notificationService via userId lookup
       stemCount:     result.stem_count,
-      listenUrl:     process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+      listenUrl:     (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim(),
     })
     await notify({
       type:         'mix_ready',

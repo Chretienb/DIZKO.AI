@@ -50,13 +50,13 @@ const anonClient = createClient(process.env.SUPABASE_URL!, SUPABASE_ANON_KEY, {
 // trust known hosts; otherwise fall back to FRONTEND_ORIGIN or the prod URL.
 const PROD_ORIGIN = 'https://app.dizko.ai'
 const ALLOWED_ORIGINS = new Set(
-  [process.env.FRONTEND_ORIGIN, PROD_ORIGIN, 'http://localhost:5173', 'http://localhost:5174']
+  [process.env.FRONTEND_ORIGIN?.trim(), PROD_ORIGIN, 'http://localhost:5173', 'http://localhost:5174']
     .filter(Boolean) as string[]
 )
 function resolveFrontendOrigin(c: { req: { header: (k: string) => string | undefined } }): string {
   const origin = c.req.header('origin')
   if (origin && ALLOWED_ORIGINS.has(origin)) return origin
-  return process.env.FRONTEND_ORIGIN || PROD_ORIGIN
+  return process.env.FRONTEND_ORIGIN?.trim() || PROD_ORIGIN
 }
 if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_ORIGIN) {
   console.warn(`[auth] FRONTEND_ORIGIN not set — auth links use the request origin or default to ${PROD_ORIGIN}`)
@@ -354,7 +354,7 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
           inviterName:  inviterName,
           projectTitle: projectTitle,
           role:         role ?? 'Collaborator',
-          acceptUrl:    `${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'}/collaborators`,
+          acceptUrl:    `${(process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()}/collaborators`,
         })
         return { emailSubject: tpl.subject, emailHtml: tpl.html }
       })(),
