@@ -1113,6 +1113,7 @@ export function ModalInvite({ project: initialProject, onClose }) {
 
 // ─── MODAL: MESSAGE ────────────────────────────────────────────────────────
 export function ModalMessage({ collab, onClose, currentUserId }) {
+  const isMobile    = useIsMobile()
   const name        = collabName(collab)
   const firstName   = name.split(' ')[0]
   const otherId     = collab.user_id || collab.user?.id
@@ -1167,49 +1168,83 @@ export function ModalMessage({ collab, onClose, currentUserId }) {
 
   const fmt = t => new Date(t).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
 
+  const messageList = (
+    <div style={{ flex: isMobile ? 1 : undefined, maxHeight: isMobile ? undefined : '45dvh', minHeight: isMobile ? undefined : 120,
+      overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain',
+      display:'flex', flexDirection:'column', gap:8, marginBottom: isMobile ? 0 : 16, padding: isMobile ? '14px 16px' : '4px 0' }}>
+      {loading ? (
+        <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}><Spinner size={20} color={C.coral}/></div>
+      ) : msgs.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'40px 0', color:C.t3, fontSize:13 }}>
+          Start a conversation with {firstName}
+        </div>
+      ) : msgs.map((m) => {
+        const isMe = m.from_user_id === currentUserId
+        return (
+          <div key={m.id} style={{ display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth:'72%' }}>
+              <div style={{ padding:'10px 14px', borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                background: isMe ? C.grad : 'rgba(var(--fg),.07)',
+                color: isMe ? '#fff' : 'var(--t1)', fontSize:13.5, lineHeight:1.45 }}>{m.text}</div>
+              <div style={{ fontSize:10, color:C.t3, marginTop:3, textAlign: isMe ? 'right' : 'left', fontWeight:500 }}>{fmt(m.created_at)}</div>
+            </div>
+          </div>
+        )
+      })}
+      <div ref={bottomRef} />
+    </div>
+  )
+
+  const composer = (
+    <div style={{ display:'flex', gap:8, padding: isMobile ? '10px 16px calc(10px + env(safe-area-inset-bottom))' : 0,
+      borderTop: isMobile ? '1px solid var(--border)' : 'none', flexShrink:0 }}>
+      <input value={msg} onChange={e => setMsg(e.target.value)}
+        onKeyDown={e => e.key==='Enter' && !e.shiftKey && send()}
+        placeholder={`Message ${firstName}…`}
+        style={{ flex:1, padding:'11px 14px', borderRadius:12, border:`1.5px solid ${C.border}`,
+          outline:'none', fontSize:13.5, fontFamily:'inherit', background:C.surface2, color:C.t1, transition:'border .15s' }}
+        onFocus={e => e.target.style.borderColor=C.coral}
+        onBlur={e => e.target.style.borderColor=C.border} />
+      <button onClick={send} disabled={sending || !msg.trim()} style={{ width:42, height:42, borderRadius:12, background:C.grad,
+        border:'none', cursor: sending ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+        boxShadow:`0 4px 12px ${C.coral}40`, opacity: sending ? .6 : 1, flexShrink:0 }}>
+        {sending
+          ? <Spinner size={14} color="#fff"/>
+          : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+            </svg>}
+      </button>
+    </div>
+  )
+
+  // Mobile: a real full-screen view, not a centered card — "text on mobile
+  // should be full page." Desktop keeps the existing centered Modal.
+  if (isMobile) {
+    return (
+      <div role="dialog" aria-modal="true" aria-label={`Message ${name}`}
+        style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'calc(10px + env(safe-area-inset-top)) 16px 12px',
+          borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+          <button onClick={onClose} aria-label="Back"
+            style={{ width:34, height:34, borderRadius:9, border:'none', background:'rgba(var(--fg),.06)', color:'var(--t1)',
+              cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:15.5, fontWeight:800, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
+            <div style={{ fontSize:12, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{collab.role || 'Collaborator'} · {collabEmail(collab)}</div>
+          </div>
+        </div>
+        {messageList}
+        {composer}
+      </div>
+    )
+  }
+
   return (
     <Modal title={`Message ${name}`} sub={`${collab.role || 'Collaborator'} · ${collabEmail(collab)}`} onClose={onClose} width={480}>
-      <div style={{ maxHeight:'45dvh', minHeight:120, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain',
-        display:'flex', flexDirection:'column', gap:8, marginBottom:16, padding:'4px 0' }}>
-        {loading ? (
-          <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}><Spinner size={20} color={C.coral}/></div>
-        ) : msgs.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'40px 0', color:C.t3, fontSize:13 }}>
-            Start a conversation with {firstName}
-          </div>
-        ) : msgs.map((m) => {
-          const isMe = m.from_user_id === currentUserId
-          return (
-            <div key={m.id} style={{ display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
-              <div style={{ maxWidth:'72%' }}>
-                <div style={{ padding:'10px 14px', borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                  background: isMe ? C.grad : 'rgba(var(--fg),.07)',
-                  color: isMe ? '#fff' : 'var(--t1)', fontSize:13.5, lineHeight:1.45 }}>{m.text}</div>
-                <div style={{ fontSize:10, color:C.t3, marginTop:3, textAlign: isMe ? 'right' : 'left', fontWeight:500 }}>{fmt(m.created_at)}</div>
-              </div>
-            </div>
-          )
-        })}
-        <div ref={bottomRef} />
-      </div>
-      <div style={{ display:'flex', gap:8 }}>
-        <input value={msg} onChange={e => setMsg(e.target.value)}
-          onKeyDown={e => e.key==='Enter' && !e.shiftKey && send()}
-          placeholder={`Message ${firstName}…`}
-          style={{ flex:1, padding:'11px 14px', borderRadius:12, border:`1.5px solid ${C.border}`,
-            outline:'none', fontSize:13.5, fontFamily:'inherit', background:C.surface2, color:C.t1, transition:'border .15s' }}
-          onFocus={e => e.target.style.borderColor=C.coral}
-          onBlur={e => e.target.style.borderColor=C.border} />
-        <button onClick={send} disabled={sending || !msg.trim()} style={{ width:42, height:42, borderRadius:12, background:C.grad,
-          border:'none', cursor: sending ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          boxShadow:`0 4px 12px ${C.coral}40`, opacity: sending ? .6 : 1 }}>
-          {sending
-            ? <Spinner size={14} color="#fff"/>
-            : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round">
-                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
-              </svg>}
-        </button>
-      </div>
+      {messageList}
+      {composer}
     </Modal>
   )
 }
