@@ -66,17 +66,23 @@ export default function PublicProfile({ embedded = false }) {
 
   const flashToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
-  // Deep-link to a specific track (?t=<itemId>) — scroll it into view.
-  // Dashboard shortcuts open the overlays directly (?discover=1, ?share=1).
+  // Deep-link to a specific track (?t=<itemId>) — this is what ShareCard's
+  // per-track share link already points at. Instead of just scrolling it into
+  // view within the full grid, show it as its own focused view: the shared
+  // beat is unambiguous, everything else on the showcase is one tap away via
+  // "See all N tracks" rather than competing for attention in a scrolled-to
+  // position. Dashboard shortcuts open the overlays directly (?discover=1, ?share=1).
+  const [focusedItemId, setFocusedItemId] = useState(null)
   useEffect(() => {
     if (state !== 'ready') return
     const q = new URLSearchParams(window.location.search)
-    const t = q.get('t')
-    if (t) setTimeout(() => document.getElementById(`track-${t}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
+    setFocusedItemId(q.get('t') || null)
     if (q.get('discover') === '1') setDiscoverOpen(true)
     publicApi.prefetchDiscover?.()   // warm the Discover feed + reels so the panel opens instantly
     if (q.get('share') === '1') setShareCard({ kind: 'profile' })
   }, [state])
+  const focusedItem = focusedItemId ? items.find(i => i.id === focusedItemId) : null
+  const backToFullShowcase = () => { setFocusedItemId(null); navigate(`/u/${handle}`, { replace: true }) }
 
   // Share — native share sheet where available, otherwise copy the link.
   const share = async (path, label) => {
@@ -313,6 +319,86 @@ export default function PublicProfile({ embedded = false }) {
       </div>
     </Shell>
   )
+
+  // A shared-track link (?t=<itemId>) — the one beat that was actually sent,
+  // front and center, with everything else one tap away instead of competing
+  // for attention in a scrolled-to position in the full grid. The profile's
+  // Apple/Spotify/YouTube embed still shows underneath — sharing one beat
+  // doesn't mean hiding where the rest of the catalogue lives.
+  if (focusedItem) {
+    const embed = p.music_embed ? musicEmbed(p.music_embed) : null
+    return (
+      <Shell>
+        <div style={{ maxWidth:560, margin:'0 auto', padding:'28px 4px 56px' }}>
+          {/* Owner strip — who sent this, with a way to their full page */}
+          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'0 2px 24px' }}>
+            <div onClick={() => { setFocusedItemId(null) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:11, flex:1, minWidth:0 }}>
+              <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+                background: p.avatar_url ? `center/cover url(${p.avatar_url})` : C.grad, border:'1.5px solid rgba(var(--fg),.12)' }} />
+              <div style={{ minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <span style={{ fontSize:13.5, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.display_name}</span>
+                  {p.verified && (
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="#1d9bf0" style={{ flexShrink:0 }} aria-label="Verified"><path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.44 0-.863.08-1.256.23C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.393-.15-.816-.23-1.256-.23-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .44 0 .863-.08 1.256-.23.62 1.334 1.926 2.25 3.437 2.25s2.817-.916 3.438-2.25c.393.15.816.23 1.256.23 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.514 1.16-.688 1.943-1.99 1.943-3.486z"/><path d="M10.75 16.518l-3.75-3.75 1.5-1.5 2.25 2.25 4.75-4.75 1.5 1.5z" fill="#fff"/></svg>
+                  )}
+                </div>
+                <div style={{ fontSize:11.5, color:'rgba(var(--fg),.42)' }}>
+                  shared a beat with you · {fmt(p.follower_count)} follower{p.follower_count === 1 ? '' : 's'} · {items.length} track{items.length === 1 ? '' : 's'}
+                </div>
+              </div>
+            </div>
+            {!p.is_self && (
+              <button onClick={toggleFollow}
+                style={following ? { ...ghostBtn, flexShrink:0 } : { ...ghostBtn, flexShrink:0, background:'rgba(233,90,81,.16)', border:'1px solid rgba(233,90,81,.4)', color:'#fff' }}>
+                {following ? 'Following' : 'Follow'}
+              </button>
+            )}
+          </div>
+
+          <ShowcaseTrack item={focusedItem} isDemo={isDemo} ownerIsSelf={!!p.is_self}
+            requireAccount={requireAccount} onLike={toggleLike} onDownload={download} onShare={shareTrack}
+            onRepost={p.is_self ? null : toggleRepost}
+            onRemove={p.is_self ? removeShowcaseItem : null} />
+
+          {/* Same Apple Music / Spotify / YouTube embed as the full showcase —
+              sharing one beat doesn't mean losing the rest of where to hear them. */}
+          {embed && (
+            <div style={{ marginTop:28 }}>
+              <div style={{ fontSize:11.5, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase', color:'rgba(var(--fg),.4)', marginBottom:10 }}>On {embed.label}</div>
+              <iframe title={embed.label} src={embed.src}
+                width="100%" height={embed.short} frameBorder="0" loading="lazy"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                style={{ borderRadius:12, border:'none' }} />
+            </div>
+          )}
+
+          {!getToken() && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexWrap:'wrap',
+              marginTop:28, padding:'16px 18px', borderRadius:14, background:'rgba(var(--fg),.04)', border:'1px solid rgba(var(--fg),.08)' }}>
+              <div style={{ fontSize:13, color:'rgba(var(--fg),.7)', lineHeight:1.5 }}>
+                Like, follow & download <span style={{ color:'#fff', fontWeight:600 }}>{p.display_name}</span>’s work.
+              </div>
+              <button onClick={() => navigate('/login?join=1')}
+                style={{ flexShrink:0, padding:'8px 18px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+                Join dizko
+              </button>
+            </div>
+          )}
+
+          <div style={{ display:'flex', justifyContent:'center', marginTop:28 }}>
+            <button onClick={backToFullShowcase}
+              className="pp-seeall"
+              style={{ padding:'7px 4px', border:'none', background:'none', cursor:'pointer', fontFamily:'inherit',
+                fontSize:13, fontWeight:600, color:'rgba(var(--fg),.5)', display:'inline-flex', alignItems:'center', gap:6, transition:'color .15s' }}>
+              See all {items.length} track{items.length === 1 ? '' : 's'} by {p.display_name}
+              <span aria-hidden="true" style={{ transition:'transform .15s' }}>→</span>
+            </button>
+          </div>
+          <style>{`.pp-seeall:hover{ color:${C.coral} !important; }`}</style>
+        </div>
+      </Shell>
+    )
+  }
 
   return (
     <Shell>
