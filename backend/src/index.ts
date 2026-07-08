@@ -43,6 +43,7 @@ import folderRoutes           from './routes/folders'
 import youtubeRoutes          from './routes/youtube'
 import billingRoutes          from './routes/billing'
 import crewRoutes             from './routes/crew'
+import webhookRoutes          from './routes/webhooks'
 import { startCleanupJob }   from './lib/cleanupJob'
 import { startPayoutJob }    from './lib/payoutJob'
 import { runSmartBounce }    from './lib/smartBounce'
@@ -96,6 +97,7 @@ app.get('/health', (c) =>
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+app.route('/webhooks', webhookRoutes) // 3rd-party callbacks (ACRCloud, etc.) — never requireAuth
 app.route('/p', publicShareRoutes)   // public collaboration-invite pages (GET is unauthenticated)
 app.route('/u', publicProfileRoutes) // public producer profiles (GET is unauthenticated)
 app.route('/showcase', showcaseRoutes) // authenticated: profile editing, curation, follow/like

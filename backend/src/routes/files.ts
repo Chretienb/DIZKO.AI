@@ -9,6 +9,7 @@ import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { validateManualBpm, mergeBpmIntoNotes } from '../lib/stemNotes'
 import { transcodeToPlaybackAsset, decodeToWav, playbackKeyFor, PLAYBACK_CONTENT_TYPE } from '../lib/transcode'
+import { submitForAiDetection } from '../lib/aiDetect'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
@@ -456,6 +457,10 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
           console.error('[enrich] playback-asset transcode failed:', (e as Error).message)
         }
       }
+
+      // Advisory AI-generated-audio check — fire-and-forget, result arrives
+      // later via webhook and never gates readiness (see lib/aiDetect.ts).
+      if (buffer && (isWav || isFlac)) submitForAiDetection(buffer, takeId, isWav ? 'wav' : 'flac')
 
       await supabase.from('stems').update({
         notes: JSON.stringify({

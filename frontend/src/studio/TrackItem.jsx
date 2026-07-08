@@ -45,6 +45,14 @@ export default function TrackItem({
   const stemMeta = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
   const stemBpm  = stemMeta.bpm ? Math.round(stemMeta.bpm) : null
   const stemKey  = stemMeta.key || null
+  // Advisory-only AI-generated-audio flag (ACRCloud, arrives async via webhook
+  // well after the stem is already playable — never gates anything). Bands
+  // match ACRCloud's own published confidence thresholds.
+  const aiProbability = typeof stemMeta.aiProbability === 'number' ? stemMeta.aiProbability : null
+  const aiFlag = aiProbability == null ? null
+    : aiProbability >= 80 ? { label: `Made by AI${stemMeta.aiSource ? ` (${stemMeta.aiSource[0].toUpperCase()}${stemMeta.aiSource.slice(1)})` : ''}`, tone: 'red' }
+    : aiProbability >= 40 ? { label: 'Possibly AI — double-check', tone: 'amber' }
+    : null
   // Enrichment (BPM/key/peaks + the small AAC playback asset) hasn't finished
   // yet — without it, preview_url is missing and playback would silently fall
   // back to streaming the full multi-MB master instead of the small preview,
@@ -117,6 +125,14 @@ export default function TrackItem({
             {stemKey && (
               <span style={{ fontSize:10, fontWeight:700, color, background:`${color}14`, padding:'2px 7px', borderRadius:6, letterSpacing:'.02em' }}>
                 {stemKey}
+              </span>
+            )}
+            {aiFlag && (
+              <span title={`ACRCloud AI Music Detection: ${aiProbability.toFixed(0)}% likelihood`}
+                style={{ fontSize:10, fontWeight:700, letterSpacing:'.02em', padding:'2px 7px', borderRadius:6,
+                  color: aiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
+                  background: aiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
+                {aiFlag.tone==='red' ? '⚠ ' : ''}{aiFlag.label}
               </span>
             )}
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
