@@ -1,0 +1,12 @@
+-- The stems table was never added to the supabase_realtime publication, so
+-- NO postgres_changes events (INSERT or UPDATE) have ever actually reached
+-- any subscriber for it — confirmed with an isolated realtime-client test
+-- against the live table (subscribed successfully, a real UPDATE landed via
+-- the REST API, zero events received). This silently broke two things:
+--   1. The existing "collaborator uploaded a new stem" toast (INSERT) —
+--      dead code since it was written, no error, just never fired.
+--   2. A stem's Play button never reflecting that its background enrichment
+--      (BPM/key/peaks/AAC transcode) finished — the frontend's only source of
+--      truth was the one-time GET /files on page load, so a stem uploaded
+--      this session stayed "still processing" until a manual reload.
+ALTER PUBLICATION supabase_realtime ADD TABLE stems;
