@@ -8,6 +8,7 @@ import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
 import Transport from '../studio/Transport.jsx'
+import RecordPanel from '../studio/RecordPanel.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
 import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
@@ -368,6 +369,28 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const bpmRef       = useRef(120)
   const beatTimerRef = useRef(null)
   const bpmSaveTimer = useRef(null)
+
+  // ── Recording (Phase 1: fixed-length take, no Input FX yet — see RecordPanel) ──
+  const [recordOpen,     setRecordOpen]     = useState(false)
+  const [inputDevices,   setInputDevices]   = useState([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [countdownBars,  setCountdownBars]  = useState(1)
+  const [armCount,       setArmCount]       = useState(null)   // null = not counting in
+  const [isRecording,    setIsRecording]    = useState(false)
+  const [recordUploading, setRecordUploading] = useState(false)
+  const [recordError,    setRecordError]    = useState('')
+  const streamRef        = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const chunksRef        = useRef([])
+  const armTimersRef     = useRef([])
+
+  useEffect(() => () => {
+    armTimersRef.current.forEach(clearTimeout)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop() } catch {}
+    }
+    streamRef.current?.getTracks().forEach(t => t.stop())
+  }, [])
 
   const parsedNotes = f => { try { return JSON.parse(f.notes || '{}') } catch { return {} } }
   const defaultColors = [C.coral, '#22c55e', C.amber, '#8b5cf6', '#3b82f6', C.pink]
@@ -768,6 +791,114 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const stop = () => { stopAll(); clearInterval(beatTimerRef.current); setBeatFlash(false); offsetRef.current = 0; setCurrentTime(0) }
+
+  // ── Recording ────────────────────────────────────────────────────────────
+  // Mic capture is a completely separate graph from playback (its own
+  // getUserMedia stream → MediaRecorder) — nothing routes speaker output back
+  // into it, so there's no special trick needed to keep playback out of the
+  // take. It just never touches the recording in the first place.
+  const openRecordPanel = async () => {
+    setRecordError('')
+    try {
+      // Only way to get real device labels (not just "Microphone 1") — a
+      // permission grant is required first, so probe-and-release once.
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
+      probe.getTracks().forEach(t => t.stop())
+      const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput')
+      setInputDevices(devices)
+      setSelectedDeviceId(prev => prev || devices[0]?.deviceId || '')
+    } catch {
+      setRecordError('Microphone access denied — check your browser/OS permissions.')
+    }
+    setRecordOpen(true)
+  }
+
+  const finishRecording = async (mimeType) => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    const blob = new Blob(chunksRef.current, { type: mimeType })
+    chunksRef.current = []
+    if (blob.size < 1000) { setRecordError('Recording was empty — nothing was captured.'); setRecordUploading(false); return }
+    setRecordUploading(true)
+    try {
+      const ext = mimeType.includes('mp4') ? 'm4a' : 'webm'
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const file = new File([blob], `Recording_${stamp}.${ext}`, { type: mimeType })
+      await filesApi.upload(file, activeId, { instrument: 'recording' })
+      // No manual refresh needed — the realtime INSERT listener already
+      // wired into this page picks the new stem up on its own.
+      setRecordOpen(false)
+    } catch (e) {
+      setRecordError(e.message || 'Upload failed — try again.')
+    }
+    setRecordUploading(false)
+  }
+
+  const startRecording = async () => {
+    setRecordError('')
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+      })
+    } catch {
+      setRecordError('Could not access the selected input.')
+      return
+    }
+    streamRef.current = stream
+
+    const beginCapture = () => {
+      setArmCount(null)
+      playAll()
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+        .find(t => window.MediaRecorder?.isTypeSupported?.(t))
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      chunksRef.current = []
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = () => finishRecording(mr.mimeType || 'audio/webm')
+      mediaRecorderRef.current = mr
+      mr.start()
+      setIsRecording(true)
+    }
+
+    if (countdownBars > 0) {
+      // Click sounds scheduled sample-accurately on the shared audio clock
+      // (same engine playAll already uses for its own metronome); the JS-side
+      // countdown display + the actual start-of-capture just ride along on a
+      // plain timer synced to the same beat length.
+      const ctx = sharedPlaybackCtx()
+      const secPerBeat = 60 / bpmRef.current
+      const totalBeats = countdownBars * 4
+      const t0 = ctx.currentTime + 0.05
+      for (let i = 0; i < totalBeats; i++) scheduleClick(ctx, t0 + i * secPerBeat, i % 4 === 0)
+      let n = totalBeats
+      setArmCount(n)
+      const tickDown = () => {
+        n -= 1
+        if (n <= 0) { beginCapture(); return }
+        setArmCount(n)
+        armTimersRef.current.push(setTimeout(tickDown, secPerBeat * 1000))
+      }
+      armTimersRef.current.push(setTimeout(tickDown, secPerBeat * 1000))
+    } else {
+      beginCapture()
+    }
+  }
+
+  const stopRecording = () => {
+    armTimersRef.current.forEach(clearTimeout); armTimersRef.current = []
+    setArmCount(null)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop()
+    else streamRef.current?.getTracks().forEach(t => t.stop())
+    stop()
+    setIsRecording(false)
+  }
+
+  const closeRecordPanel = () => {
+    if (isRecording || armCount != null) return   // must Stop first, not just close
+    setRecordOpen(false)
+    setRecordError('')
+  }
 
   // Seek to a position (seconds). playAll reads offsetRef as its start point, so
   // we set it and — if currently playing — restart from there.
@@ -1372,21 +1503,43 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           </div>
 
           {/* Transport row */}
-          <div style={{ padding:'10px 14px' }}>
-            <Transport
-              playing={playing} loadingPct={loadingPct}
-              onStop={stop} onPlay={playAll} onPause={pause}
-              currentTime={currentTime} duration={duration} onSeek={seek}
-              bpm={bpm} onBpmChange={handleBpmChange}
-              metronomeOn={metronomeOn}
-              onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
-              beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
-              stems={stems} trackCount={boardStems.length}
-              preparing={prepState.remaining} preparingTotal={prepState.total}
-            />
+          <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <Transport
+                playing={playing} loadingPct={loadingPct}
+                onStop={stop} onPlay={playAll} onPause={pause}
+                currentTime={currentTime} duration={duration} onSeek={seek}
+                bpm={bpm} onBpmChange={handleBpmChange}
+                metronomeOn={metronomeOn}
+                onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
+                beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
+                stems={stems} trackCount={boardStems.length}
+                preparing={prepState.remaining} preparingTotal={prepState.total}
+              />
+            </div>
+            {activeId && (
+              <button onClick={openRecordPanel} title="Record a new stem" aria-label="Record"
+                style={{ display:'flex', alignItems:'center', gap:7, height:38, padding:'0 14px', borderRadius:100,
+                  border:'1px solid rgba(239,68,68,.35)', background:'rgba(239,68,68,.1)', color:'#ef4444',
+                  fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit', flexShrink:0, transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.18)'}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}>
+                <span aria-hidden="true" style={{ width:9, height:9, borderRadius:'50%', background:'#ef4444' }}/>
+                {!isMobile && 'Record'}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      <RecordPanel
+        open={recordOpen} onClose={closeRecordPanel}
+        devices={inputDevices} selectedDeviceId={selectedDeviceId} onSelectDevice={setSelectedDeviceId}
+        countdownBars={countdownBars} onCountdownChange={setCountdownBars}
+        metronomeOn={metronomeOn} onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
+        armCount={armCount} isRecording={isRecording} recordUploading={recordUploading} recordError={recordError}
+        onStart={startRecording} onStop={stopRecording}
+      />
 
       {loading ? <LoadingBlock/> : (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':`${stemsW}px 1fr 300px`, gap:20, alignItems:'start' }}>
