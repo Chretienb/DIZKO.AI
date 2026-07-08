@@ -1208,7 +1208,7 @@ files.post('/:id/separate-stems', replicateLimit, async (c) => {
           key  ? key : null,
         ].filter(Boolean).join(' · ')
 
-        await supabase.from('stems').insert({
+        const { data: inserted } = await supabase.from('stems').insert({
           track_id:       t.track_id,
           original_name:  filename,
           suggested_name: suggestedName,
@@ -1219,7 +1219,12 @@ files.post('/:id/separate-stems', replicateLimit, async (c) => {
           instrument:     type,
           notes:          JSON.stringify({ parent_stem_id: takeId, stem_type: type, bpm, key }),
           uploaded_by:    user.id,
-        })
+        }).select('id').single()
+        // Demucs children never went through enrichStemInBackground, so they
+        // were never submitted for AI-generated-audio detection either —
+        // fire it here too, same fire-and-forget/advisory-only contract.
+        const newStemId = (inserted as any)?.id
+        if (newStemId) submitForAiDetection(buf, newStemId, 'wav')
         ;(async () => {
           const { error: rpcErr } = await supabase.rpc('increment_storage', { user_id: user.id, bytes: buf.length })
           if (rpcErr) console.error('[stems] increment_storage rpc error:', rpcErr.message)
