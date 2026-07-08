@@ -31,23 +31,21 @@ webhooks.post('/acrcloud-ai-detect', async (c) => {
     const takeId = name.replace(/\.[a-zA-Z0-9]+$/, '')
     if (!takeId) return c.json({ ok: true })
 
-    // Field path confirmed against the console UI's own display (Original /
-    // AI Generated Music / suno / 91.15%); exact JSON nesting from the real
-    // callback may need a tweak once we see actual payloads in the logs above.
-    const results  = body?.results ?? body
-    const aiBlock  = results?.ai_music_detection ?? results?.music?.ai_detection ?? results?.ai_detection ?? results
-    const aiProbability = typeof aiBlock?.ai_probability === 'number' ? aiBlock.ai_probability : null
+    // Confirmed against a real callback payload: results.ai_detection is an
+    // ARRAY of segments (start/end/prediction/likely_source/ai_probability),
+    // not a single object — pick the highest-confidence segment.
+    const detections: any[] = Array.isArray(body?.results?.ai_detection) ? body.results.ai_detection : []
+    const top = detections.reduce((a, b) => (b?.ai_probability > (a?.ai_probability ?? -1) ? b : a), null as any)
+    const aiProbability = typeof top?.ai_probability === 'number' ? top.ai_probability : null
     if (aiProbability == null) return c.json({ ok: true })   // nothing usable — skip, don't guess
-
-    const sources: any[] = Array.isArray(aiBlock?.source_probabilities) ? aiBlock.source_probabilities : []
-    const top = sources.reduce((a, b) => (b?.probability > (a?.probability ?? -1) ? b : a), null as any)
 
     const { data: fresh } = await supabase.from('stems').select('notes').eq('id', takeId).single()
     if (!fresh) return c.json({ ok: true })   // stem deleted/unknown — nothing to update
 
-    const merged = { ...parseNotes(fresh), aiProbability, aiSource: top?.name ? String(top.name).toLowerCase() : null }
+    const aiSource = top?.likely_source ? String(top.likely_source).toLowerCase() : null
+    const merged = { ...parseNotes(fresh), aiProbability, aiSource }
     await supabase.from('stems').update({ notes: JSON.stringify(merged) }).eq('id', takeId)
-    console.log(`[ai-detect] ${takeId} → ${aiProbability}% (${top?.name ?? 'unknown source'})`)
+    console.log(`[ai-detect] ${takeId} → ${aiProbability}% (${aiSource ?? 'unknown source'})`)
   } catch (e) {
     console.error('[ai-detect] webhook error:', (e as Error).message)
   }
