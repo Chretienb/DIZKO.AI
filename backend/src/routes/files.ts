@@ -460,7 +460,12 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
 
       // Advisory AI-generated-audio check — fire-and-forget, result arrives
       // later via webhook and never gates readiness (see lib/aiDetect.ts).
-      if (buffer && (isWav || isFlac)) submitForAiDetection(buffer, takeId, isWav ? 'wav' : 'flac')
+      // Any format the upload accepts (WAV/FLAC/MP3/...) — unlike the AAC
+      // preview above, ACRCloud's detector isn't limited to lossless masters.
+      if (buffer) {
+        const aiExt = isWav ? 'wav' : isFlac ? 'flac' : (fileName.split('.').pop() || 'mp3').toLowerCase()
+        submitForAiDetection(buffer, takeId, aiExt)
+      }
 
       await supabase.from('stems').update({
         notes: JSON.stringify({

@@ -459,6 +459,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
   const selNotes   = selectedFile ? parseNotes(selectedFile) : {}
   const selLabels  = selectedFile ? getDetectedLabels(selectedFile, selNotes) : []
+  // Advisory-only AI-generated-audio flag (ACRCloud, arrives async via
+  // webhook — never gates anything). Bands match ACRCloud's own published
+  // confidence thresholds; same logic as studio/TrackItem.jsx's badge.
+  const selAiProbability = typeof selNotes.aiProbability === 'number' ? selNotes.aiProbability : null
+  const selAiFlag = selAiProbability == null ? null
+    : selAiProbability >= 80 ? { label: `Made by AI${selNotes.aiSource ? ` (${selNotes.aiSource[0].toUpperCase()}${selNotes.aiSource.slice(1)})` : ''}`, tone: 'red' }
+    : selAiProbability >= 40 ? { label: 'Possibly AI — double-check', tone: 'amber' }
+    : null
   // Friendly container name — prefer the file extension; map raw MIME subtypes
   // (an .mp3 is `audio/mpeg`, which would otherwise show as "MPEG").
   const fmtLabel = (file) => {
@@ -1234,6 +1242,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                     Auto-analyzed
                   </span>
+                  {selAiFlag && (
+                    <span title={`ACRCloud AI Music Detection: ${selAiProbability.toFixed(0)}% likelihood`}
+                      style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:10.5, fontWeight:700,
+                        color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
+                        background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)',
+                        border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}` }}>
+                      {selAiFlag.tone==='red' ? '⚠ ' : ''}{selAiFlag.label}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
                   {[
@@ -1424,6 +1441,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                 Auto-analyzed
               </span>
+              {selAiFlag && (
+                <span title={`ACRCloud AI Music Detection: ${selAiProbability.toFixed(0)}% likelihood`}
+                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                    color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
+                    background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)',
+                    border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}` }}>
+                  {selAiFlag.tone==='red' ? '⚠ ' : ''}{selAiFlag.label}
+                </span>
+              )}
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
               {[
