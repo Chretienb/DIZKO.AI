@@ -254,7 +254,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
             // Neutral, uniform baseline while loading the real peaks.
             const h = peaksReady ? Math.max(3, p * 100) : 14
             return <div key={i} style={{ flex:1, height:`${h}%`, borderRadius:2,
-              background: peaksReady && played ? CORAL : 'rgba(var(--fg),.22)', transition:'height .25s, background .12s' }}/>
+              background: peaksReady && played ? CORAL : 'rgba(var(--fg),.4)', transition:'height .25s, background .12s' }}/>
           })}
         </div>
         {/* Playhead */}
