@@ -31,6 +31,8 @@ export default function TrackItem({
   const isOwnerOnly = s.instrument === 'master' || s.instrument === 'smart_bounce'
   const canDelete = isOwnerOnly ? isOwner : (isOwner || s.uploaded_by === user?.id)
 
+  const [aiDetailsOpen, setAiDetailsOpen] = React.useState(false)
+
   // Like / favourite this take — toggles liked_by in the stem's notes.
   const likedBy = React.useMemo(() => { try { return JSON.parse(s.notes || '{}').liked_by || [] } catch { return [] } }, [s.notes])
   const [liked, setLiked] = React.useState(() => user?.id ? likedBy.includes(user.id) : false)
@@ -76,6 +78,7 @@ export default function TrackItem({
   const wfDuration = duration > 0 ? duration : (storedDur || metaDur)
 
   return (
+    <>
     <div style={{
       background: isMuted ? C.surface2 : C.surface,
       borderRadius: 20,
@@ -128,13 +131,14 @@ export default function TrackItem({
               </span>
             )}
             {aiFlag && (
-              <span title={`ACRCloud AI Music Detection: ${aiProbability.toFixed(0)}% likelihood${stemMeta.aiSource ? ` (${stemMeta.aiSource})` : ''}`}
+              <button onClick={e => { e.stopPropagation(); setAiDetailsOpen(true) }}
                 style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10, fontWeight:700, letterSpacing:'.02em', padding:'2px 7px', borderRadius:6,
+                  border:'none', cursor:'pointer', fontFamily:'inherit',
                   color: aiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
                   background: aiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
                 <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
                 {aiFlag.label}
-              </span>
+              </button>
             )}
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
             <span style={{ fontSize:11.5, fontWeight:500, color:C.t2 }}>{uploaderName}</span>
@@ -349,6 +353,34 @@ export default function TrackItem({
         </div>
       )}
     </div>
+    {aiDetailsOpen && aiFlag && (
+      <div onClick={() => setAiDetailsOpen(false)}
+        style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+        <div onClick={e => e.stopPropagation()}
+          style={{ width:'100%', maxWidth:340, background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:20, boxShadow:'0 20px 60px rgba(0,0,0,.4)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+            <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: aiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a' }}/>
+            <div style={{ fontSize:15, fontWeight:800, color:C.t1 }}>
+              {aiFlag.tone==='red' ? 'This beat was made by AI' : 'This might be AI-made'}
+            </div>
+          </div>
+          <div style={{ fontSize:13, color:C.t2, lineHeight:1.55, marginBottom:14 }}>
+            {aiFlag.tone==='red'
+              ? `Dizko detected patterns matching ${stemMeta.aiSource ? stemMeta.aiSource[0].toUpperCase()+stemMeta.aiSource.slice(1) : 'an AI music generator'}, with ${aiProbability.toFixed(0)}% confidence.`
+              : `Dizko found some patterns common in AI-generated audio, but isn't confident enough to say for sure (${aiProbability.toFixed(0)}% confidence). Worth a listen before assuming either way.`}
+          </div>
+          <div style={{ fontSize:11.5, color:C.t3, lineHeight:1.5, marginBottom:16 }}>
+            This is an automated read, not a fact — nothing about your stem changes because of it.
+          </div>
+          <button onClick={() => setAiDetailsOpen(false)}
+            style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:'inherit',
+              background:'rgba(var(--fg),.08)', color:C.t1, fontSize:13, fontWeight:700 }}>
+            Got it
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

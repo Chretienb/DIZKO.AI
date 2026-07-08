@@ -49,6 +49,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [mobileProjectsOpen, setMobileProjectsOpen] = useState(false)
   const [mobileDetailOpen,   setMobileDetailOpen]   = useState(false)
   const [statusOpen,         setStatusOpen]         = useState(false)
+  const [aiDetailsOpen, setAiDetailsOpen] = useState(false)
   const [msgCollab, setMsgCollab] = useState(null)
   const [remCollab, setRemCollab] = useState(null)
   const [reviewingId, setReviewingId] = useState(null)
@@ -1243,14 +1244,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     Auto-analyzed
                   </span>
                   {selAiFlag && (
-                    <span title={`ACRCloud AI Music Detection: ${selAiProbability.toFixed(0)}% likelihood`}
+                    <button onClick={() => setAiDetailsOpen(true)}
                       style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:10.5, fontWeight:700,
+                        border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
                         color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
-                        background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)',
-                        border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}` }}>
+                        background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
                       <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
                       {selAiFlag.label}
-                    </span>
+                    </button>
                   )}
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
@@ -1443,13 +1444,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 Auto-analyzed
               </span>
               {selAiFlag && (
-                <span title={`ACRCloud AI Music Detection: ${selAiProbability.toFixed(0)}% likelihood`}
+                <button onClick={() => setAiDetailsOpen(true)}
                   style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                    border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
                     color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
-                    background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)',
-                    border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}` }}>
-                  {selAiFlag.tone==='red' ? '⚠ ' : ''}{selAiFlag.label}
-                </span>
+                    background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
+                  <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
+                  {selAiFlag.label}
+                </button>
               )}
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
@@ -1513,6 +1515,33 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           onArchive={isOwner ? archiveProject : undefined}
           onDelete={isOwner ? deleteProject : undefined}
           onClose={() => setSettingsOpen(false)} />
+      )}
+      {aiDetailsOpen && selAiFlag && (
+        <div onClick={() => setAiDetailsOpen(false)}
+          style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:'100%', maxWidth:340, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:20, boxShadow:'0 20px 60px rgba(0,0,0,.4)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a' }}/>
+              <div style={{ fontSize:15, fontWeight:800, color:'var(--t1)' }}>
+                {selAiFlag.tone==='red' ? 'This beat was made by AI' : 'This might be AI-made'}
+              </div>
+            </div>
+            <div style={{ fontSize:13, color:'var(--t2)', lineHeight:1.55, marginBottom:14 }}>
+              {selAiFlag.tone==='red'
+                ? `Dizko detected patterns matching ${selNotes.aiSource ? selNotes.aiSource[0].toUpperCase()+selNotes.aiSource.slice(1) : 'an AI music generator'}, with ${selAiProbability.toFixed(0)}% confidence.`
+                : `Dizko found some patterns common in AI-generated audio, but isn't confident enough to say for sure (${selAiProbability.toFixed(0)}% confidence). Worth a listen before assuming either way.`}
+            </div>
+            <div style={{ fontSize:11.5, color:'var(--t3)', lineHeight:1.5, marginBottom:16 }}>
+              This is an automated read, not a fact — nothing about the stem changes because of it.
+            </div>
+            <button onClick={() => setAiDetailsOpen(false)}
+              style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:'inherit',
+                background:'rgba(var(--fg),.08)', color:'var(--t1)', fontSize:13, fontWeight:700 }}>
+              Got it
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
