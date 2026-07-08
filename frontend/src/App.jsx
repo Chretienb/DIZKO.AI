@@ -858,6 +858,11 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   // "More" menu under the avatar — Invite friends / Help / About.
   const [moreOpen, setMoreOpen] = useState(false)
 
+  // Mobile: the icon rail lives in a toggleable drawer instead of a
+  // permanent 52px-wide strip, so every page gets its full width back.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  useEffect(() => { setMobileNavOpen(false) }, [location.pathname])
+
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
   const SidebarContent = () => (
     <>
@@ -1018,16 +1023,49 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {/* Keyboard skip link — first focusable element, jumps past the nav rail */}
       <a href="#main-content" className="sr-only sr-only-focusable">Skip to main content</a>
 
-      {/* ══ SIDEBAR — icon rail on both desktop and mobile ═══════════════════ */}
-      <aside style={{ width: isMobile ? 52 : (expanded ? 190 : 76), background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh', transition:'width .16s ease' }}>
-        <SidebarContent />
-      </aside>
+      {/* ══ SIDEBAR — persistent rail on desktop; a toggleable drawer on
+          mobile so every page gets its full width back instead of losing
+          52px permanently to an icon strip ══════════════════════════════ */}
+      {isMobile ? (
+        <>
+          <button onClick={() => setMobileNavOpen(true)} aria-label="Open menu"
+            style={{ position:'fixed', top:12, left:12, zIndex:60, width:38, height:38, borderRadius:10,
+              border:'1px solid var(--border)', background:'var(--surface)', color:'var(--t1)', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 10px rgba(0,0,0,.12)' }}>
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          {mobileNavOpen && (
+            <>
+              <div onClick={() => setMobileNavOpen(false)} aria-hidden="true"
+                style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:70, animation:'fadeIn .15s ease' }}/>
+              <aside role="dialog" aria-modal="true" aria-label="Navigation"
+                style={{ position:'fixed', top:0, left:0, bottom:0, width:76, background:'var(--bg)', zIndex:71,
+                  display:'flex', flexDirection:'column', boxShadow:'6px 0 28px rgba(0,0,0,.35)', animation:'slideInNav .18s ease' }}>
+                <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu"
+                  style={{ margin:'10px 0 0 10px', width:30, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.06)',
+                    color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <SidebarContent />
+              </aside>
+              <style>{`
+                @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+                @keyframes slideInNav { from { transform:translateX(-100%) } to { transform:translateX(0) } }
+              `}</style>
+            </>
+          )}
+        </>
+      ) : (
+        <aside style={{ width: expanded ? 190 : 76, background:'var(--bg)', display:'flex', flexDirection:'column', flexShrink:0, height:'100vh', transition:'width .16s ease' }}>
+          <SidebarContent />
+        </aside>
+      )}
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
         <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', overflowX:'hidden', minWidth:0, background:C.bg,
-          padding: isMobile ? '14px 12px' : '24px',
+          padding: isMobile ? '58px 12px 14px' : '24px',
           paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>

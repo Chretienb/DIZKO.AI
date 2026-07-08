@@ -727,9 +727,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
 
         {/* Song Header */}
         <div style={{ background:'var(--surface)', margin: isMobile ? '12px 0 0' : '14px 0 0', borderTop:S.border, borderBottom:S.border, padding: isMobile ? '18px 16px' : '18px 24px' }}>
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:8 }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:8, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             {/* Cover + Title + status dot */}
-            <div style={{ display:'flex', alignItems:'center', gap:14, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, minWidth:0, flex:1 }}>
               <input ref={coverInput} type="file" accept="image/*" onChange={pickCover} style={{ display:'none' }} />
               <button onClick={() => isOwner && coverInput.current?.click()} type="button"
                 title={isOwner ? 'Change cover' : undefined}
@@ -768,34 +768,38 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     background:'var(--surface)', border:'1.5px solid #E95A51', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
               ) : (
                 <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
-                  title={isOwner ? 'Double-click to rename' : undefined}
-                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05, overflow:'hidden', textOverflow:'ellipsis', cursor: isOwner ? 'text' : 'default' }}>
+                  title={isOwner ? 'Double-click to rename' : headerTitle}
+                  style={{ margin:0, fontSize: isMobile ? 20 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05,
+                    minWidth:0, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: isOwner ? 'text' : 'default' }}>
                   {headerTitle}
                 </h1>
               )}
               <div style={{ width:9, height:9, borderRadius:'50%', background:ltDot(status), flexShrink:0, marginTop:4 }}/>
             </div>
-            {/* Action buttons — icon-only on mobile to fit the width */}
-            <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 4 : 8, flexShrink:0, paddingTop:4 }}>
+            {/* Action buttons — full width row of their own on mobile, wrapping
+                below the title, so labels have real room instead of being
+                squeezed illegibly next to a long project name. */}
+            <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, flexShrink:0, paddingTop:4,
+              width: isMobile ? '100%' : undefined, justifyContent: isMobile ? 'flex-start' : undefined }}>
               <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} title="Upload"
                 style={{ height:36, padding: isMobile ? '0 9px' : '0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
                 onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-                {!isMobile && 'Upload'}
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+                Upload
               </button>
               <button onClick={() => setShareOpen(true)} title="Make a share card"
                 style={{ height:36, padding: isMobile ? '0 9px' : '0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
                 onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
-                {!isMobile && 'Share'}
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+                Share
               </button>
               <button onClick={() => navigate('/studio')} title="Open in Studio"
                 style={{ height:36, padding: isMobile ? '0 12px' : '0 14px', borderRadius:9, border:'none', background:'#E95A51', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'opacity .1s' }}
                 onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
                 onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <svg width={10} height={10} viewBox="0 0 12 12" fill="none"><path d="M3 2l7 4-7 4V2z" fill="#fff"/></svg>
+                <svg width={10} height={10} viewBox="0 0 12 12" fill="none" style={{ flexShrink:0 }}><path d="M3 2l7 4-7 4V2z" fill="#fff"/></svg>
                 {isMobile ? 'Studio' : 'Open in Studio'}
               </button>
 
