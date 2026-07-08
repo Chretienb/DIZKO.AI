@@ -2,14 +2,43 @@
 // Extracted from components/modals.jsx (M2 #9). modals.jsx re-exports these.
 import React from 'react'
 import { C, Btn } from '../ui/index.jsx'
+import { useIsMobile } from '../../lib/mobile'
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
 // `accent` themes the shell: a slim accent top-bar, an accent dot beside the
 // title, and a tinted close button on hover — so each modal carries the same
 // identity colour its launcher row uses. Subtle scale/opacity pop on mount.
+// On mobile every modal in the app that goes through this shell becomes a
+// real full-page view (back button + title bar, content fills the rest) —
+// a centered card with 20px of margin on all sides is not "full page."
 export function Modal({ title, sub, onClose, children, width=520, accent='#E95A51' }) {
+  const isMobile = useIsMobile()
   const [shown, setShown] = React.useState(false)
   React.useEffect(() => { const r = requestAnimationFrame(() => setShown(true)); return () => cancelAnimationFrame(r) }, [])
+
+  if (isMobile) {
+    return (
+      <div role="dialog" aria-modal="true" aria-label={title}
+        style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'calc(10px + env(safe-area-inset-top)) 16px 12px',
+          borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+          <button onClick={onClose} aria-label="Back"
+            style={{ width:34, height:34, borderRadius:9, border:'none', background:'rgba(var(--fg),.06)', color:'var(--t1)',
+              cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:16, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{title}</div>
+            {sub && <div style={{ fontSize:12, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sub}</div>}
+          </div>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', padding:'16px', paddingBottom:'calc(16px + env(safe-area-inset-bottom))' }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.32)', backdropFilter:'blur(5px)',
       WebkitBackdropFilter:'blur(5px)', zIndex:1000, display:'flex', alignItems:'center',

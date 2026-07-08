@@ -1353,18 +1353,22 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                 </span>
               )}
             </div>
-            <div style={{ display:'flex', gap:10, alignItems:'center', flexShrink:0 }}>
-              {!isMobile && <PresenceBar peers={presencePeers} />}
-              <button onClick={() => openModal('upload', { project:activeProject })}
-                style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 12px', borderRadius:8,
-                  border:'none', background:'rgba(var(--fg),.05)', color:C.t1, fontSize:13, fontWeight:500,
-                  cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
-                onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.1)'}
-                onMouseLeave={e=>e.currentTarget.style.background='rgba(var(--fg),.05)'}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Upload
-              </button>
-            </div>
+            {/* Upload lives on the project page now — redundant here, and one
+                less thing crowding the title strip on a narrow screen. */}
+            {!isMobile && (
+              <div style={{ display:'flex', gap:10, alignItems:'center', flexShrink:0 }}>
+                <PresenceBar peers={presencePeers} />
+                <button onClick={() => openModal('upload', { project:activeProject })}
+                  style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 12px', borderRadius:8,
+                    border:'none', background:'rgba(var(--fg),.05)', color:C.t1, fontSize:13, fontWeight:500,
+                    cursor:'pointer', fontFamily:'inherit', transition:'background .12s' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.1)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='rgba(var(--fg),.05)'}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Upload
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Transport row */}

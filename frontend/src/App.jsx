@@ -1037,10 +1037,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           {mobileNavOpen && (
             <>
               <div onClick={() => setMobileNavOpen(false)} aria-hidden="true"
-                style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:70, animation:'fadeIn .15s ease' }}/>
+                style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.82)', zIndex:500, animation:'fadeIn .15s ease' }}/>
               <aside role="dialog" aria-modal="true" aria-label="Navigation"
-                style={{ position:'fixed', top:0, left:0, bottom:0, width:76, background:'var(--bg)', zIndex:71,
-                  display:'flex', flexDirection:'column', boxShadow:'6px 0 28px rgba(0,0,0,.35)', animation:'slideInNav .18s ease' }}>
+                style={{ position:'fixed', top:0, left:0, bottom:0, width:76, background:'var(--bg)', zIndex:501,
+                  display:'flex', flexDirection:'column', boxShadow:'6px 0 28px rgba(0,0,0,.5)', animation:'slideInNav .18s ease' }}>
                 <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu"
                   style={{ margin:'10px 0 0 10px', width:30, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.06)',
                     color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>

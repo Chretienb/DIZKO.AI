@@ -82,22 +82,24 @@ export function RemoveModal({ collab, onClose, onConfirm }) {
   )
 }
 
-// ── Bottom Sheet (mobile) ─────────────────────────────────────────────────────
+// ── Full-page mobile view (was a bottom sheet — a whole song list or stem
+// detail panel deserves real room, not a partial-height sheet) ───────────────
 export function BottomSheet({ open, onClose, title, children }) {
   if (!open) return null
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-      <div onClick={onClose} style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.5)', backdropFilter:'blur(4px)' }}/>
-      <div style={{ position:'relative', background:'var(--surface)', borderRadius:'20px 20px 0 0', border:'1px solid var(--border)', borderBottom:'none', maxHeight:'82vh', display:'flex', flexDirection:'column', zIndex:1 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-          <span style={{ fontSize:14, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px' }}>{title}</span>
-          <button onClick={onClose} style={{ width:28, height:28, borderRadius:8, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', color:'var(--t3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div style={{ overflowY:'auto', WebkitOverflowScrolling:'touch', paddingBottom:'env(safe-area-inset-bottom, 20px)' }}>
-          {children}
-        </div>
+    <div role="dialog" aria-modal="true" aria-label={title}
+      style={{ position:'fixed', inset:0, zIndex:300, background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'calc(10px + env(safe-area-inset-top)) 16px 12px',
+        borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <button onClick={onClose} aria-label="Back"
+          style={{ width:34, height:34, borderRadius:9, border:'none', background:'rgba(var(--fg),.06)', color:'var(--t1)',
+            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span style={{ fontSize:16, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{title}</span>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', paddingBottom:'env(safe-area-inset-bottom, 20px)' }}>
+        {children}
       </div>
     </div>
   )

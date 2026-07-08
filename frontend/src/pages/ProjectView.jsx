@@ -447,9 +447,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   })).filter(g => g.items.length > 0 || (draggingId && GROUP_DROP_INSTR[g.key]))
 
   // Shared minimal chip style for the meta row.
-  const chip = { display:'inline-flex', alignItems:'center', gap:6, height: isMobile ? 22 : 28, padding: isMobile ? '0 8px' : '0 11px',
-    borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
-    fontSize: isMobile ? 11 : 12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
+  // Flat, unboxed text on mobile — "simple modern," not a row of pill chips.
+  const chip = isMobile
+    ? { display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:600, color:'var(--t2)', whiteSpace:'nowrap' }
+    : { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
+        borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
+        fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
+  const chipSep = isMobile ? <span style={{ color:'var(--t4)' }}>·</span> : null
 
   // Header BPM/key describe the SELECTED SONG, not the whole album. Prefer the
   // song's master (its canonical tempo/key); fall back to any analyzed stem.
@@ -842,9 +846,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             {/* Clickable status */}
             <div style={{ position:'relative' }}>
               <button onClick={() => isOwner && setStatusOpen(o => !o)}
-                style={{ ...chip, cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit', transition:'background .1s' }}
-                onMouseEnter={e=>{ if(isOwner) e.currentTarget.style.background='rgba(var(--fg),.09)' }}
-                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(var(--fg),.05)' }}>
+                style={{ ...chip, border: isMobile ? 'none' : chip.border, background: isMobile ? 'none' : chip.background,
+                  padding: isMobile ? 0 : chip.padding, cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit', transition:'background .1s' }}
+                onMouseEnter={e=>{ if(isOwner && !isMobile) e.currentTarget.style.background='rgba(var(--fg),.09)' }}
+                onMouseLeave={e=>{ if(!isMobile) e.currentTarget.style.background='rgba(var(--fg),.05)' }}>
                 <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(status) }}/>
                 <span>{status}</span>
                 {isOwner && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
@@ -870,9 +875,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )}
             </div>
 
-            {projBpm && <span style={chip}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span>}
-            {projKey?.trim() && <span style={chip}>{projKey}</span>}
-            <span style={chip}>{project?.type || 'Single'}</span>
+            {projBpm && <>{chipSep}<span style={chip}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span></>}
+            {projKey?.trim() && <>{chipSep}<span style={chip}>{projKey}</span></>}
+            {chipSep}<span style={chip}>{project?.type || 'Single'}</span>
             {/* "Auto-labeled" badge removed per Angel — visual bloat. */}
           </div>
 
