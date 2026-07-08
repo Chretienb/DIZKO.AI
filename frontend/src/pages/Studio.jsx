@@ -1328,7 +1328,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   return (
     <>
       {/* ── Console header + transport — sticky DAW-style bar ── */}
-      <div style={{ position:'sticky', top: isMobile ? -16 : -24, zIndex:20, background:C.bg,
+      <div style={{ position:'sticky', top:0, zIndex:200, isolation:'isolate', background:C.bg,
         paddingTop: isMobile ? 16 : 24, paddingBottom:16,
         marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
         paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>

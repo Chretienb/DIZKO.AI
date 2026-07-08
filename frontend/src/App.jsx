@@ -1029,10 +1029,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {isMobile ? (
         <>
           <button onClick={() => setMobileNavOpen(true)} aria-label="Open menu"
-            style={{ position:'fixed', top:12, left:12, zIndex:60, width:38, height:38, borderRadius:10,
-              border:'1px solid var(--border)', background:'var(--surface)', color:'var(--t1)', cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 10px rgba(0,0,0,.12)' }}>
-            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            style={{ position:'fixed', top:10, left:10, zIndex:60, width:34, height:34, borderRadius:9,
+              border:'none', background:'rgba(var(--fg),.06)', color:'var(--t1)', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
           </button>
           {mobileNavOpen && (
             <>
@@ -1065,7 +1065,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
         <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', overflowX:'hidden', minWidth:0, background:C.bg,
-          padding: isMobile ? '58px 12px 14px' : '24px',
+          padding: isMobile ? '52px 12px 14px' : '24px',
           paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>

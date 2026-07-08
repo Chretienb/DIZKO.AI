@@ -447,9 +447,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   })).filter(g => g.items.length > 0 || (draggingId && GROUP_DROP_INSTR[g.key]))
 
   // Shared minimal chip style for the meta row.
-  const chip = { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
+  const chip = { display:'inline-flex', alignItems:'center', gap:6, height: isMobile ? 22 : 28, padding: isMobile ? '0 8px' : '0 11px',
     borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
-    fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
+    fontSize: isMobile ? 11 : 12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
 
   // Header BPM/key describe the SELECTED SONG, not the whole album. Prefer the
   // song's master (its canonical tempo/key); fall back to any analyzed stem.
@@ -782,21 +782,21 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, flexShrink:0, paddingTop:4,
               width: isMobile ? '100%' : undefined, justifyContent: isMobile ? 'flex-start' : undefined }}>
               <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} title="Upload"
-                style={{ height:36, padding: isMobile ? '0 9px' : '0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
+                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 8px' : '0 13px', borderRadius: isMobile ? 8 : 10, border:'none', background:'transparent', color:'var(--t2)', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
                 onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
                 Upload
               </button>
               <button onClick={() => setShareOpen(true)} title="Make a share card"
-                style={{ height:36, padding: isMobile ? '0 9px' : '0 13px', borderRadius:10, border:'none', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
+                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 8px' : '0 13px', borderRadius: isMobile ? 8 : 10, border:'none', background:'transparent', color:'var(--t2)', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
                 onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
                 Share
               </button>
               <button onClick={() => navigate('/studio')} title="Open in Studio"
-                style={{ height:36, padding: isMobile ? '0 12px' : '0 14px', borderRadius:9, border:'none', background:'#E95A51', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', transition:'opacity .1s' }}
+                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 10px' : '0 14px', borderRadius: isMobile ? 8 : 9, border:'none', background:'#E95A51', color:'#fff', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'opacity .1s' }}
                 onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
                 onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                 <svg width={10} height={10} viewBox="0 0 12 12" fill="none" style={{ flexShrink:0 }}><path d="M3 2l7 4-7 4V2z" fill="#fff"/></svg>
@@ -807,12 +807,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               {isOwner && (
                 <div style={{ position:'relative' }}>
                   <button onClick={() => setProjMenu(o => !o)} title="More" aria-label="Project options"
-                    style={{ width:36, height:36, borderRadius:10, border:'none', cursor:'pointer',
+                    style={{ width: isMobile ? 30 : 36, height: isMobile ? 30 : 36, borderRadius: isMobile ? 8 : 10, border:'none', cursor:'pointer',
                       background: projMenu ? 'rgba(var(--fg),.08)' : 'transparent', color:'var(--t2)',
                       display:'flex', alignItems:'center', justifyContent:'center', transition:'background .1s' }}
                     onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)' }}
                     onMouseLeave={e=>{ if (!projMenu) e.currentTarget.style.background='transparent' }}>
-                    <svg width={17} height={17} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+                    <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
                   </button>
                   {projMenu && (
                     <>
@@ -838,7 +838,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
 
           {/* Meta chips — minimal & modern */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:9, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 6 : 9, flexWrap:'wrap' }}>
             {/* Clickable status */}
             <div style={{ position:'relative' }}>
               <button onClick={() => isOwner && setStatusOpen(o => !o)}
@@ -877,7 +877,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
 
           {/* Metadata row — scoped to the selected song's stems. */}
-          <div style={{ fontSize:12, color:'var(--t3)' }}>
+          <div style={{ fontSize: isMobile ? 11 : 12, color:'var(--t3)' }}>
             {stemsForView.length} stem{stemsForView.length!==1?'s':''}
             {project?.updated_at && <><span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>Updated {timeAgo(project.updated_at)}</>}
           </div>
@@ -1053,7 +1053,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             <div style={{ height:'100%', background:'linear-gradient(90deg,#E95A51,#F59E8C)', boxShadow:'0 0 8px rgba(233,90,81,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
                           </div>
                         )}
-                        <div style={{ width:36, height:36, borderRadius:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                        <div style={{ width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                           background: isActive ? 'rgba(233,90,81,.12)' : (isFinals ? '#C4E4A0' : 'rgba(var(--fg),.06)'),
                           border: isActive ? '1px solid rgba(233,90,81,.35)' : '1px solid transparent', transition:'background .15s' }}>
                           {isPlayingThis ? (
@@ -1061,7 +1061,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                               {[0,1,2].map(i => <span key={i} style={{ width:2.5, borderRadius:2, background:'#E95A51', height:5, animation:`eq .85s ${i*0.16}s ease-in-out infinite alternate` }}/>)}
                             </span>
                           ) : (
-                            <span style={{ fontSize:13, fontWeight:700, color: isActive ? '#E95A51' : (isFinals ? '#4D8A20' : 'var(--t3)'), fontVariantNumeric:'tabular-nums' }}>{stemNo.get(f.id)}</span>
+                            <span style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: isActive ? '#E95A51' : (isFinals ? '#4D8A20' : 'var(--t3)'), fontVariantNumeric:'tabular-nums' }}>{stemNo.get(f.id)}</span>
                           )}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
@@ -1069,19 +1069,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             <InlineRename value={label} onSave={name => renameFile(f.id, name)} onCancel={() => setRenamingId(null)}/>
                           ) : (
                             <div title={f.original_name ? `Source: ${f.original_name}` : name}
-                              style={{ fontSize:14, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 }}
+                              style={ isMobile
+                                ? { fontSize:12.5, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', letterSpacing:'-.1px', marginBottom:3,
+                                    display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word', lineHeight:1.25 }
+                                : { fontSize:14, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 } }
                               onDoubleClick={e=>{ e.stopPropagation(); setRenamingId(f.id) }}>
                               {name}
                             </div>
                           )}
-                          {sub && <div style={{ fontSize:11.5, color: isFinals ? '#4D8A20' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
+                          {sub && <div style={{ fontSize: isMobile ? 10.5 : 11.5, color: isFinals ? '#4D8A20' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
                           {/* Noisy source filename only when the row is selected */}
                           {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
                         {(isOwner || f.uploaded_by === user?.id) && (
                           <button onClick={e=>{ e.stopPropagation(); toggleArchive(f.id) }} aria-label="Archive stem" title="Archive — hides it but keeps it stored"
                             className="lt-play-btn"
-                            style={{ width:30, height:30, borderRadius:8, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                            style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius:8, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                               border:'1px solid var(--border)', background:'transparent', color:'var(--t3)', transition:'all .12s' }}
                             onMouseEnter={e=>{ e.currentTarget.style.color='var(--t1)'; e.currentTarget.style.borderColor='var(--t4)' }}
                             onMouseLeave={e=>{ e.currentTarget.style.color='var(--t3)'; e.currentTarget.style.borderColor='var(--border)' }}>
@@ -1100,7 +1103,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
                             else { openPlayer(preview ? { ...f, file_url: preview } : f); setIsPlaying(true) } }}
                           className="lt-play-btn"
-                          style={{ width:32, height:32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                          style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                             border: isActive ? '1.5px solid transparent' : '1.5px solid #E95A51',
                             background: isActive ? '#E95A51' : 'transparent',
                             color: isActive ? '#fff' : '#E95A51',
