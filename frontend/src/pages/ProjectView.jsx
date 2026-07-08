@@ -464,8 +464,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // confidence thresholds; same logic as studio/TrackItem.jsx's badge.
   const selAiProbability = typeof selNotes.aiProbability === 'number' ? selNotes.aiProbability : null
   const selAiFlag = selAiProbability == null ? null
-    : selAiProbability >= 80 ? { label: `Made by AI${selNotes.aiSource ? ` (${selNotes.aiSource[0].toUpperCase()}${selNotes.aiSource.slice(1)})` : ''}`, tone: 'red' }
-    : selAiProbability >= 40 ? { label: 'Possibly AI — double-check', tone: 'amber' }
+    : selAiProbability >= 80 ? { label: selNotes.aiSource ? `AI · ${selNotes.aiSource[0].toUpperCase()}${selNotes.aiSource.slice(1)}` : 'AI', tone: 'red' }
+    : selAiProbability >= 40 ? { label: 'AI?', tone: 'amber' }
     : null
   // Friendly container name — prefer the file extension; map raw MIME subtypes
   // (an .mp3 is `audio/mpeg`, which would otherwise show as "MPEG").
@@ -1248,7 +1248,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
                         background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)',
                         border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}` }}>
-                      {selAiFlag.tone==='red' ? '⚠ ' : ''}{selAiFlag.label}
+                      <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
+                      {selAiFlag.label}
                     </span>
                   )}
                 </div>

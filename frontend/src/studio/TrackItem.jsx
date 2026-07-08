@@ -50,8 +50,8 @@ export default function TrackItem({
   // match ACRCloud's own published confidence thresholds.
   const aiProbability = typeof stemMeta.aiProbability === 'number' ? stemMeta.aiProbability : null
   const aiFlag = aiProbability == null ? null
-    : aiProbability >= 80 ? { label: `Made by AI${stemMeta.aiSource ? ` (${stemMeta.aiSource[0].toUpperCase()}${stemMeta.aiSource.slice(1)})` : ''}`, tone: 'red' }
-    : aiProbability >= 40 ? { label: 'Possibly AI — double-check', tone: 'amber' }
+    : aiProbability >= 80 ? { label: stemMeta.aiSource ? `AI · ${stemMeta.aiSource[0].toUpperCase()}${stemMeta.aiSource.slice(1)}` : 'AI', tone: 'red' }
+    : aiProbability >= 40 ? { label: 'AI?', tone: 'amber' }
     : null
   // Enrichment (BPM/key/peaks + the small AAC playback asset) hasn't finished
   // yet — without it, preview_url is missing and playback would silently fall
@@ -128,11 +128,12 @@ export default function TrackItem({
               </span>
             )}
             {aiFlag && (
-              <span title={`ACRCloud AI Music Detection: ${aiProbability.toFixed(0)}% likelihood`}
-                style={{ fontSize:10, fontWeight:700, letterSpacing:'.02em', padding:'2px 7px', borderRadius:6,
+              <span title={`ACRCloud AI Music Detection: ${aiProbability.toFixed(0)}% likelihood${stemMeta.aiSource ? ` (${stemMeta.aiSource})` : ''}`}
+                style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10, fontWeight:700, letterSpacing:'.02em', padding:'2px 7px', borderRadius:6,
                   color: aiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
                   background: aiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
-                {aiFlag.tone==='red' ? '⚠ ' : ''}{aiFlag.label}
+                <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
+                {aiFlag.label}
               </span>
             )}
             <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
