@@ -55,10 +55,10 @@ const CATEGORIES = [
   },
   {
     key: 'billing', name: 'Accounts & Billing',
-    Icon: CreditCard, desc: 'Trial, plans and storage.',
+    Icon: CreditCard, desc: 'Free plan, upgrades and storage.',
     articles: [
-      { q: 'How does the free trial work?', a: 'dizko is free for your first 2 months — no charge until month 3. You can create projects, invite your crew and export the whole time.' },
-      { q: 'How do I manage my plan?', a: 'Go to Account → Billing & Plan to see your current plan, days remaining and payment details.' },
+      { q: 'Is there a free plan?', a: 'Yes — dizko is free forever with no card required: 1 active project, up to 15 stems, and your whole crew can collaborate on it. Upgrade anytime for unlimited projects, Smart Mix, and export.' },
+      { q: 'How do I manage my plan?', a: 'Go to Account → Billing & Plan to see your current plan, storage, and payment details.' },
       { q: 'How much storage do I get, and where do I check it?', a: 'Your storage usage and limit are shown on the Account page under your profile.' },
     ],
   },

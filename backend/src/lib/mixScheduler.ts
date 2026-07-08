@@ -10,6 +10,8 @@ import { runSmartBounce }            from './smartBounce'
 import { analyzeProject }            from './aiAnalysis'
 import { getProjectMemberIds, notify } from './notificationService'
 import { mixReadyEmail }             from './emailTemplates'
+import { getCreatorEntitlement }     from './entitlement'
+import { supabase }                  from './supabase'
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
 const DELAY_MS = 8_000   // wait this long after the last upload before mixing
@@ -23,6 +25,16 @@ export function scheduleSmartMix(projectId: string, userId: string) {
 async function runMix(projectId: string, userId: string) {
   timers.delete(projectId)
   try {
+    // Smart Mix is gated on the project OWNER's plan (owner-pays, same as the
+    // manual /smart-bounce trigger). NOTE: scheduleSmartMix() currently has no
+    // caller anywhere in the codebase — this check is precautionary, so that
+    // if an upload endpoint wires auto-mix back up later, it can't silently
+    // reintroduce an ungated free-tier auto-mix.
+    const { data: proj } = await supabase.from('projects').select('owner_id').eq('id', projectId).single()
+    if (!proj) return
+    const mix = await getCreatorEntitlement((proj as any).owner_id)
+    if (!mix.entitled) return
+
     // AI analysis first so mix params are ready for the bounce.
     await analyzeProject(projectId, userId).catch(() => null)
     const result = await runSmartBounce(projectId, userId)

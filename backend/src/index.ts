@@ -48,6 +48,8 @@ import { startPayoutJob }    from './lib/payoutJob'
 import { runSmartBounce }    from './lib/smartBounce'
 import { analyzeProject }    from './lib/aiAnalysis'
 import { notify, getProjectMemberIds } from './lib/notificationService'
+import { getCreatorEntitlement, subscriptionRequired } from './lib/entitlement'
+import { assertProjectAccess } from './lib/rbac'
 
 import type { HonoVariables } from './types'
 
@@ -205,6 +207,20 @@ app.post('/projects/:id/smart-bounce', requireAuth, async (c) => {
   const body      = await c.req.json().catch(() => ({} as any))
   const stemIds   = Array.isArray(body?.stem_ids) ? (body.stem_ids as string[]) : null
   const board     = body?.board && typeof body.board === 'object' ? body.board : null  // board snapshot for version restore
+
+  const { data: proj } = await supabase.from('projects').select('owner_id').eq('id', projectId).single()
+  if (!proj) return c.json({ data: null, error: 'Project not found', status: 404 }, 404)
+
+  // This route previously had no membership check at all (requireAuth only) —
+  // add one while we're here, since we're already fetching the project.
+  if (!(await assertProjectAccess(projectId, user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  // Smart Mix is a project-level tool, gated on the OWNER's plan (owner-pays,
+  // same reasoning as the stem cap) — a collaborator on a Pro project gets
+  // Smart Mix; a Pro user visiting a free project doesn't.
+  const mix = await getCreatorEntitlement((proj as any).owner_id)
+  if (!mix.entitled) return c.json(subscriptionRequired('use Smart Mix'), 402)
 
   if (mixInFlight.has(projectId))
     return c.json({ data: null, error: 'A mix is already running for this project — hang tight.', status: 409 }, 409)

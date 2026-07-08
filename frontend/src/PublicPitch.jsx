@@ -39,7 +39,7 @@ export default function PublicPitch() {
   const Shell = ({ children }) => (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24,
       background:'radial-gradient(80% 50% at 50% 0%, rgba(244,147,122,.14), transparent 60%), #0b0b10',
-      color:'#f1f1f3', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
+      color:'#f1f1f3', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div style={{ width:'100%', maxWidth:420, textAlign:'center' }}>
         <div style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', marginBottom:24 }}>dizko<span style={{ color:C.coral }}>.ai</span></div>
         {children}

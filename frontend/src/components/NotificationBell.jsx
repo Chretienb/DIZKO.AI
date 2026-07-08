@@ -32,7 +32,7 @@ const TYPE_META = {
 const DEFAULT_META = { color:'var(--t3)', label:'Notification', icon:'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0' }
 
 const S = {
-  font: '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif',
+  font: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   border: '1px solid var(--border)',
   t1: 'var(--t1)',
   t2: 'var(--t2)',

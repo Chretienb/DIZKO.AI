@@ -102,7 +102,7 @@ export default function ResetPassword() {
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
       background:'linear-gradient(135deg,#fff5f3,#fdf0f8)', padding:24,
-      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
+      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div style={{ width:'100%', maxWidth:420, background:'#fff', borderRadius:24,
         padding:'40px 36px', boxShadow:'0 24px 80px rgba(244,147,122,.15),0 4px 20px rgba(0,0,0,.06)' }}>
 

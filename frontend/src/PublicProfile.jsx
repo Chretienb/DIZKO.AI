@@ -7,7 +7,7 @@ import { track } from './lib/posthog.js'
 import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
-import { Spinner } from './components/ui/index.jsx'
+import { Spinner, Btn, EmptyState } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
 
 const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
@@ -228,12 +228,12 @@ export default function PublicProfile({ embedded = false }) {
   const Shell = embedded
     ? ({ children }) => (
         <div style={{ width:'100%', padding:'0 clamp(12px,2.5vw,28px) 60px', minWidth:0,
-          color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>{children}</div>
+          color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{children}</div>
       )
     : ({ children }) => (
     <div className="pp-shell" style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
       background:'var(--bg)',
-      color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
+      color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <style>{`
         .pp-rail { display:none; }
         .pp-topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; }
@@ -293,10 +293,13 @@ export default function PublicProfile({ embedded = false }) {
   // Embedded on /profile with no handle claimed yet → nudge to Edit profile.
   if (embedded && !paramHandle && myHandleLoaded && !myHandle) return (
     <Shell>
-      <div style={{ textAlign:'center', paddingTop:60 }}>
-        <div style={{ fontSize:17, fontWeight:800, marginBottom:8 }}>Set up your public profile</div>
-        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>Claim a handle to get your public page at dizko.ai/u/you.</div>
-        <button onClick={() => navigate('/profile/edit')} style={{ border:'none', borderRadius:11, padding:'11px 22px', cursor:'pointer', background:C.coral, color:'#fff', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>Edit profile</button>
+      <div style={{ paddingTop:36 }}>
+        <EmptyState
+          icon={<svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg>}
+          title="Set up your public profile"
+          subtitle="Claim a handle to get your public page at dizko.ai/u/you."
+          action={<Btn variant="outline" onClick={() => navigate('/profile/edit')}>Edit profile</Btn>}
+        />
       </div>
     </Shell>
   )
@@ -560,7 +563,7 @@ export default function PublicProfile({ embedded = false }) {
           it covers the sidebar instead of rendering inside the padded content) */}
       {discoverOpen && createPortal(
         <div style={{ position:'fixed', inset:0, zIndex:1100, background:'var(--bg)', color:'var(--t1)', display:'flex', flexDirection:'column',
-          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" }}>
+          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
           <style>{`@keyframes ppDiscover{from{transform:scale(.4) translate(45%,45%);opacity:0}to{transform:scale(1) translate(0,0);opacity:1}}`}</style>
           <div style={{ display:'flex', justifyContent:'flex-end', padding:'16px 22px 0' }}>
             <button onClick={() => setDiscoverOpen(false)} aria-label="Close"

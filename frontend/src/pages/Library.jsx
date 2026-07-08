@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, foldersApi } from '../lib/api.js'
-import { Spinner, C } from '../components/ui/index.jsx'
+import { Spinner, C, Btn, EmptyState } from '../components/ui/index.jsx'
 import ProfileEditor from '../ProfileEditor.jsx'
+import { withMinDelay } from '../lib/utils.js'
 
 function timeAgo(iso) {
   if (!iso) return ''
@@ -38,7 +39,7 @@ export default function PageLibrary({ openModal, user, onProfileUpdate }) {
   const activeProject = projects.find(p => p.id === activeId)
 
   useEffect(() => {
-    projectsApi.list()
+    withMinDelay(projectsApi.list())
       .then(res => {
         const list = res.data || []
         setProjects(list)
@@ -63,22 +64,59 @@ export default function PageLibrary({ openModal, user, onProfileUpdate }) {
   }
 
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'100px 0', color:C.t3 }}>
-      <Spinner size={24}/>
+    <div>
+      <h1 style={{ margin:'0 0 20px', fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Library</h1>
+      <div style={{ display:'flex', gap:14, alignItems:'start' }}>
+        {!isMobile && (
+          <div style={{ width:216, flexShrink:0, background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+            <div style={{ padding:'12px 16px 10px', borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ height:9, width:60, borderRadius:5, background:'rgba(var(--fg),.06)' }}/>
+            </div>
+            {[0,1,2,3,4].map(i => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:9, padding:'12px 14px', borderBottom:`1px solid ${C.border2}` }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:'rgba(var(--fg),.08)', flexShrink:0 }}/>
+                <div style={{ height:10, width:`${60 + (i % 3) * 12}%`, borderRadius:5, background:'rgba(var(--fg),.05)' }}/>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, padding:'18px 20px', marginBottom:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+              <div style={{ width:64, height:64, borderRadius:12, flexShrink:0, background:'rgba(var(--fg),.05)' }}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ height:16, width:'40%', borderRadius:7, background:'rgba(var(--fg),.06)', marginBottom:10 }}/>
+                <div style={{ height:10, width:'25%', borderRadius:5, background:'rgba(var(--fg),.04)' }}/>
+              </div>
+            </div>
+          </div>
+          {[0,1,2].map(i => (
+            <div key={i} style={{ background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, padding:'14px 18px', marginBottom:10,
+              display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'rgba(var(--fg),.05)', flexShrink:0 }}/>
+              <div style={{ flex:1 }}>
+                <div style={{ height:11, width:`${45 + i * 10}%`, borderRadius:6, background:'rgba(var(--fg),.05)' }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 
   if (projects.length === 0) return (
-    <div style={{ textAlign:'center', padding:'72px 24px', background:C.surface, borderRadius:20, border:`1px solid ${C.border}` }}>
-      <div style={{ width:48, height:48, borderRadius:14, background:`${C.coral}12`, border:`1px solid ${C.coral}20`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', color:C.coral }}>
-        <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      </div>
-      <div style={{ fontSize:15, fontWeight:600, color:C.t1, marginBottom:6, letterSpacing:'-.2px' }}>No albums yet</div>
-      <div style={{ fontSize:13, color:C.t3, marginBottom:16 }}>Create your first project to get started.</div>
-      <button onClick={() => openModal('new-project', {})}
-        style={{ height:36, padding:'0 16px', borderRadius:9, border:'none', background:`${C.coral}1a`, color:C.coral, fontSize:13, fontWeight:500, cursor:'pointer' }}>
-        + New Project
-      </button>
+    <div style={{ background:C.surface, borderRadius:20, border:`1px solid ${C.border}` }}>
+      <EmptyState
+        icon={<svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>}
+        title="No albums yet"
+        subtitle="Create your first project to get started."
+        action={
+          <Btn variant="outline" onClick={() => openModal('new-project', {})}
+            icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+            New Project
+          </Btn>
+        }
+      />
     </div>
   )
 

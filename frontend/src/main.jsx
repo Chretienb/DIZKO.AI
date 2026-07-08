@@ -22,7 +22,7 @@ function showUpdatingOverlay() {
   el.setAttribute('style', [
     'position:fixed','inset:0','z-index:2147483647','display:flex','flex-direction:column',
     'align-items:center','justify-content:center','gap:18px','background:#000',
-    "font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",'color:#fff','text-align:center','padding:24px',
+    "font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",'color:#fff','text-align:center','padding:24px',
   ].join(';'))
   el.innerHTML = `
     <style>@keyframes dzspin{to{transform:rotate(360deg)}}</style>
@@ -173,7 +173,7 @@ function OAuthCallback({ onLogin }) {
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column',
       alignItems:'center', justifyContent:'center', gap:16,
-      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
+      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       background:'var(--bg)' }}>
       <svg width={38} height={38} viewBox="0 0 24 24" fill="none" stroke="#F4937A"
         strokeWidth={2.4} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>

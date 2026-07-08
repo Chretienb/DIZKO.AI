@@ -59,6 +59,11 @@ function getToken() {
 export function setToken(token) {
   if (token) localStorage.setItem('disco_token', token)
   else        localStorage.removeItem('disco_token')
+  // Keep the Supabase realtime client authenticated as this user too — every
+  // postgres_changes subscription needs auth.uid() to resolve for RLS to
+  // pass, and this is the one place every login/token-refresh path funnels
+  // through. Lazy import avoids a hard circular dependency at module load.
+  import('./supabase.js').then(({ setSupabaseToken }) => setSupabaseToken(token)).catch(() => {})
 }
 
 export function setRefreshToken(token) {
@@ -136,7 +141,16 @@ async function request(method, path, body) {
   }
 
   const json = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+  if (!res.ok) {
+    // Carry code/status/payload so callers can branch on specific failures
+    // (project_limit, stem_limit, subscription_required) instead of only
+    // ever seeing a generic message string.
+    const err = new Error(json.error || `HTTP ${res.status}`)
+    err.code = json.code
+    err.status = res.status
+    err.payload = json
+    throw err
+  }
   return json
 }
 
@@ -332,7 +346,12 @@ export const files = {
     })
     const json = await res.json().catch(() => ({}))
     if (res.status === 401) { setToken(null); window.location.href = '/login' }
-    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+    if (!res.ok) {
+      const err = new Error(json.error || `HTTP ${res.status}`)
+      err.code = json.code
+      err.status = res.status
+      throw err
+    }
     return json.data
   },
 

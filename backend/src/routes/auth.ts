@@ -3,7 +3,6 @@ import { createClient }  from '@supabase/supabase-js'
 import { execSync }          from 'child_process'
 import { notify }             from '../lib/notificationService'
 import { welcomeEmail, inviteEmail, inviteNewUserEmail } from '../lib/emailTemplates'
-import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join }          from 'path'
 import { tmpdir }        from 'os'
@@ -306,9 +305,8 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
   if (project.owner_id !== user.id)
     return c.json({ data: null, error: 'Only the project owner can invite collaborators', status: 403 }, 403)
 
-  // Owner-pays: building a team requires an active subscription.
-  const ent = await getCreatorEntitlement(user.id)
-  if (!ent.entitled) return c.json(subscriptionRequired('invite collaborators'), 402)
+  // Free baseline action: inviting collaborators no longer requires a paid
+  // plan — see the identical note in routes/projects.ts's collaborators route.
 
   // Prevent duplicate invites
   const { data: existing } = await supabase

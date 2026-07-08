@@ -72,12 +72,16 @@ export const Spinner = React.memo(function Spinner({ size = 20, color }) {
   )
 })
 
-export const Btn = React.memo(function Btn({ children, onClick, style={}, variant='primary', disabled=false }) {
-  const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, transition:'opacity .15s', ...style }
+export const Btn = React.memo(function Btn({ children, onClick, style={}, variant='primary', disabled=false, icon }) {
+  const base = { border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, transition:'opacity .15s',
+    display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, ...style }
   const vars = {
     primary: { background:C.grad, color:'#fff', boxShadow:`0 4px 14px ${C.coral}40` },
     ghost:   { background:'rgba(0,0,0,.05)', color:'#444' },
     danger:  { background:'rgba(239,68,68,.1)', color:'#ef4444' },
+    // Matches Dashboard's "New Project" CTA — a quiet outlined button with an
+    // accented icon, rather than a bold filled/gradient one.
+    outline: { background:'rgba(var(--fg),.05)', color:'var(--t1)', border:'1px solid var(--border-2)' },
   }
   // Honor `disabled` — previously ignored, so disabled buttons stayed clickable.
   return <button onClick={onClick} disabled={disabled}
@@ -85,7 +89,9 @@ export const Btn = React.memo(function Btn({ children, onClick, style={}, varian
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? .5 : (base.opacity ?? 1) }}
     onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity='.88' }}
-    onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity='1' }}>{children}</button>
+    onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity='1' }}>
+    {icon}{children}
+  </button>
 })
 
 export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
@@ -124,6 +130,39 @@ export const LoadingBlock = React.memo(function LoadingBlock({ label, size = 22 
       justifyContent:'center', gap:12, padding:'36px 20px', color:C.t3 }}>
       <Spinner size={size} />
       {label && <span style={{ fontSize:12.5, fontWeight:500 }}>{label}</span>}
+    </div>
+  )
+})
+
+// Shared empty-state block — one consistent look (a small illustration, not
+// just a flat icon-in-a-box, + title + subtitle + primary action) for every
+// "nothing here yet" screen, instead of each page hand-rolling its own icon
+// container / button style.
+export const EmptyState = React.memo(function EmptyState({ icon, title, subtitle, action, compact = false }) {
+  return (
+    <div style={{ textAlign:'center', padding: compact ? '48px 24px' : '72px 24px' }}>
+      <div style={{ position:'relative', width:96, height:96, margin:'0 auto 22px' }}>
+        {/* Soft gradient backdrop — gives the icon some depth/presence instead
+            of sitting flat in a plain tinted square. */}
+        <div style={{ position:'absolute', inset:0, borderRadius:'50%',
+          background:`radial-gradient(circle at 35% 30%, ${C.peach}2e, transparent 70%), radial-gradient(circle at 65% 70%, ${C.pink}26, transparent 70%)` }}/>
+        <div style={{ position:'absolute', inset:14, borderRadius:24,
+          background:'var(--surface)', border:`1px solid ${C.border}`,
+          boxShadow:'0 8px 24px rgba(0,0,0,.05)',
+          display:'flex', alignItems:'center', justifyContent:'center', color:C.coral }}>
+          {icon}
+        </div>
+      </div>
+      <div style={{ fontSize:16, fontWeight:700, color:C.t1, marginBottom:8, letterSpacing:'-.3px' }}>
+        {title}
+      </div>
+      {subtitle && (
+        <div style={{ fontSize:13.5, color:C.t3, lineHeight:1.55, maxWidth:320,
+          margin:'0 auto', marginBottom: action ? 24 : 0 }}>
+          {subtitle}
+        </div>
+      )}
+      {action}
     </div>
   )
 })

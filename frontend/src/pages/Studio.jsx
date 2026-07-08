@@ -31,10 +31,25 @@ function useConfirm() {
 // (shared with ProjectView). All keyed by stableKey (`ck`) so presigned-URL churn
 // never causes a miss. Here we keep only the Web-Audio DECODED-buffer cache, used
 // by "Play all" to schedule every stem sample-locked.
-const MAX_CACHE = 20
+//
+// Sized above the largest board this needs to hold ready at once (product
+// target: 32–64 stems) — an eviction mid-board would silently un-ready a stem
+// that was already playable, undermining the whole point of the readiness
+// gate. Each decoded buffer is real RAM (roughly the size of the source audio
+// as Float32 PCM regardless of the source codec) — 96 entries is headroom for
+// the stated target, not a memory-ceiling solution; see the mono/lower-
+// sample-rate playback-asset work as the actual RAM lever, tracked separately.
+const MAX_CACHE = 96
 const decodedCache = new Map()           // stable key → AudioBuffer
 let _sharedDecodeCtx = null
 const sharedDecodeCtx = () => (_sharedDecodeCtx ||= new (window.AudioContext || window.webkitAudioContext)())
+// The PLAYBACK context (distinct from the decode-only one above) — created
+// once, resumed once, and kept alive across pause/stop for the rest of the
+// session (see stopAll/pause in the component). Recreating + resuming a fresh
+// AudioContext on every single Play press measured at ~800ms in a real 10-stem
+// session — this is what that cost was.
+let _sharedPlaybackCtx = null
+const sharedPlaybackCtx = () => (_sharedPlaybackCtx ||= new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }))
 async function preloadDecoded(url) {
   const key = ck(url)
   if (!url || decodedCache.has(key)) return decodedCache.get(key)
@@ -295,6 +310,22 @@ function SongSelector({ options, value, onSelect, isMobile }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PageStudio({ openModal, playTrack, addToast, user }) {
+  // Create + resume the playback AudioContext on the first real interaction
+  // with the page, rather than waiting for the Play click specifically — so
+  // by the time a musician actually presses Play, the context is already
+  // 'running' and that resume() cost (paid once per session either way) has
+  // already happened during ordinary browsing (opening a stem, adjusting a
+  // fader), not in the critical path of the first Play press.
+  useEffect(() => {
+    const wake = () => { const c = sharedPlaybackCtx(); if (c.state === 'suspended') c.resume().catch(() => {}) }
+    window.addEventListener('pointerdown', wake, { once: true, capture: true })
+    window.addEventListener('keydown',     wake, { once: true, capture: true })
+    return () => {
+      window.removeEventListener('pointerdown', wake, { capture: true })
+      window.removeEventListener('keydown',     wake, { capture: true })
+    }
+  }, [])
+
   const [projects,      setProjects]     = useState([])
   const [activeId,      setActiveId]     = useState(null)
   const [songs,         setSongs]        = useState([])        // folders = songs within the album
@@ -320,9 +351,15 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const audioRefs  = useRef({})
   const gainRefs   = useRef({})
   const ctxRef       = useRef(null)
+  // Was previously "does ctxRef.current exist" — but the playback AudioContext
+  // is now created once and kept alive across pause/stop (see ctxRef below), so
+  // its mere existence no longer means "a session is currently active." This is
+  // the real signal the tick loop / mute / solo guards need instead.
+  const sessionActiveRef = useRef(false)
   const startAtRef   = useRef(0)
   const offsetRef    = useRef(0)
   const rafRef       = useRef(null)
+  const refetchTimerRef = useRef(null)   // debounces stems refetch on realtime UPDATE
   const analyserRefs = useRef({})   // stemId → AnalyserNode
   const [bpm, setBpm] = useState(120)
   const [beatFlash, setBeatFlash] = useState(false)
@@ -445,14 +482,42 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           if (!sn.parent_stem_id) setBoardIds(prev => new Set([...prev, s.id]))
         }
       })
+      // Enrichment (BPM/key/peaks + the AAC playback asset) finishes seconds
+      // after upload via a background job that UPDATEs the stem row — without
+      // listening for that, a stem uploaded this session stays frozen at
+      // whatever status it had on the initial GET /files forever (until a full
+      // page reload), which is exactly what makes an already-finished stem
+      // still look permanently "processing." preview_url/file_url are signed
+      // at request time, not stored as usable columns, so the fix is a light,
+      // debounced refetch of the list rather than trying to merge the raw
+      // postgres row — coalesces a burst of many stems finishing together
+      // (e.g. a big batch upload) into one request instead of one per stem.
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'stems' }, payload => {
+        const id = payload.new?.id
+        if (!id) return
+        setStems(prev => {
+          if (!prev.some(x => x.id === id)) return prev   // not a stem we're tracking (wrong project/song)
+          clearTimeout(refetchTimerRef.current)
+          refetchTimerRef.current = setTimeout(() => {
+            filesApi.list(activeId).then(r => setStems(r.data || [])).catch(() => {})
+          }, 400)
+          return prev
+        })
+      })
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(channel); clearTimeout(refetchTimerRef.current) }
   }, [activeId, user?.id])
 
   const stopAll = () => {
+    sessionActiveRef.current = false
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
     audioRefs.current = {}; gainRefs.current = {}; analyserRefs.current = {}
-    if (ctxRef.current) { ctxRef.current.close().catch(()=>{}); ctxRef.current = null }
+    // The playback AudioContext is intentionally NOT closed here — it's created
+    // once (see playAll) and kept alive + already-resumed across the whole
+    // session, so every subsequent Play only has to create + schedule
+    // BufferSourceNodes (single-use by spec, so those still get recreated),
+    // never pay AudioContext construction/resume cost again. Closing here used
+    // to force exactly that cost back onto the very next Play press.
     cancelAnimationFrame(rafRef.current)
     clearInterval(beatTimerRef.current)
     setBeatFlash(false); setPlaying(false); setLoadingPct({})
@@ -524,71 +589,124 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const playAll = async () => {
+    const loadableStems = boardStems.filter(s => s.file_url && !prepState.failed.includes(s.preview_url || s.file_url))
+
+    // Structural safety net for the Transport button's disabled state (belt +
+    // suspenders — Play must never fetch or decode). If somehow invoked before
+    // every board stem is in decodedCache (a race — e.g. a stem was just added
+    // to the board a moment ago), fall back to the slower fetch+decode path
+    // below instead of scheduling silence, but this should be rare in practice
+    // since the button itself is disabled until prepState.remaining === 0.
+    const allCached = loadableStems.every(s => decodedCache.has(ck(s.preview_url || s.file_url)))
+
     // Single source of truth: the board transport and the bottom MiniPlayer must
     // never sound at once (the board already contains every stem). Silence the
     // single-stem preview before the mix rolls.
     window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'pause' } }))
     stopAll(); gainRefs.current = {}; analyserRefs.current = {}
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    // Persistent context (see sharedPlaybackCtx) — the FIRST Play in a session
+    // still pays a real resume() cost (suspended by default until a user
+    // gesture unlocks it), but every Play after that reuses the same, already-
+    // running context, so `needsResume` is false and nothing below awaits at all.
+    const ctx = sharedPlaybackCtx()
     ctxRef.current = ctx
-    const loadableStems = boardStems.filter(s => s.file_url)
-    setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
+    const needsResume = ctx.state === 'suspended'
 
-    // ── Pass 1: decode all stems in parallel ──────────────────────────────
-    // Use a separate AudioContext for decoding — some browsers limit concurrent
-    // decodeAudioData calls on the playback context and silently fail.
-    const decodeCtx = new (window.AudioContext || window.webkitAudioContext)()
-    const decoded = await Promise.all(loadableStems.map(async s => {
-      const label = s.suggested_name || s.original_name || s.id
-      // Play the lightweight MP3 preview (~10× smaller than the original) so the
-      // mix starts fast. The preview is full-length — only the bytes are smaller.
-      // Fall back to the original when a stem has no preview yet.
-      const playUrl    = s.preview_url || s.file_url
-      const fromPreview = !!s.preview_url
-      try {
-        // Use the preloaded decoded buffer (instant) if the background preloader
-        // already grabbed it; otherwise decode on the fly.
-        let audio = decodedCache.get(ck(playUrl))
-        if (!audio) {
-          const buf = await fetchAudioCached(playUrl, pct =>
-            setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
-          audio = await decodeCtx.decodeAudioData(buf.slice(0))
-          if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
-          decodedCache.set(ck(playUrl), audio)
-        }
-        setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        seedPeaksFromBuffer(s.file_url, audio)   // peaks keyed to the stem's waveform
-        console.log(`[studio] ✓ decoded: ${label}${fromPreview ? ' (preview)' : ''}`)
-
-        // Per-stem transpose: play a pitch-shifted copy (same length → stays in sync).
+    let decoded
+    if (allCached) {
+      // ── Fast path: every stem is already decoded — no fetch, no decode, no
+      // Promise.all, just a synchronous read off the cache. This is the path
+      // the readiness gate exists to guarantee.
+      decoded = loadableStems.map(s => {
+        const playUrl = s.preview_url || s.file_url
+        const audio = decodedCache.get(ck(playUrl))
         const semis = Math.round(transposesRef.current[s.id] || 0)
         if (semis) {
+          // Per-stem transpose is the one deliberate exception — a pitch-shifted
+          // copy has to be computed (or pulled from its own cache) regardless of
+          // how "ready" the board is. Scoped to stems that actually have a
+          // transpose set, not the default click path.
           const key = `${s.id}:${semis}`
-          let shifted = pitchCacheRef.current.get(key)
-          if (!shifted) {
-            shifted = await pitchShiftBuffer(audio, semis)   // runs in a Web Worker
-            pitchCacheRef.current.set(key, shifted)
-          }
-          return { s, audio: shifted, fromPreview }
+          const cached = pitchCacheRef.current.get(key)
+          return cached
+            ? { s, audio: cached, fromPreview: !!s.preview_url }
+            : { s, audio, fromPreview: !!s.preview_url, needsShift: semis }
         }
-        return { s, audio, fromPreview }
-      } catch (e) {
-        console.error(`[studio] ✗ failed: ${label} —`, e?.message)
-        setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
-        addToast?.(`Could not load "${label}" — it will be skipped`, { type: 'info' })
-        return null
+        return { s, audio, fromPreview: !!s.preview_url }
+      })
+      // Resolve any not-yet-cached transposed copies (rare — only stems with a
+      // transpose AND no prior play at that transpose this session).
+      const needShift = decoded.filter(d => d.needsShift)
+      if (needShift.length) {
+        await Promise.all(needShift.map(async d => {
+          const key = `${d.s.id}:${d.needsShift}`
+          const shifted = await pitchShiftBuffer(d.audio, d.needsShift)
+          pitchCacheRef.current.set(key, shifted)
+          d.audio = shifted
+        }))
       }
-    }))
-    decodeCtx.close().catch(() => {})
+    } else {
+      // ── Fallback path: something isn't cached yet. Slower, but correct —
+      // this is the pre-fix behavior, kept only as a defensive net.
+      setLoadingPct(Object.fromEntries(loadableStems.map(s => [s.id, 0])))
+      decoded = await Promise.all(loadableStems.map(async s => {
+        const label = s.suggested_name || s.original_name || s.id
+        const playUrl    = s.preview_url || s.file_url
+        const fromPreview = !!s.preview_url
+        try {
+          let audio = decodedCache.get(ck(playUrl))
+          if (!audio) {
+            const buf = await fetchAudioCached(playUrl, pct =>
+              setLoadingPct(prev => ({ ...prev, [s.id]: pct })))
+            // Shared, persistent decode context (never recreated per play) —
+            // some browsers limit concurrent decodeAudioData calls on the
+            // playback context, which is why decoding stays off ctx entirely.
+            audio = await sharedDecodeCtx().decodeAudioData(buf.slice(0))
+            if (decodedCache.size >= MAX_CACHE) decodedCache.delete(decodedCache.keys().next().value)
+            decodedCache.set(ck(playUrl), audio)
+          }
+          setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+          // Peaks: only derive them from this decode when the server hasn't
+          // already computed + stored them (notes.peaks — the common case).
+          if (!parsedNotes(s).peaks?.length) seedPeaksFromBuffer(s.file_url, audio)
+          console.log(`[studio] ✓ decoded: ${label}${fromPreview ? ' (preview)' : ''}`)
+
+          const semis = Math.round(transposesRef.current[s.id] || 0)
+          if (semis) {
+            const key = `${s.id}:${semis}`
+            let shifted = pitchCacheRef.current.get(key)
+            if (!shifted) {
+              shifted = await pitchShiftBuffer(audio, semis)
+              pitchCacheRef.current.set(key, shifted)
+            }
+            return { s, audio: shifted, fromPreview }
+          }
+          return { s, audio, fromPreview }
+        } catch (e) {
+          console.error(`[studio] ✗ failed: ${label} —`, e?.message)
+          setLoadingPct(prev => { const n = { ...prev }; delete n[s.id]; return n })
+          addToast?.(`Could not load "${label}" — it will be skipped`, { type: 'info' })
+          return null
+        }
+      }))
+    }
 
     // ── Pass 2: schedule ALL sources at the same audio-clock instant ──────
-    // Resume context first — Chrome/Safari suspend it even after user click.
-    // ctx.currentTime is frozen at 0 while suspended; scheduling against it
-    // produces wrong offsets and stems start at different times.
-    if (ctx.state === 'suspended') await ctx.resume()
+    // Only await when a resume is genuinely needed. Awaiting ANYTHING here —
+    // even an already-resolved Promise.resolve() — yields to the event loop,
+    // which gives React a chance to flush the re-render that stopAll()'s state
+    // updates queued moments earlier; on this page that flush alone measured
+    // ~60ms. Skipping the await entirely in the (common) already-running case
+    // keeps click-to-schedule as one uninterrupted synchronous turn.
+    if (needsResume) await ctx.resume()
 
-    // 50ms lookahead: enough for the browser to compile the graph
-    const startTime = ctx.currentTime + 0.05
+    // Small lookahead so every source.start() call (one per stem, looped below)
+    // lands before this instant even across dozens of stems — without it, the
+    // per-call jitter of scheduling many nodes in a loop can make them start a
+    // few ms apart (audible as smear on a drum bus). 8ms is comfortably enough
+    // margin for that while staying well under the <50ms play-to-sound target —
+    // this used to be 50ms, which alone consumed the entire budget.
+    const startTime = ctx.currentTime + 0.008
     let maxDur = 0
 
     decoded.filter(Boolean).forEach(({ s, audio, fromPreview }) => {
@@ -623,6 +741,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     setDuration(maxDur)
     startAtRef.current = startTime - offsetRef.current
     setPlaying(true)
+    sessionActiveRef.current = true
 
     if (metronomeRef.current) {
       const secPerBeat = 60/bpmRef.current; let beatTime = startTime, beatNum = 0
@@ -630,7 +749,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     }
     startBeatFlash()
     const tick = () => {
-      if (!ctxRef.current) return
+      if (!sessionActiveRef.current || !ctxRef.current) return
       const elapsed = ctxRef.current.currentTime - startAtRef.current
       offsetRef.current = elapsed; setCurrentTime(elapsed)
       if (elapsed >= maxDur) { stopAll(); offsetRef.current = 0; setCurrentTime(0); return }
@@ -640,9 +759,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const pause = () => {
+    sessionActiveRef.current = false
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
     audioRefs.current = {}
-    if (ctxRef.current) { ctxRef.current.close().catch(()=>{}); ctxRef.current = null }
+    // Context stays alive — see stopAll's comment. Pause → Play again should be
+    // just as fast as any other Play, not pay a fresh resume() cost.
     cancelAnimationFrame(rafRef.current); clearInterval(beatTimerRef.current); setPlaying(false)
   }
 
@@ -724,7 +845,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       a.href = result.url; a.download = exportFileName
       a.click()
       addToast(<><strong style={{color:'#fff'}}>{songLabel}</strong> exported — check your downloads</>, { type:'success' })
-    } catch (e) { addToast('Export failed: '+e.message, 'error') } finally { setDawExporting(false) }
+    } catch (e) {
+      if (e?.code === 'subscription_required') {
+        openModal('upgrade-required', { title: 'Export needs a paid plan', message: e.message })
+      } else {
+        addToast('Export failed: '+e.message, 'error')
+      }
+    } finally { setDawExporting(false) }
   }
 
   const fetchAiAnalysis = async (projectId, folderId = null) => {
@@ -972,7 +1099,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // Background preload: decode the board's lightweight previews as soon as they
   // land on the board (studio open / stem added), throttled, so "Play all" is
   // instant. decodeAudioData is off the main thread, so this never freezes the UI.
-  const [preparing, setPreparing] = useState(0)
+  //
+  // prepState is the readiness gate for Play: { total, remaining, failed }.
+  // Play is only enabled once remaining===0 — a stem that fails to decode is
+  // moved to `failed` and excluded from playback rather than blocking
+  // readiness forever (see playAll's loadableStems filter below).
+  const [prepState, setPrepState] = useState({ total: 0, remaining: 0, failed: [] })
 
   // Resizable STEMS panel — names were too long to read at the fixed 240px width.
   const [stemsW, setStemsW] = useState(() => { try { return Math.max(200, Math.min(520, Number(localStorage.getItem('dizko_stems_w')) || 260)) } catch { return 260 } })
@@ -990,20 +1122,25 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
   useEffect(() => {
     const urls = boardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(ck(u)))
-    if (!urls.length) { setPreparing(0); return }
+    if (!urls.length) { setPrepState({ total: 0, remaining: 0, failed: [] }); return }
     let cancelled = false, i = 0, active = 0
     // Previews are small; fetch them in parallel (browsers cap ~6/host anyway) so
     // the whole board is decoded and ready before the musician hits Play all.
     const CONCURRENCY = Math.min(6, urls.length)
-    setPreparing(urls.length)
+    setPrepState({ total: urls.length, remaining: urls.length, failed: [] })
     const next = () => {
       if (cancelled) return
       while (active < CONCURRENCY && i < urls.length) {
         active++
-        preloadDecoded(urls[i++]).catch(() => {}).finally(() => {
-          if (cancelled) return
-          active--; setPreparing(c => Math.max(0, c - 1)); next()
-        })
+        const url = urls[i++]
+        preloadDecoded(url)
+          .catch(() => { if (!cancelled) setPrepState(p => ({ ...p, failed: [...p.failed, url] })) })
+          .finally(() => {
+            if (cancelled) return
+            active--
+            setPrepState(p => ({ ...p, remaining: Math.max(0, p.remaining - 1) }))
+            next()
+          })
       }
     }
     next()
@@ -1240,7 +1377,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               metronomeOn={metronomeOn}
               onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
               beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
-              stems={stems} trackCount={boardStems.length} preparing={preparing}
+              stems={stems} trackCount={boardStems.length}
+              preparing={prepState.remaining} preparingTotal={prepState.total}
             />
           </div>
         </div>
@@ -1460,7 +1598,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                 addToast?.(<><strong style={{color:'#fff'}}>{r.data?.name || 'Mix'}</strong> saved to the project</>, { type:'success' })
                 // The bounce route refreshes this song's analysis — pull it in (give it a beat).
                 setTimeout(() => fetchAiAnalysis(activeId, fid), 1200)
-              } catch {}
+              } catch (e) {
+                if (e?.code === 'subscription_required') {
+                  openModal('upgrade-required', { title: 'Smart Mix needs a paid plan', message: e.message })
+                } else {
+                  addToast?.(e?.message || 'Smart Mix failed — try again', { type:'error' })
+                }
+              }
               setSmartMixing(false)
             }}
             onPlayMix={() => playTrack({ file_url:smartMixUrl, suggested_name:'Smart Mix', instrument:'smart_bounce' })}

@@ -1,5 +1,14 @@
 export const getToken = () => localStorage.getItem('disco_token') || ''
 
+// Holds a loading state visible for at least `ms` — on a fast connection a
+// fetch can resolve in ~50ms, too quick to register as "it loaded," so the
+// skeleton flashes and disappears instead of reading as an actual transition.
+// Wrap the fetch promise in this so the skeleton always gets a minimum beat.
+export function withMinDelay(promise, ms = 400) {
+  const timer = new Promise(resolve => setTimeout(resolve, ms))
+  return Promise.all([promise, timer]).then(([result]) => result)
+}
+
 export function timeAgo(isoString) {
   if (!isoString) return ''
   const diff = Date.now() - new Date(isoString).getTime()

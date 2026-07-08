@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi, invitations as invitationsApi, accessRequests } from '../lib/api.js'
-import { Btn, Spinner, C, Avatar } from '../components/ui/index.jsx'
-import { getToken } from '../lib/utils.js'
+import { Btn, Spinner, C, Avatar, EmptyState } from '../components/ui/index.jsx'
+import { getToken, withMinDelay } from '../lib/utils.js'
 
 const COLORS = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1', C.pink]
 
@@ -187,11 +187,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
     setLoading(true)
     // One call for all collaborators (no per-project waterfall), in parallel
     // with projects (for owned-ids → access requests) and pending invites.
-    Promise.all([
+    withMinDelay(Promise.all([
       collabsApi.listAll().catch(() => ({ data:[] })),
       projectsApi.list().catch(() => ({ data:[] })),
       invitationsApi.list().catch(() => ({ data:[] })),
-    ]).then(([crewRes, projRes, invRes]) => {
+    ])).then(([crewRes, projRes, invRes]) => {
       setCollabs(crewRes.data || [])
       setInvites(invRes.data || [])
       const projs = projRes.data || []
@@ -222,7 +222,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
     } catch {}
   }
 
-  const onlineNow = Math.max(0, onlineIds.size - (onlineIds.has(user?.id) ? 1 : 0))
+  // Bug fix: this used to be onlineIds.size (minus self) — the GLOBAL platform
+  // presence count, not this user's crew. That meant "2 online" could show with
+  // zero actual collaborators, just because 2 unrelated users were active
+  // elsewhere on Dizko. Scope it to only this user's real collaborators.
+  const onlineNow = collabs.filter(c => c.user_id && onlineIds.has(c.user_id)).length
   const visible   = collabs.filter(c =>
     displayName(c).toLowerCase().includes(search.toLowerCase()) ||
     (c.role||'').toLowerCase().includes(search.toLowerCase())
@@ -366,25 +370,23 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'64px 24px 60px' }}>
-          <div style={{ width:56, height:56, borderRadius:18, background:`${C.coral}10`,
-            border:`1.5px dashed ${C.coral}35`, margin:'0 auto 18px',
-            display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.coral}
-              strokeWidth={1.5} strokeLinecap="round">
+        <EmptyState
+          icon={
+            <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
             </svg>
-          </div>
-          <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:800, color:C.t2, letterSpacing:'-.3px' }}>
-            {search ? 'No one found' : 'No crew yet'}
-          </p>
-          <p style={{ margin:'0 0 22px', fontSize:13, color:C.t3, lineHeight:1.6 }}>
-            {search ? 'Try a different name or role.' : 'Invite collaborators to start making music together.'}
-          </p>
-          {!search && <Btn onClick={() => openModal('invite', {})}>+ Invite someone</Btn>}
-        </div>
+          }
+          title={search ? 'No one found' : 'No crew yet'}
+          subtitle={search ? 'Try a different name or role.' : 'Invite collaborators to start making music together.'}
+          action={!search && (
+            <Btn variant="outline" onClick={() => openModal('invite', {})}
+              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+              Invite someone
+            </Btn>
+          )}
+        />
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:8 }}>
           {visible.map((c, i) => (

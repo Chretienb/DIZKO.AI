@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi, prefetch } from '../lib/api.js'
-import { Spinner, C } from '../components/ui/index.jsx'
+import { Spinner, C, Btn, EmptyState } from '../components/ui/index.jsx'
+import { withMinDelay } from '../lib/utils.js'
 
 // Per-cover gradient palette — seeded by project id so a project keeps its color
 const ART = [
@@ -114,7 +115,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
 
   useEffect(() => {
     setLoading(true)
-    projectsApi.list()
+    withMinDelay(projectsApi.list())
       .then(res => {
         const list = res.data || []
         setProjects(list)
@@ -224,21 +225,17 @@ export default function PageProjects({ openModal, refreshKey, user }) {
 
       {/* ── Empty ───────────────────────────────────────────────────────── */}
       {!loading && visible.length === 0 && (
-        <div style={{ padding:'64px 0', textAlign:'center' }}>
-          <div style={{ fontSize:36, marginBottom:14, opacity:.25 }}>🎵</div>
-          <div style={{ fontSize:15, fontWeight:700, color:C.t2, marginBottom:6 }}>
-            No projects yet
-          </div>
-          <div style={{ fontSize:13, color:C.t3, marginBottom:24 }}>
-            Create your first project to get started.
-          </div>
-          <button onClick={() => openModal('new-project', {})}
-            style={{ height:40, padding:'0 22px', borderRadius:10, border:'none',
-              background:C.grad, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
-              boxShadow:`0 4px 14px ${C.coral}40` }}>
-            + New Project
-          </button>
-        </div>
+        <EmptyState
+          icon={<svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>}
+          title="No projects yet"
+          subtitle="Create your first project to get started."
+          action={
+            <Btn variant="outline" onClick={() => openModal('new-project', {})}
+              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+              New Project
+            </Btn>
+          }
+        />
       )}
 
       {/* ── Grid ────────────────────────────────────────────────────────── */}

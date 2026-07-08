@@ -15,10 +15,14 @@ export default function Transport({
   bpm, onBpmChange,
   metronomeOn, onToggleMetronome,
   beatFlash, detectingBpm, onDetectBpm,
-  stems, trackCount = 0, preparing = 0,
+  stems, trackCount = 0, preparing = 0, preparingTotal = 0,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const progress = duration > 0 ? currentTime / duration : 0
+  // Play is disabled until every board stem is decoded and ready — Play must
+  // never itself trigger a fetch or a decode. Pause/Stop stay live regardless,
+  // since by the time something's playing, preparation already happened.
+  const notReady = !playing && preparing > 0
 
   // Scrub: click to seek, or drag the thumb. Preview locally while dragging and
   // commit on release so we don't restart audio on every mouse move.
@@ -48,11 +52,22 @@ export default function Transport({
   return (
     <div style={{ display:'flex', alignItems:'center', gap:14 }}>
 
-      {/* Big primary play — this plays the whole board (the bounce) at once */}
+      {/* Big primary play — this plays the whole board (the bounce) at once.
+          Disabled + shows real progress while the board is still preparing —
+          Play itself must never trigger a fetch or a decode, so there's no
+          state where this button is clickable but might be slow. */}
       {loadKeys.length > 0 ? (
         <ProgressRing pct={avgPct} size={40} stroke={2.5} color={C.coral} bg={C.border}>
           <span style={{ fontSize:9, fontWeight:700, color:C.t1 }}>{avgPct}%</span>
         </ProgressRing>
+      ) : notReady ? (
+        <div title={`Preparing ${preparingTotal - preparing}/${preparingTotal}…`}
+          style={{ width:40, height:40, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <ProgressRing pct={preparingTotal > 0 ? Math.round(((preparingTotal - preparing) / preparingTotal) * 100) : 0}
+            size={40} stroke={2.5} color={C.coral} bg={C.border}>
+            <Spinner size={14} color={C.coral}/>
+          </ProgressRing>
+        </div>
       ) : (
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? 'Pause' : 'Play all stems together'}
           title={playing ? 'Pause' : 'Play all stems together'}
@@ -69,14 +84,14 @@ export default function Transport({
       <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
         <IconLayers size={13} color={playing ? C.coral : C.t3}/>
         <span style={{ fontSize:13, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>
-          {playing ? 'Playing' : 'Play all'}
+          {notReady ? 'Preparing…' : playing ? 'Playing' : 'Play all'}
         </span>
-        {trackCount > 0 && (
+        {trackCount > 0 && !notReady && (
           <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>· {trackCount} track{trackCount>1?'s':''}</span>
         )}
-        {!playing && preparing > 0 && (
-          <span style={{ fontSize:11, fontWeight:600, color:C.coral, display:'flex', alignItems:'center', gap:5 }}>
-            · <Spinner size={10} color={C.coral}/> preparing {preparing}
+        {notReady && (
+          <span style={{ fontSize:11, fontWeight:600, color:C.coral }}>
+            · {preparingTotal - preparing}/{preparingTotal}
           </span>
         )}
       </div>

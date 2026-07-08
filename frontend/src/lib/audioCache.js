@@ -124,6 +124,19 @@ export async function fetchAudioCached(url, onProgress) {
 // True for a stem whose bytes are already resident in memory (ready to play now).
 export function isWarm(url) { return memCache.has(stableKey(url)) }
 
+// Playback assets are MP3 for older stems, AAC/M4A for anything enriched
+// since the switch to the AAC playback pipeline — both live under the same
+// preview_url field (see backend enrichStemInBackground), so the blob's MIME
+// type has to be derived per-file from the extension, not assumed to be MP3.
+// A wrong type on the Blob can make Safari in particular refuse to play it.
+function mimeForUrl(url) {
+  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase()
+  if (ext === 'm4a' || ext === 'mp4' || ext === 'aac') return 'audio/mp4'
+  if (ext === 'wav') return 'audio/wav'
+  if (ext === 'flac') return 'audio/flac'
+  return 'audio/mpeg'   // mp3, or unknown — mp3 is the long-standing default
+}
+
 // Instant playback: if a preview's bytes are cached, hand the <audio> element a
 // local blob: URL instead of a remote R2 URL — it starts with zero network.
 const blobUrlCache = new Map()          // stableKey → object URL
@@ -133,7 +146,7 @@ export function cachedPreviewBlobUrl(url) {
   if (blobUrlCache.has(key)) return blobUrlCache.get(key)
   if (!memCache.has(key)) return null
   try {
-    const u = URL.createObjectURL(new Blob([memCache.get(key)], { type: 'audio/mpeg' }))
+    const u = URL.createObjectURL(new Blob([memCache.get(key)], { type: mimeForUrl(url) }))
     blobUrlCache.set(key, u)
     return u
   } catch { return null }

@@ -45,6 +45,12 @@ export default function TrackItem({
   const stemMeta = (() => { try { return JSON.parse(s.notes || '{}') } catch { return {} } })()
   const stemBpm  = stemMeta.bpm ? Math.round(stemMeta.bpm) : null
   const stemKey  = stemMeta.key || null
+  // Enrichment (BPM/key/peaks + the small AAC playback asset) hasn't finished
+  // yet — without it, preview_url is missing and playback would silently fall
+  // back to streaming the full multi-MB master instead of the small preview,
+  // which can take a very long time and gives zero indication anything's
+  // different. Disable Play instead of letting that happen invisibly.
+  const stillProcessing = stemMeta.status && stemMeta.status !== 'ready'
   // Comment markers + timeline need a length even before playback. Prefer the
   // analyzed length; otherwise load just the audio metadata (no full decode) so
   // the markers/profiles show without having to press play first.
@@ -192,10 +198,16 @@ export default function TrackItem({
         {/* Secondary actions */}
         <div style={{ display:'flex', gap:4, flexShrink:0 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
-          <button onClick={()=>onPlay(s)} aria-label={`${previewPlaying?'Pause':'Play'} ${stemLabel}`} aria-pressed={!!previewPlaying}
-            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`, background: previewPlaying?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color, transition:'all .12s' }}
-            onMouseEnter={e=>e.currentTarget.style.background=`${color}25`} onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
-            {previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
+          <button onClick={()=>{ if (!stillProcessing) onPlay(s) }} disabled={stillProcessing}
+            aria-label={stillProcessing ? `${stemLabel} is still processing` : `${previewPlaying?'Pause':'Play'} ${stemLabel}`}
+            aria-pressed={!!previewPlaying}
+            title={stillProcessing ? 'Still processing — ready in a few seconds' : undefined}
+            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`,
+              background: previewPlaying?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center',
+              cursor: stillProcessing ? 'default' : 'pointer', color, transition:'all .12s', opacity: stillProcessing ? .5 : 1 }}
+            onMouseEnter={e=>{ if (!stillProcessing) e.currentTarget.style.background=`${color}25` }}
+            onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
+            {stillProcessing ? <Spinner size={10} color={color}/> : previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
           </button>
           <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
             style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
@@ -263,17 +275,25 @@ export default function TrackItem({
           {takes&&takes.length>1&&(
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11, fontWeight:700, color:C.t3, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>Take History</div>
-              {takes.map((t,ti)=>(
+              {takes.map((t,ti)=>{
+                let takeStatus = null
+                try { takeStatus = JSON.parse(t.notes || '{}').status } catch {}
+                const takeProcessing = takeStatus && takeStatus !== 'ready'
+                return (
                 <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:ti<takes.length-1?`1px solid ${C.border}`:'none' }}>
                   <span style={{ fontSize:10.5, fontWeight:700, color, background:`${color}12`, padding:'2px 8px', borderRadius:100 }}>v{takes.length-ti}</span>
                   <span style={{ fontSize:12.5, color:C.t2, flex:1 }}>{t.suggested_name||t.original_name}</span>
                   <span style={{ fontSize:11, color:C.t3 }}>{timeAgo(t.created_at)}</span>
-                  <button onClick={()=>onPlay(t)} aria-label={`Play take ${takes.length-ti}`}
-                    style={{ width:26, height:26, borderRadius:8, border:`1px solid ${color}28`, background:`${color}10`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color }}>
-                    <IconPlay size={8} color={color}/>
+                  <button onClick={()=>{ if (!takeProcessing) onPlay(t) }} disabled={takeProcessing}
+                    aria-label={takeProcessing ? `Take ${takes.length-ti} is still processing` : `Play take ${takes.length-ti}`}
+                    title={takeProcessing ? 'Still processing — ready in a few seconds' : undefined}
+                    style={{ width:26, height:26, borderRadius:8, border:`1px solid ${color}28`, background:`${color}10`,
+                      cursor: takeProcessing ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', color,
+                      opacity: takeProcessing ? .5 : 1 }}>
+                    {takeProcessing ? <Spinner size={8} color={color}/> : <IconPlay size={8} color={color}/>}
                   </button>
                 </div>
-              ))}
+              )})}
             </div>
           )}
 

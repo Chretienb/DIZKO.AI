@@ -11,7 +11,7 @@ import { buildExportZip } from '../lib/dawExport'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
-import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
+import { getCreatorEntitlement, subscriptionRequired, canCreateProject, freeTierLimitReached, computeEntitlement } from '../lib/entitlement'
 import { assertProjectAccess } from '../lib/rbac'
 import { notify } from '../lib/notificationService'
 import { inviteEmail, inviteNewUserEmail } from '../lib/emailTemplates'
@@ -29,6 +29,25 @@ projects.use('*', requireAuth)
 // automatic Replicate stem-separation, so this guards real cost. Keyed by user
 // (mounted after requireAuth).
 const uploadLimit = rateLimit({ max: 60, windowMs: 60_000, keyBy: 'user' })
+
+// Batches the "is this project's owner on a paid plan" check across a list of
+// projects (one profiles query, not N+1) so the frontend can show/hide the
+// Smart Mix upsell and the free-tier stem cap banner per project.
+async function attachOwnerPaid<T extends { owner_id: string }>(rows: T[]): Promise<(T & { owner_paid: boolean })[]> {
+  const ownerIds = [...new Set(rows.map((r) => r.owner_id))]
+  if (!ownerIds.length) return rows as (T & { owner_paid: boolean })[]
+
+  const { data: owners } = await supabase
+    .from('profiles')
+    .select('id, subscription_status, stripe_subscription_id')
+    .in('id', ownerIds)
+
+  const paidById = new Map<string, boolean>()
+  for (const o of (owners ?? []) as any[]) {
+    paidById.set(o.id, computeEntitlement(o).entitled)
+  }
+  return rows.map((r) => ({ ...r, owner_paid: paidById.get(r.owner_id) ?? false }))
+}
 
 // ── GET /projects ─────────────────────────────────────────────────────────────
 // List all projects the authenticated user owns or collaborates on
@@ -69,13 +88,13 @@ projects.get('/', async (c) => {
 
   // Merge, deduplicate by id
   const seen = new Set<string>()
-  const all: unknown[] = []
-  for (const p of [...(owned ?? []), ...collabProjects]) {
-    const id = (p as { id: string }).id
-    if (!seen.has(id)) { seen.add(id); all.push(p) }
+  const all: { id: string; owner_id: string }[] = []
+  for (const p of [...(owned ?? []), ...collabProjects] as { id: string; owner_id: string }[]) {
+    if (!seen.has(p.id)) { seen.add(p.id); all.push(p) }
   }
 
-  return c.json({ data: all, error: null, status: 200 })
+  const withOwnerPaid = await attachOwnerPaid(all)
+  return c.json({ data: withOwnerPaid, error: null, status: 200 })
 })
 
 // ── Async DAW export ─────────────────────────────────────────────────────────
@@ -331,7 +350,8 @@ projects.get('/:id', async (c) => {
   if (!isOwner && !isCollaborator)
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
-  return c.json({ data, error: null, status: 200 })
+  const [withOwnerPaid] = await attachOwnerPaid([data as any])
+  return c.json({ data: withOwnerPaid, error: null, status: 200 })
 })
 
 // ── GET /projects/:id/stem-history — all takes grouped by uploader×instrument ─
@@ -378,10 +398,9 @@ projects.post('/', sanitize, async (c) => {
     return c.json({ data: null, error: 'title is required', status: 400 }, 400)
   }
 
-  // Owner-pays: creating your own project requires an active subscription.
-  // Invitees collaborate free, but can't spin up their own projects for free.
-  const ent = await getCreatorEntitlement(c.var.user.id)
-  if (!ent.entitled) return c.json(subscriptionRequired('create a project'), 402)
+  // Free tier: 1 active project, no card required. Paid plans bypass the cap.
+  const check = await canCreateProject(c.var.user.id)
+  if (!check.allowed) return c.json(freeTierLimitReached(check), 402)
 
   const { data, error } = await supabase
     .from('projects')
@@ -770,9 +789,10 @@ projects.post('/:id/collaborators', sanitize, async (c) => {
   if ((ownerProj as any).owner_id !== user.id)
     return c.json({ data: null, error: 'Only the project owner can add collaborators', status: 403 }, 403)
 
-  // Owner-pays: building a team requires an active subscription.
-  const ent = await getCreatorEntitlement(user.id)
-  if (!ent.entitled) return c.json(subscriptionRequired('invite collaborators'), 402)
+  // Free baseline action: inviting collaborators no longer requires a paid
+  // plan (the free tier's whole growth loop depends on invites being open —
+  // every invited collaborator is a potential signup). The 1-project and
+  // 15-stem caps are the actual free-tier limits, enforced elsewhere.
 
   const { data: existingUsers } = await supabase
     .from('users')

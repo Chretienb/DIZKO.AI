@@ -48,7 +48,10 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
   const navigate = useNavigate()
 
   const isPro    = billingStatus?.has_payment_method
-  const isTrial  = billingStatus?.subscription_status === 'trialing'
+  // subscription_status defaults to 'trialing' for every signup regardless of
+  // card (free tier included) — require has_payment_method too, so a card-less
+  // free user gets the plain "Free" badge instead of a misleading trial clock.
+  const isTrial  = billingStatus?.subscription_status === 'trialing' && isPro
   const storage  = Math.min(billingStatus?.storage_percent ?? 0, 100)
 
   const usedBytes  = billingStatus?.storage_used_bytes  ?? 0
@@ -63,7 +66,9 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
     return `${b} B`
   }
   const barWidth   = usedBytes > 0 ? Math.max(1, storage) : 0
-  const planColor  = isPro ? '#22c55e' : '#f59e0b'
+  // Amber is reserved for an actually-expiring trial — the permanent free
+  // tier isn't urgent/expiring, so it gets a neutral color, not a warning one.
+  const planColor  = isTrial ? '#f59e0b' : isPro ? '#22c55e' : 'var(--t3)'
 
   return (
     <div style={{ maxWidth:560, margin:'0 auto', padding:'24px 20px 60px', fontFamily:'inherit' }}>

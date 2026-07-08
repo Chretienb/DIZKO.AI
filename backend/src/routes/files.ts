@@ -8,11 +8,13 @@ import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
 import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
 import { validateManualBpm, mergeBpmIntoNotes } from '../lib/stemNotes'
-import { transcodeToPreview, decodeToWav, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
+import { transcodeToPlaybackAsset, decodeToWav, playbackKeyFor, PLAYBACK_CONTENT_TYPE } from '../lib/transcode'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
 import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
+import { canUploadStem, remainingStemSlots, freeTierLimitReached, getCreatorEntitlement, FREE_STEM_LIMIT } from '../lib/entitlement'
+import { withProjectLock } from '../lib/projectLock'
 import type { HonoVariables } from '../types'
 
 const files = new Hono<{ Variables: HonoVariables }>()
@@ -185,6 +187,10 @@ files.post('/upload', uploadLimit, async (c) => {
       status: 403,
     }, 403)
   }
+
+  // 1b. Free-tier stem cap (15/project, owner-keyed — paid plans bypass)
+  const stemCheck = await canUploadStem(projectId)
+  if (!stemCheck.allowed) return c.json(freeTierLimitReached(stemCheck), 402)
 
   // 2. Upload to Cloudflare R2
   const storagePath = `takes/${user.id}/${projectId}/${Date.now()}_${file.name}`
@@ -362,6 +368,11 @@ async function uploadGate(userId: string, projectId: string, instrument: string,
   if (p && (p.storage_used_bytes + size) > p.storage_limit_bytes) {
     return { status: 403 as const, body: { data: null, error: 'Storage limit reached — upgrade your plan to upload more', storage_used: p.storage_used_bytes, storage_limit: p.storage_limit_bytes, status: 403 } }
   }
+  const stemCheck = await canUploadStem(projectId)
+  if (!stemCheck.allowed) {
+    const body = freeTierLimitReached(stemCheck)
+    return { status: 402 as const, body }
+  }
   const { data: project } = await supabase.from('projects').select('owner_id').eq('id', projectId).single()
   if ((project as any)?.owner_id === userId) return null   // owner bypasses
   const { data: collab } = await supabase
@@ -425,19 +436,24 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       const suggestedName = await buildSuggestedName(fileName, resolvedInstrument, bpm, key, projectTitle, artist)
       const peaks = pcmWav ? extractWaveformPeaks(pcmWav, 512) : null
 
-      // Compressed MP3 preview for instant playback — the buffer is already in
-      // memory, so this costs no extra download. ffmpeg reads WAV or FLAC; we
-      // only bother for those big lossless formats (mp3/m4a already stream fine).
-      // Best-effort: a failure just means playback falls back to the full file.
+      // Compressed AAC playback asset for instant playback — the buffer is
+      // already in memory, so this costs no extra download. ffmpeg reads WAV
+      // or FLAC; we only bother for those big lossless formats (mp3/m4a
+      // already stream fine). Stored under the same notes.preview /
+      // preview_url the app already fully supports end-to-end — the field
+      // was always "the small instant-play asset," never coupled to a
+      // specific codec, so no API/frontend field rename was needed to switch
+      // from MP3 to AAC here. Best-effort: a failure just means playback
+      // falls back to the full file.
       let previewKey: string | null = null
       if (buffer && (isWav || isFlac)) {
         try {
-          const mp3 = await transcodeToPreview(buffer)
-          previewKey = previewKeyFor(takeId)
-          await uploadToR2(previewKey, mp3, PREVIEW_CONTENT_TYPE)
+          const aac = await transcodeToPlaybackAsset(buffer)
+          previewKey = playbackKeyFor(takeId)
+          await uploadToR2(previewKey, aac, PLAYBACK_CONTENT_TYPE)
         } catch (e) {
           previewKey = null
-          console.error('[enrich] preview transcode failed:', (e as Error).message)
+          console.error('[enrich] playback-asset transcode failed:', (e as Error).message)
         }
       }
 
@@ -499,12 +515,21 @@ files.post('/batch-init', uploadLimit, async (c) => {
     role = (collab as any).role ?? 'Collaborator'
   }
 
-  // Resolve/create the track ONCE.
-  let trackId = (existingTrack as { id: string } | null)?.id
-  if (!trackId) {
-    const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(items[0]?.file_name || 'Untitled'), position: 1 }).select('id').single()
-    if (trackErr) return c.json({ data: null, error: trackErr.message, status: 500 }, 500)
-    trackId = (newTrack as { id: string }).id
+  // Resolve/create the track ONCE — locked per-project so this can't race a
+  // concurrent /multipart/init (or another batch-init) for the same project
+  // and create a duplicate track for what should be one song.
+  let trackId: string
+  try {
+    trackId = await withProjectLock(project_id, async () => {
+      if ((existingTrack as any)?.id) return (existingTrack as any).id as string
+      const { data: fresh } = await supabase.from('tracks').select('id').eq('project_id', project_id).order('position', { ascending: true }).limit(1).maybeSingle()
+      if (fresh) return (fresh as any).id as string
+      const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(items[0]?.file_name || 'Untitled'), position: 1 }).select('id').single()
+      if (trackErr) throw new Error(trackErr.message)
+      return (newTrack as { id: string }).id
+    })
+  } catch (e: any) {
+    return c.json({ data: null, error: e?.message || 'Could not resolve track', status: 500 }, 500)
   }
 
   const blocked: any[] = []
@@ -525,32 +550,58 @@ files.post('/batch-init', uploadLimit, async (c) => {
     plan.push({ fileName, size, instrument, contentType, storagePath })
   }
 
-  if (plan.length === 0) return c.json({ data: { track_id: trackId, stems: [], blocked }, error: null, status: 200 }, 200)
+  // Free-tier stem cap: accept the first N files up to the remaining slots,
+  // block the overflow — a partial success, matching this route's existing
+  // "some succeed, some blocked" philosophy rather than failing the whole batch.
+  // The check-then-insert below runs inside the project lock (free tier only —
+  // paid owners have no cap to race against) so a batch-init overlapping
+  // another batch-init or a /multipart/init for the same project can't both
+  // read the same pre-insert count and jointly exceed FREE_STEM_LIMIT.
+  const doAccept = async (): Promise<{ stems: any[]; error?: string }> => {
+    const { remaining } = await remainingStemSlots(project_id)
+    let acceptedPlan = plan
+    if (remaining < plan.length) {
+      acceptedPlan = plan.slice(0, remaining)
+      for (const overflow of plan.slice(remaining)) {
+        blocked.push({
+          file_name: overflow.fileName,
+          error: `Free plan is limited to ${FREE_STEM_LIMIT} stems per project — upgrade for unlimited stems.`,
+          code: 'stem_limit',
+        })
+      }
+    }
+    if (acceptedPlan.length === 0) return { stems: [] }
 
-  // 2) Sign every PUT + GET URL in PARALLEL (was the batch's slow part when done
-  // one-by-one — this is what keeps "appear" near-instant for big drops).
-  const signed = await Promise.all(plan.map(async pl => ({
-    ...pl,
-    url:     await getR2PresignedPutUrl(pl.storagePath, pl.contentType),
-    fileUrl: await getR2SignedUrl(pl.storagePath),
-  })))
+    // Sign every PUT + GET URL in PARALLEL (was the batch's slow part when done
+    // one-by-one — this is what keeps "appear" near-instant for big drops).
+    const signed = await Promise.all(acceptedPlan.map(async pl => ({
+      ...pl,
+      url:     await getR2PresignedPutUrl(pl.storagePath, pl.contentType),
+      fileUrl: await getR2SignedUrl(pl.storagePath),
+    })))
 
-  const meta = signed.map(s => ({ url: s.url, storage_path: s.storagePath, content_type: s.contentType, file_name: s.fileName, instrument: s.instrument }))
-  const rows = signed.map(s => ({
-    // Structured name right away (Track_StemType); enrich appends _Key_BPM later.
-    track_id: trackId, original_name: s.fileName, suggested_name: buildSuggestedName(s.fileName, s.instrument, null, null, projectTitle),
-    file_url: s.fileUrl, storage_path: s.storagePath, file_size: s.size, mime_type: s.contentType, instrument: s.instrument,
-    ...(folder_id ? { folder_id } : {}),
-    notes: JSON.stringify({ status: 'uploading', type: 'take' }), uploaded_by: user.id,
-  }))
+    const meta = signed.map(s => ({ url: s.url, storage_path: s.storagePath, content_type: s.contentType, file_name: s.fileName, instrument: s.instrument }))
+    const rows = signed.map(s => ({
+      // Structured name right away (Track_StemType); enrich appends _Key_BPM later.
+      track_id: trackId, original_name: s.fileName, suggested_name: buildSuggestedName(s.fileName, s.instrument, null, null, projectTitle),
+      file_url: s.fileUrl, storage_path: s.storagePath, file_size: s.size, mime_type: s.contentType, instrument: s.instrument,
+      ...(folder_id ? { folder_id } : {}),
+      notes: JSON.stringify({ status: 'uploading', type: 'take' }), uploaded_by: user.id,
+    }))
 
-  const { data: inserted, error: insErr } = await supabase.from('stems').insert(rows).select('id, storage_path')
-  if (insErr) return c.json({ data: null, error: insErr.message, status: 500 }, 500)
+    const { data: inserted, error: insErr } = await supabase.from('stems').insert(rows).select('id, storage_path')
+    if (insErr) return { stems: [], error: insErr.message }
 
-  const byPath = new Map<string, string>((inserted as any[]).map(r => [r.storage_path, r.id]))
-  const stems = meta
-    .map(m => ({ id: byPath.get(m.storage_path), file_name: m.file_name, storage_path: m.storage_path, url: m.url, content_type: m.content_type, instrument: m.instrument }))
-    .filter(s => s.id)
+    const byPath = new Map<string, string>((inserted as any[]).map(r => [r.storage_path, r.id]))
+    const stems = meta
+      .map(m => ({ id: byPath.get(m.storage_path), file_name: m.file_name, storage_path: m.storage_path, url: m.url, content_type: m.content_type, instrument: m.instrument }))
+      .filter(s => s.id)
+    return { stems }
+  }
+
+  const paid = await getCreatorEntitlement((project as any)?.owner_id)
+  const { stems, error: acceptErr } = paid.entitled ? await doAccept() : await withProjectLock(project_id, doAccept)
+  if (acceptErr) return c.json({ data: null, error: acceptErr, status: 500 }, 500)
 
   return c.json({ data: { track_id: trackId, stems, blocked }, error: null, status: 200 }, 200)
 })
@@ -647,34 +698,64 @@ files.post('/multipart/init', uploadLimit, async (c) => {
     if (!roleCanUpload(role, instrument)) return c.json({ data: null, error: `Request access to upload ${instrument}`, needs_request: true, status: 403 }, 403)
   }
 
-  let trackId = (existingTrack as { id: string } | null)?.id
-  if (!trackId) {
-    const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(file_name), position: 1 }).select('id').single()
-    if (trackErr) return c.json({ data: null, error: trackErr.message, status: 500 }, 500)
-    trackId = (newTrack as { id: string }).id
+  // Track resolution is ALWAYS serialized per-project (a cheap read, occasional
+  // insert) — otherwise many large files landing in parallel on a brand-new
+  // project/song can each see "no track yet" before any of them has created
+  // one, and each creates its own, fragmenting one song into several.
+  let trackId: string
+  try {
+    trackId = await withProjectLock(project_id, async () => {
+      if ((existingTrack as any)?.id) return (existingTrack as any).id as string
+      const { data: fresh } = await supabase.from('tracks').select('id').eq('project_id', project_id).order('position', { ascending: true }).limit(1).maybeSingle()
+      if (fresh) return (fresh as any).id as string
+      const { data: newTrack, error: trackErr } = await supabase.from('tracks').insert({ project_id, title: String(file_name), position: 1 }).select('id').single()
+      if (trackErr) throw new Error(trackErr.message)
+      return (newTrack as { id: string }).id
+    })
+  } catch (e: any) {
+    return c.json({ data: null, error: e?.message || 'Could not resolve track', status: 500 }, 500)
   }
 
   const contentType = resolveContentType(String(file_name), content_type || '')
   const storagePath = `takes/${user.id}/${project_id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file_name}`
   const partSize = MULTIPART_PART_SIZE
   const partCount = Math.max(1, Math.ceil(size / partSize))
-
-  let uploadId: string
-  try { uploadId = await createMultipartUpload(storagePath, contentType) }
-  catch (e: any) { return c.json({ data: null, error: e?.message || 'Could not start multipart upload', status: 500 }, 500) }
-
   const fileUrl = await getR2SignedUrl(storagePath)
-  const { data: inserted, error: insErr } = await supabase.from('stems').insert({
-    track_id: trackId, original_name: String(file_name),
-    suggested_name: buildSuggestedName(String(file_name), instrument, null, null, projectTitle),
-    file_url: fileUrl, storage_path: storagePath, file_size: size, mime_type: contentType, instrument,
-    ...(folder_id ? { folder_id } : {}),
-    notes: JSON.stringify({ status: 'uploading', type: 'take', mp: { uploadId, partSize, partCount } }), uploaded_by: user.id,
-  }).select('id').single()
-  if (insErr) { await abortMultipartUpload(storagePath, uploadId); return c.json({ data: null, error: insErr.message, status: 500 }, 500) }
+
+  // Opens the R2 multipart upload + inserts the stem row. Free-tier callers run
+  // this INSIDE the project lock (see below) so the stem-cap check and the
+  // insert that follows it are one atomic unit — otherwise many of these firing
+  // in parallel (one per large file in a batch drop) can all pass the check
+  // before any of them has inserted a row, blowing past FREE_STEM_LIMIT.
+  const doInit = async (): Promise<{ id: string; uploadId: string } | { error: string }> => {
+    let uploadId: string
+    try { uploadId = await createMultipartUpload(storagePath, contentType) }
+    catch (e: any) { return { error: e?.message || 'Could not start multipart upload' } }
+    const { data: inserted, error: insErr } = await supabase.from('stems').insert({
+      track_id: trackId, original_name: String(file_name),
+      suggested_name: buildSuggestedName(String(file_name), instrument, null, null, projectTitle),
+      file_url: fileUrl, storage_path: storagePath, file_size: size, mime_type: contentType, instrument,
+      ...(folder_id ? { folder_id } : {}),
+      notes: JSON.stringify({ status: 'uploading', type: 'take', mp: { uploadId, partSize, partCount } }), uploaded_by: user.id,
+    }).select('id').single()
+    if (insErr) { await abortMultipartUpload(storagePath, uploadId); return { error: insErr.message } }
+    return { id: (inserted as any).id, uploadId }
+  }
+
+  const paid = await getCreatorEntitlement((project as any).owner_id)
+  const result = paid.entitled
+    ? await doInit()
+    : await withProjectLock(project_id, async () => {
+        const stemCheck = await canUploadStem(project_id)
+        if (!stemCheck.allowed) return { blocked: stemCheck } as const
+        return await doInit()
+      })
+
+  if ('blocked' in result) return c.json(freeTierLimitReached(result.blocked), 402)
+  if ('error' in result)   return c.json({ data: null, error: result.error, status: 500 }, 500)
 
   return c.json({ data: {
-    id: (inserted as any).id, storage_path: storagePath, upload_id: uploadId,
+    id: result.id, storage_path: storagePath, upload_id: result.uploadId,
     part_size: partSize, part_count: partCount, content_type: contentType, instrument,
   }, error: null, status: 200 }, 200)
 })
@@ -1216,11 +1297,11 @@ files.delete('/:id', async (c) => {
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: stem, error: fetchErr } = await supabase
-    .from('stems').select('storage_path, file_size, uploaded_by, instrument').eq('id', c.req.param('id')).single()
+    .from('stems').select('storage_path, file_size, uploaded_by, instrument, notes').eq('id', c.req.param('id')).single()
 
   if (fetchErr) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
 
-  const s = stem as { storage_path: string; file_size: number; uploaded_by: string; instrument: string } | null
+  const s = stem as { storage_path: string; file_size: number; uploaded_by: string; instrument: string; notes: string | null } | null
 
   // Permission: you can delete your OWN stems; the owner can delete anything.
   // The master + Smart Mix versions are owner-only (they're the deliverables).
@@ -1238,6 +1319,12 @@ files.delete('/:id', async (c) => {
       ;(async () => { try { await supabase.rpc('decrement_storage', { user_id: s.uploaded_by, bytes: s.file_size }) } catch {} })()
     }
   }
+  // The playback asset (AAC, or MP3 for older stems) is a SEPARATE R2 object
+  // from storage_path — deleting only the master here used to leak this one on
+  // every stem delete, permanently. Best-effort: never blocks the actual delete.
+  let previewKey: string | null = null
+  try { previewKey = JSON.parse(s?.notes || '{}').preview || null } catch {}
+  if (previewKey) await deleteFromR2(previewKey).catch(e => console.error('[delete] R2 preview error:', e.message))
 
   const { error } = await supabase.from('stems').delete().eq('id', c.req.param('id'))
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)

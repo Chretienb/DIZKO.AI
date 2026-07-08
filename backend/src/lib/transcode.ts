@@ -8,6 +8,10 @@
 // JS event loop; Bun just awaits the result. A semaphore caps how many ffmpegs
 // run at once so a 23-stem drop can't fork 23 processes and OOM a small dyno.
 
+import { randomUUID } from 'crypto'
+import { tmpdir } from 'os'
+import { unlink } from 'fs/promises'
+
 const MAX_CONCURRENT = 3
 
 let active = 0
@@ -32,6 +36,23 @@ export const PREVIEW_EXT = 'mp3'
 /** R2 key where a stem's preview lives, e.g. previews/<stemId>.mp3 */
 export function previewKeyFor(stemId: string): string {
   return `previews/${stemId}.${PREVIEW_EXT}`
+}
+
+// ── Playback asset (AAC) ────────────────────────────────────────────────────
+// The editing-playback asset, distinct from (and replacing, going forward) the
+// MP3 preview above. AAC over Opus specifically for Safari: Opus support in
+// decodeAudioData has a genuinely rocky history across Safari versions, while
+// AAC in an MP4/M4A container is Apple's own native format — the most reliable
+// choice for a userbase that's recording/mixing on iPads and iPhones. The
+// original WAV/FLAC master is never touched by this — it stays the only source
+// for Export and Smart Mix's render, so editing-playback being lossy never
+// affects final output quality.
+export const PLAYBACK_CONTENT_TYPE = 'audio/mp4'
+export const PLAYBACK_EXT = 'm4a'
+
+/** R2 key where a stem's playback asset lives, e.g. playback/<stemId>.m4a */
+export function playbackKeyFor(stemId: string): string {
+  return `playback/${stemId}.${PLAYBACK_EXT}`
 }
 
 /**
@@ -93,5 +114,53 @@ export async function transcodeToPreview(wav: Buffer): Promise<Buffer> {
     const buf = Buffer.from(out)
     if (buf.length === 0) throw new Error('ffmpeg produced empty output')
     return buf
+  })
+}
+
+/**
+ * Encode a WAV buffer to a 128 kbps AAC/M4A — the editing-playback asset (see
+ * PLAYBACK_CONTENT_TYPE above). Channel layout is left alone (no forced -ac),
+ * so a mono source stays mono and a stereo mix keeps its width; only bitrate
+ * is controlled.
+ *
+ * Unlike transcodeToPreview, this writes to a real temp FILE rather than
+ * piping to stdout — MP4/M4A muxing needs a seekable output to place the moov
+ * atom at the front (`+faststart`) for fast start-of-playback; piped to a
+ * non-seekable stdout, ffmpeg's mp4 muxer either fails or produces a
+ * technically-valid-but-slow-to-start file. Reads the result back into
+ * memory and always cleans up the temp file, even on failure.
+ */
+export async function transcodeToPlaybackAsset(wav: Buffer): Promise<Buffer> {
+  return withSlot(async () => {
+    const outPath = `${tmpdir()}/dizko-playback-${randomUUID()}.${PLAYBACK_EXT}`
+    try {
+      const proc = Bun.spawn(
+        [
+          'ffmpeg',
+          '-hide_banner',
+          '-loglevel', 'error',
+          '-y',
+          '-i', 'pipe:0',
+          '-vn',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          '-f', 'mp4',
+          outPath,
+        ],
+        { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe' },
+      )
+      const stderrP = new Response(proc.stderr).text()
+      proc.stdin.write(wav)
+      await proc.stdin.end()
+      const [code, err] = await Promise.all([proc.exited, stderrP])
+      if (code !== 0) throw new Error(`ffmpeg (AAC) exited ${code}: ${err.slice(0, 300)}`)
+
+      const buf = Buffer.from(await Bun.file(outPath).arrayBuffer())
+      if (buf.length === 0) throw new Error('ffmpeg (AAC) produced empty output')
+      return buf
+    } finally {
+      await unlink(outPath).catch(() => {})
+    }
   })
 }

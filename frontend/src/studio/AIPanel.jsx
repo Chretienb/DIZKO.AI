@@ -178,15 +178,23 @@ export default function AIPanel({
           {/* 4 · Tweak — swap takes to change what the next mix uses */}
           <MixReasoning rows={insightRows} onPickTake={onPickTake} />
 
-          {/* 5 · Action — make the (next) mix */}
-          <button onClick={onGenerateMix} disabled={smartMixing} aria-label={smartMixUrl ? 'Generate another mix' : 'Generate mix'}
+          {/* 5 · Action — make the (next) mix. Smart Mix is a paid feature, keyed
+              to the PROJECT OWNER's plan — if this project's owner is on the
+              free tier, open the upgrade paywall directly instead of letting
+              the click round-trip to a 402 first. */}
+          <button
+            onClick={activeProject && !activeProject.owner_paid ? () => openModal('billing', {}) : onGenerateMix}
+            disabled={smartMixing}
+            aria-label={activeProject && !activeProject.owner_paid ? 'Upgrade to use Smart Mix' : smartMixUrl ? 'Generate another mix' : 'Generate mix'}
             style={{ width:'100%', height:38, borderRadius:9, border:'none', background:`${C.coral}14`, color:C.coral, fontSize:13, fontWeight:600, cursor:smartMixing?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:smartMixing?.6:1, transition:'background .15s' }}
             onMouseEnter={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}24` }} onMouseLeave={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}14` }}>
             {smartMixing
               ? <><Spinner size={13} color={C.coral}/> Mixing…</>
-              : smartMixUrl
-                ? <><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Generate again</>
-                : <>Generate mix</>}
+              : activeProject && !activeProject.owner_paid
+                ? <>Upgrade to use Smart Mix</>
+                : smartMixUrl
+                  ? <><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Generate again</>
+                  : <>Generate mix</>}
           </button>
 
           {/* 6 · Version history — collapsible; restore the board that made any mix */}

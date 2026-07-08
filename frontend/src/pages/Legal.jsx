@@ -119,7 +119,7 @@ export function TermsPage() {
       <P>dizko uses Claude by Anthropic to power AI file naming and Smart Mix features. By using these features, your audio metadata (not your audio files) may be processed by Anthropic's API in accordance with their privacy policy. Your audio files are stored exclusively on Cloudflare R2 and are never sent to AI providers.</P>
 
       <H2>6. Subscription and Billing</H2>
-      <P>dizko offers a 60-day free trial. After the trial period, continued access requires a paid subscription at $14.99/month.</P>
+      <P>dizko offers a free plan with no card required. Paid plans start at $14.99/month and are charged immediately upon subscribing — there is no free trial period on paid plans.</P>
       <UL items={[
         'Subscriptions renew automatically unless cancelled',
         'You may cancel at any time from your account settings',
@@ -131,7 +131,7 @@ export function TermsPage() {
       <P>We offer a full refund within 7 days of your first charge. Contact us at {CONTACT} within 7 days and we will process your refund. No refunds are issued after 7 days from the billing date.</P>
 
       <H2>8. Storage and Data Retention</H2>
-      <P>Free trial accounts retain files for 30 days after trial expiry. Active paid accounts retain files for the duration of the subscription plus 30 days after cancellation. We will notify you by email before any deletion occurs.</P>
+      <P>Free plan accounts retain files for as long as the account remains active. Active paid accounts retain files for the duration of the subscription plus 30 days after cancellation. We will notify you by email before any deletion occurs.</P>
 
       <H2>9. Limitation of Liability</H2>
       <P>To the maximum extent permitted by law, dizko is not liable for any indirect, incidental, special, or consequential damages, including loss of data, revenue, or profits, arising from your use of the platform. Our total liability shall not exceed the amount you paid us in the 3 months preceding the claim.</P>

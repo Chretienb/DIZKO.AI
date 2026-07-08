@@ -88,8 +88,17 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay, bar
   const idx     = playlist.findIndex(f => f.id === track?.id)
   const hasPrev = idx > 0
   const hasNext = idx >= 0 && idx < playlist.length - 1
-  const goPrev  = () => { if (hasPrev) onPlay(playlist[idx-1], playlist) }
-  const goNext  = () => { if (hasNext) onPlay(playlist[idx+1], playlist) }
+  // Skip stems that are still being enriched (no preview_url yet) instead of
+  // landing on one and silently streaming its full-size master — same
+  // reasoning as the disabled Play button on TrackItem, applied to prev/next
+  // and auto-advance-on-end, which don't go through that button at all.
+  const isReady = (f) => { try { return !f || (JSON.parse(f.notes || '{}').status ?? 'ready') === 'ready' } catch { return true } }
+  const nextReadyIdx = (from, step) => {
+    for (let i = from; i >= 0 && i < playlist.length; i += step) if (isReady(playlist[i])) return i
+    return -1
+  }
+  const goPrev  = () => { const i = hasPrev ? nextReadyIdx(idx - 1, -1) : -1; if (i >= 0) onPlay(playlist[i], playlist) }
+  const goNext  = () => { const i = hasNext ? nextReadyIdx(idx + 1, 1) : -1; if (i >= 0) onPlay(playlist[i], playlist) }
 
   const toggleLike = async () => {
     const v = !liked; setLiked(v); setLikeCount(c => v ? c+1 : Math.max(0,c-1))

@@ -63,7 +63,7 @@ import MiniPlayer from './components/MiniPlayer.jsx'
 import {
   ModalProject, ModalNewProject, ModalAccountSettings, ModalBilling,
   ModalKeyboardShortcuts, ModalMessage, ModalViewWork,
-  ModalNewTrack, ModalUpload,
+  ModalNewTrack, ModalUpload, ModalUpgradeRequired,
 } from './components/modals.jsx'
 const PageAccount = lazy(() => import('./pages/Account.jsx'))
 const PageHelp    = lazy(() => import('./pages/Help.jsx'))
@@ -100,7 +100,7 @@ export class ErrorBoundary extends React.Component {
     // Don't flash the error screen for a stale-chunk reload — show a quiet notice.
     if (this.state.reloading) return (
       <div style={{ height:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:18,
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", textAlign:'center', padding:24 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", textAlign:'center', padding:24 }}>
         <style>{`@keyframes dzspin{to{transform:rotate(360deg)}}`}</style>
         <img src="/logo.png" width={52} height={52} style={{ borderRadius:14 }} alt="" onError={e => { e.currentTarget.style.display='none' }} />
         <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#F4937A" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
@@ -111,7 +111,7 @@ export class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children
     return (
       <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", flexDirection:'column', gap:16 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", flexDirection:'column', gap:16 }}>
         <div style={{ fontSize:32 }}>
           <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.5} strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -564,6 +564,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const isMobile = useIsMobile()
   const { toggle: toggleTheme, resolvedTheme } = useTheme()
 
+  // Authenticate the Supabase realtime client as this user — setToken() (in
+  // lib/api.js) does this too, but only fires at login/refresh. A page reload
+  // re-mounts App with an existing token in localStorage and never calls
+  // setToken again, so without this, realtime silently stays unauthenticated
+  // (auth.uid() = null) for the rest of that session.
+  React.useEffect(() => {
+    if (!user?.id) return
+    const token = getToken()
+    if (token) setSupabaseToken(token)
+  }, [user?.id])
+
   // Billing status — fetched once on load, used in sidebar + modal
   const [billingStatus, setBillingStatus] = React.useState(null)
   const [billingLoaded, setBillingLoaded] = React.useState(false)
@@ -600,9 +611,16 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     return () => window.removeEventListener('dizko:crew-enrolled', on)
   }, [])
 
-  const planLabel = { free_trial: 'Free Trial', pro: 'Pro', studio: 'Studio', label: 'Label' }
-  const currentPlanLabel = planLabel[billingStatus?.plan] ?? 'Free Trial'
-  const trialDaysLeft = billingStatus?.trial_days_left ?? null
+  // No more trial on paid plans — checkout charges immediately, so a fresh
+  // upgrade should never actually land in Stripe's `trialing` status. This is
+  // still gated on subscription_status (not just has_payment_method) so the
+  // brief window between the checkout webhook and the subscription webhook
+  // never flashes a false "Pro Trial" label — and any pre-existing trialing
+  // subscription (from before this change) still shows its real countdown.
+  const isRealTrial = billingStatus?.subscription_status === 'trialing' && !!billingStatus?.has_payment_method
+  const planLabel = { free_trial: isRealTrial ? 'Pro Trial' : 'Free', pro: 'Pro', studio: 'Studio', label: 'Label' }
+  const currentPlanLabel = planLabel[billingStatus?.plan] ?? 'Free'
+  const trialDaysLeft = isRealTrial ? (billingStatus?.trial_days_left ?? null) : null
   // User has access if they've added a payment method and are not canceled
   // Only grant access once billing is loaded AND payment method exists
   const hasAccess = billingLoaded
@@ -725,20 +743,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     return () => { live = false; clearInterval(iv); window.removeEventListener('focus', onFocus); window.removeEventListener('dizko:inbox_read', onRead); supabase.removeChannel(ch) }
   }, [user?.id])
 
-  // Owner-pays: creating projects and inviting are paid (owner) actions, but
-  // UPLOADING is contributing — free collaborators must be able to add their
-  // stems to projects they're a member of. (Backend gates create/invite/export;
-  // upload only requires active membership.)
-  // 'upload' is NOT gated: invited collaborators (no paid plan) must be able to
-  // add their stems to projects they're a member of. The backend already gates
-  // uploads by project membership + role, so the paywall doesn't need to.
-  const GATED_MODALS = ['new-project', 'invite']
+  // Creating a project, inviting, and uploading are all free baseline actions
+  // now (no pre-emptive client-side block) — the real free-tier caps (1
+  // project, 15 stems/project) and the paid-only features (Smart Mix, export)
+  // are enforced server-side, surfaced as inline errors where they're
+  // attempted (see ModalNewProject, Studio's Generate Mix button).
   const openModal = (type, data) => {
-    if (GATED_MODALS.includes(type) && !hasAccess) {
-      posthog.capture('paywall_hit', { feature: type })
-      setModal({ type: 'billing', data: {} })
-      return
-    }
     // Invite is a full page now, not a modal — route there (carry the project if given).
     if (type === 'invite') {
       setModal(null)
@@ -857,14 +867,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           {/* Top bar — logo (left) when expanded + collapse toggle. Collapsed shows
               just the toggle, centered. */}
           {!isMobile && (
-            <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex', alignItems:'center', justifyContent: expanded ? 'space-between' : 'center', flexShrink:0 }}>
-              {expanded && (
-                <button onClick={() => navigate('/')} aria-label="dizko home"
-                  style={{ display:'flex', alignItems:'center', gap:9, background:'none', border:'none', cursor:'pointer', padding:'0 0 0 4px', fontFamily:'inherit' }}>
-                  <img src={logo} alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.08)` }}/>
-                  <span style={{ fontSize:17, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>dizko</span>
-                </button>
-              )}
+            <div style={{ padding: expanded ? '14px 12px 0' : '14px 0 0', display:'flex',
+              flexDirection: expanded ? 'row' : 'column', alignItems:'center',
+              justifyContent: expanded ? 'space-between' : 'center', gap: expanded ? 0 : 10, flexShrink:0 }}>
+              {/* Logo stays visible when collapsed — only the "dizko" wordmark hides. */}
+              <button onClick={() => navigate('/')} aria-label="dizko home"
+                style={{ display:'flex', alignItems:'center', gap:9, background:'none', border:'none', cursor:'pointer', padding: expanded ? '0 0 0 4px' : 0, fontFamily:'inherit' }}>
+                <img src={logo} alt="" style={{ width:30, height:30, borderRadius:9, objectFit:'cover', boxShadow:`0 0 0 1px rgba(var(--fg),.08)` }}/>
+                {expanded && <span style={{ fontSize:17, fontWeight:900, color:'var(--t1)', letterSpacing:'-.5px' }}>dizko</span>}
+              </button>
               <button onClick={toggleNav} aria-label={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={navExpanded ? 'Collapse' : 'Expand'}
                 style={{ width:34, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.05)', color:'rgba(var(--fg),.55)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .12s' }}
                 onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.1)'; e.currentTarget.style.color='rgba(var(--fg),.8)' }}
@@ -893,7 +904,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
               const sz = isMobile ? 38 : 44
               return (
                 <button key={n.id} onClick={() => n.onClick ? n.onClick() : navigate(n.path)}
-                  aria-label={n.label} aria-current={on ? 'page' : undefined} title={n.label}
+                  aria-label={n.label} aria-current={on ? 'page' : undefined} title={expanded ? n.label : undefined}
                   onFocus={() => n.path && warmNav(n.path)}
                   style={{ width:'100%', border:'none', cursor:'pointer', flexShrink:0,
                     display:'flex', alignItems:'center', fontFamily:'inherit',
@@ -914,7 +925,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                         lineHeight:1, border:'2px solid var(--bg)' }}>{inboxUnread > 99 ? '99+' : inboxUnread}</span>
                     )}
                   </span>
-                  <span style={{ fontSize: expanded ? 13.5 : (isMobile ? 9 : 9.5), fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
+                  {/* Collapsed desktop rail: icon only, no label (title tooltip covers
+                      discoverability instead). Mobile keeps its tab-bar-style label
+                      regardless — that's a different, always-compact layout. */}
+                  {(expanded || isMobile) && (
+                    <span style={{ fontSize: expanded ? 13.5 : 9, fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
+                  )}
                 </button>
               )
             })}
@@ -996,7 +1012,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   return (
     <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
-      fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",
+      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* Keyboard skip link — first focusable element, jumps past the nav rail */}
@@ -1016,22 +1032,24 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
-            <Route path="/projects"      element={gate(<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />)} />
-            {/* NOT paywall-gated: an invited collaborator (no paid plan) can open
-                the projects they're a member of and add stems. The backend 403s
-                anyone who isn't the owner or an active collaborator. */}
+            {/* Free tier (no card required): 1 active project, 15 stems/project,
+                unlimited collaborators. Only Analytics stays behind the paid
+                paywall below — everything else here is a free baseline action,
+                with the real caps enforced server-side (project/stem limits,
+                Smart Mix, export). */}
+            <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
             <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
-            <Route path="/studio"        element={gate(<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />)} />
-            <Route path="/collaborators" element={gate(<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />)} />
-            <Route path="/library"       element={gate(<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />)} />
+            <Route path="/studio"        element={<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
+            <Route path="/collaborators" element={<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />} />
+            <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />} />
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
-            <Route path="/inbox"         element={gate(<PageInbox openModal={openModal} user={user} />)} />
+            <Route path="/inbox"         element={<PageInbox openModal={openModal} user={user} />} />
             <Route path="/crew"          element={<PageCrew />} />
             <Route path="/crew/join/:code" element={<PageCrewJoin />} />
             <Route path="/profile"        element={<PublicProfile embedded />} />
             <Route path="/u/:handle"      element={<PublicProfile embedded />} />
-            <Route path="/profile/edit"   element={gate(<ProfileEditor mode="profile" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />)} />
-            <Route path="/profile/tracks" element={gate(<ProfileEditor mode="tracks" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />)} />
+            <Route path="/profile/edit"   element={<ProfileEditor mode="profile" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />} />
+            <Route path="/profile/tracks" element={<ProfileEditor mode="tracks" user={user} onClose={() => navigate('/profile')} onProfileUpdate={onProfileUpdate} />} />
             <Route path="/account"       element={<PageAccount user={user} billingStatus={billingStatus} currentPlanLabel={currentPlanLabel} trialDaysLeft={trialDaysLeft} openModal={openModal} onLogout={onLogout} />} />
             <Route path="/notifications" element={<NotificationsPage user={user} />} />
             <Route path="/help"          element={<PageHelp />} />
@@ -1057,14 +1075,15 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       )}
 
       {modal?.type==='project'     && <ModalProject    project={modal.data}           onClose={closeModal} openModal={openModal} playTrack={playTrack} nowPlaying={nowPlaying} user={user} />}
-      {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} />}
+      {modal?.type==='new-project' && <ModalNewProject onClose={closeModal}           onCreated={onProjectCreated} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
       {modal?.type==='account-settings' && <ModalAccountSettings user={user} billingStatus={billingStatus} onClose={closeModal} onProfileUpdate={onProfileUpdate} />}
       {modal?.type==='billing'           && <ModalBilling onClose={closeModal} billingStatus={billingStatus} billingLoaded={billingLoaded} />}
       {modal?.type==='shortcuts'         && <ModalKeyboardShortcuts onClose={closeModal} />}
       {modal?.type==='message'     && <ModalMessage    collab={modal.data}            onClose={closeModal} currentUserId={user?.id} />}
       {modal?.type==='view-work'   && <ModalViewWork   collab={modal.data}            onClose={closeModal} playTrack={playTrack} />}
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
-      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} updateToast={updateToast} />}
+      {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} updateToast={updateToast} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
+      {modal?.type==='upgrade-required' && <ModalUpgradeRequired title={modal.data?.title} message={modal.data?.message} onClose={closeModal} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
       <ToastContainer toasts={toasts} remove={removeToast} />
     </div>
     </MobileCtx.Provider>

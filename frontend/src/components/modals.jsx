@@ -221,13 +221,14 @@ export function ModalProject({ project, onClose, openModal, playTrack, nowPlayin
 }
 
 // ─── MODAL: NEW PROJECT ────────────────────────────────────────────────────
-export function ModalNewProject({ onClose, onCreated }) {
+export function ModalNewProject({ onClose, onCreated, onUpgrade }) {
   const [title,    setTitle]    = useState('')
   const [songName, setSongName] = useState('')
   const [type,     setType]     = useState('Album')
   const [status,   setStatus]   = useState('Draft')
   const [saving,   setSaving]   = useState(false)
   const [err,      setErr]      = useState(null)
+  const [errCode,  setErrCode]  = useState(null)
   const [coverFile, setCoverFile] = useState(null)
   const [coverPreview, setCoverPreview] = useState(null)
   const coverInput = useRef()
@@ -246,7 +247,7 @@ export function ModalNewProject({ onClose, onCreated }) {
 
   const handleCreate = async () => {
     if (!title.trim()) return
-    setSaving(true); setErr(null)
+    setSaving(true); setErr(null); setErrCode(null)
     try {
       const res = await projectsApi.create({ title: title.trim(), type, status })
       const project = res.data
@@ -269,6 +270,7 @@ export function ModalNewProject({ onClose, onCreated }) {
       onClose()
     } catch (e) {
       setErr(e.message || 'Failed to create project')
+      setErrCode(e.code || null)
     } finally {
       setSaving(false)
     }
@@ -307,8 +309,19 @@ export function ModalNewProject({ onClose, onCreated }) {
       {type !== 'Single' && (
         <Field label="First Song Name" placeholder="e.g. Track 1" value={songName} onChange={e => setSongName(e.target.value)} />
       )}
-      {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
-        border:'1px solid rgba(239,68,68,.15)', color:'#ef4444', fontSize:12.5, marginBottom:12 }}>{err}</div>}
+      {err && (
+        <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
+          border:'1px solid rgba(239,68,68,.15)', color:'#ef4444', fontSize:12.5, marginBottom:12,
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+          <span>{err}</span>
+          {errCode === 'project_limit' && (
+            <button onClick={onUpgrade} type="button" style={{ flexShrink:0, background:'none', border:'none',
+              cursor:'pointer', fontSize:12.5, fontWeight:700, color:'#ef4444', textDecoration:'underline', fontFamily:'inherit' }}>
+              Upgrade
+            </button>
+          )}
+        </div>
+      )}
       <div style={{ display:'flex', gap:8, paddingTop:4 }}>
         <button onClick={onClose}
           style={{ height:42, padding:'0 18px', borderRadius:10, border:'none', cursor:'pointer',
@@ -639,7 +652,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     ]
     return (
       <div style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', overflowY:'auto', color:'var(--t1)',
-        fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif", WebkitFontSmoothing:'antialiased' }}>
+        fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", WebkitFontSmoothing:'antialiased' }}>
         {/* ambient glows */}
         <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#F28FB8'}14, transparent 65%)`, pointerEvents:'none' }}/>
@@ -665,13 +678,13 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
           <span style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 14px', borderRadius:100,
             background:`${C.coral}1c`, border:`1px solid ${C.coral}38`, marginBottom:18 }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.coral }}/>
-            <span style={{ fontSize:11, fontWeight:800, letterSpacing:'.12em', color:C.coral, textTransform:'uppercase' }}>2 months free</span>
+            <span style={{ fontSize:11, fontWeight:800, letterSpacing:'.12em', color:C.coral, textTransform:'uppercase' }}>Upgrade anytime</span>
           </span>
           <h1 style={{ margin:'0 0 14px', fontSize: isMobile ? 34 : 54, fontWeight:900, letterSpacing:'-2.2px', lineHeight:1.04, color:'var(--t1)' }}>
             Choose your <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>plan</span>
           </h1>
           <p style={{ margin:'0 auto', fontSize: isMobile ? 14.5 : 16, color:W.t3, lineHeight:1.6, maxWidth:480 }}>
-            Create projects, invite your crew &amp; export. No charge until month 3 · Cancel anytime.
+            Unlimited projects, Smart Mix &amp; export. Cancel anytime.
           </p>
         </div>
 
@@ -705,7 +718,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
                     <span style={{ fontSize:38, fontWeight:900, color:'var(--t1)', letterSpacing:'-1.5px' }}>${p.price}</span>
                     <span style={{ fontSize:14, color:W.t3, fontWeight:600 }}>/mo</span>
                   </div>
-                  <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Free for 2 months</div>
+                  <div style={{ fontSize:12, color: hot ? C.coral : W.t3, fontWeight:700, marginTop:6, marginBottom:18 }}>Billed monthly</div>
                   <button onClick={() => handleCheckout(p.id)} disabled={acting} style={{
                     width:'100%', height:50, borderRadius:13, cursor: acting ? 'default' : 'pointer', fontFamily:'inherit',
                     fontSize:14.5, fontWeight:800, letterSpacing:'-.1px',
@@ -715,7 +728,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
                     transition:'all .15s', opacity: acting && !loading ? .45 : 1 }}
                     onMouseEnter={e => { if (acting) return; if (hot) { e.currentTarget.style.transform='translateY(-1px)' } else { e.currentTarget.style.borderColor=C.coral; e.currentTarget.style.background='rgba(var(--fg),.05)' } }}
                     onMouseLeave={e => { if (hot) { e.currentTarget.style.transform='none' } else { e.currentTarget.style.borderColor='rgba(var(--fg),.22)'; e.currentTarget.style.background='transparent' } }}>
-                    {loading ? 'Opening Stripe…' : hot ? 'Start free trial' : `Choose ${p.label}`}
+                    {loading ? 'Opening Stripe…' : `Choose ${p.label}`}
                   </button>
                   <div style={{ height:1, background:W.line, margin:'20px 0 16px' }}/>
                   <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -764,7 +777,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
               </svg>
-              Secure checkout · $0 today · cancel anytime · By continuing you agree to our&nbsp;
+              Secure checkout · cancel anytime · By continuing you agree to our&nbsp;
               <a href="/terms" style={{ color:W.t2, textDecoration:'underline' }}>Terms</a>.
             </div>
             <div>
@@ -815,7 +828,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         </div>
         {status === 'trialing' && (
           <div style={{ fontSize:11, color:'#f59e0b', marginTop:4, fontWeight:600 }}>
-            Free until day 60 · then ${PLAN_PRICE[plan]}/mo · {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
+            Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''} · then ${PLAN_PRICE[plan]}/mo
           </div>
         )}
         {status === 'past_due' && (
@@ -853,6 +866,34 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
           {acting ? 'Redirecting…' : 'Manage Subscription'}
         </Btn>
         <Btn variant="ghost" style={{ flex:1 }} onClick={onClose}>Close</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── MODAL: UPGRADE REQUIRED ────────────────────────────────────────────────
+// Small, centered explainer for a blocked paid-only action (export, Smart Mix,
+// …) — shown INSTEAD of the full plans page, so the moment reads as "here's
+// why, and here's the link to fix it" rather than a jump-scare paywall. The
+// link opens the real ModalBilling (plans page) via onUpgrade.
+export function ModalUpgradeRequired({ title, message, onClose, onUpgrade }) {
+  return (
+    <Modal title={title || 'Upgrade to continue'} onClose={onClose} accent={C.coral}>
+      <div style={{ textAlign:'center', padding:'8px 0 4px' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:`${C.coral}12`,
+          border:`2px solid ${C.coral}22`, display:'flex', alignItems:'center',
+          justifyContent:'center', margin:'0 auto 16px' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
+        <p style={{ color:C.t2, fontSize:13.5, margin:'0 0 22px', lineHeight:1.6 }}>
+          {message || 'This feature is part of a paid plan.'}
+        </p>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn onClick={() => { onClose(); onUpgrade?.() }} style={{ flex:1 }}>See plans</Btn>
+          <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Not now</Btn>
+        </div>
       </div>
     </Modal>
   )
@@ -1265,7 +1306,7 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 }
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
-export function ModalUpload({ project, folderId, folderName, onClose, user, addToast, updateToast }) {
+export function ModalUpload({ project, folderId, folderName, onClose, user, addToast, updateToast, onUpgrade }) {
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
@@ -1273,6 +1314,7 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
   const [uploading,     setUploading]     = useState(false)
   const [allDone,       setAllDone]       = useState(false)
   const [requesting,    setRequesting]    = useState(null)
+  const [limitInfo,     setLimitInfo]     = useState(null)  // { accepted, blocked } once the free-tier stem cap is hit
   // Analytics: record a completed upload batch (fires once when it finishes).
   useEffect(() => { if (allDone) track('stems_uploaded') }, [allDone])
   // Resolve the real song name (the badge used to read literal "this song").
@@ -1489,7 +1531,8 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
             multipart: { uploadId: d.upload_id, partSize: d.part_size, partCount: d.part_count } })
         } else if (r.status === 'rejected') {
           const msg = r.reason?.message || ''
-          if (/access|collaborat|request/i.test(msg)) blocked.push({ file_name: p.name })
+          if (r.reason?.code === 'stem_limit') blocked.push({ file_name: p.name, code: 'stem_limit', error: msg })
+          else if (/access|collaborat|request/i.test(msg)) blocked.push({ file_name: p.name })
           else if (!initError) initError = msg   // surface storage-limit / other init errors
         }
       })
@@ -1498,7 +1541,13 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
     // Nothing to transfer (all blocked, over storage, or init returned no rows) —
     // never close silently; tell the user exactly what happened.
     if (recs.length === 0) {
-      setUploading(false); onClose()
+      setUploading(false)
+      const stemLimitBlocked = blocked.filter(b => b.code === 'stem_limit')
+      if (stemLimitBlocked.length) {
+        setLimitInfo({ accepted: 0, blocked: stemLimitBlocked.length, message: stemLimitBlocked[0]?.error })
+        return
+      }
+      onClose()
       addToast?.(initError
         ? initError
         : blocked.length
@@ -1526,12 +1575,23 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
     window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 1 } }))
     enqueue(recs)
 
-    // Stems exist + are showing now → close the modal (we kept it open with its
-    // "Uploading…" spinner through batch-init, so there's no empty-screen flash).
+    // Stems exist + are showing now. Normally we close here (we kept the modal
+    // open with its "Uploading…" spinner through batch-init, so there's no
+    // empty-screen flash) — but if the free-tier stem cap is what blocked some
+    // of the batch, that's a real decision point, not a fire-and-forget notice,
+    // so we keep the modal open and show it instead of a passive toast.
     setUploading(false)
-    onClose()
 
-    if (blocked.length) addToast?.(`${blocked.length} stem${blocked.length > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
+    const stemLimitBlocked = blocked.filter(b => b.code === 'stem_limit')
+    const accessBlocked    = blocked.filter(b => b.code !== 'stem_limit')
+
+    if (stemLimitBlocked.length) {
+      setLimitInfo({ accepted: recs.length, blocked: stemLimitBlocked.length, message: stemLimitBlocked[0]?.error })
+    } else {
+      onClose()
+    }
+
+    if (accessBlocked.length) addToast?.(`${accessBlocked.length} stem${accessBlocked.length > 1 ? 's' : ''} need access to upload — request it on the project`, { type: 'info' })
     if (recs.length && (!selProj.status || selProj.status === 'Draft')) {
       projectsApi.update(selProj.id, { status: 'In Progress' }).catch(() => {})
     }
@@ -1572,6 +1632,33 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
     if (s === 'uploading') return <div style={{ flexShrink:0 }}><Spinner size={18} /></div>
     return <div style={{ width:18, height:18, borderRadius:'50%', background:'rgba(0,0,0,.08)', flexShrink:0 }} />
   }
+
+  if (limitInfo) return (
+    <Modal title="Free plan limit reached" onClose={onClose} accent="#f59e0b">
+      <div style={{ textAlign:'center', padding:'8px 0 4px' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(245,158,11,.1)',
+          border:'2px solid rgba(245,158,11,.25)', display:'flex', alignItems:'center',
+          justifyContent:'center', margin:'0 auto 16px' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div style={{ fontSize:15, fontWeight:700, color:C.t1, marginBottom:6, letterSpacing:'-.2px' }}>
+          {limitInfo.accepted > 0
+            ? `${limitInfo.accepted} stem${limitInfo.accepted > 1 ? 's' : ''} added — ${limitInfo.blocked} skipped`
+            : `${limitInfo.blocked} stem${limitInfo.blocked > 1 ? 's' : ''} couldn't be added`}
+        </div>
+        <p style={{ color:C.t3, fontSize:13, margin:'0 0 22px', lineHeight:1.5 }}>
+          {limitInfo.message || 'Your free plan has a stem limit for this project.'} Upgrade for unlimited stems, or keep working with what you have.
+        </p>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn onClick={() => { onClose(); onUpgrade?.() }} style={{ flex:1 }}>Upgrade</Btn>
+          <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Not now</Btn>
+        </div>
+      </div>
+    </Modal>
+  )
 
   if (allDone) return (
     <Modal title="Working on your stems" onClose={onClose}>

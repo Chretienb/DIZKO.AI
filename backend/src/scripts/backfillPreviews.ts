@@ -1,7 +1,12 @@
 /**
- * One-off backfill: generate the small MP3 preview for every existing WAV stem
- * that doesn't have one yet, so the whole library plays instantly (not just new
- * uploads). Mirrors what enrichStemInBackground now does for new stems.
+ * One-off backfill: generate the small AAC playback asset for every existing
+ * WAV/FLAC stem that doesn't have an instant-play asset yet (older stems, or
+ * ones whose original transcode failed), so the whole library plays instantly
+ * — not just new uploads. Mirrors what enrichStemInBackground now does for
+ * new stems. Stems that already have an MP3 preview from before the AAC
+ * switch are left alone — MP3 already satisfies "small + instantly playable"
+ * just as well, so re-encoding them would be pure churn for no user-visible
+ * gain (see notes.preview: it was never coupled to a specific codec).
  *
  *   bun src/scripts/backfillPreviews.ts --dry-run     # just report counts
  *   bun src/scripts/backfillPreviews.ts               # do it
@@ -12,7 +17,7 @@
  */
 import { supabase } from '../lib/supabase'
 import { getR2SignedUrl, uploadToR2 } from '../lib/r2'
-import { transcodeToPreview, previewKeyFor, PREVIEW_CONTENT_TYPE } from '../lib/transcode'
+import { transcodeToPlaybackAsset, playbackKeyFor, PLAYBACK_CONTENT_TYPE } from '../lib/transcode'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const limitArg = process.argv.indexOf('--limit')
@@ -39,9 +44,9 @@ async function backfillOne(s: any): Promise<'done' | 'skip' | 'fail'> {
     if (!res.ok) throw new Error(`download HTTP ${res.status}`)
     const wav = Buffer.from(await res.arrayBuffer())
 
-    const mp3 = await transcodeToPreview(wav)
-    const key = previewKeyFor(s.id)
-    await uploadToR2(key, mp3, PREVIEW_CONTENT_TYPE)
+    const aac = await transcodeToPlaybackAsset(wav)
+    const key = playbackKeyFor(s.id)
+    await uploadToR2(key, aac, PLAYBACK_CONTENT_TYPE)
 
     // Re-read notes right before writing so we don't clobber a concurrent update.
     const { data: fresh } = await supabase.from('stems').select('notes').eq('id', s.id).single()
@@ -49,8 +54,8 @@ async function backfillOne(s: any): Promise<'done' | 'skip' | 'fail'> {
     const { error } = await supabase.from('stems').update({ notes: JSON.stringify(merged) }).eq('id', s.id)
     if (error) throw new Error(`db update: ${error.message}`)
 
-    const pct = (mp3.length / wav.length * 100).toFixed(0)
-    console.log(`  ✓ ${s.id}  ${(wav.length / 1e6).toFixed(1)}MB → ${(mp3.length / 1e6).toFixed(2)}MB (${pct}%)`)
+    const pct = (aac.length / wav.length * 100).toFixed(0)
+    console.log(`  ✓ ${s.id}  ${(wav.length / 1e6).toFixed(1)}MB → ${(aac.length / 1e6).toFixed(2)}MB (${pct}%)`)
     return 'done'
   } catch (e) {
     console.error(`  ✗ ${s.id}  ${(e as Error).message}`)
@@ -61,13 +66,40 @@ async function backfillOne(s: any): Promise<'done' | 'skip' | 'fail'> {
 async function main() {
   const { data, error } = await supabase
     .from('stems')
-    .select('id, mime_type, original_name, storage_path, notes')
+    .select('id, mime_type, original_name, storage_path, notes, track_id')
   if (error) { console.error('query failed:', error.message); process.exit(1) }
 
-  const candidates = (data as any[])
+  let candidates = (data as any[])
     .filter(isLossless)
     .filter(s => !parseNotes(s).preview && s.storage_path)
-    .slice(0, LIMIT === Infinity ? undefined : LIMIT)
+
+  // Prioritize projects people are actually working in now, so the win shows
+  // up there first — not spent on a dormant/archived project nobody's open.
+  // Best-effort: any lookup failure just leaves that stem in its original
+  // (unprioritized) position rather than aborting the whole run.
+  try {
+    const trackIds = [...new Set(candidates.map(s => s.track_id).filter(Boolean))]
+    const { data: tracks } = await supabase.from('tracks').select('id, project_id').in('id', trackIds)
+    const trackToProject = new Map((tracks as any[] ?? []).map(t => [t.id, t.project_id]))
+
+    const projectIds = [...new Set([...trackToProject.values()].filter(Boolean))]
+    const { data: projects } = await supabase.from('projects').select('id, status, updated_at').in('id', projectIds)
+    const projectInfo = new Map((projects as any[] ?? []).map(p => [p.id, p]))
+
+    candidates.sort((a, b) => {
+      const pa = projectInfo.get(trackToProject.get(a.track_id))
+      const pb = projectInfo.get(trackToProject.get(b.track_id))
+      const aArchived = pa?.status === 'Archived', bArchived = pb?.status === 'Archived'
+      if (aArchived !== bArchived) return aArchived ? 1 : -1   // active projects first
+      const at = pa?.updated_at ? new Date(pa.updated_at).getTime() : 0
+      const bt = pb?.updated_at ? new Date(pb.updated_at).getTime() : 0
+      return bt - at   // most recently active first
+    })
+  } catch (e) {
+    console.error('project-priority lookup failed, continuing in default order:', (e as Error).message)
+  }
+
+  candidates = candidates.slice(0, LIMIT === Infinity ? undefined : LIMIT)
 
   console.log(`${candidates.length} WAV stem(s) need a preview${DRY_RUN ? ' (dry-run — nothing written)' : ''}.`)
   if (DRY_RUN || candidates.length === 0) return
