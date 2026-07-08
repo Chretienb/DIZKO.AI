@@ -131,7 +131,7 @@ export default function PageLibrary({ openModal, user, onProfileUpdate }) {
 
       <h1 style={{ margin:'0 0 20px', fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Library</h1>
 
-      <div style={{ display:'flex', gap:14, alignItems:'start' }}>
+      <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:14, alignItems: isMobile ? 'stretch' : 'start' }}>
 
         {/* ── Album list sidebar ── */}
         {!isMobile ? (

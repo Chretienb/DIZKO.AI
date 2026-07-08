@@ -1337,7 +1337,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           background:C.surface, boxShadow:'0 2px 12px rgba(0,0,0,.25)' }}>
 
           {/* Title strip */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap',
             padding:'12px 16px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0, flexWrap:'wrap' }}>
               <ProjectPicker projects={projects} activeId={activeId} onSelect={setActiveId} />
@@ -1354,7 +1354,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               )}
             </div>
             <div style={{ display:'flex', gap:10, alignItems:'center', flexShrink:0 }}>
-              <PresenceBar peers={presencePeers} />
+              {!isMobile && <PresenceBar peers={presencePeers} />}
               <button onClick={() => openModal('upload', { project:activeProject })}
                 style={{ display:'flex', alignItems:'center', gap:6, height:34, padding:'0 12px', borderRadius:8,
                   border:'none', background:'rgba(var(--fg),.05)', color:C.t1, fontSize:13, fontWeight:500,

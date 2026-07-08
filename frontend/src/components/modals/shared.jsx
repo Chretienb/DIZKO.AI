@@ -17,7 +17,7 @@ export function Modal({ title, sub, onClose, children, width=520, accent='#E95A5
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label={title}
         style={{ background:'var(--surface)', borderRadius:16, width:'100%', maxWidth:width,
-        maxHeight:'92vh', overflow:'hidden', display:'flex', flexDirection:'column',
+        maxHeight:'92dvh', overflow:'hidden', display:'flex', flexDirection:'column',
         border:'1px solid var(--border)', boxShadow:'0 20px 56px rgba(0,0,0,.32)', position:'relative',
         opacity: shown ? 1 : 0,
         transform: shown ? 'translateY(0) scale(1)' : 'translateY(8px) scale(.985)',

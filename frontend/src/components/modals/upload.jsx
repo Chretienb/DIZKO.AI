@@ -2,6 +2,7 @@
 // Extracted from components/modals.jsx (M2 #9). modals.jsx re-exports these.
 import React, { useState, useEffect, useRef } from 'react'
 import { C } from '../ui/index.jsx'
+import { useIsMobile } from '../../lib/mobile'
 
 export const ROLE_PERMS = {
   Vocalist:'vocals, harmonies', Guitarist:'guitar', Drummer:'drums, percussion',
@@ -206,6 +207,7 @@ export function detectInstrument(filename) {
 }
 
 export function InstrPicker({ value, onChange }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef()
@@ -232,11 +234,13 @@ export function InstrPicker({ value, onChange }) {
       <button onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
         style={{ height:24, padding:'0 10px', borderRadius:100, border:'none', cursor:'pointer',
           background: current ? `${current.color}18` : 'rgba(0,0,0,.06)',
-          color: current ? current.color : C.t3,
+          color: current ? current.color : C.t3, maxWidth: isMobile ? 84 : undefined,
           fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:5,
           whiteSpace:'nowrap', transition:'all .12s' }}>
-        {current ? current.label : 'Set instrument'}
-        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {current ? current.label : (isMobile ? 'Instrument' : 'Set instrument')}
+        </span>
+        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ flexShrink:0 }}><polyline points="6,9 12,15 18,9"/></svg>
       </button>
       {open && (
         <div style={{ position:'fixed', zIndex:9999,

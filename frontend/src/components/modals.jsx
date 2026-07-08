@@ -1169,7 +1169,8 @@ export function ModalMessage({ collab, onClose, currentUserId }) {
 
   return (
     <Modal title={`Message ${name}`} sub={`${collab.role || 'Collaborator'} · ${collabEmail(collab)}`} onClose={onClose} width={480}>
-      <div style={{ height:300, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, marginBottom:16, padding:'4px 0' }}>
+      <div style={{ maxHeight:'45dvh', minHeight:120, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain',
+        display:'flex', flexDirection:'column', gap:8, marginBottom:16, padding:'4px 0' }}>
         {loading ? (
           <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}><Spinner size={20} color={C.coral}/></div>
         ) : msgs.length === 0 ? (
@@ -1307,6 +1308,7 @@ export function ModalNewTrack({ project, onClose, onCreated }) {
 
 // ─── MODAL: UPLOAD ─────────────────────────────────────────────────────────
 export function ModalUpload({ project, folderId, folderName, onClose, user, addToast, updateToast, onUpgrade }) {
+  const isMobile = useIsMobile()
   const [drag,          setDrag]          = useState(false)
   const [queue,         setQueue]         = useState([])
   const [projects,      setProjects]      = useState([])
@@ -1767,22 +1769,28 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
           color: (drag || extracting) ? C.coral : 'rgba(var(--fg),.85)' }}>
           {extracting
             ? <><Spinner size={15} color={C.coral}/> Extracting zip…</>
-            : drag ? 'Drop to upload' : 'Drop files here, or click to browse'}
+            : drag ? 'Drop to upload' : isMobile ? 'Tap to choose files' : 'Drop files here, or click to browse'}
         </div>
         <p style={{ margin:'0 0 14px', fontSize:11.5, color:'rgba(var(--fg),.4)' }}>
           {extracting ? 'Reading your stems — this can take a moment for big archives'
+                      : isMobile ? <>.zip welcome · WAV, MP3, FLAC · up to {MAX_MB} MB each</>
                       : <>Folders &amp; .zip welcome · WAV, MP3, FLAC · up to {MAX_MB} MB each</>}
         </p>
-        <button onClick={e => { e.stopPropagation(); folderRef.current?.click() }}
-          style={{ display:'inline-flex', alignItems:'center', gap:6, height:34, padding:'0 14px',
-            borderRadius:10, border:'1px solid rgba(var(--fg),.14)', background:'var(--surface)',
-            color:'rgba(var(--fg),.8)', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
-            transition:'border-color .12s' }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = C.coral}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(var(--fg),.14)'}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-          Import a folder
-        </button>
+        {/* "Import a folder" needs webkitdirectory, which iOS Safari doesn't
+            support at all — the button would be a dead tap there, so it's
+            hidden rather than left as a confusing no-op. */}
+        {!isMobile && (
+          <button onClick={e => { e.stopPropagation(); folderRef.current?.click() }}
+            style={{ display:'inline-flex', alignItems:'center', gap:6, height:34, padding:'0 14px',
+              borderRadius:10, border:'1px solid rgba(var(--fg),.14)', background:'var(--surface)',
+              color:'rgba(var(--fg),.8)', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+              transition:'border-color .12s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = C.coral}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(var(--fg),.14)'}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            Import a folder
+          </button>
+        )}
       </div>
 
       {skipped > 0 && (

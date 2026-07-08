@@ -99,13 +99,13 @@ export default function TrackItem({
 
       {/* Row — keyboard accessible */}
       <div role="button" tabIndex={0} aria-expanded={isExpanded} aria-label={`${stemLabel} track — ${s.suggested_name || s.original_name}`}
-        style={{ display:'flex', alignItems:'center', padding:'14px 18px', gap:0, cursor:'pointer' }}
+        style={{ display:'flex', alignItems:'center', padding: isMobile ? '12px 10px' : '14px 18px', gap:0, cursor:'pointer' }}
         onClick={() => onToggleExpand(s.id)}
         onKeyDown={e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onToggleExpand(s.id) } }}>
 
         {/* Color bar + playing pulse */}
         <div aria-hidden="true" style={{ position:'relative', width:4, height:40, borderRadius:2,
-          background: isMuted ? 'rgba(var(--fg),.2)' : color, flexShrink:0, marginRight:14,
+          background: isMuted ? 'rgba(var(--fg),.2)' : color, flexShrink:0, marginRight: isMobile ? 8 : 14,
           boxShadow: isPlaying && !isMuted ? `0 0 8px ${color}` : 'none',
           transition:'all .2s' }}/>
 
@@ -189,20 +189,20 @@ export default function TrackItem({
           aria-label={isMuted ? `Unmute ${stemLabel}` : `Mute ${stemLabel}`}
           aria-pressed={isMuted}
           style={{
-            height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
+            height:28, width: isMobile ? 28 : undefined, padding: isMobile ? 0 : '0 10px', borderRadius: isMobile ? 8 : 100, flexShrink:0,
             border: `1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
             background: isMuted ? '#f59e0b' : 'transparent',
             color: isMuted ? '#fff' : C.t3,
             fontSize:11, fontWeight:700, cursor:'pointer',
             transition:'all .15s', letterSpacing:'.04em',
-            display:'flex', alignItems:'center', gap:5,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:5,
           }}>
           {isMuted ? (
             <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           ) : (
             <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
           )}
-          {isMuted ? 'Muted' : 'M'}
+          {!isMobile && (isMuted ? 'Muted' : 'M')}
         </button>
 
         {/* Solo */}
@@ -217,7 +217,7 @@ export default function TrackItem({
         </button>
 
         {/* Secondary actions */}
-        <div style={{ display:'flex', gap:4, flexShrink:0 }}
+        <div style={{ display:'flex', gap: isMobile ? 2 : 4, flexShrink:0 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
           <button onClick={()=>{ if (!stillProcessing) onPlay(s) }} disabled={stillProcessing}
             aria-label={stillProcessing ? `${stemLabel} is still processing` : `${previewPlaying?'Pause':'Play'} ${stemLabel}`}
@@ -230,11 +230,13 @@ export default function TrackItem({
             onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
             {stillProcessing ? <Spinner size={10} color={color}/> : previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
           </button>
-          <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
-            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
-            onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
-            <IconHeart size={13} filled={liked} color={liked?'#f4937a':'currentColor'}/>
-          </button>
+          {!isMobile && (
+            <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
+              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
+              onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
+              <IconHeart size={13} filled={liked} color={liked?'#f4937a':'currentColor'}/>
+            </button>
+          )}
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
             style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -250,7 +252,7 @@ export default function TrackItem({
               <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           )}
-          <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center' }}><IconDown size={14} rotate={isExpanded}/></div>
+          {!isMobile && <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center' }}><IconDown size={14} rotate={isExpanded}/></div>}
         </div>
       </div>
 

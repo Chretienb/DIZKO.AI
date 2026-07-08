@@ -943,7 +943,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         <style>{`@keyframes eq { 0% { height:4px } 100% { height:14px } }
           @keyframes chargeLane { 0% { width:4% } 60% { width:72% } 100% { width:94% } }
           .stem-row .lt-play-btn { opacity: 0 }
-          .stem-row:hover .lt-play-btn { opacity: 1 }`}</style>{/* equalizer + charge lane + hover-reveal play */}
+          .stem-row:hover .lt-play-btn { opacity: 1 }
+          /* Hover never reliably fires on touch — without this, Play/Archive
+             are invisible and untappable on every stem row on mobile. */
+          @media (max-width: 767px) { .stem-row .lt-play-btn { opacity: 1 } }`}</style>{/* equalizer + charge lane + hover-reveal play */}
 
         {/* Stem Sections */}
         <div style={{ padding: isMobile ? '16px' : '16px 24px', display:'flex', flexDirection:'column', gap:18 }}>
@@ -1032,8 +1035,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         style={{
                           background: isActive ? 'rgba(233,90,81,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid #E95A51' : (isFinals ? '1px solid #C8E8A0' : S.border),
-                          borderRadius:10, padding:'13px 16px', position:'relative', overflow:'hidden',
-                          display:'flex', alignItems:'center', gap:14, cursor:'pointer',
+                          borderRadius:10, padding: isMobile ? '11px 10px' : '13px 16px', position:'relative', overflow:'hidden',
+                          display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, cursor:'pointer',
                           opacity: draggingId === f.id ? .4 : 1,
                           transition:'border-color .12s, background .12s, box-shadow .12s, opacity .12s',
                           boxShadow: isSel ? '0 0 0 3px rgba(233,90,81,.08)' : 'none',
@@ -1504,6 +1507,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       <style>{`
         .lt-play-btn { opacity: 0 !important; }
         *:hover > .lt-play-btn, div:hover .lt-play-btn { opacity: 1 !important; }
+        @media (max-width: 767px) { .lt-play-btn { opacity: 1 !important; } }
       `}</style>
 
       {msgCollab && <MessageModal collab={msgCollab} onClose={() => setMsgCollab(null)} onSend={async (c,t) => { try { await messagesApi.send(c.user_id, t) } catch {} }}/>}
