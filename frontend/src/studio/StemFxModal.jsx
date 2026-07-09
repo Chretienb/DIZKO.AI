@@ -2,17 +2,21 @@ import React from 'react'
 import { C } from '../components/ui/index.jsx'
 import { DEFAULT_FX } from './fxChain.js'
 
-const Slider = ({ label, value, min, max, step, unit = '', onChange, disabled, color = C.coral }) => (
-  <div style={{ opacity: disabled ? .4 : 1, transition:'opacity .15s' }}>
+// `dim` is purely visual (not the HTML `disabled` attribute) — a disabled
+// <input type=range> can't be dragged at all, which meant touching a slider
+// before separately flipping the section's toggle silently did nothing. It
+// must stay interactive so grabbing a slider is what turns the effect on.
+const Slider = ({ label, value, min, max, step, unit = '', onChange, dim, color = C.coral }) => (
+  <div style={{ opacity: dim ? .55 : 1, transition:'opacity .15s' }}>
     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
       <span style={{ fontSize:11.5, fontWeight:600, color:C.t2 }}>{label}</span>
       <span style={{ fontSize:11, fontWeight:700, color:C.t3, fontVariantNumeric:'tabular-nums' }}>
         {value > 0 && unit !== '%' ? '+' : ''}{value}{unit}
       </span>
     </div>
-    <input type="range" min={min} max={max} step={step} value={value} disabled={disabled}
+    <input type="range" min={min} max={max} step={step} value={value}
       onChange={e => onChange(parseFloat(e.target.value))}
-      style={{ width:'100%', accentColor:color, cursor: disabled ? 'default' : 'pointer' }}/>
+      style={{ width:'100%', accentColor:color, cursor:'pointer' }}/>
   </div>
 )
 
@@ -36,7 +40,7 @@ const Section = ({ title, enabled, onToggleEnabled, children }) => (
   </div>
 )
 
-export default function StemFxModal({ open, stemLabel, value, onChange, onClose, onReset }) {
+export default function StemFxModal({ open, stemLabel, value, isPlaying, onPlay, onChange, onClose, onReset }) {
   if (!open) return null
   const v = value
   const set = (path, val) => {
@@ -44,6 +48,16 @@ export default function StemFxModal({ open, stemLabel, value, onChange, onClose,
     let o = next; const parts = path.split('.')
     for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]]
     o[parts[parts.length - 1]] = val
+    onChange(next)
+  }
+  // Touching any slider in a section turns that section on — most DAWs work
+  // this way, and requiring a separate tap on "Off" first before a dragged
+  // slider does anything audible is exactly the kind of thing that reads as
+  // "the FX don't work" even though the processing itself is fine.
+  const setInSection = (section, key, val) => {
+    const next = JSON.parse(JSON.stringify(v))
+    next[section][key] = val
+    next[section].enabled = true
     onChange(next)
   }
 
@@ -69,6 +83,16 @@ export default function StemFxModal({ open, stemLabel, value, onChange, onClose,
           </div>
         </div>
 
+        {!isPlaying && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, margin:'14px 18px 0', padding:'10px 12px',
+            borderRadius:10, background:'rgba(233,90,81,.08)', border:'1px solid rgba(233,90,81,.2)', flexShrink:0 }}>
+            <span style={{ fontSize:11.5, color:C.t2, flex:1, lineHeight:1.4 }}>Nothing's playing — start playback to hear changes live.</span>
+            <button onClick={onPlay} style={{ height:26, padding:'0 12px', borderRadius:7, border:'none', background:C.coral, color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+              Play
+            </button>
+          </div>
+        )}
+
         <div style={{ overflowY:'auto', padding:'0 18px' }}>
           {/* Pan — always active, no on/off (it's just positioning, not a processing effect) */}
           <div style={{ padding:'14px 0', borderBottom:`1px solid ${C.border}` }}>
@@ -78,27 +102,27 @@ export default function StemFxModal({ open, stemLabel, value, onChange, onClose,
           </div>
 
           <Section title="EQ" enabled={v.eq.enabled} onToggleEnabled={() => set('eq.enabled', !v.eq.enabled)}>
-            <Slider label="Low" value={v.eq.low} min={-15} max={15} step={0.5} unit="dB" disabled={!v.eq.enabled} onChange={val => set('eq.low', val)}/>
-            <Slider label="Mid" value={v.eq.mid} min={-15} max={15} step={0.5} unit="dB" disabled={!v.eq.enabled} onChange={val => set('eq.mid', val)}/>
-            <Slider label="High" value={v.eq.high} min={-15} max={15} step={0.5} unit="dB" disabled={!v.eq.enabled} onChange={val => set('eq.high', val)}/>
+            <Slider label="Low" value={v.eq.low} min={-15} max={15} step={0.5} unit="dB" dim={!v.eq.enabled} onChange={val => setInSection('eq','low', val)}/>
+            <Slider label="Mid" value={v.eq.mid} min={-15} max={15} step={0.5} unit="dB" dim={!v.eq.enabled} onChange={val => setInSection('eq','mid', val)}/>
+            <Slider label="High" value={v.eq.high} min={-15} max={15} step={0.5} unit="dB" dim={!v.eq.enabled} onChange={val => setInSection('eq','high', val)}/>
           </Section>
 
           <Section title="Compressor" enabled={v.comp.enabled} onToggleEnabled={() => set('comp.enabled', !v.comp.enabled)}>
-            <Slider label="Threshold" value={v.comp.threshold} min={-60} max={0} step={1} unit="dB" disabled={!v.comp.enabled} onChange={val => set('comp.threshold', val)}/>
-            <Slider label="Ratio" value={v.comp.ratio} min={1} max={20} step={0.5} unit=":1" disabled={!v.comp.enabled} onChange={val => set('comp.ratio', val)}/>
-            <Slider label="Attack" value={v.comp.attack} min={0.001} max={0.3} step={0.001} unit="s" disabled={!v.comp.enabled} onChange={val => set('comp.attack', val)}/>
-            <Slider label="Release" value={v.comp.release} min={0.02} max={1} step={0.01} unit="s" disabled={!v.comp.enabled} onChange={val => set('comp.release', val)}/>
+            <Slider label="Threshold" value={v.comp.threshold} min={-60} max={0} step={1} unit="dB" dim={!v.comp.enabled} onChange={val => setInSection('comp','threshold', val)}/>
+            <Slider label="Ratio" value={v.comp.ratio} min={1} max={20} step={0.5} unit=":1" dim={!v.comp.enabled} onChange={val => setInSection('comp','ratio', val)}/>
+            <Slider label="Attack" value={v.comp.attack} min={0.001} max={0.3} step={0.001} unit="s" dim={!v.comp.enabled} onChange={val => setInSection('comp','attack', val)}/>
+            <Slider label="Release" value={v.comp.release} min={0.02} max={1} step={0.01} unit="s" dim={!v.comp.enabled} onChange={val => setInSection('comp','release', val)}/>
           </Section>
 
           <Section title="Delay" enabled={v.delay.enabled} onToggleEnabled={() => set('delay.enabled', !v.delay.enabled)}>
-            <Slider label="Time" value={v.delay.time} min={0.02} max={1.5} step={0.01} unit="s" disabled={!v.delay.enabled} onChange={val => set('delay.time', val)}/>
-            <Slider label="Feedback" value={Math.round(v.delay.feedback*100)} min={0} max={90} step={1} unit="%" disabled={!v.delay.enabled} onChange={val => set('delay.feedback', val/100)}/>
-            <Slider label="Wet" value={Math.round(v.delay.wet*100)} min={0} max={100} step={1} unit="%" disabled={!v.delay.enabled} onChange={val => set('delay.wet', val/100)}/>
+            <Slider label="Time" value={v.delay.time} min={0.02} max={1.5} step={0.01} unit="s" dim={!v.delay.enabled} onChange={val => setInSection('delay','time', val)}/>
+            <Slider label="Feedback" value={Math.round(v.delay.feedback*100)} min={0} max={90} step={1} unit="%" dim={!v.delay.enabled} onChange={val => setInSection('delay','feedback', val/100)}/>
+            <Slider label="Wet" value={Math.round(v.delay.wet*100)} min={0} max={100} step={1} unit="%" dim={!v.delay.enabled} onChange={val => setInSection('delay','wet', val/100)}/>
           </Section>
 
           <Section title="Reverb" enabled={v.reverb.enabled} onToggleEnabled={() => set('reverb.enabled', !v.reverb.enabled)}>
-            <Slider label="Decay" value={v.reverb.decay} min={0.3} max={6} step={0.1} unit="s" disabled={!v.reverb.enabled} onChange={val => set('reverb.decay', val)}/>
-            <Slider label="Wet" value={Math.round(v.reverb.wet*100)} min={0} max={100} step={1} unit="%" disabled={!v.reverb.enabled} onChange={val => set('reverb.wet', val/100)}/>
+            <Slider label="Decay" value={v.reverb.decay} min={0.3} max={6} step={0.1} unit="s" dim={!v.reverb.enabled} onChange={val => setInSection('reverb','decay', val)}/>
+            <Slider label="Wet" value={Math.round(v.reverb.wet*100)} min={0} max={100} step={1} unit="%" dim={!v.reverb.enabled} onChange={val => setInSection('reverb','wet', val/100)}/>
           </Section>
 
           <div style={{ padding:'14px 0 18px', fontSize:11, color:C.t3, lineHeight:1.5 }}>

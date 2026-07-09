@@ -183,41 +183,43 @@ export default function TrackItem({
           </div>
         )}
 
-        {/* Mute pill — always visible, prominent */}
+        {/* Mute pill — icon-only, title carries the label. Used to show
+            "Muted"/"M" text on desktop, which was one of the biggest
+            contributors to this row feeling cramped once FX joined it. */}
         <button
           onClick={e => { e.stopPropagation(); onMute(s.id) }}
           aria-label={isMuted ? `Unmute ${stemLabel}` : `Mute ${stemLabel}`}
           aria-pressed={isMuted}
+          title={isMuted ? 'Muted' : 'Mute'}
           style={{
-            height:28, width: isMobile ? 28 : undefined, padding: isMobile ? 0 : '0 10px', borderRadius: isMobile ? 8 : 100, flexShrink:0,
+            height:28, width:28, padding:0, borderRadius:8, flexShrink:0,
             border: `1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
             background: isMuted ? '#f59e0b' : 'transparent',
             color: isMuted ? '#fff' : C.t3,
-            fontSize:11, fontWeight:700, cursor:'pointer',
-            transition:'all .15s', letterSpacing:'.04em',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:5,
+            cursor:'pointer', transition:'all .15s',
+            display:'flex', alignItems:'center', justifyContent:'center',
           }}>
           {isMuted ? (
             <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           ) : (
             <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
           )}
-          {!isMobile && (isMuted ? 'Muted' : 'M')}
         </button>
 
         {/* Solo */}
         <button onClick={e=>{e.stopPropagation();onSolo(s.id)}}
-          aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo}
-          style={{ height:28, padding:'0 10px', borderRadius:100, flexShrink:0,
+          aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo} title="Solo"
+          style={{ height:28, width:28, padding:0, borderRadius:8, flexShrink:0,
             border:`1.5px solid ${isSolo?'#6366f1':C.border}`,
             background:isSolo?'#6366f1':'transparent',
             color:isSolo?'#fff':C.t3,
-            fontSize:11, fontWeight:700, cursor:'pointer', transition:'all .15s', letterSpacing:'.04em' }}>
+            fontSize:11, fontWeight:700, cursor:'pointer', transition:'all .15s',
+            display:'flex', alignItems:'center', justifyContent:'center' }}>
           S
         </button>
 
         {/* Secondary actions */}
-        <div style={{ display:'flex', gap: isMobile ? 2 : 4, flexShrink:0 }}
+        <div style={{ display:'flex', gap: isMobile ? 2 : 3, flexShrink:0, marginLeft:2 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
           <button onClick={()=>{ if (!stillProcessing) onPlay(s) }} disabled={stillProcessing}
             aria-label={stillProcessing ? `${stemLabel} is still processing` : `${previewPlaying?'Pause':'Play'} ${stemLabel}`}

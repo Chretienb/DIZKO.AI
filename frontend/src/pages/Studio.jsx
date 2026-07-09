@@ -1585,6 +1585,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         open={!!fxOpenFor}
         stemLabel={fxStem ? (fxStem.suggested_name || fxStem.original_name || 'Stem') : ''}
         value={fxValue}
+        isPlaying={playing}
+        onPlay={playAll}
         onChange={next => fxOpenFor && updateStemFx(fxOpenFor, next)}
         onReset={() => fxOpenFor && updateStemFx(fxOpenFor, DEFAULT_FX)}
         onClose={() => setFxOpenFor(null)}
