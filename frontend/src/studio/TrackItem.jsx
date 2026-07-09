@@ -81,7 +81,7 @@ export default function TrackItem({
     <>
     <div style={{
       background: isMuted ? C.surface2 : C.surface,
-      borderRadius: 20,
+      borderRadius: isMobile ? 20 : 18,
       border: `1px solid ${isMuted ? C.border : isExpanded ? color+'28' : isPlaying ? color+'40' : C.border}`,
       boxShadow: isMuted ? 'none'
         : isPlaying ? `0 4px 20px ${color}22`
@@ -99,35 +99,42 @@ export default function TrackItem({
 
       {/* Row — keyboard accessible */}
       <div role="button" tabIndex={0} aria-expanded={isExpanded} aria-label={`${stemLabel} track — ${s.suggested_name || s.original_name}`}
-        style={{ display:'flex', alignItems:'center', padding: isMobile ? '12px 10px' : '14px 18px', gap:0, cursor:'pointer' }}
+        style={{ display:'flex', alignItems:'center', flexWrap: isMobile ? 'nowrap' : 'wrap', rowGap: isMobile ? 0 : 12,
+          padding: isMobile ? '12px 10px' : '20px 22px', gap:0, cursor:'pointer' }}
         onClick={() => onToggleExpand(s.id)}
         onKeyDown={e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onToggleExpand(s.id) } }}>
 
-        {/* Color bar + playing pulse */}
-        <div aria-hidden="true" style={{ position:'relative', width:4, height:40, borderRadius:2,
-          background: isMuted ? 'rgba(var(--fg),.2)' : color, flexShrink:0, marginRight: isMobile ? 8 : 14,
-          boxShadow: isPlaying && !isMuted ? `0 0 8px ${color}` : 'none',
+        {/* Color bar + playing pulse — thicker and taller on desktop, reads
+            more like a mixer channel's identity strip than a thin accent. */}
+        <div aria-hidden="true" style={{ position:'relative', width: isMobile ? 4 : 6, height: isMobile ? 40 : 50, borderRadius:3,
+          background: isMuted ? 'rgba(var(--fg),.2)' : color, flexShrink:0, marginRight: isMobile ? 8 : 18,
+          boxShadow: isPlaying && !isMuted ? `0 0 10px ${color}` : 'none',
           transition:'all .2s' }}/>
 
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:C.t1, letterSpacing:'-.2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>
+        {/* minWidth floor (desktop only) — with flexWrap on the row above,
+            this guarantees the name always gets real room; anything that
+            doesn't fit (transpose/volume/mute/solo/actions) wraps to its
+            own line below instead of squeezing the name to nothing. */}
+        <div style={{ flex:1, minWidth: isMobile ? 0 : 200 }}>
+          <div style={{ fontSize: isMobile ? 14 : 16.5, fontWeight:700, color:C.t1, letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom: isMobile ? 4 : 7 }}>
             {s.suggested_name || s.original_name || `Track ${i+1}`}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 9, minWidth:0, overflow:'hidden' }}>
             {/* Instrument chip — text label, not just color (★ for the Master) */}
-            <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:color, padding:'2px 8px', borderRadius:6, textTransform:'capitalize', letterSpacing:'.02em', display:'inline-flex', alignItems:'center', gap:3 }}>
+            <span style={{ fontSize: isMobile ? 10 : 10.5, fontWeight:700, color:'#fff', background:color, flexShrink:0,
+              padding: isMobile ? '2px 8px' : '3px 9px', borderRadius:7, textTransform:'capitalize', letterSpacing:'.02em', display:'inline-flex', alignItems:'center', gap:3 }}>
               {s.instrument === 'master' && <span aria-hidden="true">★</span>}
               {stemLabel}
             </span>
-            {/* Per-stem tempo + key */}
-            {stemBpm && (
-              <span style={{ fontSize:10, fontWeight:700, color, background:`${color}14`, padding:'2px 7px', borderRadius:6, letterSpacing:'.02em', fontVariantNumeric:'tabular-nums' }}>
-                {stemBpm} BPM
-              </span>
-            )}
-            {stemKey && (
-              <span style={{ fontSize:10, fontWeight:700, color, background:`${color}14`, padding:'2px 7px', borderRadius:6, letterSpacing:'.02em' }}>
-                {stemKey}
+            {/* Tempo + key — plain text, not competing boxed chips ("modern
+                simple" reads as fewer separately-outlined pills, not more).
+                Truncates instead of wrapping — the board column can be
+                narrow, and a wrapped multi-line meta row collided with the
+                Transpose stepper below it. */}
+            {(stemBpm || stemKey) && (
+              <span style={{ fontSize: isMobile ? 10 : 11.5, fontWeight:600, color:C.t3, fontVariantNumeric:'tabular-nums',
+                whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0 }}>
+                {[stemBpm && `${stemBpm} BPM`, stemKey].filter(Boolean).join(' · ')}
               </span>
             )}
             {aiFlag && (
@@ -140,12 +147,17 @@ export default function TrackItem({
                 {aiFlag.label}
               </button>
             )}
-            <Avatar name={uploaderName} url={uploader?.avatar_url} size={16} color={color} border="none"/>
-            <span style={{ fontSize:11.5, fontWeight:500, color:C.t2 }}>{uploaderName}</span>
+            <Avatar name={uploaderName} url={uploader?.avatar_url} size={isMobile ? 16 : 18} color={color} border="none"/>
+            <span style={{ fontSize: isMobile ? 11.5 : 12, fontWeight:500, color:C.t2 }}>{uploaderName}</span>
             {takes&&takes.length>1&&<span style={{ fontSize:10.5, color:C.t3, background:'rgba(var(--fg),.07)', padding:'2px 7px', borderRadius:100 }}>{takes.length} takes</span>}
           </div>
         </div>
 
+        {/* Controls cluster — Transpose/Volume/Mute/Solo/actions wrapped as
+            ONE flex item so they wrap to their own line together on desktop
+            when the row's too narrow, instead of splitting mid-cluster
+            (some controls stuck on line 1, others on line 2). */}
+        <div style={{ display:'flex', alignItems:'center', flexShrink:0, marginLeft: isMobile ? 0 : 24 }}>
         {/* Transpose — semitone stepper (pitch only, tempo/length unchanged).
             Hidden for drums where pitch has no musical meaning. */}
         {!isMobile && onTransposeChange && s.instrument !== 'drums' && (
@@ -168,31 +180,34 @@ export default function TrackItem({
         )}
 
         {/* Volume — slider + live % readout; double-click resets to 100% */}
+        {/* Volume — wider, channel-colored fader (matches the color bar/
+            instrument chip so each channel reads as its own strip, mixer-
+            style), not just a generic grey slider. */}
         {!isMobile && (
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:8, flexShrink:0 }}
+          <div style={{ display:'flex', alignItems:'center', gap:9, marginRight:16, flexShrink:0 }}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
             <input type="range" min={0} max={1} step={0.01} value={volume} aria-label={`Volume for ${stemLabel}`}
               onChange={e=>onVolumeChange(s.id, parseFloat(e.target.value))}
               onDoubleClick={()=>onVolumeChange(s.id, 1)}
               title="Double-click to reset to 100%"
-              style={{ width:56, accentColor:'#333', cursor:'pointer', opacity:isMuted?.3:1 }}/>
-            <span aria-hidden="true" style={{ width:30, textAlign:'right', fontSize:10, fontWeight:700,
-              color:C.t3, fontVariantNumeric:'tabular-nums', opacity:isMuted?.4:1 }}>
+              style={{ width:60, accentColor:color, cursor:'pointer', opacity:isMuted?.3:1 }}/>
+            <span aria-hidden="true" style={{ width:34, textAlign:'right', fontSize:11, fontWeight:700,
+              color:C.t2, fontVariantNumeric:'tabular-nums', opacity:isMuted?.4:1 }}>
               {Math.round((volume ?? 1) * 100)}%
             </span>
           </div>
         )}
 
-        {/* Mute pill — icon-only, title carries the label. Used to show
-            "Muted"/"M" text on desktop, which was one of the biggest
-            contributors to this row feeling cramped once FX joined it. */}
+        {/* Mute pill — icon-only, title carries the label. Bigger + bolder
+            on desktop so the row reads like a mixer's mute/solo pair, not a
+            row of tiny icon buttons. */}
         <button
           onClick={e => { e.stopPropagation(); onMute(s.id) }}
           aria-label={isMuted ? `Unmute ${stemLabel}` : `Mute ${stemLabel}`}
           aria-pressed={isMuted}
           title={isMuted ? 'Muted' : 'Mute'}
           style={{
-            height:28, width:28, padding:0, borderRadius:8, flexShrink:0,
+            height: isMobile ? 28 : 30, width: isMobile ? 28 : 30, padding:0, borderRadius: isMobile ? 8 : 9, flexShrink:0,
             border: `1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
             background: isMuted ? '#f59e0b' : 'transparent',
             color: isMuted ? '#fff' : C.t3,
@@ -200,75 +215,76 @@ export default function TrackItem({
             display:'flex', alignItems:'center', justifyContent:'center',
           }}>
           {isMuted ? (
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <svg width={isMobile?11:13} height={isMobile?11:13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           ) : (
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+            <svg width={isMobile?11:13} height={isMobile?11:13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
           )}
         </button>
 
         {/* Solo */}
         <button onClick={e=>{e.stopPropagation();onSolo(s.id)}}
           aria-label={isSolo?`Unsolo ${stemLabel}`:`Solo ${stemLabel}`} aria-pressed={isSolo} title="Solo"
-          style={{ height:28, width:28, padding:0, borderRadius:8, flexShrink:0,
+          style={{ height: isMobile ? 28 : 30, width: isMobile ? 28 : 30, padding:0, borderRadius: isMobile ? 8 : 9, flexShrink:0, marginLeft: isMobile ? 0 : 4,
             border:`1.5px solid ${isSolo?'#6366f1':C.border}`,
             background:isSolo?'#6366f1':'transparent',
             color:isSolo?'#fff':C.t3,
-            fontSize:11, fontWeight:700, cursor:'pointer', transition:'all .15s',
+            fontSize: isMobile ? 11 : 12.5, fontWeight:800, cursor:'pointer', transition:'all .15s',
             display:'flex', alignItems:'center', justifyContent:'center' }}>
           S
         </button>
 
         {/* Secondary actions */}
-        <div style={{ display:'flex', gap: isMobile ? 2 : 3, flexShrink:0, marginLeft:2 }}
+        <div style={{ display:'flex', gap: isMobile ? 2 : 4, flexShrink:0, marginLeft: isMobile ? 2 : 8 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
           <button onClick={()=>{ if (!stillProcessing) onPlay(s) }} disabled={stillProcessing}
             aria-label={stillProcessing ? `${stemLabel} is still processing` : `${previewPlaying?'Pause':'Play'} ${stemLabel}`}
             aria-pressed={!!previewPlaying}
             title={stillProcessing ? 'Still processing — ready in a few seconds' : undefined}
-            style={{ width:28, height:28, borderRadius:8, border:`1px solid ${color}30`,
+            style={{ width: isMobile?28:30, height: isMobile?28:30, borderRadius: isMobile?8:9, border:`1px solid ${color}30`,
               background: previewPlaying?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center',
               cursor: stillProcessing ? 'default' : 'pointer', color, transition:'all .12s', opacity: stillProcessing ? .5 : 1 }}
             onMouseEnter={e=>{ if (!stillProcessing) e.currentTarget.style.background=`${color}25` }}
             onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
-            {stillProcessing ? <Spinner size={10} color={color}/> : previewPlaying ? <IconPause size={9} color={color}/> : <IconPlay size={9} color={color}/>}
+            {stillProcessing ? <Spinner size={isMobile?10:12} color={color}/> : previewPlaying ? <IconPause size={isMobile?9:11} color={color}/> : <IconPlay size={isMobile?9:11} color={color}/>}
           </button>
           {!isMobile && (
             <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
+              style={{ width:30, height:30, borderRadius:9, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
               onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
-              <IconHeart size={13} filled={liked} color={liked?'#f4937a':'currentColor'}/>
+              <IconHeart size={15} filled={liked} color={liked?'#f4937a':'currentColor'}/>
             </button>
           )}
           {onOpenFx && !isMobile && (
             <button onClick={e=>{ e.stopPropagation(); onOpenFx() }} aria-label={`FX for ${stemLabel}`} title="Non-destructive playback FX"
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', fontSize:9.5, fontWeight:800, letterSpacing:'.02em', fontFamily:'inherit' }}
+              style={{ width:30, height:30, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', fontSize:10, fontWeight:800, letterSpacing:'.02em', fontFamily:'inherit' }}
               onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(var(--fg),.08)'}}
               onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.background='transparent'}}>
               FX
             </button>
           )}
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}
-            style={{ width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            style={{ width: isMobile?28:30, height: isMobile?28:30, borderRadius: isMobile?8:9, border:'none', cursor:'pointer', background:commentCount>0?`${color}12`:'rgba(var(--fg),.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:3, transition:'all .15s', position:'relative' }}>
+            <svg width={isMobile?12:14} height={isMobile?12:14} viewBox="0 0 24 24" fill="none" stroke={commentCount>0?color:C.t3} strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             {commentCount>0&&<span aria-hidden="true" style={{ position:'absolute', top:-6, right:-6, minWidth:18, height:18, padding:'0 4px', borderRadius:9, background:color, color:'#fff', fontSize:11, fontWeight:800, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center', border:`2px solid ${C.surface}`, fontVariantNumeric:'tabular-nums' }}>{commentCount}</span>}
           </button>
           {/* Trashcan removed on board stems per Angel — the X (remove from board)
               is the action we want here; deletion lives in the project view. */}
           {onRemoveFromBoard && (
             <button onClick={()=>onRemoveFromBoard(s.id)} aria-label={`Remove ${stemLabel} from board`} title="Remove from board"
-              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
+              style={{ width: isMobile?28:30, height: isMobile?28:30, borderRadius: isMobile?8:9, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s' }}
               onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(var(--fg),.08)'}}
               onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.background='transparent'}}>
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg width={isMobile?12:14} height={isMobile?12:14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           )}
-          {!isMobile && <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center' }}><IconDown size={14} rotate={isExpanded}/></div>}
+          {!isMobile && <div aria-hidden="true" style={{ color:'#ccc', display:'flex', alignItems:'center', marginLeft:2 }}><IconDown size={15} rotate={isExpanded}/></div>}
+        </div>
         </div>
       </div>
 
-      {/* Waveform — click to seek */}
+      {/* Waveform — click to seek. Taller on desktop, more of a real meter. */}
       {s.file_url && (
-        <div style={{ padding:'0 18px 10px', marginTop:-4 }}>
+        <div style={{ padding: isMobile ? '0 18px 10px' : '0 22px 16px', marginTop: isMobile ? -4 : -6 }}>
           <Waveform
             url={s.file_url}
             color={color}
@@ -277,7 +293,7 @@ export default function TrackItem({
             isPlaying={isPlaying}
             storedPeaks={storedPeaks}
             muted={isMuted}
-            height={44}
+            height={isMobile ? 44 : 58}
             onSeek={onSeek ? (sec) => onSeek(sec) : undefined}
             comments={comments || []}
             onMarkerClick={onSeek ? (sec) => onSeek(sec) : undefined}

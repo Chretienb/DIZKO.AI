@@ -1638,7 +1638,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               const id = e.dataTransfer.getData('text/stem-id')
               if (id) addToBoard(id)
             }}
-            style={{ display:'flex', flexDirection:'column', gap:10, padding:14,
+            style={{ display:'flex', flexDirection:'column', gap: isMobile ? 10 : 16, padding: isMobile ? 14 : 18,
               minHeight: isMobile ? 260 : 420,   // always keep visible droppable space below placed stems
               background: dragOver ? `${C.coral}08` : 'transparent', transition:'background .15s' }}>
             {stems.filter(s=>s.instrument==='original').map(s => {
