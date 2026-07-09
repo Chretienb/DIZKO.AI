@@ -935,6 +935,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   useEffect(() => { fxOpenForRef.current = fxOpenFor }, [fxOpenFor])
   const fxStem = fxOpenFor ? stems.find(s => s.id === fxOpenFor) : null
   const fxValue = fxStem ? mergeFx(parsedNotes(fxStem).fx) : DEFAULT_FX
+  const [bouncing, setBouncing] = useState(false)
+  const [bounceError, setBounceError] = useState('')
 
   const updateStemFx = (stemId, nextFx) => {
     // Live: reaches directly into the currently-playing chain, if any.
@@ -955,6 +957,36 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         return prev
       })
     }, 500)
+  }
+
+  // "Replace" — the one destructive-feeling action FX offers: render the FX
+  // chain for real (OfflineAudioContext, same createFxChain used for live
+  // playback, so what you hear is exactly what you get) and upload the
+  // result as a new take on the same track. Nothing is actually deleted —
+  // Dizko's existing take-history keeps the untouched original — but the
+  // new take becomes what plays, which is what "replace" means to a user.
+  const bounceReplaceFx = async (stemId) => {
+    const s = stems.find(x => x.id === stemId)
+    if (!s?.file_url) return
+    setBounceError('')
+    setBouncing(true)
+    try {
+      const audio = await preloadDecoded(s.file_url)
+      const offline = new OfflineAudioContext(audio.numberOfChannels, audio.length, audio.sampleRate)
+      const src = offline.createBufferSource(); src.buffer = audio
+      const fx = createFxChain(offline, mergeFx(parsedNotes(s).fx))
+      src.connect(fx.input); fx.output.connect(offline.destination)
+      src.start(0)
+      const rendered = await offline.startRendering()
+      const wav = audioBufferToWavBlob(rendered)
+      const base = (s.suggested_name || s.original_name || 'take').replace(/\.[a-z0-9]+$/i, '')
+      const file = new File([wav], `${base}_fx.wav`, { type: 'audio/wav' })
+      await filesApi.upload(file, activeId, { instrument: s.instrument })
+      setFxOpenFor(null)
+    } catch (e) {
+      setBounceError(e.message || 'Could not render — try again.')
+    }
+    setBouncing(false)
   }
 
   // Seek to a position (seconds). playAll reads offsetRef as its start point, so
@@ -1607,7 +1639,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         onPlay={playAll}
         onChange={next => fxOpenFor && updateStemFx(fxOpenFor, next)}
         onReset={() => fxOpenFor && updateStemFx(fxOpenFor, DEFAULT_FX)}
-        onClose={() => setFxOpenFor(null)}
+        onClose={() => { if (!bouncing) setFxOpenFor(null) }}
+        onReplace={() => fxOpenFor && bounceReplaceFx(fxOpenFor)}
+        bouncing={bouncing}
+        bounceError={bounceError}
       />
 
       {loading ? <LoadingBlock/> : (
