@@ -9,10 +9,38 @@ const IconLayers = ({size=13,color='currentColor'}) => <svg width={size} height=
 
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
+// Tap along with playback (or just by feel) to set the BPM right from the
+// board — the same value RecordPanel's stepper and count-in use, so a tempo
+// found here by ear while a stem is playing is exactly what recording locks
+// to. Live BPM readout doubles as the tap feedback, so no separate counter.
+function TapTempoButton({ bpm, onTap, showValue }) {
+  const [pulse, setPulse] = React.useState(false)
+  const pulseTimer = React.useRef(null)
+  const handleClick = () => {
+    onTap()
+    setPulse(true)
+    clearTimeout(pulseTimer.current)
+    pulseTimer.current = setTimeout(() => setPulse(false), 120)
+  }
+  return (
+    <button onClick={handleClick} aria-label="Tap tempo" title="Tap to set BPM"
+      style={{ display:'flex', alignItems:'center', gap:6, height:28, padding:'0 10px', borderRadius:8, flexShrink:0,
+        border:`1px solid ${pulse ? C.coral : C.border}`, background: pulse ? `${C.coral}18` : 'transparent',
+        cursor:'pointer', fontFamily:'inherit', transition:'background .08s, border-color .08s' }}>
+      {showValue && (
+        <span style={{ fontSize:11.5, fontWeight:700, color: pulse ? C.coral : C.t2, fontVariantNumeric:'tabular-nums' }}>
+          {bpm}
+        </span>
+      )}
+      <span style={{ fontSize:10, fontWeight:800, letterSpacing:'.05em', color: pulse ? C.coral : C.t3 }}>TAP</span>
+    </button>
+  )
+}
+
 export default function Transport({
   playing, loadingPct, onStop, onPlay, onPause,
   currentTime, duration, onSeek,
-  bpm, onBpmChange,
+  bpm, onBpmChange, onTapTempo,
   metronomeOn, onToggleMetronome,
   beatFlash, detectingBpm, onDetectBpm,
   stems, trackCount = 0, preparing = 0, preparingTotal = 0,
@@ -119,6 +147,11 @@ export default function Transport({
       <span style={{ fontSize:11.5, fontFamily:'monospace', fontWeight:500, color:C.t3, flexShrink:0, fontVariantNumeric:'tabular-nums' }}>
         {fmt(currentTime)}{duration > 0 ? ` / ${fmt(duration)}` : ''}
       </span>
+
+      {/* Tap tempo — works while a stem is playing (tap along to find the
+          beat by ear) or standalone; either way it sets the same BPM
+          recording's count-in and stepper use. */}
+      {onTapTempo && <TapTempoButton bpm={bpm} onTap={onTapTempo} showValue={!isMobile}/>}
     </div>
   )
 }
