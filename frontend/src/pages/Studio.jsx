@@ -338,6 +338,22 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [stems,         setStems]        = useState([])
   const [loading,       setLoading]      = useState(true)
   const [loadingStems,  setLoadingStems] = useState(true)
+  // The sticky console header (title strip + transport) can wrap to two lines
+  // (many song pills, presence avatars, a narrower window) and change height —
+  // the side panels below it are sticky too and must offset by its REAL height,
+  // not a guessed constant, or they ride up underneath it when it grows.
+  const headerRef = useRef(null)
+  const [headerH, setHeaderH] = useState(165)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    // entry.contentRect is the content box (padding excluded) — this header has
+    // real padding, so that undershoots the visible height. getBoundingClientRect
+    // gives the actual border-box height the panels below need to clear.
+    const ro = new ResizeObserver(() => setHeaderH(el.getBoundingClientRect().height))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const [playing,       setPlaying]      = useState(false)
   const playingRef      = useRef(false)   // mirrors `playing` for use inside callbacks
   const [currentTime,   setCurrentTime]  = useState(0)
@@ -1806,7 +1822,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   return (
     <>
       {/* ── Console header + transport — sticky DAW-style bar ── */}
-      <div style={{ position:'sticky', top:0, zIndex:200, isolation:'isolate', background:C.bg,
+      <div ref={headerRef} style={{ position:'sticky', top:0, zIndex:200, isolation:'isolate', background:C.bg,
         paddingTop: isMobile ? 16 : 24, paddingBottom:16,
         marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
         paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>
@@ -1909,7 +1925,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':`${stemsW}px 1fr 300px`, gap:20, alignItems:'start' }}>
 
           {/* ── Stems library panel — tap +/- (or drag on desktop) to build the board ── */}
-          <div style={{ position: isMobile ? 'static' : 'sticky', top:165, borderRadius:14, overflow:'hidden',
+          <div style={{ position: isMobile ? 'static' : 'sticky', top:headerH, borderRadius:14, overflow:'hidden',
             border:`1px solid ${C.border}`, background:C.surface }}>
             {/* Drag the right edge to widen (long stem names) */}
             {!isMobile && (
@@ -1936,9 +1952,16 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           </div>
 
           {/* ── Board panel (drop zone) ── */}
-          <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${dragOver ? C.coral : C.border}`,
+          {/* No overflow:hidden on this outer box — that would make IT the sticky
+              containing block for the header below instead of the page, breaking
+              the header's stickiness. Rounding + clipping happens on the header
+              and content pieces individually instead. */}
+          <div style={{ borderRadius:14, border:`1px solid ${dragOver ? C.coral : C.border}`,
             background:C.bg, transition:'border-color .15s' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            {/* Sticky like the Stems/Smart Mix headers beside it — the panel itself
+                grows tall with tracks (page scrolls), so only this row pins. */}
+            <div style={{ position: isMobile ? 'static' : 'sticky', top:headerH, zIndex:5,
+              display:'flex', alignItems:'center', justifyContent:'space-between', borderRadius:'14px 14px 0 0',
               padding:'10px 14px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
               <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Board</span>
               <span style={{ fontSize:10.5, fontWeight:500, color:C.t3 }}>{boardStems.length} track{boardStems.length!==1?'s':''}</span>
@@ -1952,6 +1975,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               if (id) addToBoard(id)
             }}
             style={{ display:'flex', flexDirection:'column', gap: isMobile ? 10 : 16, padding: isMobile ? 14 : 18,
+              borderRadius:'0 0 14px 14px', overflow:'hidden',
               minHeight: isMobile ? 260 : 420,   // always keep visible droppable space below placed stems
               background: dragOver ? `${C.coral}08` : 'transparent', transition:'background .15s' }}>
             {stems.filter(s=>s.instrument==='original').map(s => {
@@ -2088,7 +2112,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           </div>
 
           {/* ── AI / Mix panel ── */}
-          <div style={{ position:'sticky', top:165 }}>
+          <div style={{ position:'sticky', top:headerH, zIndex:5, background:C.bg }}>
           <AIPanel
             aiAnalysis={aiAnalysis}
             smartMixUrl={smartMixUrl} smartMixInfo={smartMixInfo}
