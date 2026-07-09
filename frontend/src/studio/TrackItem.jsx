@@ -22,7 +22,7 @@ export default function TrackItem({
   currentTime, duration, isPlaying, previewPlaying, storedPeaks,
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
-  onRemoveFromBoard, onAddCommentAt, onReply, user, isOwner,
+  onRemoveFromBoard, onAddCommentAt, onReply, user, isOwner, onOpenFx,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const commentCount = (comments||[]).filter(c => !c.resolved).length
@@ -235,6 +235,14 @@ export default function TrackItem({
               style={{ width:28, height:28, borderRadius:8, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
               onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
               <IconHeart size={13} filled={liked} color={liked?'#f4937a':'currentColor'}/>
+            </button>
+          )}
+          {onOpenFx && !isMobile && (
+            <button onClick={e=>{ e.stopPropagation(); onOpenFx() }} aria-label={`FX for ${stemLabel}`} title="Non-destructive playback FX"
+              style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', fontSize:9.5, fontWeight:800, letterSpacing:'.02em', fontFamily:'inherit' }}
+              onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(var(--fg),.08)'}}
+              onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.background='transparent'}}>
+              FX
             </button>
           )}
           <button onClick={()=>onToggleExpand(s.id)} aria-label={`${commentCount>0?commentCount+' comments':'Comments'} for ${stemLabel}`}

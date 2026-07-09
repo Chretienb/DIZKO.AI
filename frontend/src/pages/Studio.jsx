@@ -9,6 +9,8 @@ import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
 import Transport from '../studio/Transport.jsx'
 import RecordPanel from '../studio/RecordPanel.jsx'
+import { createFxChain, DEFAULT_FX, mergeFx } from '../studio/fxChain.js'
+import StemFxModal from '../studio/StemFxModal.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
 import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
@@ -351,6 +353,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [smartMixInfo,  setSmartMixInfo] = useState(null)
   const audioRefs  = useRef({})
   const gainRefs   = useRef({})
+  const fxChainRefs = useRef({})   // stemId → { input, output, nodes, apply } — see studio/fxChain.js
   const ctxRef       = useRef(null)
   // Was previously "does ctxRef.current exist" — but the playback AudioContext
   // is now created once and kept alive across pause/stop (see ctxRef below), so
@@ -383,9 +386,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const mediaRecorderRef = useRef(null)
   const chunksRef        = useRef([])
   const armTimersRef     = useRef([])
+  const fxSaveTimers     = useRef({})   // stemId → debounce timer, see updateStemFx
 
   useEffect(() => () => {
     armTimersRef.current.forEach(clearTimeout)
+    Object.values(fxSaveTimers.current).forEach(clearTimeout)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try { mediaRecorderRef.current.stop() } catch {}
     }
@@ -534,7 +539,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const stopAll = () => {
     sessionActiveRef.current = false
     Object.values(audioRefs.current).forEach(a => { try { a.stop() } catch {} })
-    audioRefs.current = {}; gainRefs.current = {}; analyserRefs.current = {}
+    audioRefs.current = {}; gainRefs.current = {}; analyserRefs.current = {}; fxChainRefs.current = {}
     // The playback AudioContext is intentionally NOT closed here — it's created
     // once (see playAll) and kept alive + already-resumed across the whole
     // session, so every subsequent Play only has to create + schedule
@@ -626,7 +631,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     // never sound at once (the board already contains every stem). Silence the
     // single-stem preview before the mix rolls.
     window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'pause' } }))
-    stopAll(); gainRefs.current = {}; analyserRefs.current = {}
+    stopAll(); gainRefs.current = {}; analyserRefs.current = {}; fxChainRefs.current = {}
     // Persistent context (see sharedPlaybackCtx) — the FIRST Play in a session
     // still pays a real resume() cost (suspended by default until a user
     // gesture unlocks it), but every Play after that reuses the same, already-
@@ -754,7 +759,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
       analyserRefs.current[s.id] = analyser
       gainRefs.current[s.id]     = gain
-      src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
+      // Non-destructive per-stem FX — fixed-topology chain (see fxChain.js),
+      // stored per-session so live slider changes can reach into it directly.
+      const fx = createFxChain(ctx, parsedNotes(s).fx)
+      fxChainRefs.current[s.id] = fx
+      src.connect(fx.input); fx.output.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
 
       // All sources share the same startTime — perfectly in sync
       src.start(startTime, playFrom, effectiveDur - offsetRef.current)
@@ -898,6 +907,36 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (isRecording || armCount != null) return   // must Stop first, not just close
     setRecordOpen(false)
     setRecordError('')
+  }
+
+  // ── Per-stem FX ──────────────────────────────────────────────────────────
+  // Non-destructive: nothing here ever touches the stem's stored audio file,
+  // only notes.fx (playback-time parameters) and — while the stem is actively
+  // playing — the live nodes in fxChainRefs so a slider drag is heard
+  // immediately, not just on the next Play press.
+  const [fxOpenFor, setFxOpenFor] = useState(null)   // stem id, or null
+  const fxStem = fxOpenFor ? stems.find(s => s.id === fxOpenFor) : null
+  const fxValue = fxStem ? mergeFx(parsedNotes(fxStem).fx) : DEFAULT_FX
+
+  const updateStemFx = (stemId, nextFx) => {
+    // Live: reaches directly into the currently-playing chain, if any.
+    fxChainRefs.current[stemId]?.apply(nextFx)
+
+    // Local state: keeps the modal + any future Play press in sync immediately.
+    setStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s
+      return { ...s, notes: JSON.stringify({ ...parsedNotes(s), fx: nextFx }) }
+    }))
+
+    // Persist: debounced so dragging a slider doesn't fire a request per frame.
+    clearTimeout(fxSaveTimers.current[stemId])
+    fxSaveTimers.current[stemId] = setTimeout(() => {
+      setStems(prev => {
+        const s = prev.find(x => x.id === stemId)
+        if (s) filesApi.update(stemId, { notes: JSON.stringify({ ...parsedNotes(s), fx: nextFx }) }).catch(e => console.warn('[fx save]', e?.message))
+        return prev
+      })
+    }, 500)
   }
 
   // Seek to a position (seconds). playAll reads offsetRef as its start point, so
@@ -1222,6 +1261,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     if (src) { try { src.stop() } catch {} delete audioRefs.current[id] }
     delete gainRefs.current[id]
     delete analyserRefs.current[id]
+    delete fxChainRefs.current[id]
   }, [])
 
   // Board = chosen subset of mixer stems, in library order
@@ -1541,6 +1581,15 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         onStart={startRecording} onStop={stopRecording}
       />
 
+      <StemFxModal
+        open={!!fxOpenFor}
+        stemLabel={fxStem ? (fxStem.suggested_name || fxStem.original_name || 'Stem') : ''}
+        value={fxValue}
+        onChange={next => fxOpenFor && updateStemFx(fxOpenFor, next)}
+        onReset={() => fxOpenFor && updateStemFx(fxOpenFor, DEFAULT_FX)}
+        onClose={() => setFxOpenFor(null)}
+      />
+
       {loading ? <LoadingBlock/> : (
         <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':`${stemsW}px 1fr 300px`, gap:20, alignItems:'start' }}>
 
@@ -1704,6 +1753,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                   onReply={postReply}
                   onAddCommentAt={(sec, text) => postCommentAt(s.id, text, sec)}
                   onRemoveFromBoard={removeFromBoard}
+                  onOpenFx={() => setFxOpenFor(s.id)}
                 />
               )
             })}
