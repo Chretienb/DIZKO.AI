@@ -527,7 +527,20 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           if (!prev.some(x => x.id === id)) return prev   // not a stem we're tracking (wrong project/song)
           clearTimeout(refetchTimerRef.current)
           refetchTimerRef.current = setTimeout(() => {
-            filesApi.list(activeId).then(r => setStems(r.data || [])).catch(() => {})
+            filesApi.list(activeId).then(r => {
+              const fresh = r.data || []
+              // Never let this background refetch clobber a stem the user is
+              // actively dragging an FX slider on right now — this refetch is
+              // partly an echo of our OWN debounced FX save, and a fresher
+              // local edit can easily still be in flight when it lands. That
+              // was the "drag a fader, it snaps back" bug: the fix isn't
+              // timing (any interval can still race), it's simply never
+              // overwriting the stem currently open in the FX modal.
+              const editingId = fxOpenForRef.current
+              setStems(prevStems => editingId
+                ? fresh.map(f => f.id === editingId ? (prevStems.find(p => p.id === f.id) || f) : f)
+                : fresh)
+            }).catch(() => {})
           }, 400)
           return prev
         })
@@ -915,6 +928,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // playing — the live nodes in fxChainRefs so a slider drag is heard
   // immediately, not just on the next Play press.
   const [fxOpenFor, setFxOpenFor] = useState(null)   // stem id, or null
+  // Read from the realtime-refetch handler below, which lives in a
+  // useEffect that doesn't depend on fxOpenFor — a ref keeps it from
+  // reading a stale (always-null) value of which stem is being edited.
+  const fxOpenForRef = useRef(null)
+  useEffect(() => { fxOpenForRef.current = fxOpenFor }, [fxOpenFor])
   const fxStem = fxOpenFor ? stems.find(s => s.id === fxOpenFor) : null
   const fxValue = fxStem ? mergeFx(parsedNotes(fxStem).fx) : DEFAULT_FX
 

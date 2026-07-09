@@ -254,9 +254,9 @@ export default function TrackItem({
               <IconHeart size={15} filled={liked} color={liked?'#f4937a':'currentColor'}/>
             </button>
           )}
-          {onOpenFx && !isMobile && (
+          {onOpenFx && (
             <button onClick={e=>{ e.stopPropagation(); onOpenFx() }} aria-label={`FX for ${stemLabel}`} title="Non-destructive playback FX"
-              style={{ width:30, height:30, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', fontSize:10, fontWeight:800, letterSpacing:'.02em', fontFamily:'inherit' }}
+              style={{ width: isMobile?28:30, height: isMobile?28:30, borderRadius: isMobile?8:9, border:`1px solid ${C.border}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#ccc', transition:'all .12s', fontSize: isMobile?9:10, fontWeight:800, letterSpacing:'.02em', fontFamily:'inherit' }}
               onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(var(--fg),.08)'}}
               onMouseLeave={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.background='transparent'}}>
               FX
