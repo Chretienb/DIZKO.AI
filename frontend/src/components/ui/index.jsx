@@ -18,6 +18,16 @@ export const C = {
   t1: 'var(--t1)',
   t2: 'var(--t2)',
   t3: 'var(--t3)',
+  t4: 'var(--t4)',
+  surface3: 'var(--surface-3)',
+
+  // Brand geometry / depth / motion — defined once in index.css. Use these
+  // instead of hand-rolled radii/shadows/durations so surfaces stay in one
+  // visual family (chips r1, cards r2, panels/modals r3).
+  r1: 'var(--r-1)', r2: 'var(--r-2)', r3: 'var(--r-3)', rPill: 'var(--r-pill)',
+  shadow1: 'var(--shadow-1)', shadow2: 'var(--shadow-2)', shadow3: 'var(--shadow-3)',
+  ease: 'var(--ease)', dur1: 'var(--dur-1)', dur2: 'var(--dur-2)', dur3: 'var(--dur-3)',
+  glass: 'var(--glass)',
 }
 
 function initials(fullName = '') {
