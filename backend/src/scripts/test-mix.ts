@@ -30,14 +30,14 @@ const stems = [
 for (const s of stems) sh(`ffmpeg -y -f lavfi -i "${s.gen}" -af "volume=${s.vol}" -ar 44100 -ac 2 "${s.file}"`)
 
 console.log('\n── INPUT STEMS (intentionally unbalanced) ───────────────────────')
-const measured = stems.map(s => {
-  const lufs = measureLUFS(s.file)          // ← real engine measurement
+const measured = await Promise.all(stems.map(async s => {
+  const lufs = await measureLUFS(s.file)    // ← real engine measurement (async since the spawn rework)
   const role = roleOf(s.label)              // ← real role classifier
   const cfg  = ROLE[role]
   const gain = clamp(cfg.target - lufs, -12, 12)
   console.log(`  ${s.label.padEnd(11)} role=${role.padEnd(7)} measured=${lufs.toFixed(1)} LUFS  →  target=${cfg.target}  gain=${gain >= 0 ? '+' : ''}${gain.toFixed(1)} dB`)
   return { ...s, role, cfg, gain }
-})
+}))
 
 // 2. Build the SAME filtergraph runSmartBounce builds.
 const panCount: Record<string, number> = {}

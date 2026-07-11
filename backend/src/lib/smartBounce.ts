@@ -6,13 +6,31 @@
  * Uses ffmpeg `amix` so no Python dependency.
  */
 
-import { execSync }               from 'child_process'
 import { writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join }                   from 'path'
-import { tmpdir }                 from 'os'
+import { tmpdir, cpus }           from 'os'
 import { supabase }               from './supabase'
 import { uploadToR2, getR2SignedUrl, deleteFromR2 } from './r2'
 import { notify, getProjectMemberIds } from './notificationService'
+
+// Async ffmpeg runner (same Bun.spawn pattern as transcode.ts) — the old
+// execSync calls blocked Bun's event loop for the entire run, so a 7-minute
+// mix meant 7 minutes during which the API served nothing at all.
+async function runFfmpeg(args: string[]): Promise<string> {
+  const proc = Bun.spawn(['ffmpeg', '-hide_banner', ...args], { stdout: 'pipe', stderr: 'pipe' })
+  const [out, err, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+  if (code !== 0) throw new Error(`ffmpeg exited ${code}: ${err.slice(0, 400)}`)
+  return out + err   // loudnorm's JSON report goes to stderr
+}
+
+// Threading flags for the mix render: each stem's filter chain is an
+// independent graph branch until the final amix, so ffmpeg can run them on
+// separate threads.
+const RENDER_THREADS = ['-threads', '0', '-filter_complex_threads', String(Math.max(2, cpus().length))]
 
 // ── Measurement-driven mix engine (no external AI) ──────────────────────────
 // Decisions come from the actual audio: we measure each stem's integrated
@@ -72,14 +90,11 @@ export function roleOf(instrument: string): Role {
 }
 
 /** Measure a stem's integrated loudness (LUFS) via ffmpeg loudnorm analysis. */
-export function measureLUFS(file: string): number {
+export async function measureLUFS(file: string): Promise<number> {
   try {
-    const out = execSync(
-      // -t 90: measure loudness from the first 90s only — representative, and far
-      // faster than decoding a whole long stem.
-      `ffmpeg -hide_banner -t 90 -i "${file}" -af loudnorm=print_format=json -f null - 2>&1`,
-      { encoding: 'utf8', maxBuffer: 1024 * 1024 * 8 }
-    )
+    // -t 90: measure loudness from the first 90s only — representative, and far
+    // faster than decoding a whole long stem.
+    const out = await runFfmpeg(['-t', '90', '-i', file, '-af', 'loudnorm=print_format=json', '-f', 'null', '-'])
     const m = out.match(/\{[\s\S]*?"input_i"[\s\S]*?\}/)
     if (m) {
       const v = parseFloat(JSON.parse(m[0]).input_i)
@@ -154,15 +169,17 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
   const versionOf = (b: any) => { try { return Number(JSON.parse(b.notes || '{}').version) || 0 } catch { return 0 } }
   const nextVersion = (existingBounces.length ? Math.max(...existingBounces.map(versionOf)) : 0) + 1
 
-  // Prune oldest beyond the cap (we'll add one, so keep KEEP_VERSIONS-1 of the old).
+  // Prune oldest beyond the cap (we'll add one, so keep KEEP_VERSIONS-1 of
+  // the old). Deletes are independent — run them in parallel instead of one
+  // R2 round-trip at a time before the mix can even start.
   const byNewest = [...existingBounces].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
   const toPrune  = byNewest.slice(KEEP_VERSIONS - 1)
-  for (const old of toPrune) {
+  await Promise.all(toPrune.map(async (old) => {
     if (old.storage_path) await deleteFromR2(old.storage_path).catch(() => {})
     if (old.file_size && old.uploaded_by) {
       try { await supabase.rpc('decrement_storage', { user_id: old.uploaded_by, bytes: old.file_size }) } catch {}
     }
-  }
+  }))
   if (toPrune.length > 0) {
     await supabase.from('stems').delete().in('id', toPrune.map((s: any) => s.id))
   }
@@ -213,12 +230,15 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
   }
 
   // Single stem — just master it, no mixing needed
-  if (validFiles.length === 1) {
+  if (validFiles.length === 1 && validFiles[0]) {
+    const soloFile = validFiles[0]
     const outPath = join(tmpdir(), `smb_out_${projectId}_${Date.now()}.wav`)
     try {
-      execSync(`ffmpeg -y -i "${validFiles[0]}" -filter_complex "[0:a]loudnorm=I=-14:LRA=7:TP=-1[master]" -map "[master]" "${outPath}"`, { stdio:'pipe' })
+      // -ar 44100: loudnorm internally resamples to 192 kHz — without pinning
+      // the output rate the WAV comes out 4.3× larger and slower to write/upload.
+      await runFfmpeg(['-y', '-i', soloFile, '-filter_complex', '[0:a]loudnorm=I=-14:LRA=7:TP=-1[master]', '-map', '[master]', '-ar', '44100', outPath])
     } catch {
-      execSync(`ffmpeg -y -i "${validFiles[0]}" "${outPath}"`, { stdio:'pipe' })
+      await runFfmpeg(['-y', '-i', soloFile, outPath])
     }
     const mixBuf = readFileSync(outPath)
     for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
@@ -249,13 +269,35 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
     .map((t: any, i: number) => ({ take: t, file: tmpFiles[i] as string | undefined }))
     .filter((x): x is { take: any; file: string } => Boolean(x.file))
 
+  // Per-stem loudness — ALL measurements in parallel (they're independent
+  // ffmpeg runs; sequentially they alone took minutes), and cached in
+  // stems.notes.lufs so a re-mix of the same takes skips measurement
+  // entirely. A new upload is a new stem row, so the cache can't go stale.
+  let freshMeasurements = 0
+  const lufsByIdx = await Promise.all(valid.map(async (v) => {
+    let cached: number | null = null
+    try {
+      const n = JSON.parse(v.take.notes || '{}')
+      if (typeof n.lufs === 'number' && Number.isFinite(n.lufs)) cached = n.lufs
+    } catch {}
+    if (cached != null) return cached
+    const measured = await measureLUFS(v.file)
+    freshMeasurements++
+    // Persist for next time — best-effort, never blocks the mix.
+    try {
+      const n = JSON.parse(v.take.notes || '{}')
+      n.lufs = parseFloat(measured.toFixed(2))
+      supabase.from('stems').update({ notes: JSON.stringify(n) }).eq('id', v.take.id).then(() => {}, () => {})
+    } catch {}
+    return measured
+  }))
+
   // Per-role pan counter so multiple guitars/keys alternate L/R.
   const panCount: Record<string, number> = {}
 
-  const buildStemFilter = (take: any, file: string, idx: number): string => {
+  const buildStemFilter = (take: any, lufs: number, idx: number): string => {
     const role = roleOf(take.instrument || take.suggested_name || '')
     const cfg  = ROLE[role]
-    const lufs = measureLUFS(file)
     const gain = clamp(cfg.target - lufs, -12, 12)   // bring the stem to its role's target loudness
 
     const f: string[] = []
@@ -287,7 +329,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
     ].join(';')
   }
 
-  const filterChains = valid.map((v, i) => buildStemFilter(v.take, v.file, i))
+  const filterChains = valid.map((v, i) => buildStemFilter(v.take, lufsByIdx[i] ?? -20, i))
   const mixInputs    = valid.map((_, i) => `[s${i}]`).join('')
   const filterStr    = [
     ...filterChains,
@@ -298,21 +340,19 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
     `[norm]alimiter=limit=0.97[master]`,
   ].join(';')
 
-  const inputs = valid.map(v => `-i "${v.file}"`).join(' ')
+  const inputArgs = valid.flatMap(v => ['-i', v.file])
 
+  // -ar 44100 matters twice over: loudnorm internally resamples to 192 kHz,
+  // so without it the limiter runs at 192k AND the output WAV is ~4.3× the
+  // size (slower write + slower R2 upload).
   try {
-    execSync(
-      `ffmpeg -y ${inputs} -filter_complex "${filterStr}" -map "[master]" "${outPath}"`,
-      { stdio: 'pipe' }
-    )
+    await runFfmpeg(['-y', ...RENDER_THREADS, ...inputArgs, '-filter_complex', filterStr, '-map', '[master]', '-ar', '44100', outPath])
   } catch (e) {
     // Fall back to a plain balanced sum + master if the full chain fails.
     console.warn('[smartBounce] mix chain failed, falling back to amix:', (e as Error).message)
     try {
-      execSync(
-        `ffmpeg -y ${inputs} -filter_complex "amix=inputs=${valid.length}:duration=longest:normalize=0,loudnorm=I=-14:LRA=7:TP=-1" "${outPath}"`,
-        { stdio: 'pipe' }
-      )
+      await runFfmpeg(['-y', ...RENDER_THREADS, ...inputArgs, '-filter_complex',
+        `amix=inputs=${valid.length}:duration=longest:normalize=0,loudnorm=I=-14:LRA=7:TP=-1`, '-ar', '44100', outPath])
     } catch (e2) {
       console.error('[smartBounce] ffmpeg failed:', (e2 as Error).message)
       for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
@@ -323,7 +363,7 @@ export async function runSmartBounce(projectId: string, triggeredBy: string, fol
   const mixBuf = readFileSync(outPath)
   for (const f of [...tmpFiles.filter(Boolean), outPath]) try { unlinkSync(f) } catch {}
 
-  console.log(`[smartBounce] measurement mix of ${valid.length} stems → mastered to -14 LUFS`)
+  console.log(`[smartBounce] measurement mix of ${valid.length} stems (${freshMeasurements} measured fresh, ${valid.length - freshMeasurements} from LUFS cache) → mastered to -14 LUFS`)
 
   // 4. Upload to Cloudflare R2
   const storagePath = `smart-bounces/${projectId}/${Date.now()}_smart_mix.wav`
