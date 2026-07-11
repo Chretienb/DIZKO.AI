@@ -1,50 +1,53 @@
 import { useEffect, useRef, useState } from 'react'
-import { peakCache, PEAKS_EVENT, decode } from './waveformPeaks.js'
+import WaveSurfer from 'wavesurfer.js'
+import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.esm.js'
+import { peakCache, PEAKS_EVENT } from './waveformPeaks.js'
+
+// Height the official Timeline plugin adds beneath the waveform when enabled.
+const TIMELINE_HEIGHT = 18
 
 // mm:ss for marker tooltips
 const fmtTime = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
-function paint(canvas, peaks, color, progress, muted) {
-  if (!canvas || !peaks) return
-  const dpr  = window.devicePixelRatio || 1
-  const W    = canvas.clientWidth
-  const H    = canvas.clientHeight
-  if (!W || !H) return
-
-  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
-    canvas.width  = W * dpr
-    canvas.height = H * dpr
-  }
-
-  const ctx  = canvas.getContext('2d')
-  const mid  = (H * dpr) / 2
-  const n    = peaks.length
-  const barW = (W * dpr) / n
-  const playX = Math.floor(progress * n)
-
-  ctx.clearRect(0, 0, W * dpr, H * dpr)
-
-  // On light mode the faint "upcoming" bars wash out, so use a stronger alpha
-  // (and a darker muted grey) than in dark mode for clear contrast on white.
-  const light = document.documentElement.getAttribute('data-theme') === 'light'
-  const unplayedAlpha = light ? '80' : '44'                    // ~50% vs ~27%
-  const mutedFill     = light ? 'rgba(110,110,110,0.55)' : 'rgba(150,150,150,0.3)'
-
-  for (let i = 0; i < n; i++) {
-    const h = Math.max(dpr, peaks[i] * H * dpr * 0.85)
-    ctx.fillStyle = muted
-      ? mutedFill
-      : i < playX ? color : color + unplayedAlpha
-    ctx.fillRect(i * barW, mid - h/2, Math.max(barW - dpr, dpr), h)
-  }
+// Peaks are evenly spread across the full stem, so a fraction of the array
+// is the same fraction of time — slicing to [trimStart,trimEnd] (0..1
+// fractions) shows only what a cropped clip actually plays.
+function slicePeaks(full, trimStart, trimEnd) {
+  if (!full) return null
+  if (trimStart <= 0 && trimEnd >= 1) return Array.from(full)
+  const n = full.length
+  const start = Math.max(0, Math.floor(trimStart * n))
+  const end = Math.max(start + 1, Math.min(n, Math.ceil(trimEnd * n)))
+  return Array.from(full.slice(start, end))
 }
 
+/**
+ * Renders via WaveSurfer.js instead of a hand-rolled canvas — instant render
+ * from precomputed peaks (stems.notes.peaks, computed server-side on upload),
+ * plus WaveSurfer's own zoom/resize handling instead of a custom
+ * ResizeObserver + repaint loop.
+ *
+ * WaveSurfer v7 requires a real HTMLMediaElement for reliable seeking — an
+ * instance with no audio at all has a documented bug where setTime()/seekTo()
+ * don't work right (github.com/katspaugh/wavesurfer.js/issues/3298). Dizko's
+ * actual sound comes from a separate, custom multi-clip Web Audio scheduler
+ * (playAll() in Studio.jsx — sample-accurate simultaneous stems, per-clip
+ * crop windows, shared FX chains, none of which a single <audio> element can
+ * do), so this component's media element is real but permanently muted and
+ * never played — it exists solely so WaveSurfer's internal seek math has a
+ * real element to seek. The playhead position is driven externally via
+ * setTime() from Dizko's own transport clock (the `currentTime` prop), and
+ * clicks are forwarded to `onSeek` instead of letting WaveSurfer play itself.
+ */
 export default function Waveform({
   url,
   color        = '#F4937A',
   currentTime  = 0,
   duration     = 0,
-  isPlaying    = false,
+  // isPlaying isn't needed here anymore — WaveSurfer redraws its own cursor/
+  // progress fill efficiently on every setTime() call below, no more manual
+  // RAF-loop-vs-single-paint branching. Still accepted (and passed by every
+  // caller) so this stays a drop-in replacement for the old canvas version.
   storedPeaks  = null,
   muted        = false,
   height       = 44,
@@ -52,11 +55,32 @@ export default function Waveform({
   comments     = [],
   onMarkerClick,
   onAddCommentAt,
+  // A cropped clip only plays a WINDOW of the underlying stem's audio —
+  // these are that window's bounds as fractions (0..1) of the full stem, so
+  // the waveform rendered here matches what's actually audible instead of
+  // showing the whole stem's shape stretched into a shorter box. Default is
+  // the full stem, unchanged from before cropping existed.
+  trimStart    = 0,
+  trimEnd      = 1,
+  // The Timeline draws its own single global playhead line spanning every
+  // lane — WaveSurfer's own per-instance cursor drawn INSIDE each small clip
+  // as well was a second, independently-positioned line a pixel or two off
+  // from the first (two different position calculations for the same
+  // instant), which read as a glitch/flicker. Off by default for that
+  // shared-context case; the standalone Editing-clip panel (its only other
+  // caller) has no other playhead overlay, so it opts back in.
+  showCursor   = true,
+  // The official WaveSurfer Timeline plugin — timestamps + notches under the
+  // waveform, exactly like the wavesurfer.xyz timeline example. Off by
+  // default: the small clip blocks on the arrangement Timeline sit under the
+  // shared bar/beat Ruler already, so a second per-clip ruler there would be
+  // noise. The standalone Editing-clip panel opts in (it has no other ruler).
+  showTimeline = false,
 }) {
-  const canvasRef = useRef(null)
-  const rafRef    = useRef(null)
-  const peaksRef  = useRef(null)
-  const pickRef   = useRef(null)
+  const containerRef = useRef(null)
+  const wsRef      = useRef(null)
+  const mediaRef   = useRef(null)
+  const pickRef    = useRef(null)
   const [ready, setReady] = useState(false)
   // Click-to-comment: { sec } of the last clicked spot, and the inline composer.
   const [pick, setPick]           = useState(null)
@@ -76,74 +100,140 @@ export default function Waveform({
     return () => { clearTimeout(id); document.removeEventListener('mousedown', onDown) }
   }, [pick])
 
-  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0
+  // `duration` is intentionally NOT a dependency of the creation effect below
+  // — it's read once at creation time via this ref instead. `duration` can
+  // legitimately change shortly after mount (Studio.jsx's <audio> metadata
+  // probe for stems missing server-side duration resolves asynchronously),
+  // and having it drive a full destroy/recreate meant a clip's waveform
+  // could be rebuilt again moments after first paint — a timing-dependent
+  // teardown/rebuild that's exactly the kind of thing that produces
+  // inconsistent rendering (reported live: correct right after load, then
+  // reverting to a worse look once prep/duration-resolution finished).
+  // Post-creation duration changes are synced via setOptions() instead, in
+  // the effect further down — no recreation, no race.
+  const durationRef = useRef(duration)
+  useEffect(() => { durationRef.current = duration }, [duration])
+  // The exact peaks array WaveSurfer was created with — needed again below.
+  // WaveSurfer's own setOptions({duration}) without also passing peaks
+  // rebuilds its internal buffer from `this.exportPeaks()` instead of the
+  // original array (see wavesurfer.js's setOptions: `if (options.duration &&
+  // !options.peaks) this.decodedData = Decoder.createBuffer(this.exportPeaks(), ...)`)
+  // — exportPeaks() re-samples at its own default resolution, and re-importing
+  // that lossy resample is what produced the zigzag/blob distortion reported
+  // live once playback triggered a duration sync. Always passing the SAME
+  // original peaks back alongside duration skips that lossy round-trip.
+  const slicedPeaksRef = useRef(null)
 
-  // ── Load peaks ────────────────────────────────────────────────────────────
+  // ── Create the WaveSurfer instance (one per url/crop-window/style change) ──
   useEffect(() => {
-    if (!url) return
-    let cancelled = false
+    if (!url || !containerRef.current) return
+    setReady(false)
 
-    const tryLoad = () => {
-      // Use stored peaks from DB
-      if (storedPeaks?.length) {
-        peaksRef.current = Float32Array.from(storedPeaks)
-        setReady(true)
-        return true
-      }
-      // Use in-memory cache (populated by seedPeaksFromBuffer or preloadPeaks)
-      if (peakCache.has(url)) {
-        peaksRef.current = peakCache.get(url)
-        setReady(true)
-        return true
-      }
-      return false
-    }
+    const media = new Audio()
+    media.preload = 'none'   // don't eagerly fetch bytes for a clip nobody's looking at yet
+    media.muted = true       // Dizko's own engine makes the actual sound, never this element
+    media.src = url
+    mediaRef.current = media
 
-    if (tryLoad()) return
+    // Prefer stored/precomputed peaks (server-computed on upload, or the
+    // client-side decode cache) — skips WaveSurfer's own fetch+decode
+    // entirely for an instant render. Falls back to letting WaveSurfer load
+    // the media itself only when no peaks are available yet (e.g. a stem
+    // that predates the enrichment pipeline).
+    const rawPeaks = storedPeaks?.length ? Float32Array.from(storedPeaks)
+      : peakCache.has(url) ? peakCache.get(url)
+      : null
+    const slicedPeaks = rawPeaks ? slicePeaks(rawPeaks, trimStart, trimEnd) : null
+    slicedPeaksRef.current = slicedPeaks
 
-    // Listen for when Studio seeds this URL's peaks after playback decode
-    const onPeaksReady = (e) => {
-      if (e.detail?.url === url && !cancelled) tryLoad()
-    }
-    window.addEventListener(PEAKS_EVENT, onPeaksReady)
+    const light = document.documentElement.getAttribute('data-theme') === 'light'
+    const dimColor = light ? 'rgba(110,110,110,.55)' : 'rgba(150,150,150,.3)'
 
-    // Decode from R2 as fallback (runs in parallel with Studio's decode)
-    decode(url)
-      .then(pk => {
-        if (cancelled) return
-        peaksRef.current = pk
-        setReady(true)
+    // barWidth 1 reproduces the PRODUCTION canvas painter's geometry (the
+    // pre-WaveSurfer Waveform.jsx at HEAD: one thin vertical bar per peak,
+    // ~1 device px gap, mirrored around the midline) — the look the user
+    // asked to keep ("restore the waveform we have on the live app"). Each
+    // 1px bar takes the honest local max of its data slice, so the same
+    // 1000-point stored peaks that read as dense crisp texture on the live
+    // app render identically here. WaveSurfer's default continuous polygon
+    // instead interpolates smoothly BETWEEN points, which smears the exact
+    // same data into rounded blobs (reported live, twice). barGap is left
+    // unset: it defaults to barWidth/2, matching the painter's sub-pixel gap.
+    const ws = WaveSurfer.create({
+      container: containerRef.current,
+      media,
+      height,
+      barWidth: 1,
+      // ~80% alpha keeps the wave present but visually light — the clip's
+      // color stays the primary surface, the wave is detail on top of it
+      // (per the DAW-reference styling pass: thin, low visual weight; 70%
+      // proved too faint against the saturated clip colors).
+      waveColor: muted ? dimColor : `${color}cc`,
+      progressColor: muted ? dimColor : color,
+      cursorColor: showCursor ? '#fff' : 'transparent',
+      cursorWidth: showCursor ? 2 : 0,
+      interact: false,   // clicks are handled below (need clip-relative seconds, not wavesurfer's own play)
+      ...(slicedPeaks ? { peaks: [slicedPeaks], duration: durationRef.current || undefined } : {}),
+      plugins: showTimeline ? [TimelinePlugin.create({
+        height: TIMELINE_HEIGHT,
+        style: { color: 'var(--t3)', fontSize: '10px', fontFamily: 'inherit' },
+        formatTimeCallback: fmtTime,   // m:ss everywhere, matching the transport clock
+      })] : [],
+    })
+    wsRef.current = ws
+
+    ws.on('ready', () => setReady(true))
+    ws.on('decode', () => setReady(true))
+    // A failed fetch/decode (CORS, expired signed URL, unsupported codec)
+    // otherwise dies silently and the clip just never leaves the skeleton —
+    // indistinguishable from "still loading" (reported live as a clip with
+    // no waveform at all). Surface it.
+    ws.on('error', err => console.warn('[Waveform] load/decode failed for', url, err))
+    // No stored/cached peaks yet — WaveSurfer just decoded the media itself;
+    // seed the shared client-side cache so other Waveform instances of the
+    // same stem (e.g. its clip on the Timeline AND the Editing-clip panel)
+    // get the instant path next time, matching the old decode() fallback.
+    if (!rawPeaks) {
+      ws.on('decode', () => {
+        try {
+          const exported = ws.exportPeaks?.({ channels: 1 })?.[0]
+          if (exported?.length) {
+            slicedPeaksRef.current = exported   // so a later duration sync has real data to pass, not nothing
+            peakCache.set(url, Float32Array.from(exported)); window.dispatchEvent(new CustomEvent(PEAKS_EVENT, { detail:{ url } }))
+          }
+        } catch {}
       })
-      .catch(() => {}) // fail silently — waveform stays as placeholder
+    }
 
     return () => {
-      cancelled = true
-      window.removeEventListener(PEAKS_EVENT, onPeaksReady)
+      try { ws.destroy() } catch {}
+      media.src = ''
+      wsRef.current = null
+      mediaRef.current = null
     }
-  }, [url, storedPeaks])
+  }, [url, storedPeaks, trimStart, trimEnd, color, muted, height, showCursor, showTimeline])
 
-  // ── Draw loop ─────────────────────────────────────────────────────────────
-  // Always draw the real waveform peaks. While playing, re-paint on each frame
-  // so the played/upcoming progress fill sweeps smoothly across the bars.
-  const progressRef = useRef(progress)
-  useEffect(() => { progressRef.current = progress }, [progress])
-
+  // Sync a post-creation duration change into the existing instance — see
+  // the comment on durationRef above for why this is a lightweight update
+  // instead of a dependency of the creation effect. Always paired with the
+  // ORIGINAL peaks array (see slicedPeaksRef's comment) — duration alone
+  // triggers WaveSurfer's lossy exportPeaks()-based rebuild internally.
   useEffect(() => {
-    cancelAnimationFrame(rafRef.current)
-    if (!ready) return
+    if (!ready || !wsRef.current || !duration) return
+    const peaks = slicedPeaksRef.current
+    try {
+      if (peaks?.length) wsRef.current.setOptions({ peaks: [peaks], duration })
+      else wsRef.current.setOptions({ duration })
+    } catch {}
+  }, [ready, duration])
 
-    if (isPlaying) {
-      const loop = () => {
-        paint(canvasRef.current, peaksRef.current, color, progressRef.current, muted)
-        rafRef.current = requestAnimationFrame(loop)
-      }
-      rafRef.current = requestAnimationFrame(loop)
-    } else {
-      paint(canvasRef.current, peaksRef.current, color, progress, muted)
-    }
-
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [ready, isPlaying, color, muted, progress])
+  // ── Drive the cursor from Dizko's own transport clock — never WaveSurfer's
+  // own playback (media stays muted, .play() is never called on it). ──
+  useEffect(() => {
+    if (!ready || !wsRef.current) return
+    const clamped = Math.max(0, duration ? Math.min(currentTime, duration) : currentTime)
+    try { wsRef.current.setTime(clamped) } catch {}
+  }, [ready, currentTime, duration])
 
   const handleClick = e => {
     if (!duration) return
@@ -159,37 +249,27 @@ export default function Waveform({
     setComposing(false); setPick(null); setDraft('')
   }
 
+  // The Timeline plugin renders INSIDE wavesurfer's wrapper, below the wave —
+  // the boxes here must include that extra height or the ruler gets clipped.
+  const totalHeight = height + (showTimeline ? TIMELINE_HEIGHT : 0)
+
   return (
-    <div style={{ width:'100%', height, position:'relative', cursor: onSeek ? 'pointer' : 'default' }}
+    <div style={{ width:'100%', height: totalHeight, position:'relative', cursor: onSeek ? 'pointer' : 'default' }}
       onClick={handleClick}>
       {/* Placeholder while decoding */}
       {!ready && (
-        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', gap:1, padding:'0 2px' }}>
+        <div style={{ position:'absolute', top:0, left:0, right:0, height, display:'flex', alignItems:'center', gap:1, padding:'0 2px' }}>
           {Array.from({length:40},(_,i) => (
             <div key={i} style={{ flex:1, borderRadius:1, background:`${color}18`,
               height:`${28+Math.sin(i*.7)*18}%` }}/>
           ))}
         </div>
       )}
-      <canvas ref={canvasRef} style={{ width:'100%', height, display: ready ? 'block' : 'none' }}/>
-      {/* Playhead — shown while playing AND paused so the sweep is clearly visible
-          across every stem in sync (not just the transport bar up top). A live
-          time readout rides along so you can read the exact position as it goes. */}
-      {ready && progress > 0 && progress < 1 && (
-        <div style={{ position:'absolute', top:0, bottom:0, left:`${progress*100}%`,
-          width:2, background:'#fff', borderRadius:1,
-          boxShadow:'0 0 6px rgba(255,255,255,.9)',
-          transform:'translateX(-50%)', pointerEvents:'none', zIndex:2 }}>
-          <span style={{ position:'absolute', top:-3, left:'50%', transform:'translateX(-50%)',
-            width:7, height:7, borderRadius:'50%', background:'#fff',
-            boxShadow:'0 0 6px rgba(255,255,255,.9)' }}/>
-          <span style={{ position:'absolute', bottom:-15, left:'50%', transform:'translateX(-50%)',
-            fontSize:9, fontWeight:800, color:'#fff', background:'rgba(0,0,0,.72)',
-            padding:'1px 5px', borderRadius:4, whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>
-            {fmtTime(currentTime)}
-          </span>
-        </div>
-      )}
+      {/* Always in normal flow (not display:none pre-ready) — the skeleton
+          above is an absolute overlay that already covers it while loading,
+          and the creation effect below needs to measure this element's real
+          width the moment it mounts, which a display:none element can't give. */}
+      <div ref={containerRef} style={{ width:'100%', height: totalHeight }}/>
 
       {/* Comment markers — avatars pinned at the second each comment was left.
           Needs a known duration (set on first playback) to map seconds → x%. */}

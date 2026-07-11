@@ -9,6 +9,13 @@ const IconPlay  = ({size=12,color='currentColor'}) => <svg width={size} height={
 const IconPause = ({size=12,color='currentColor'}) => <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
 const IconTrash = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
 const IconDown  = ({size=13,rotate=false}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" style={{transform:rotate?'rotate(180deg)':'none',transition:'transform .2s'}}><polyline points="6,9 12,15 18,9"/></svg>
+const IconPencil = ({size=12}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+
+// Same accent palette as Studio.jsx's defaultColors / ClipContextMenu's
+// COLOR_SWATCHES — duplicated locally rather than shared, matching this
+// codebase's existing per-file constant duplication for small rarely-changing
+// palettes.
+const COLOR_SWATCHES = [C.coral, '#22c55e', C.amber, '#8b5cf6', '#3b82f6', C.pink]
 
 const STEM_LABELS = { master:'Master', vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', original:'Original' }
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
@@ -23,8 +30,33 @@ export default function TrackItem({
   onMute, onSolo, onPlay, onToggleExpand, onDelete, onSeek,
   onVolumeChange, onCommentChange, onPostComment, onLikeComment,
   onRemoveFromBoard, onAddCommentAt, onReply, user, isOwner, onOpenFx,
+  onRename, onColorChange,
 }) {
   const isMobile = React.useContext(MobileCtx)
+  const [renaming, setRenaming] = React.useState(false)
+  const [nameDraft, setNameDraft] = React.useState('')
+  const [colorPickerOpen, setColorPickerOpen] = React.useState(false)
+  const renameInputRef = React.useRef(null)
+  const colorPickerRef = React.useRef(null)
+  const currentColor = (() => { try { return JSON.parse(s.notes || '{}').color || null } catch { return null } })()
+
+  const startRename = (e) => {
+    e.stopPropagation()
+    setNameDraft(s.suggested_name || s.original_name || '')
+    setRenaming(true)
+  }
+  const submitRename = () => {
+    const trimmed = nameDraft.trim()
+    if (trimmed && onRename) onRename(s.id, trimmed)
+    setRenaming(false)
+  }
+  React.useEffect(() => { if (renaming) renameInputRef.current?.focus() }, [renaming])
+  React.useEffect(() => {
+    if (!colorPickerOpen) return
+    const close = (e) => { if (!colorPickerRef.current?.contains(e.target)) setColorPickerOpen(false) }
+    const id = setTimeout(() => document.addEventListener('mousedown', close), 0)
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', close) }
+  }, [colorPickerOpen])
   const commentCount = (comments||[]).filter(c => !c.resolved).length
   const stemLabel = STEM_LABELS[s.instrument] || s.instrument || 'Track'
   // You can delete your own stems; the owner can delete anything. Master/mix = owner-only.
@@ -116,9 +148,57 @@ export default function TrackItem({
             doesn't fit (transpose/volume/mute/solo/actions) wraps to its
             own line below instead of squeezing the name to nothing. */}
         <div style={{ flex:1, minWidth: isMobile ? 0 : 200 }}>
-          <div style={{ fontSize: isMobile ? 14 : 16.5, fontWeight:700, color:C.t1, letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom: isMobile ? 4 : 7 }}>
-            {s.suggested_name || s.original_name || `Track ${i+1}`}
-          </div>
+          {renaming ? (
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom: isMobile ? 4 : 7 }}
+              onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
+              <input ref={renameInputRef} value={nameDraft} onChange={e=>setNameDraft(e.target.value)}
+                onKeyDown={e => { if (e.key==='Enter') submitRename(); if (e.key==='Escape') setRenaming(false) }}
+                onBlur={submitRename}
+                style={{ flex:1, minWidth:0, height: isMobile?26:28, padding:'0 8px', borderRadius:7,
+                  border:`1px solid ${color}`, background:C.surface2, color:C.t1,
+                  fontSize: isMobile ? 14 : 16.5, fontWeight:700, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }}/>
+            </div>
+          ) : (
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom: isMobile ? 4 : 7 }}>
+              <span style={{ fontSize: isMobile ? 14 : 16.5, fontWeight:700, color:C.t1, letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {s.suggested_name || s.original_name || `Track ${i+1}`}
+              </span>
+              {onRename && (
+                <button onClick={startRename} aria-label={`Rename ${stemLabel}`} title="Rename"
+                  style={{ flexShrink:0, width:20, height:20, borderRadius:6, border:'none', background:'transparent',
+                    color:C.t3, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                  onMouseEnter={e=>{e.currentTarget.style.color=C.t1;e.currentTarget.style.background='rgba(var(--fg),.08)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.color=C.t3;e.currentTarget.style.background='transparent'}}>
+                  <IconPencil/>
+                </button>
+              )}
+              {onColorChange && (
+                <div ref={colorPickerRef} style={{ position:'relative', flexShrink:0 }} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
+                  <button onClick={() => setColorPickerOpen(v => !v)} aria-label={`Change color for ${stemLabel}`} title="Color"
+                    style={{ width:18, height:18, borderRadius:'50%', padding:0, cursor:'pointer',
+                      background: currentColor || color,
+                      border: colorPickerOpen ? `2px solid ${C.t1}` : '2px solid transparent' }}/>
+                  {colorPickerOpen && (
+                    <div style={{ position:'absolute', top:24, left:0, zIndex:20, display:'flex', flexWrap:'wrap', gap:7, width:120,
+                      background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:8, boxShadow:'0 12px 34px rgba(0,0,0,.45)' }}>
+                      {COLOR_SWATCHES.map(hex => (
+                        <button key={hex} onClick={() => { onColorChange(s.id, hex); setColorPickerOpen(false) }} aria-label={`Set color ${hex}`}
+                          style={{ width:20, height:20, borderRadius:'50%', border: currentColor === hex ? `2px solid ${C.t1}` : '2px solid transparent',
+                            background:hex, cursor:'pointer', padding:0 }}/>
+                      ))}
+                      {currentColor && (
+                        <button onClick={() => { onColorChange(s.id, null); setColorPickerOpen(false) }} title="Reset to default"
+                          style={{ width:20, height:20, borderRadius:'50%', border:`1.5px dashed ${C.border}`, background:'transparent', cursor:'pointer',
+                            display:'flex', alignItems:'center', justifyContent:'center', color:C.t3, fontSize:11, padding:0 }}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 9, minWidth:0, overflow:'hidden' }}>
             {/* Instrument chip — text label, not just color (★ for the Master) */}
             <span style={{ fontSize: isMobile ? 10 : 10.5, fontWeight:700, color:'#fff', background:color, flexShrink:0,
@@ -236,16 +316,23 @@ export default function TrackItem({
         {/* Secondary actions */}
         <div style={{ display:'flex', gap: isMobile ? 2 : 4, flexShrink:0, marginLeft: isMobile ? 2 : 8 }}
           onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>
+          {/* previewPlaying alone used to drive this — during "Play all" it's
+              always false (that flag is specifically for the SOLO preview
+              engine), so the button sat showing an idle "Play" icon the
+              whole time a stem was audibly part of the mix. Clicking it
+              still correctly switches to soloing just this stem (pauses the
+              mix first — see previewStem) — only the VISUAL state needed to
+              also reflect "this is sounding right now" during Play all. */}
           <button onClick={()=>{ if (!stillProcessing) onPlay(s) }} disabled={stillProcessing}
-            aria-label={stillProcessing ? `${stemLabel} is still processing` : `${previewPlaying?'Pause':'Play'} ${stemLabel}`}
-            aria-pressed={!!previewPlaying}
+            aria-label={stillProcessing ? `${stemLabel} is still processing` : `${(previewPlaying||isPlaying)?'Pause':'Play'} ${stemLabel}`}
+            aria-pressed={!!(previewPlaying||isPlaying)}
             title={stillProcessing ? 'Still processing — ready in a few seconds' : undefined}
             style={{ width: isMobile?28:30, height: isMobile?28:30, borderRadius: isMobile?8:9, border:`1px solid ${color}30`,
-              background: previewPlaying?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center',
+              background: (previewPlaying||isPlaying)?`${color}25`:`${color}10`, display:'flex', alignItems:'center', justifyContent:'center',
               cursor: stillProcessing ? 'default' : 'pointer', color, transition:'all .12s', opacity: stillProcessing ? .5 : 1 }}
             onMouseEnter={e=>{ if (!stillProcessing) e.currentTarget.style.background=`${color}25` }}
-            onMouseLeave={e=>e.currentTarget.style.background=previewPlaying?`${color}25`:`${color}10`}>
-            {stillProcessing ? <Spinner size={isMobile?10:12} color={color}/> : previewPlaying ? <IconPause size={isMobile?9:11} color={color}/> : <IconPlay size={isMobile?9:11} color={color}/>}
+            onMouseLeave={e=>e.currentTarget.style.background=(previewPlaying||isPlaying)?`${color}25`:`${color}10`}>
+            {stillProcessing ? <Spinner size={isMobile?10:12} color={color}/> : (previewPlaying||isPlaying) ? <IconPause size={isMobile?9:11} color={color}/> : <IconPlay size={isMobile?9:11} color={color}/>}
           </button>
           {!isMobile && (
             <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
@@ -291,28 +378,24 @@ export default function TrackItem({
             currentTime={currentTime}
             duration={wfDuration}
             isPlaying={isPlaying}
-            storedPeaks={storedPeaks}
+            // See Clip.jsx's comment on the same pattern — pairing real
+            // stored peaks with a not-yet-known duration (0 here, before
+            // storedDur/metaDur resolve) corrupts WaveSurfer's internal
+            // buffer at the wrong timescale. Withholding peaks until
+            // wfDuration is real falls back to WaveSurfer decoding the
+            // actual audio itself, which determines its own duration.
+            storedPeaks={wfDuration > 0 ? storedPeaks : null}
             muted={isMuted}
             height={isMobile ? 44 : 58}
             onSeek={onSeek ? (sec) => onSeek(sec) : undefined}
             comments={comments || []}
             onMarkerClick={onSeek ? (sec) => onSeek(sec) : undefined}
             onAddCommentAt={onAddCommentAt}
+            // The official WaveSurfer Timeline plugin (timestamps + notches
+            // under the wave, like wavesurfer.xyz's timeline example) —
+            // replaces the hand-made 5-label mini ruler that used to sit here.
+            showTimeline
           />
-          {/* Timeline ruler — aligned to this waveform (uses analyzed length so it
-              shows before playback too) */}
-          {wfDuration > 0 && (
-            <div aria-hidden="true" style={{ position:'relative', height:13, marginTop:3 }}>
-              {[0, 0.25, 0.5, 0.75, 1].map(f => (
-                <span key={f} style={{ position:'absolute', left:`${f*100}%`,
-                  transform: f===0 ? 'none' : f===1 ? 'translateX(-100%)' : 'translateX(-50%)',
-                  fontSize:9, fontWeight:600, color:C.t3, opacity:.7, fontVariantNumeric:'tabular-nums',
-                  whiteSpace:'nowrap' }}>
-                  {fmt(wfDuration * f)}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

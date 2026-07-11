@@ -246,7 +246,7 @@ export const files = {
   //   2) PUT the bytes straight to R2 (no backend in the data path)
   //   3) /files/register — tiny JSON; creates the stem row + kicks AI analysis
   // Returns the register response ({ data: { id, ... } }) so callers are unchanged.
-  upload: async (file, projectId, { instrument, analysis } = {}) => {
+  upload: async (file, projectId, { instrument, analysis, recordOffsetMs } = {}) => {
     const token = getToken()
     const authH = token ? { Authorization: `Bearer ${token}` } : {}
     const readErr = async res => {
@@ -273,7 +273,7 @@ export const files = {
     return fetch(`${BASE}/files/register`, {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...authH },
-      body: JSON.stringify({ storage_path, project_id: projectId, file_name: file.name, file_size: file.size, content_type, instrument, analysis }),
+      body: JSON.stringify({ storage_path, project_id: projectId, file_name: file.name, file_size: file.size, content_type, instrument, analysis, record_offset_ms: recordOffsetMs }),
     }).then(readErr)
   },
 
@@ -510,6 +510,19 @@ export const foldersApi = {
   rename:   (folderId, name)     => patch(`/folders/${folderId}`, { name }),
   remove:   (folderId)           => del(`/folders/${folderId}`),
   moveFile: (stemId, folderId)   => patch('/folders/move-file', { stem_id: stemId, folder_id: folderId }),
+}
+
+// ── Studio timeline clips ────────────────────────────────────────────────────
+// A clip places a stem on the timeline (which track row, when it starts) —
+// separate from the stem itself, which never changes here. See
+// backend/src/routes/clips.ts.
+export const clipsApi = {
+  list:   (projectId)                             => get(`/clips?project_id=${projectId}`),
+  create: (stemId, trackIndex, startOffsetMs)      => post('/clips', { stem_id: stemId, track_index: trackIndex, start_offset_ms: startOffsetMs }),
+  update: (clipId, fields)                         => patch(`/clips/${clipId}`, fields),
+  move:   (clipId, trackIndex, startOffsetMs)      => patch(`/clips/${clipId}`, { track_index: trackIndex, start_offset_ms: startOffsetMs }),
+  split:  (clipId, atOffsetMs)                     => post(`/clips/${clipId}/split`, { at_offset_ms: atOffsetMs }),
+  remove: (clipId)                                 => del(`/clips/${clipId}`),
 }
 
 // ── Public profile SWR cache ──────────────────────────────────────────────────

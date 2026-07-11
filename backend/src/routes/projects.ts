@@ -8,6 +8,7 @@ import { generateStemName } from '../lib/naming'
 import { getUsersByIds } from '../lib/users'
 import { createExportJob, getExportJob, completeExportJob, failExportJob } from '../lib/exportJobs'
 import { buildExportZip } from '../lib/dawExport'
+import { computeRescaleRatio, rescaleOffsetMs } from '../lib/tempoRescale'
 import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
@@ -421,7 +422,7 @@ projects.post('/', sanitize, async (c) => {
 
 // ── PATCH /projects/:id ───────────────────────────────────────────────────────
 projects.patch('/:id', sanitize, async (c) => {
-  const allowed = ['title', 'type', 'notes', 'status', 'release_date', 'cover_url', 'is_public'] as const
+  const allowed = ['title', 'type', 'notes', 'status', 'release_date', 'cover_url', 'is_public', 'bpm'] as const
   const body = c.var.body as Record<string, unknown>
   const updates: Record<string, unknown> = {}
 
@@ -430,15 +431,39 @@ projects.patch('/:id', sanitize, async (c) => {
   }
   // updated_at is managed by the DB trigger if present; skip if column missing
 
+  const projectId = c.req.param('id')
+
+  // Rescale every clip in the project by the tempo ratio in this same
+  // request, atomically — every collaborator then just observes the
+  // already-correct positions through the existing clips realtime sync, no
+  // separate client-side rescale path needed. See tempoRescale.ts.
+  let rescaleRatio: number | null = null
+  if ('bpm' in updates) {
+    const { data: current } = await supabase.from('projects').select('bpm').eq('id', projectId).single()
+    rescaleRatio = computeRescaleRatio(Number((current as any)?.bpm), Number(updates.bpm))
+  }
+
   const { data, error } = await supabase
     .from('projects')
     .update(updates)
-    .eq('id', c.req.param('id'))
+    .eq('id', projectId)
     .eq('owner_id', c.var.user.id)
     .select()
     .single()
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  if (rescaleRatio != null) {
+    const { data: projectClips } = await supabase.from('clips').select('id, start_offset_ms').eq('project_id', projectId)
+    if (projectClips?.length) {
+      await Promise.all(projectClips.map(clip =>
+        supabase.from('clips')
+          .update({ start_offset_ms: rescaleOffsetMs((clip as any).start_offset_ms, rescaleRatio as number) })
+          .eq('id', (clip as any).id)
+      ))
+    }
+  }
+
   return c.json({ data, error: null, status: 200 })
 })
 

@@ -47,9 +47,9 @@ function ScopePicker({ songs, isSelected, onToggle, onSelectAll, onBoard, boardA
   return (
     <div style={{ position:'relative' }}>
       <button onClick={()=>setOpen(o=>!o)}
-        style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, width:'100%', height:36, padding:'0 12px',
-          fontSize:12.5, fontWeight:600, borderRadius:9, cursor:'pointer',
-          border:`1px solid ${C.border}`, background:'transparent', color:C.t1, transition:'all .12s' }}>
+        style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, width:'100%', height:32, padding:'0 11px',
+          fontSize:12.5, fontWeight:500, borderRadius:8, cursor:'pointer',
+          border:'none', background:'rgba(var(--fg),.06)', color:C.t1, transition:'all .12s' }}>
         {label} <span style={{ color:C.t3 }}><Chevron/></span>
       </button>
       {open && (
@@ -138,18 +138,18 @@ export default function AIPanel({
   const insightRows = buildInsightRows(aiAnalysis?.version_insights, allStems, boardIds)
   const [showVersions, setShowVersions] = useState(false)
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
 
-      {/* Smart Mix */}
-      <div style={{ borderRadius:14, background:C.surface, border:`1px solid ${C.border}` }}>
-        <div style={{ padding:18 }}>
+      {/* Smart Mix — translucent card (the drawer behind it is glass) */}
+      <div style={{ borderRadius:12, background:'rgba(var(--fg),.04)' }}>
+        <div style={{ padding:13 }}>
           {/* 1 · Header — title + which version + how many stems */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: smartMixUrl ? 12 : 14 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: smartMixUrl ? 10 : 12 }}>
             <span style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:13, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>Smart Mix</span>
-              {smartMixUrl&&smartMixInfo?.name&&<span style={{ fontSize:10.5, fontWeight:700, color:C.coral, background:`${C.coral}14`, padding:'2px 7px', borderRadius:100 }}>{smartMixInfo.name}</span>}
+              <span style={{ fontSize:12, fontWeight:500, color:C.t1, letterSpacing:'-.1px' }}>Smart Mix</span>
+              {smartMixUrl&&smartMixInfo?.name&&<span style={{ fontSize:10.5, fontWeight:500, color:C.coral, background:`${C.coral}14`, padding:'2px 7px', borderRadius:100 }}>{smartMixInfo.name}</span>}
             </span>
-            {smartMixUrl&&smartMixInfo?.stem_count&&<span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>{smartMixInfo.stem_count} stems</span>}
+            {smartMixUrl&&smartMixInfo?.stem_count&&<span style={{ fontSize:11, fontWeight:500, color:C.t3 }}>{smartMixInfo.stem_count} stems</span>}
           </div>
 
           {/* 2 · The mix itself — the result, front and centre */}
@@ -186,7 +186,7 @@ export default function AIPanel({
             onClick={activeProject && !activeProject.owner_paid ? () => openModal('billing', {}) : onGenerateMix}
             disabled={smartMixing}
             aria-label={activeProject && !activeProject.owner_paid ? 'Upgrade to use Smart Mix' : smartMixUrl ? 'Generate another mix' : 'Generate mix'}
-            style={{ width:'100%', height:38, borderRadius:9, border:'none', background:`${C.coral}14`, color:C.coral, fontSize:13, fontWeight:600, cursor:smartMixing?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:smartMixing?.6:1, transition:'background .15s' }}
+            style={{ width:'100%', height:32, borderRadius:8, border:'none', background:`${C.coral}14`, color:C.coral, fontSize:12.5, fontWeight:500, cursor:smartMixing?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:smartMixing?.6:1, transition:'background .15s' }}
             onMouseEnter={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}24` }} onMouseLeave={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}14` }}>
             {smartMixing
               ? <><Spinner size={13} color={C.coral}/> Mixing…</>
@@ -233,11 +233,11 @@ export default function AIPanel({
         </div>
       </div>
 
-      {/* Export */}
-      <div style={{ background:C.surface, borderRadius:14, padding:18, border:`1px solid ${C.border}` }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>Export</span>
-          <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>{exportCount||0} stems</span>
+      {/* Export — translucent card, matching Smart Mix above */}
+      <div style={{ background:'rgba(var(--fg),.04)', borderRadius:12, padding:13 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <span style={{ fontSize:12, fontWeight:500, color:C.t1, letterSpacing:'-.1px' }}>Export</span>
+          <span style={{ fontSize:11, fontWeight:500, color:C.t3 }}>{exportCount||0} stems</span>
         </div>
 
         {/* scope — one simple button: Board, All songs, or pick songs */}
@@ -256,12 +256,12 @@ export default function AIPanel({
 
         <button onClick={()=>onExportDAW('all')} disabled={dawExporting||!activeId||!exportCount}
           aria-label="Export for your DAW"
-          style={{ width:'100%', height:38, display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-            borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.t1, fontSize:13, fontWeight:600,
+          style={{ width:'100%', height:32, display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+            borderRadius:8, border:'none', background:'rgba(var(--fg),.06)', color:C.t1, fontSize:12.5, fontWeight:500,
             cursor:(dawExporting||!activeId||!exportCount)?'default':'pointer', opacity:(dawExporting||!activeId||!exportCount)?.45:1, transition:'opacity .12s' }}>
           {dawExporting ? <><Spinner size={13} color={C.t1}/> Exporting…</> : <><IconDl size={12}/> Export · {exportCount||0} stems</>}
         </button>
-        <div style={{ fontSize:11, color:C.t3, textAlign:'center', marginTop:8 }}>
+        <div style={{ fontSize:10.5, color:C.t3, textAlign:'center', marginTop:7 }}>
           .als + Logic guide + stems
         </div>
       </div>

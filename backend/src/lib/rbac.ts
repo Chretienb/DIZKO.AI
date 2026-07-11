@@ -43,6 +43,26 @@ export async function projectIdForStem(stemId: string): Promise<string | null> {
   return (track as any)?.project_id ?? null
 }
 
+/**
+ * Resolve everything a clip mutation needs to know about its stem in one
+ * query: which project it belongs to (for access checks), which song/folder
+ * it's grouped into (clips are placed on a per-song timeline, so track_index
+ * is scoped per project+folder — see 035_clips.sql), and its notes (used to
+ * skip take-history children / archived stems the same way the frontend's
+ * mixerStems filter does). Returns null if the stem or its project can't be
+ * resolved.
+ */
+export async function stemContext(stemId: string): Promise<{ projectId: string; folderId: string | null; notes: string | null } | null> {
+  const { data: stem } = await supabase
+    .from('stems')
+    .select('folder_id, notes, tracks(project_id)')
+    .eq('id', stemId)
+    .maybeSingle()
+  const projectId = (stem as any)?.tracks?.project_id
+  if (!projectId) return null
+  return { projectId, folderId: (stem as any).folder_id ?? null, notes: (stem as any).notes ?? null }
+}
+
 // Map role → allowed instrument types ('*' = unrestricted)
 export const ROLE_INSTRUMENTS: Record<string, string[]> = {
   'Owner':        ['*'],

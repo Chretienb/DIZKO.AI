@@ -13,7 +13,7 @@ const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')
 // board — the same value RecordPanel's stepper and count-in use, so a tempo
 // found here by ear while a stem is playing is exactly what recording locks
 // to. Live BPM readout doubles as the tap feedback, so no separate counter.
-function TapTempoButton({ bpm, onTap, showValue }) {
+export function TapTempoButton({ bpm, onTap, showValue }) {
   const [pulse, setPulse] = React.useState(false)
   const pulseTimer = React.useRef(null)
   const handleClick = () => {
@@ -25,14 +25,14 @@ function TapTempoButton({ bpm, onTap, showValue }) {
   return (
     <button onClick={handleClick} aria-label="Tap tempo" title="Tap to set BPM"
       style={{ display:'flex', alignItems:'center', gap:6, height:28, padding:'0 10px', borderRadius:8, flexShrink:0,
-        border:`1px solid ${pulse ? C.coral : C.border}`, background: pulse ? `${C.coral}18` : 'transparent',
-        cursor:'pointer', fontFamily:'inherit', transition:'background .08s, border-color .08s' }}>
+        border:'none', background: pulse ? `${C.coral}18` : 'rgba(var(--fg),.05)',
+        cursor:'pointer', fontFamily:'inherit', transition:'background .08s' }}>
       {showValue && (
-        <span style={{ fontSize:11.5, fontWeight:700, color: pulse ? C.coral : C.t2, fontVariantNumeric:'tabular-nums' }}>
+        <span style={{ fontSize:11.5, fontWeight:500, color: pulse ? C.coral : C.t2, fontVariantNumeric:'tabular-nums' }}>
           {bpm}
         </span>
       )}
-      <span style={{ fontSize:10, fontWeight:800, letterSpacing:'.05em', color: pulse ? C.coral : C.t3 }}>TAP</span>
+      <span style={{ fontSize:10, fontWeight:500, letterSpacing:'.05em', color: pulse ? C.coral : C.t3 }}>TAP</span>
     </button>
   )
 }
@@ -44,6 +44,10 @@ export default function Transport({
   metronomeOn, onToggleMetronome,
   beatFlash, detectingBpm, onDetectBpm,
   stems, trackCount = 0, preparing = 0, preparingTotal = 0,
+  // Studio.jsx moves tap tempo to its own row (alongside Mix & Export /
+  // Record) to stop the transport row from being one crowded line at 100%
+  // browser zoom — set false there and render <TapTempoButton> separately.
+  showTapTempo = true,
 }) {
   const isMobile = React.useContext(MobileCtx)
   const progress = duration > 0 ? currentTime / duration : 0
@@ -99,9 +103,8 @@ export default function Transport({
       ) : (
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? 'Pause' : 'Play all stems together'}
           title={playing ? 'Pause' : 'Play all stems together'}
-          style={{ width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer', background:C.coral, color:'#fff',
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'transform .12s, filter .12s',
-            boxShadow:`0 4px 14px ${C.coral}55` }}
+          style={{ width:40, height:40, borderRadius:'50%', border:'none', cursor:'pointer', background:'#ef4444', color:'#fff',
+            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'transform .12s, filter .12s' }}
           onMouseEnter={e=>{e.currentTarget.style.filter='brightness(1.08)'; e.currentTarget.style.transform='scale(1.05)'}}
           onMouseLeave={e=>{e.currentTarget.style.filter='none'; e.currentTarget.style.transform='none'}}>
           {playing ? <IconPause size={15} color="#fff"/> : <IconPlay size={15} color="#fff"/>}
@@ -111,14 +114,14 @@ export default function Transport({
       {/* Label — tells the user this plays every stem together (a bounce) */}
       <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
         <IconLayers size={13} color={playing ? C.coral : C.t3}/>
-        <span style={{ fontSize:13, fontWeight:700, color:C.t1, letterSpacing:'-.2px' }}>
+        <span style={{ fontSize:13, fontWeight:600, color:C.t1, letterSpacing:'-.2px' }}>
           {notReady ? 'Preparing…' : playing ? 'Playing' : 'Play all'}
         </span>
         {trackCount > 0 && !notReady && (
-          <span style={{ fontSize:11, fontWeight:600, color:C.t3 }}>· {trackCount} track{trackCount>1?'s':''}</span>
+          <span style={{ fontSize:11, fontWeight:500, color:C.t3 }}>· {trackCount} track{trackCount>1?'s':''}</span>
         )}
         {notReady && (
-          <span style={{ fontSize:11, fontWeight:600, color:C.coral }}>
+          <span style={{ fontSize:11, fontWeight:500, color:C.t3 }}>
             · {preparingTotal - preparing}/{preparingTotal}
           </span>
         )}
@@ -133,13 +136,15 @@ export default function Transport({
         </button>
       )}
 
-      {/* Thin seek bar with thumb — click to seek, drag to scrub */}
-      <div ref={barRef} style={{ flex:1, minWidth:60, height:14, display:'flex', alignItems:'center', cursor: duration ? 'pointer' : 'default', position:'relative' }}
+      {/* Thin seek bar with thumb — click to seek, drag to scrub. Capped
+          width: sprawling the full console width read as oversized
+          (reported live, "reduce this") — a compact bar scrubs just as well. */}
+      <div ref={barRef} style={{ flex:1, minWidth:60, maxWidth:440, height:14, display:'flex', alignItems:'center', cursor: duration ? 'pointer' : 'default', position:'relative' }}
         role="slider" aria-label="Playback position" aria-valuenow={Math.round(shown*100)} aria-valuemin={0} aria-valuemax={100}
         onMouseDown={startScrub}>
-        <div style={{ width:'100%', height:3, borderRadius:2, background:'rgba(var(--fg),.1)', position:'relative' }}>
+        <div style={{ width:'100%', height:2, borderRadius:2, background:'rgba(var(--fg),.1)', position:'relative' }}>
           <div style={{ position:'absolute', inset:'0 auto 0 0', width:`${shown*100}%`, background:C.coral, borderRadius:2, transition: dragFrac!=null ? 'none' : 'width .08s' }}/>
-          <div style={{ position:'absolute', top:'50%', left:`${shown*100}%`, transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.coral, transition: dragFrac!=null ? 'none' : 'left .08s' }}/>
+          <div style={{ position:'absolute', top:'50%', left:`${shown*100}%`, transform:'translate(-50%,-50%)', width:8, height:8, borderRadius:'50%', background:C.coral, transition: dragFrac!=null ? 'none' : 'left .08s' }}/>
         </div>
       </div>
 
@@ -151,7 +156,7 @@ export default function Transport({
       {/* Tap tempo — works while a stem is playing (tap along to find the
           beat by ear) or standalone; either way it sets the same BPM
           recording's count-in and stepper use. */}
-      {onTapTempo && <TapTempoButton bpm={bpm} onTap={onTapTempo} showValue={!isMobile}/>}
+      {showTapTempo && onTapTempo && <TapTempoButton bpm={bpm} onTap={onTapTempo} showValue={!isMobile}/>}
     </div>
   )
 }

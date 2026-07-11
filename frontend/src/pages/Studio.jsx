@@ -1,21 +1,34 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi, foldersApi } from '../lib/api.js'
+import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi, foldersApi, clipsApi, cacheBust } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Btn, Spinner, C } from '../components/ui/index.jsx'
 import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
-import Transport from '../studio/Transport.jsx'
+import Transport, { TapTempoButton } from '../studio/Transport.jsx'
 import RecordPanel from '../studio/RecordPanel.jsx'
 import { createFxChain, DEFAULT_FX, mergeFx } from '../studio/fxChain.js'
 import StemFxModal from '../studio/StemFxModal.jsx'
 import TrackItem from '../studio/TrackItem.jsx'
 import AIPanel   from '../studio/AIPanel.jsx'
+import Timeline  from '../studio/Timeline.jsx'
+import { computeClipPlayback, getClipEffectiveDurationSec, getStemDurationSec } from '../studio/clipScheduling.js'
 import { preloadPeaks, seedPeaksFromBuffer } from '../studio/waveformPeaks.js'
 import { pitchShiftBuffer, audioBufferToWavBlob } from '../studio/pitchShift.js'
 import { stableKey as ck, fetchAudioCached, cachedPreviewBlobUrl, warmPreviewBytes } from '../lib/audioCache.js'
+
+// Module-level (not per-component-instance) so it survives across renders
+// without a ref: a stem's `notes` string only changes when the row itself is
+// edited, but parsedNotes() used to re-JSON.parse it on every call — with a
+// large stored `peaks` array in there, calling this once per clip (color,
+// label, waveform peaks) on every Timeline re-render added up to real,
+// visible frame drops during playback (the playhead "not following the
+// waveform" a user reported was traced to this: parsing a few hundred floats
+// out of JSON, tens of times, 60x/sec). Keyed by the notes string itself, so
+// stale entries just never get looked up again once a stem's notes change.
+const parsedNotesCache = new Map()
 
 function useConfirm() {
   const [pending, setPending] = useState(null)
@@ -94,17 +107,20 @@ function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove, projectTitle }) {
     <div draggable
       onDragStart={e => { e.dataTransfer.setData('text/stem-id', s.id); e.dataTransfer.effectAllowed = 'copy' }}
       title={isMaster ? `${fullName} — Master (final mix). Drag onto the board.` : `${fullName} — drag onto the board`}
+      // Quiet rows (de-emphasis pass): on-board = faint neutral fill, not a
+      // color-tinted highlight; Master keeps its star + a whisper of its
+      // color but no bold colored border/typography.
       style={{ display:'flex', alignItems:'center', gap:9, cursor:'grab', borderRadius: isMaster ? 11 : 8,
         padding: isMaster ? '11px 10px' : '6px 8px',
-        background: isMaster ? `${color}14` : on ? `${color}12` : 'transparent',
-        border: isMaster ? `1px solid ${color}55` : '1px solid transparent',
+        background: isMaster ? `${color}0d` : on ? 'rgba(var(--fg),.05)' : 'transparent',
+        border: '1px solid transparent',
         marginBottom: isMaster ? 4 : 0 }}>
       {isMaster
         ? <span aria-hidden="true" style={{ fontSize:14, color, flexShrink:0, lineHeight:1 }}>★</span>
         : <span style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }}/>}
       <div style={{ flex:1, minWidth:0, display:'flex', flexDirection: isMaster ? 'column' : 'row', alignItems: isMaster ? 'flex-start' : 'baseline', gap: isMaster ? 1 : 6 }}>
-        {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase', color }}>Master</span>}
-        <span style={{ fontSize: isMaster ? 14 : 12.5, fontWeight: isMaster ? 800 : 400, color: isMaster ? color : C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%' }}>
+        {isMaster && <span style={{ fontSize:9, fontWeight:500, letterSpacing:'.1em', textTransform:'uppercase', color }}>Master</span>}
+        <span style={{ fontSize: isMaster ? 13.5 : 12.5, fontWeight: isMaster ? 600 : 400, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%' }}>
           {isMaster ? fullName : displayName}
         </span>
         {who && <span style={{ fontSize:11, fontWeight:400, color:C.t3, flexShrink:0 }}>· {who}</span>}
@@ -112,8 +128,8 @@ function LibraryRow({ s, boardIds, uploaders, onAdd, onRemove, projectTitle }) {
       <button onClick={() => on ? onRemove(s.id) : onAdd(s.id)}
         aria-label={on ? 'Remove from board' : 'Add to board'} title={on ? 'Remove from board' : 'Add to board'}
         style={{ width:20, height:20, borderRadius:6, flexShrink:0, cursor:'pointer',
-          border:'none', background: on ? color : 'rgba(var(--fg),.06)',
-          color: on ? '#fff' : C.t3, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
+          border:'none', background:'rgba(var(--fg),.06)',
+          color: on ? C.t1 : C.t3, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
         <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round">
           {on ? <line x1="5" y1="12" x2="19" y2="12"/> : <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}
         </svg>
@@ -263,9 +279,12 @@ function SongSelector({ options, value, onSelect, isMobile }) {
           const on = o.id === value
           return (
             <button key={o.id} onClick={() => onSelect(o.id)} title={o.label}
-              style={{ height:30, padding:'0 11px', borderRadius:8, border:`1px solid ${on ? C.coral+'55' : C.border}`,
-                background: on ? `${C.coral}16` : 'transparent', color: on ? C.coral : C.t2,
-                fontSize:12.5, fontWeight: on ? 700 : 500, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', maxWidth:160 }}>
+              // Selected = quiet neutral fill, not a coral-bordered chip —
+              // the whole console header moved away from highlighted/bold
+              // states (user direction: "clean modern simple").
+              style={{ height:30, padding:'0 11px', borderRadius:8, border:'none',
+                background: on ? 'rgba(var(--fg),.08)' : 'transparent', color: on ? C.t1 : C.t3,
+                fontSize:12.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', maxWidth:160 }}>
               <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{o.label}</span>
               {o.count != null && <span style={{ fontSize:10.5, opacity:.7 }}>{o.count}</span>}
             </button>
@@ -336,8 +355,22 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const isMobile = React.useContext(MobileCtx)
   const [aiAnalysis,    setAiAnalysis]   = useState(null)
   const [stems,         setStems]        = useState([])
+  // Declared this early (rather than alongside the rest of the board/mixer
+  // state further down) because the clip-mutation callbacks and the realtime
+  // subscription effect right below need `clips` in their closures/deps —
+  // both live earlier in the file than where board state traditionally sat.
+  const [clips,         setClips]         = useState([])          // timeline clips for the active project (server-synced, all collaborators share these)
+  // Mirrors `clips` for the realtime handler below, which only re-subscribes
+  // on [activeId, user?.id, createClip] — reading `clips` directly there
+  // would close over a stale snapshot from whenever it last ran, not the
+  // live value at event time.
+  const clipsRef = useRef([])
+  useEffect(() => { clipsRef.current = clips }, [clips])
+  const [selectedClipId, setSelectedClipId] = useState(null)      // drives which stem's mixer controls (mute/solo/volume/FX/comments) show below the Timeline
+  const [snapOn,        setSnapOn]        = useState(true)        // Timeline grid-snap toggle — local UI state, not persisted (see snap.js)
   const [loading,       setLoading]      = useState(true)
   const [loadingStems,  setLoadingStems] = useState(true)
+  const [loadingClips,  setLoadingClips] = useState(true)
   // The sticky console header (title strip + transport) can wrap to two lines
   // (many song pills, presence avatars, a narrower window) and change height —
   // the side panels below it are sticky too and must offset by its REAL height,
@@ -370,6 +403,19 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const audioRefs  = useRef({})
   const gainRefs   = useRef({})
   const fxChainRefs = useRef({})   // stemId → { input, output, nodes, apply } — see studio/fxChain.js
+  const deletingClipIdsRef = useRef(new Set())   // clip ids with a DELETE in flight — guards against a duplicate call (e.g. OS key-repeat firing Backspace's keydown twice before selectedClipId clears) sending a second request that 404s on an already-gone clip
+  // stem ids an AUTO-placement (not a user drag/duplicate) has already started
+  // for, this session — createClip is async, so there's a real window where
+  // `clips` state hasn't caught up yet and a stem still looks like it has
+  // zero clips. Without this, React StrictMode's intentional double-invoke of
+  // effects in dev (mount → cleanup → mount again, with no cleanup here to
+  // undo anything) reliably creates two identical overlapping clips for every
+  // auto-placed stem — confirmed live: pairs of clips at the exact same
+  // track_index/offset, timestamped ~0.5s apart. Only auto-placement paths
+  // (the fallback effect below, the realtime stems-INSERT handler) consult
+  // this — intentional user-initiated duplicates (alt-drag, context menu)
+  // must still be able to create a second clip of an already-placed stem.
+  const autoPlacedStemIdsRef = useRef(new Set())
   const ctxRef       = useRef(null)
   // Was previously "does ctxRef.current exist" — but the playback AudioContext
   // is now created once and kept alive across pause/stop (see ctxRef below), so
@@ -388,6 +434,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const bpmRef       = useRef(120)
   const beatTimerRef = useRef(null)
   const bpmSaveTimer = useRef(null)
+
+  // Smart Mix + Export used to live in a permanent 300px sidebar column,
+  // squeezing the Timeline — now a slide-over drawer opened on demand
+  // (button in the transport row), so the board gets that width back by
+  // default.
+  const [mixExportOpen,  setMixExportOpen]  = useState(false)
 
   // ── Recording ────────────────────────────────────────────────────────────
   const [recordOpen,     setRecordOpen]     = useState(false)
@@ -418,6 +470,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const pcmSilentGainRef = useRef(null)
   const pcmChunksRef     = useRef([])   // Float32Array[]
   const pcmStartedRef    = useRef(false)
+  const recordStartOffsetMsRef = useRef(0)   // transport position (ms) when capture actually began — see beginCapture below
 
   // Live "hear yourself with FX while singing" monitor — a listen-only chain
   // (mic → fxChain → speakers/headphones) that never touches the PCM capture
@@ -471,7 +524,16 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     stopClicks()
   }, [])
 
-  const parsedNotes = f => { try { return JSON.parse(f.notes || '{}') } catch { return {} } }
+  const parsedNotes = f => {
+    const raw = f.notes || '{}'
+    const cached = parsedNotesCache.get(raw)
+    if (cached) return cached
+    let parsed
+    try { parsed = JSON.parse(raw) } catch { parsed = {} }
+    if (parsedNotesCache.size >= 500) parsedNotesCache.delete(parsedNotesCache.keys().next().value)
+    parsedNotesCache.set(raw, parsed)
+    return parsed
+  }
   const defaultColors = [C.coral, '#22c55e', C.amber, '#8b5cf6', '#3b82f6', C.pink]
   const stemColors = { master:'#E8B84B', vocals:'#8b5cf6', drums:C.coral, bass:'#22c55e', other:C.amber }
   const trackColor = (s, i) => stemColors[s.instrument] || stemColors[parsedNotes(s).stem_type] || defaultColors[i % 6]
@@ -528,7 +590,9 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   useEffect(() => {
     if (!activeId) return
     setLoadingStems(true)
+    setLoadingClips(true)
     setStems([])
+    setClips([])
     stopAll()
     const proj = projects.find(p => p.id === activeId)
     if (proj?.bpm) { const b = parseInt(proj.bpm); setBpm(b); bpmRef.current = b }
@@ -542,6 +606,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       })
       .catch(e => console.warn('[studio]', e?.message))
       .finally(() => setLoadingStems(false))
+    clipsApi.list(activeId)
+      .then(r => setClips(r.data || []))
+      .catch(e => console.warn('[studio] clips', e?.message))
+      .finally(() => setLoadingClips(false))
   }, [activeId])
 
   useEffect(() => () => { stopAll(); cancelAnimationFrame(rafRef.current) }, [])
@@ -555,6 +623,107 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     window.addEventListener('dizko:player_state', onState)
     return () => window.removeEventListener('dizko:player_state', onState)
   }, [])
+
+  // ── Timeline clip mutations (server-synced — see clipsApi/backend/src/routes/clips.ts) ──
+  // Declared up here (ahead of most other Studio state) only because the
+  // realtime subscription effect right below needs `createClip` in its
+  // dependency array — everything these three touch (clips, selectedClipId,
+  // the playback refs, addToast) is already available this early.
+  const createClip = useCallback(async (stemId, trackIndex = 0, startOffsetMs = 0) => {
+    try {
+      const r = await clipsApi.create(stemId, trackIndex, startOffsetMs)
+      if (r.data) setClips(prev => (prev.some(c => c.id === r.data.id) ? prev : [...prev, r.data]))
+    } catch {
+      addToast?.('Could not place that stem on the timeline', { type:'info' })
+    }
+  }, [addToast])
+
+  const moveClip = useCallback(async (clipId, trackIndex, startOffsetMs) => {
+    const prevClip = clips.find(c => c.id === clipId)
+    // Optimistic — Timeline already shows this the instant the drag ends;
+    // don't wait on the round-trip for the visible move to land.
+    setClips(prev => prev.map(c => c.id === clipId ? { ...c, track_index: trackIndex, start_offset_ms: startOffsetMs } : c))
+    try {
+      const r = await clipsApi.move(clipId, trackIndex, startOffsetMs)
+      if (r.data) setClips(prev => prev.map(c => c.id === clipId ? r.data : c))
+    } catch {
+      if (prevClip) setClips(prev => prev.map(c => c.id === clipId ? prevClip : c))
+      addToast?.('Could not move that clip', { type:'info' })
+    }
+  }, [clips, addToast])
+
+  const deleteClip = useCallback(async (clipId) => {
+    // Re-entrant guard — a duplicate call for the same clip (e.g. holding
+    // Backspace triggers OS key-repeat faster than selectedClipId can clear
+    // and detach the keydown listener) would otherwise send a second DELETE
+    // that 404s on an already-gone clip, which used to surface as a real
+    // error AND resurrect a ghost copy of the clip locally.
+    if (deletingClipIdsRef.current.has(clipId)) return
+    deletingClipIdsRef.current.add(clipId)
+
+    const target = clips.find(c => c.id === clipId)
+    setClips(prev => prev.filter(c => c.id !== clipId))
+    if (selectedClipId === clipId) setSelectedClipId(null)
+
+    // Stop this clip's own source immediately — waiting on the round-trip
+    // used to leave a removed stem still audibly playing. The shared
+    // per-stem FX/gain/analyser chain (see playAll) only tears down once no
+    // other clip of that stem is left to use it.
+    const src = audioRefs.current[clipId]
+    if (src) { try { src.stop() } catch {} delete audioRefs.current[clipId] }
+    if (target && !clips.some(c => c.id !== clipId && c.stem_id === target.stem_id)) {
+      delete gainRefs.current[target.stem_id]
+      delete analyserRefs.current[target.stem_id]
+      delete fxChainRefs.current[target.stem_id]
+    }
+
+    try {
+      await clipsApi.remove(clipId)
+    } catch (e) {
+      // A 404 here means the clip is already gone server-side — exactly the
+      // end state we wanted, just reached by two requests instead of one.
+      // Not a failure: don't resurrect it locally, don't alarm the user.
+      if (e?.status !== 404) {
+        if (target) setClips(prev => [...prev, target])
+        addToast?.('Could not remove that clip', { type:'info' })
+      }
+    } finally {
+      deletingClipIdsRef.current.delete(clipId)
+    }
+  }, [clips, selectedClipId, addToast])
+
+  // Crop — dragging a clip's left/right edge on the Timeline. `fields` is
+  // whichever of {start_offset_ms, trim_start_ms, trim_end_ms} the drag
+  // actually changed (left-edge drags move both start_offset_ms and
+  // trim_start_ms together; right-edge drags only trim_end_ms — see
+  // Clip.jsx's edge-drag math for why).
+  const trimClip = useCallback(async (clipId, fields) => {
+    const prevClip = clips.find(c => c.id === clipId)
+    if (!prevClip) return
+    setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...fields } : c))
+    try {
+      const r = await clipsApi.update(clipId, fields)
+      if (r.data) setClips(prev => prev.map(c => c.id === clipId ? r.data : c))
+    } catch {
+      setClips(prev => prev.map(c => c.id === clipId ? prevClip : c))
+      addToast?.('Could not crop that clip', { type:'info' })
+    }
+  }, [clips, addToast])
+
+  // Cut — splits one clip into two at a timeline position (the playhead).
+  // The server computes both halves atomically (see backend/src/lib/clipSplit.ts)
+  // so there's no window where only one half exists.
+  const splitClip = useCallback(async (clipId, atOffsetMs) => {
+    try {
+      const r = await clipsApi.split(clipId, atOffsetMs)
+      if (r.data?.left && r.data?.right) {
+        setClips(prev => [...prev.filter(c => c.id !== clipId), r.data.left, r.data.right])
+        setSelectedClipId(r.data.right.id)
+      }
+    } catch {
+      addToast?.('Could not split that clip', { type:'info' })
+    }
+  }, [addToast])
 
   useEffect(() => {
     if (!activeId) return
@@ -578,11 +747,39 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           addToast?.(<><strong style={{color:'#fff'}}>{uploaderName}</strong> uploaded a new <strong style={{color:C.coral}}>{s.instrument||'stem'}</strong> — smart mix updating…</>, { type:'new', duration:8000 })
         }
         setStems(prev => { if (prev.find(x => x.id === s.id)) return prev; return [s, ...prev] })
-        // A fresh upload joins the board automatically so it's immediately usable.
-        if (s.file_url && s.instrument !== 'original' && s.instrument !== 'smart_bounce') {
+        // A fresh upload joins the timeline automatically so it's immediately usable —
+        // on its own new row, and (for a recording made mid-song) at the transport
+        // position it was actually captured at, not always 0:00. See record_offset_ms
+        // in files.ts's /register + Studio.jsx's beginCapture.
+        if (s.file_url && s.instrument !== 'original' && s.instrument !== 'smart_bounce' && !autoPlacedStemIdsRef.current.has(s.id)) {
           const sn = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
-          if (!sn.parent_stem_id) setBoardIds(prev => new Set([...prev, s.id]))
+          if (!sn.parent_stem_id) {
+            autoPlacedStemIdsRef.current.add(s.id)
+            const songClips = clipsRef.current.filter(c => (c.folder_id ?? null) === (s.folder_id ?? null))
+            const nextRow = songClips.length ? Math.max(...songClips.map(c => c.track_index)) + 1 : 0
+            const offsetMs = typeof sn.record_offset_ms === 'number' ? sn.record_offset_ms : 0
+            createClip(s.id, nextRow, offsetMs)
+          }
         }
+      })
+      // Another collaborator (or this session's own optimistic write, echoed
+      // back) moved/created/deleted a clip — merge directly into local state.
+      // Unlike the stems UPDATE handler above, a clip row has no derived/
+      // signed fields, so there's nothing to gain from a refetch here.
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'clips' }, payload => {
+        const c = payload.new
+        if (!c?.id) return
+        setClips(prev => (prev.some(x => x.id === c.id) ? prev : [...prev, c]))
+      })
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'clips' }, payload => {
+        const c = payload.new
+        if (!c?.id) return
+        setClips(prev => prev.map(x => x.id === c.id ? c : x))
+      })
+      .on('postgres_changes', { event:'DELETE', schema:'public', table:'clips' }, payload => {
+        const id = payload.old?.id
+        if (!id) return
+        setClips(prev => prev.filter(x => x.id !== id))
       })
       // Enrichment (BPM/key/peaks + the AAC playback asset) finishes seconds
       // after upload via a background job that UPDATEs the stem row — without
@@ -621,7 +818,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       })
       .subscribe()
     return () => { supabase.removeChannel(channel); clearTimeout(refetchTimerRef.current) }
-  }, [activeId, user?.id])
+  }, [activeId, user?.id, createClip])
 
   const stopAll = () => {
     sessionActiveRef.current = false
@@ -822,7 +1019,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }
 
   const playAll = async () => {
-    const loadableStems = boardStems.filter(s => s.file_url && !prepState.failed.includes(s.preview_url || s.file_url))
+    const loadableStems = readyBoardStems.filter(s => s.file_url && !prepState.failed.includes(s.preview_url || s.file_url))
 
     // Structural safety net for the Transport button's disabled state (belt +
     // suspenders — Play must never fetch or decode). If somehow invoked before
@@ -933,46 +1130,79 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     // keeps click-to-schedule as one uninterrupted synchronous turn.
     if (needsResume) await ctx.resume()
 
-    // Small lookahead so every source.start() call (one per stem, looped below)
-    // lands before this instant even across dozens of stems — without it, the
+    // Small lookahead so every source.start() call (one per clip, looped below)
+    // lands before this instant even across dozens of clips — without it, the
     // per-call jitter of scheduling many nodes in a loop can make them start a
     // few ms apart (audible as smear on a drum bus). 8ms is comfortably enough
     // margin for that while staying well under the <50ms play-to-sound target —
     // this used to be 50ms, which alone consumed the entire budget.
     const startTime = ctx.currentTime + 0.008
+    // Absolute song length — max(clip start + its stem's duration) across
+    // every clip, independent of where playback is currently seeked to (see
+    // clipScheduling.js). Accumulated below from each clip's REAL decoded
+    // buffer duration as it's scheduled, not from stored metadata
+    // (notes.audio_features.duration) — that field is empty for plenty of
+    // real stems (enrichment hasn't run, or predates it), which silently
+    // computed maxDur=0 here and made the tick loop below call stopAll()
+    // on literally the first animation frame: audio would schedule
+    // correctly and then be killed within ~16ms, every time. The decoded
+    // AudioBuffer's own .duration is always real once we're at this point —
+    // no reason to trust possibly-missing metadata over it.
     let maxDur = 0
 
-    decoded.filter(Boolean).forEach(({ s, audio, fromPreview }) => {
-      const trim        = getTrim(s.id)
-      const vol         = getVolume(s.id)
-      const isMuted     = mutedIds.has(s.id)
-      const isSilenced  = soloId !== null && soloId !== s.id
-      const trimStart    = audio.duration * trim.start
-      const effectiveDur = audio.duration * (trim.end - trim.start)
-      // LAME adds ~1105 samples (~0.025s) of leading silence to the MP3 preview.
-      // Skip past it so the audio lines up with the waveform playhead.
-      const PREVIEW_LAG  = fromPreview ? 0.025 : 0
-      const playFrom     = trimStart + offsetRef.current + PREVIEW_LAG
-      // Skip stem if the seek position is past its end — don't start it at all
-      if (playFrom >= audio.duration) return
-      if (effectiveDur > maxDur) maxDur = effectiveDur
+    // One decoded buffer per STEM (loadableStems/decoded above are already
+    // deduplicated by stem) — every clip of a stem schedules its own source
+    // from this same shared AudioBuffer, per the spec's "decode once, reuse
+    // across clips" requirement.
+    const decodedByStem = new Map(decoded.filter(Boolean).map(d => [d.s.id, d]))
 
-      const src     = ctx.createBufferSource(); src.buffer = audio
-      const gain    = ctx.createGain(); gain.gain.value = (isMuted || isSilenced) ? 0 : vol
-      const analyser = ctx.createAnalyser()
-      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.8
+    visibleClips.forEach(clip => {
+      const d = decodedByStem.get(clip.stem_id)
+      if (!d) return   // this stem failed to load/decode — its clips are silently skipped
+      const { s, audio, fromPreview } = d
+      const trim       = getTrim(s.id)
+      const vol        = getVolume(s.id)
+      const isMuted    = mutedIds.has(s.id)
+      const isSilenced = soloId !== null && soloId !== s.id
 
-      analyserRefs.current[s.id] = analyser
-      gainRefs.current[s.id]     = gain
-      // Non-destructive per-stem FX — fixed-topology chain (see fxChain.js),
-      // stored per-session so live slider changes can reach into it directly.
-      const fx = createFxChain(ctx, parsedNotes(s).fx)
-      fxChainRefs.current[s.id] = fx
-      src.connect(fx.input); fx.output.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
+      // Translates this one clip into a scheduling call — silent until its
+      // own start_offset_ms, then plays its stem's audio from the beginning
+      // (or resumes mid-audio if the transport is already past that point).
+      const result = computeClipPlayback({
+        clip, audioBuffer: audio, trim,
+        transportOffsetSec: offsetRef.current, startTimeSec: startTime, fromPreview,
+      })
+      if (!result) return   // already finished playing by this seek point
 
-      // All sources share the same startTime — perfectly in sync
-      src.start(startTime, playFrom, effectiveDur - offsetRef.current)
-      audioRefs.current[s.id] = src
+      // Real, always-available duration (the decoded buffer's own .duration,
+      // whole-stem-trim- and crop-adjusted) — see the comment above maxDur's
+      // declaration for why this can't come from stored metadata.
+      const fullEffectiveDurSec = getClipEffectiveDurationSec(clip, audio, trim)
+      const finishesAtSec = (clip.start_offset_ms || 0) / 1000 + fullEffectiveDurSec
+      if (finishesAtSec > maxDur) maxDur = finishesAtSec
+
+      // Shared per-stem FX/gain/analyser chain — every clip of this stem
+      // feeds its own source into the SAME chain, so mute/solo/volume/FX
+      // (all per-stem, unchanged from before clips existed) apply
+      // identically no matter which instance is currently sounding.
+      if (!fxChainRefs.current[s.id]) {
+        const gain = ctx.createGain()
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.8
+        // Non-destructive per-stem FX — fixed-topology chain (see fxChain.js),
+        // stored per-session so live slider changes can reach into it directly.
+        const fx = createFxChain(ctx, parsedNotes(s).fx)
+        fx.output.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination)
+        gainRefs.current[s.id] = gain
+        analyserRefs.current[s.id] = analyser
+        fxChainRefs.current[s.id] = fx
+      }
+      gainRefs.current[s.id].gain.value = (isMuted || isSilenced) ? 0 : vol
+
+      const src = ctx.createBufferSource(); src.buffer = audio
+      src.connect(fxChainRefs.current[s.id].input)
+      src.start(result.whenSec, result.bufferOffsetSec, result.durationSec)
+      audioRefs.current[clip.id] = src
     })
 
     setDuration(maxDur)
@@ -1097,7 +1327,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const blob = audioBufferToWavBlob(buffer)
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       const file = new File([blob], `Recording_${stamp}.wav`, { type: 'audio/wav' })
-      await filesApi.upload(file, activeId, { instrument: 'recording' })
+      await filesApi.upload(file, activeId, { instrument: 'recording', recordOffsetMs: recordStartOffsetMsRef.current })
       // No manual refresh needed — the realtime INSERT listener already
       // wired into this page picks the new stem up on its own.
       stopMonitor()
@@ -1143,6 +1373,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       // recomputing a separate estimate here) guarantees the take aligns to
       // the SAME instant the backing stems actually start sounding.
       const targetStartTime = startAtRef.current + offsetRef.current
+      // The captured WAV has no silence padding — sample 0 IS this instant
+      // (see startPcmCapture). So the resulting stem's clip must start here
+      // too, or "record a hook at bar 17" plays back at 0:00 like every other
+      // stem — snapshot now, since offsetRef keeps advancing once playback's
+      // tick loop takes over.
+      recordStartOffsetMsRef.current = Math.round(offsetRef.current * 1000)
       startPcmCapture(stream, targetStartTime)
       setIsRecording(true)
     }
@@ -1226,10 +1462,47 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     fxSaveTimers.current[stemId] = setTimeout(() => {
       setStems(prev => {
         const s = prev.find(x => x.id === stemId)
-        if (s) filesApi.update(stemId, { notes: JSON.stringify({ ...parsedNotes(s), fx: nextFx }) }).catch(e => console.warn('[fx save]', e?.message))
+        if (s) {
+          // See renameStem/setStemColor's comment — busts the same stale-cache
+          // window the FX-modal-open guard only covers while the modal is
+          // still open, not after.
+          cacheBust(`/projects/${activeId}/files`)
+          filesApi.update(stemId, { notes: JSON.stringify({ ...parsedNotes(s), fx: nextFx }) }).catch(e => console.warn('[fx save]', e?.message))
+        }
         return prev
       })
     }, 500)
+  }
+
+  // Rename/recolor from a clip's context menu — both act on the underlying
+  // STEM (suggested_name / notes.color), not the clip: every clip of that
+  // stem is the same asset placed more than once, so they share one label
+  // and one color rather than each carrying its own.
+  const renameStem = (stemId, newName) => {
+    setStems(prev => prev.map(s => s.id === stemId ? { ...s, suggested_name: newName } : s))
+    // Bust BEFORE the request, not after — the stems-UPDATE realtime handler's
+    // debounced refetch (400ms) can otherwise land in between and re-fetch a
+    // still-cached (up to 20s stale) pre-edit snapshot, silently reverting
+    // this edit right back on screen a moment after it visibly "took."
+    cacheBust(`/projects/${activeId}/files`)
+    filesApi.update(stemId, { suggested_name: newName }).catch(() => {
+      addToast?.('Could not rename — try again', { type:'info' })
+    })
+  }
+  const setStemColor = (stemId, hex) => {
+    setStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s
+      const notes = { ...parsedNotes(s) }
+      if (hex) notes.color = hex; else delete notes.color
+      return { ...s, notes: JSON.stringify(notes) }
+    }))
+    const s = stems.find(x => x.id === stemId)
+    const notes = { ...parsedNotes(s || {}) }
+    if (hex) notes.color = hex; else delete notes.color
+    cacheBust(`/projects/${activeId}/files`)
+    filesApi.update(stemId, { notes: JSON.stringify(notes) }).catch(() => {
+      addToast?.('Could not change color — try again', { type:'info' })
+    })
   }
 
   // "Replace" — the one destructive-feeling action FX offers: render the FX
@@ -1320,8 +1593,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const jobId = start.data?.jobId
       if (!jobId) { addToast(start.error || 'Export failed', 'error'); return }
 
-      // Poll for completion (build → zip → R2 upload), up to ~3 minutes.
-      const deadline = Date.now() + 3*60*1000
+      // Poll for completion (build → zip → R2 upload), up to ~8 minutes —
+      // a 5-stem board of full-length WAVs measured ~3-5 min end to end, so
+      // the old 3-minute budget could report "timed out" on a job that was
+      // about to succeed.
+      const deadline = Date.now() + 8*60*1000
       let result = null
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 1500))
@@ -1369,9 +1645,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const transposeTimerRef = useRef(null)                        // debounce so rapid +/- clicks render once
   const volumesRef = useRef({})                                 // latest per-stem volumes (for the single-stem preview)
   useEffect(() => { transposesRef.current = transposes }, [transposes])
-  const [boardIds,      setBoardIds]      = useState(new Set())   // stems placed on the board (persisted per user+project)
-  const [boardReady,    setBoardReady]    = useState(false)       // saved layout loaded for this project?
-  const [dragOver,      setDragOver]      = useState(false)       // drop-zone highlight
+  const [boardReady,    setBoardReady]    = useState(false)       // saved per-stem mix settings loaded for this project?
   const [expandedId,    setExpandedId]    = useState(null)
   const [deletingId,    setDeletingId]    = useState(null)
   const [uploaders,     setUploaders]     = useState({})
@@ -1504,34 +1778,17 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // board. Stable sort keeps every other stem in its existing order.
   }).sort((a, b) => (b.instrument === 'master' ? 1 : 0) - (a.instrument === 'master' ? 1 : 0)), [visibleStems])
 
-  const takeMap = useMemo(() => {
-    const m = new Map()
-    for (const s of visibleStems) {
-      const sn = parsedNotes(s)
-      if (!s.instrument || s.instrument === 'original' || s.instrument === 'smart_bounce' || sn.parent_stem_id) continue
-      const key = `${s.uploaded_by}::${s.instrument}`, ex = m.get(key)
-      if (!ex || new Date(s.created_at) > new Date(ex.created_at)) m.set(key, s)
-    }
-    return m
-  }, [visibleStems])
 
-
-  // ── Board layout persistence (per user + project + song) ─────────────────────
+  // ── Per-stem mix settings persistence (per user + project + song) ────────────
+  // Position now lives server-side in `clips` (synced to every collaborator);
+  // volume/mute/trim/transpose stay local per-browser exactly as before.
   const boardKey = activeId && user?.id ? `studio_board:${user.id}:${activeId}:${songId}` : null
 
-  // Load saved layout + per-stem mix settings when project/stems change. First
-  // visit → pre-fill the board with the latest take of each instrument (sensible
-  // default, then the user tweaks).
   useEffect(() => {
     if (!boardKey || loadingStems) return
     setBoardReady(false)
     const valid = new Set(mixerStems.map(s => s.id))
     const saved = parseBoard(localStorage.getItem(boardKey), valid)
-
-    setBoardIds(saved
-      ? new Set(saved.board)
-      : new Set([...takeMap.values()].map(s => s.id).filter(id => valid.has(id))))
-    // Restore volume / mute / trim / transpose (empty on first visit or a legacy layout).
     setVolumes(saved?.volumes ?? {})
     setMutedIds(new Set(saved?.muted ?? []))
     setTrims(saved?.trims ?? {})
@@ -1540,15 +1797,12 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardKey, loadingStems])
 
-  // Persist board + per-stem settings on any change (once the layout has loaded).
   useEffect(() => {
     if (!boardKey || !boardReady) return
     try {
-      localStorage.setItem(boardKey, serializeBoard({
-        board: [...boardIds], volumes, muted: [...mutedIds], trims, transposes,
-      }))
+      localStorage.setItem(boardKey, serializeBoard({ volumes, muted: [...mutedIds], trims, transposes }))
     } catch {}
-  }, [boardKey, boardReady, boardIds, volumes, mutedIds, trims, transposes])
+  }, [boardKey, boardReady, volumes, mutedIds, trims, transposes])
 
   // Who else is live in this project's Studio right now
   const presencePeers = useStudioPresence(activeId, user)
@@ -1573,22 +1827,101 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     })
   }, [])
 
+  // ── Timeline clips (server-synced arrangement — see clipsApi/lib/rbac.ts's
+  // stemContext) ── A stem "is on the timeline" iff it has ≥1 clip in the
+  // current song; multiple clips may reference the same stem (e.g. a chorus
+  // vocal repeated at several bars). Mixer settings above stay keyed by STEM
+  // id and apply to every clip of that stem — unchanged from before clips
+  // existed, per the feature's scope (position is clip-level, mixing isn't).
+  const visibleClips = useMemo(
+    () => clips.filter(c => visibleStems.some(s => s.id === c.stem_id)),
+    [clips, visibleStems],
+  )
+  const boardIds = useMemo(() => new Set(visibleClips.map(c => c.stem_id)), [visibleClips])
+  const stemsById = useMemo(() => new Map(stems.map(s => [s.id, s])), [stems])
+
+  // Quick add/remove toggle from the stems library list (LibraryRow's +/−).
+  // Coarser than the Timeline's precise per-clip delete: removing here drops
+  // every clip of this stem, not just one instance.
   const addToBoard = useCallback(id => {
-    setBoardIds(prev => (prev.has(id) ? prev : new Set([...prev, id])))
-  }, [])
+    const nextRow = visibleClips.length ? Math.max(...visibleClips.map(c => c.track_index)) + 1 : 0
+    createClip(id, nextRow, 0)
+  }, [visibleClips, createClip])
   const removeFromBoard = useCallback(id => {
-    setBoardIds(prev => { const n = new Set(prev); n.delete(id); return n })
-    // If it's currently playing in the board mix, stop its source NOW — removing
-    // it from the board used to leave the audio still sounding.
-    const src = audioRefs.current[id]
-    if (src) { try { src.stop() } catch {} delete audioRefs.current[id] }
-    delete gainRefs.current[id]
-    delete analyserRefs.current[id]
-    delete fxChainRefs.current[id]
-  }, [])
+    clips.filter(c => c.stem_id === id).forEach(c => deleteClip(c.id))
+  }, [clips, deleteClip])
 
   // Board = chosen subset of mixer stems, in library order
   const boardStems = useMemo(() => mixerStems.filter(s => boardIds.has(s.id)), [mixerStems, boardIds])
+
+  // Timeline clip widths (and therefore where every OTHER clip sits, and the
+  // total song length) are computed from notes.audio_features.duration — but
+  // that field is empty for plenty of real stems (enrichment analysis
+  // hasn't finished, or predates it). Without a fallback, Timeline.jsx used a
+  // fixed 4-second stub width for those clips regardless of the stem's real
+  // length: the waveform image inside was stretched to a box that had
+  // nothing to do with how long the audio actually plays, and any clip
+  // placed after it started at the wrong visual position relative to what
+  // you'd actually hear — the timeline stopped "respecting" the waveform.
+  // TrackItem.jsx already solves this for its own single big waveform (see
+  // its `metaDur` state) via a lightweight <audio> metadata probe; this is
+  // the same fix, centralized so the Timeline's layout gets it too.
+  const [stemDurationOverrides, setStemDurationOverrides] = useState(new Map())
+  useEffect(() => {
+    const missing = boardStems.filter(s => s.file_url && getStemDurationSec(s) <= 0 && !stemDurationOverrides.has(s.id))
+    if (!missing.length) return
+    let cancelled = false
+    missing.forEach(s => {
+      const a = new Audio()
+      a.preload = 'metadata'
+      const onMeta = () => {
+        if (cancelled || !isFinite(a.duration) || a.duration <= 0) return
+        setStemDurationOverrides(prev => (prev.has(s.id) ? prev : new Map(prev).set(s.id, a.duration)))
+      }
+      a.addEventListener('loadedmetadata', onMeta)
+      a.src = s.file_url
+    })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardStems])
+  // Stems still mid-upload (batch upload inserts the row immediately with
+  // notes.status:'uploading', before the PUT to R2 has necessarily finished —
+  // see files.ts) get a clip auto-placed on the timeline the same as any
+  // other fresh upload, but their file_url can point at an object that isn't
+  // actually there yet. TrackItem already disables that ONE stem's own play
+  // button while processing (stillProcessing) — this is the same gate applied
+  // to the board-wide "Play all" prep pipeline, so one incomplete upload
+  // can't hang or fail the decode of every OTHER stem's audio.
+  const readyBoardStems = useMemo(
+    () => boardStems.filter(s => { const st = parsedNotes(s).status; return !st || st === 'ready' }),
+    [boardStems],
+  )
+
+  // Seeds autoPlacedStemIdsRef with every stem that ALREADY has a clip the
+  // moment a project's clips finish loading — before the fallback effect
+  // below gets a chance to run. Without this, removing a stem's only clip
+  // (a deliberate user action) changes boardIds, which re-triggers that
+  // effect; it can't tell "never placed" apart from "just removed on
+  // purpose" and silently recreates the clip you just deleted. Confirmed
+  // live: remove needed two clicks — the first one bounced right back, and
+  // only the second stuck (because the first recreation is what finally
+  // marked the ref, letting the SECOND removal's re-check see it as already
+  // seen). Seeding up front means the guard is in place before any removal
+  // can happen at all, not one recreation cycle after.
+  useEffect(() => {
+    if (loadingClips) return
+    clips.forEach(c => autoPlacedStemIdsRef.current.add(c.stem_id))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingClips, activeId])
+
+  // NO load-time auto-placement. A "safety net" here used to recreate a clip
+  // for any stem with zero clips — but "stem with no clip" is exactly what a
+  // deliberate removal leaves behind, so stems the user took off the board
+  // came back on every fresh visit (the in-session guard above can't protect
+  // across reloads; reported live as the board "adding things by itself").
+  // The board is now exactly what's persisted in `clips`: fresh uploads are
+  // placed once by the realtime INSERT handler, everything else only moves
+  // when the user moves it.
 
   // Background preload: decode the board's lightweight previews as soon as they
   // land on the board (studio open / stem added), throttled, so "Play all" is
@@ -1602,6 +1935,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
   // Resizable STEMS panel — names were too long to read at the fixed 240px width.
   const [stemsW, setStemsW] = useState(() => { try { return Math.max(200, Math.min(520, Number(localStorage.getItem('dizko_stems_w')) || 260)) } catch { return 260 } })
+  // Assets panel collapse — gives the Timeline the full page width when the
+  // library isn't needed. Persisted like the panel's width.
+  const [assetsOpen, setAssetsOpen] = useState(() => { try { return localStorage.getItem('dizko_assets_open') !== '0' } catch { return true } })
+  const toggleAssets = () => setAssetsOpen(v => { try { localStorage.setItem('dizko_assets_open', v ? '0' : '1') } catch { /* ignore */ } return !v })
   const startStemsResize = (e) => {
     e.preventDefault()
     const startX = e.clientX, startW = stemsW
@@ -1615,7 +1952,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     document.body.style.cursor = 'col-resize'
   }
   useEffect(() => {
-    const urls = boardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(ck(u)))
+    const urls = readyBoardStems.map(s => s.preview_url || s.file_url).filter(u => u && !decodedCache.has(ck(u)))
     if (!urls.length) { setPrepState({ total: 0, remaining: 0, failed: [] }); return }
     let cancelled = false, i = 0, active = 0
     // Previews are small; fetch them in parallel (browsers cap ~6/host anyway) so
@@ -1639,7 +1976,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     }
     next()
     return () => { cancelled = true }
-  }, [boardStems])
+  }, [readyBoardStems])
 
   // Warm the preview BYTES for EVERY visible stem (not just the board), so a
   // single click on any stem starts instantly. Byte-only (no decode) so it's
@@ -1706,9 +2043,14 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   }, [mixVersions])
 
   // Restore the board exactly as it was when a mix version was generated.
+  // `snap.board` is just a set of stem ids (this snapshot predates clip
+  // positions) — reconcile the timeline to match that set, rather than
+  // restoring any particular arrangement.
   const restoreSnapshot = (snap) => {
     if (!snap) { addToast?.('This mix has no saved board to restore', 'info'); return }
-    setBoardIds(new Set(snap.board || []))
+    const desired = new Set(snap.board || [])
+    for (const id of desired) if (!boardIds.has(id)) createClip(id)
+    for (const id of boardIds) if (!desired.has(id)) removeFromBoard(id)
     setMutedIds(new Set(snap.muted || []))
     setSoloId(snap.solo ?? null)
     setVolumes(snap.volumes || {})
@@ -1771,11 +2113,19 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // Per-stem play/pause: if this stem is already in the MiniPlayer, toggle it;
   // otherwise load + play it (pitch-shifted if transposed). Drives the ▶/⏸ button.
   const handleStemPlay = useCallback((stem) => {
+    // While the board transport is rolling, this button SHOWS a pause icon
+    // (the stem is audibly part of the mix) — so a click must pause, full
+    // stop. It used to switch to solo-previewing the stem instead (board
+    // stops, one stem keeps going), which read as "the editing clip plays
+    // by itself during Play all" (reported live). Solo preview stays one
+    // more click away, from the paused state.
+    if (playingRef.current) { pause(); return }
     if (preview.id === stem.id) {
       window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } }))
     } else {
       previewStem(stem)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview.id, previewStem])
 
   // Scrub/seek on a stem's waveform. Routes to whichever clock owns that stem so
@@ -1819,14 +2169,94 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transposes])
 
+  // Selected clip's mixer controls — mute/solo/volume/transpose/FX/comments/
+  // take-history, all still living in TrackItem unchanged. Shared between the
+  // desktop persistent right column and the mobile inline placement (there's
+  // no room for a third column on mobile) so the two never drift apart.
+  // Selecting a clip must actually SHOW its editing panel — the panel sits
+  // below the Timeline, and with several lanes the page is tall enough that
+  // it (play button and all) opened entirely below the fold (reported live:
+  // "can't even see play"). block:'nearest' scrolls the minimum distance.
+  const clipPanelRef = useRef(null)
+  useEffect(() => {
+    if (!selectedClipId) return
+    const id = setTimeout(() => clipPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60)
+    return () => clearTimeout(id)
+  }, [selectedClipId])
+
+  const renderClipPanel = () => {
+    const selectedClip = selectedClipId ? visibleClips.find(c => c.id === selectedClipId) : null
+    const s = selectedClip ? stemsById.get(selectedClip.stem_id) : null
+    if (!s) return (
+      <div style={{ padding:'28px 8px', textAlign:'center' }}>
+        <div style={{ fontSize:12.5, color:C.t3, lineHeight:1.5 }}>Select a clip on the Timeline to edit it.</div>
+      </div>
+    )
+    const i = boardStems.findIndex(x => x.id === s.id)
+    const color = trackColor(s, i)
+    const uploader = uploaders[s.uploaded_by]
+    const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
+    const hKey = `${s.uploaded_by}::${s.instrument||'recording'}`
+    const previewing = isPreviewing(s) && !playing
+    const pbTime     = previewing ? preview.currentTime : currentTime
+    const pbDur      = previewing ? preview.duration    : duration
+    const pbPlaying  = previewing ? preview.playing     : playing
+    const stemPlaying = previewing && preview.playing
+
+    return (
+      <TrackItem user={user} isOwner={activeProject?.owner_id === user?.id}
+        stem={s} index={i} color={color}
+        isMuted={mutedIds.has(s.id)} isSolo={soloId===s.id}
+        isExpanded={expandedId===s.id} isDeleting={deletingId===s.id}
+        loadPct={loadingPct[s.id]} volume={getVolume(s.id)}
+        transpose={transposes[s.id] || 0} onTransposeChange={changeTranspose}
+        transposeApplying={transposing === s.id}
+        uploader={uploader} uploaderName={uploaderName}
+        takes={stemHistory[hKey]}
+        comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
+        postingComment={postingComment}
+        currentTime={pbTime} duration={pbDur}
+        isPlaying={pbPlaying} previewPlaying={stemPlaying}
+        // parsedNotes() is cached (module-level, keyed by the notes string) —
+        // a fresh inline JSON.parse here would return a NEW array reference
+        // every render, and this panel re-renders 60x/sec during playback
+        // (currentTime flowing through). Waveform's WaveSurfer-creation
+        // effect depends on storedPeaks by reference, so a fresh array every
+        // frame was destroying and recreating the whole WaveSurfer instance
+        // 60 times a second — the exact "glitching when I click play" this
+        // was reported as.
+        storedPeaks={parsedNotes(s).peaks || null}
+        onMute={toggleMute} onSolo={toggleSolo}
+        onPlay={handleStemPlay} onToggleExpand={handleToggleExpand}
+        onSeek={(sec) => playing ? seek(sec) : handleStemSeek(s, sec)}
+        onDelete={deleteStem}
+        onVolumeChange={changeVolume}
+        onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
+        onPostComment={postComment}
+        onLikeComment={likeComment}
+        onReply={postReply}
+        onAddCommentAt={(sec, text) => postCommentAt(s.id, text, sec)}
+        onRemoveFromBoard={() => deleteClip(selectedClip.id)}
+        onOpenFx={() => setFxOpenFor(s.id)}
+        onRename={renameStem} onColorChange={setStemColor}
+      />
+    )
+  }
+
   return (
     <>
       {/* ── Console header + transport — sticky DAW-style bar ── */}
-      <div ref={headerRef} style={{ position:'sticky', top:0, zIndex:200, isolation:'isolate', background:C.bg,
-        paddingTop: isMobile ? 16 : 24, paddingBottom:16,
+      {/* Sticky offset must cancel <main>'s own padding-top (52 mobile / 24
+          desktop): sticky top:0 measures from INSIDE that padding, so the
+          header used to pin 24px below the viewport top and scrolled clips
+          showed through the open band above it (reported live). */}
+      <div ref={headerRef} style={{ position:'sticky', top: isMobile ? -52 : -24, zIndex:200, isolation:'isolate', background:C.bg,
+        paddingTop: isMobile ? 12 : 16, paddingBottom:16,
         marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
         paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>
-        <h1 style={{ margin:'0 0 16px', fontSize: isMobile ? 22 : 26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Studio</h1>
+        {/* Sits higher (16px vs 24px top) with a tighter gap below — matches
+            where the Projects page title lands. */}
+        <h1 style={{ margin:'0 0 10px', fontSize: isMobile ? 22 : 26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Studio</h1>
         <div style={{ borderRadius:16, overflow:'hidden', border:`1px solid ${C.border}`,
           background:C.surface, boxShadow:'0 2px 12px rgba(0,0,0,.25)' }}>
 
@@ -1842,8 +2272,8 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                 </>
               )}
               {!isMobile && !loading && (
-                <span style={{ fontSize:12, color:C.t3, fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}>
-                  <span style={{ color:C.coral, fontWeight:700 }}>{boardStems.length}</span> / {mixerStems.length} on board
+                <span style={{ fontSize:12, color:C.t3, fontWeight:500, whiteSpace:'nowrap', flexShrink:0 }}>
+                  {boardStems.length} / {mixerStems.length} on board
                 </span>
               )}
             </div>
@@ -1865,32 +2295,57 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             )}
           </div>
 
-          {/* Transport row */}
-          <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ flex:1, minWidth:0 }}>
+          {/* Transport + actions — ONE row that wraps. The transport keeps a
+              generous min width and flex:1; TAP/Mix & Export/Record ride the
+              same line on wide screens and wrap under it on narrow ones —
+              same effective two-row layout a laptop-at-100%-zoom gets, but
+              without the permanently half-empty second row wide screens had
+              (reported live as "weird"). */}
+          <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:340 }}>
               <Transport
                 playing={playing} loadingPct={loadingPct}
                 onStop={stop} onPlay={playAll} onPause={pause}
                 currentTime={currentTime} duration={duration} onSeek={seek}
                 bpm={bpm} onBpmChange={handleBpmChange} onTapTempo={handleTapTempo}
+                showTapTempo={false}
                 metronomeOn={metronomeOn}
                 onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
                 beatFlash={beatFlash} detectingBpm={detectingBpm} onDetectBpm={detectBPM}
                 stems={stems} trackCount={boardStems.length}
-                preparing={prepState.remaining} preparingTotal={prepState.total}
+                // While stems/clips are still loading the board is empty, so
+                // prepState is trivially 0/0 and Play was clickable — a click
+                // then silently played nothing (caught live in testing).
+                // Count the load itself as one pending "preparation".
+                preparing={(loadingStems || loadingClips) ? prepState.remaining + 1 : prepState.remaining}
+                preparingTotal={(loadingStems || loadingClips) ? prepState.total + 1 : prepState.total}
               />
             </div>
-            {activeId && (
-              <button onClick={openRecordPanel} title="Record a new stem" aria-label="Record"
-                style={{ display:'flex', alignItems:'center', gap:7, height:38, padding:'0 14px', borderRadius:100,
-                  border:'1px solid rgba(239,68,68,.35)', background:'rgba(239,68,68,.1)', color:'#ef4444',
-                  fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit', flexShrink:0, transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.18)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,.1)'}>
-                <span aria-hidden="true" style={{ width:9, height:9, borderRadius:'50%', background:'#ef4444' }}/>
-                {!isMobile && 'Record'}
-              </button>
-            )}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginLeft:'auto', flexShrink:0 }}>
+              <TapTempoButton bpm={bpm} onTap={handleTapTempo} showValue={!isMobile}/>
+              {activeId && (
+                <button onClick={() => setMixExportOpen(true)} title="Smart Mix & Export" aria-label="Smart Mix & Export"
+                  style={{ display:'flex', alignItems:'center', gap:7, height:32, padding:'0 12px', borderRadius:100,
+                    border:'none', background:'rgba(var(--fg),.05)', color:C.t2,
+                    fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', flexShrink:0, transition:'background .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background='rgba(var(--fg),.05)'}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4 14a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"/><path d="M14 3a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1V3z"/><path d="M14 17a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z"/><path d="M4 5a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+                  {!isMobile && 'Mix & Export'}
+                </button>
+              )}
+              {activeId && (
+                <button onClick={openRecordPanel} title="Record a new stem" aria-label="Record"
+                  style={{ display:'flex', alignItems:'center', gap:7, height:32, padding:'0 12px', borderRadius:100,
+                    border:'none', background:'rgba(239,68,68,.12)', color:'#ef4444',
+                    fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', flexShrink:0, transition:'background .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.2)'}
+                  onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,.12)'}>
+                  <span aria-hidden="true" style={{ width:8, height:8, borderRadius:'50%', background:'#ef4444' }}/>
+                  {!isMobile && 'Record'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1905,6 +2360,10 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
         inputFx={inputFx} onInputFxChange={updateInputFx}
         armCount={armCount} isRecording={isRecording} recordUploading={recordUploading} recordError={recordError}
         onStart={startRecording} onStop={stopRecording}
+        // Ref read at render time is safe here: isRecording flips state right
+        // after streamRef is set, so the re-render that shows the live-wave
+        // view always sees the current stream.
+        micStream={isRecording ? streamRef.current : null}
       />
 
       <StemFxModal
@@ -1922,11 +2381,35 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       />
 
       {loading ? <LoadingBlock/> : (
-        <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':`${stemsW}px 1fr 300px`, gap:20, alignItems:'start' }}>
+        /* minmax(0,1fr), NOT bare 1fr — a 1fr track's floor is the content's
+           min-content width, and the Timeline's content is thousands of px
+           wide at any real zoom. Bare 1fr let the column inflate to content
+           width, so the PAGE scrolled horizontally and the timeline painted
+           past every other card's right edge (reported live as a floating
+           timeline fragment); the Timeline's own scrollbar never engaged,
+           and zoom-to-fit measured the inflated width as the "viewport". */
+        <div style={{ display:'grid', gridTemplateColumns:isMobile?'minmax(0,1fr)':assetsOpen?`${stemsW}px minmax(0,1fr)`:'40px minmax(0,1fr)', gap:20, alignItems:'start',
+          // Animatable since Chrome 107/FF 66 — the column glides between
+          // the full panel width and the collapsed 40px rail.
+          transition:'grid-template-columns .28s ease' }}>
 
-          {/* ── Stems library panel — tap +/- (or drag on desktop) to build the board ── */}
+          {/* ── Stems library panel — tap +/- (or drag on desktop) to build the
+              board. Collapsible to a slim rail so the Timeline can take the
+              whole width when the library isn't needed. Rail and panel share
+              this ONE container (border/background/rounding persist), so the
+              collapse reads as the box smoothly narrowing, not a swap. ── */}
           <div style={{ position: isMobile ? 'static' : 'sticky', top:headerH, borderRadius:14, overflow:'hidden',
             border:`1px solid ${C.border}`, background:C.surface }}>
+          {!isMobile && !assetsOpen ? (
+            <button onClick={toggleAssets} title="Show assets" aria-label="Show assets panel" aria-expanded={false}
+              style={{ width:'100%', minHeight:220, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit',
+                display:'flex', flexDirection:'column', alignItems:'center', gap:10, padding:'12px 0', color:C.t3 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="9,18 15,12 9,6"/></svg>
+              <span style={{ writingMode:'vertical-rl', fontSize:10.5, fontWeight:500, letterSpacing:'.16em', textTransform:'uppercase' }}>Assets</span>
+              <span style={{ fontSize:10.5, fontWeight:500, background:'rgba(var(--fg),.06)', padding:'6px 3px', borderRadius:100 }}>{mixerStems.length}</span>
+            </button>
+          ) : (
+          <div>
             {/* Drag the right edge to widen (long stem names) */}
             {!isMobile && (
               <div onMouseDown={startStemsResize} title="Drag to resize" aria-hidden="true"
@@ -1936,8 +2419,19 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             )}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
               padding:'10px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontSize:10.5, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Stems</span>
-              <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'1px 8px', borderRadius:100 }}>{mixerStems.length}</span>
+              <span style={{ fontSize:10.5, fontWeight:500, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Assets</span>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'1px 8px', borderRadius:100 }}>{mixerStems.length}</span>
+                {!isMobile && (
+                  <button onClick={toggleAssets} title="Hide assets" aria-label="Hide assets panel" aria-expanded={true}
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:20, height:20, borderRadius:6,
+                      border:'none', background:'transparent', color:C.t3, cursor:'pointer', padding:0 }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(var(--fg),.08)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="15,18 9,12 15,6"/></svg>
+                  </button>
+                )}
+              </div>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:1, padding:6, maxHeight: isMobile ? 240 : 'calc(100vh - 260px)', overflowY:'auto' }}>
               {!loadingStems && mixerStems.length === 0 && (
@@ -1950,34 +2444,29 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               ))}
             </div>
           </div>
+          )}
+          </div>
 
-          {/* ── Board panel (drop zone) ── */}
+          {/* ── Timeline panel (drop zone) ── */}
           {/* No overflow:hidden on this outer box — that would make IT the sticky
               containing block for the header below instead of the page, breaking
               the header's stickiness. Rounding + clipping happens on the header
               and content pieces individually instead. */}
-          <div style={{ borderRadius:14, border:`1px solid ${dragOver ? C.coral : C.border}`,
+          <div style={{ borderRadius:14, border:`1px solid ${C.border}`,
             background:C.bg, transition:'border-color .15s' }}>
-            {/* Sticky like the Stems/Smart Mix headers beside it — the panel itself
-                grows tall with tracks (page scrolls), so only this row pins. */}
-            <div style={{ position: isMobile ? 'static' : 'sticky', top:headerH, zIndex:5,
-              display:'flex', alignItems:'center', justifyContent:'space-between', borderRadius:'14px 14px 0 0',
-              padding:'10px 14px', background:C.surface2, borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:C.t3 }}>Board</span>
-              <span style={{ fontSize:10.5, fontWeight:500, color:C.t3 }}>{boardStems.length} track{boardStems.length!==1?'s':''}</span>
-            </div>
+          {/* No "TIMELINE" title strip — it was a whole sticky bar spent on a
+              label (removed live); Snap moved into the Timeline's own
+              controls row next to zoom/Fit. */}
           <div
-            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true) }}
-            onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
-            onDrop={e => {
-              e.preventDefault(); setDragOver(false)
-              const id = e.dataTransfer.getData('text/stem-id')
-              if (id) addToBoard(id)
-            }}
             style={{ display:'flex', flexDirection:'column', gap: isMobile ? 10 : 16, padding: isMobile ? 14 : 18,
-              borderRadius:'0 0 14px 14px', overflow:'hidden',
-              minHeight: isMobile ? 260 : 420,   // always keep visible droppable space below placed stems
-              background: dragOver ? `${C.coral}08` : 'transparent', transition:'background .15s' }}>
+              borderRadius:14, overflow:'hidden',
+              // Only force a tall min-height for the loading/empty states below (which
+              // size themselves as inviting drop targets) — once clips are placed, the
+              // Timeline is its own drop target and should size to its actual rows
+              // instead of leaving dead space beneath them (FL Studio's playlist has
+              // no such gap).
+              minHeight: (!loadingStems && boardStems.length > 0) ? undefined : (isMobile ? 260 : 420),
+              background:'transparent' }}>
             {stems.filter(s=>s.instrument==='original').map(s => {
               const n = parsedNotes(s)
               if (n.status !== 'processing' && n.pipeline !== 'local') return null
@@ -2026,93 +2515,91 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               </div>
             )}
 
-            {/* Board has stems available but none placed yet — a tall, inviting
-                drop zone (the whole board accepts drops; this gives an easy big
-                target and reacts to the drag). */}
+            {/* Timeline has stems available but none placed yet — a tall, inviting
+                empty state (Timeline itself, once rendered, is always its own drop
+                target — this is just friendlier than a single empty row for the
+                very-first-clip case). */}
             {!loadingStems && mixerStems.length > 0 && boardStems.length === 0 && (
-              <div style={{ background: dragOver ? `${C.coral}0c` : C.surface, borderRadius:20,
+              <div style={{ background:C.surface, borderRadius:20,
                 minHeight: isMobile ? 240 : 380, padding:'40px 24px',
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
-                boxShadow:'0 1px 4px rgba(var(--fg),.06)',
-                border:`2px dashed ${dragOver ? C.coral : C.border}`, transition:'border-color .15s, background .15s' }}>
+                boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`2px dashed ${C.border}` }}>
                 <div style={{ width:64, height:64, borderRadius:18, marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center',
-                  background:`${C.coral}10`, border:`1.5px dashed ${C.coral}45`,
-                  transform: dragOver ? 'scale(1.06)' : 'none', transition:'transform .15s' }}>
+                  background:`${C.coral}10`, border:`1.5px dashed ${C.coral}45` }}>
                   <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3v13"/><path d="M7 11l5 5 5-5"/><path d="M4 18v1a2 2 0 002 2h12a2 2 0 002-2v-1"/>
                   </svg>
                 </div>
-                <div style={{ fontSize:17, fontWeight:700, color:C.t1, marginBottom:7 }}>
-                  {dragOver ? 'Drop to add to your mix' : 'Your board is empty'}
-                </div>
+                <div style={{ fontSize:17, fontWeight:700, color:C.t1, marginBottom:7 }}>Your timeline is empty</div>
                 <div style={{ fontSize:13.5, color:C.t3, maxWidth:300, lineHeight:1.5 }}>
-                  {isMobile ? 'Add stems from the list to build your mix.' : 'Drag stems from the list on the left and drop them anywhere here to build your mix.'}
+                  {isMobile ? 'Add assets from the list to build your song.' : 'Drag assets from the list on the left onto the timeline to place them in your song.'}
                 </div>
               </div>
             )}
 
-            {boardStems.map((s, i) => {
-              const color      = trackColor(s, i)
-              const uploader   = uploaders[s.uploaded_by]
-              const uploaderName = uploader?.full_name?.split(' ')[0] || uploader?.email?.split('@')[0] || '?'
-              const hKey       = `${s.uploaded_by}::${s.instrument||'recording'}`
+            {!loadingStems && boardStems.length > 0 && (
+              <Timeline
+                clips={visibleClips} stemsById={stemsById}
+                colorForStem={s => parsedNotes(s).color || trackColor(s, boardStems.findIndex(x => x.id === s.id))}
+                labelForStem={s => s.suggested_name || s.original_name || 'Track'}
+                peaksForStem={s => parsedNotes(s).peaks || null}
+                bpm={bpm} snapOn={snapOn} onToggleSnap={() => setSnapOn(v => !v)}
+                playheadSec={currentTime} isPlaying={playing}
+                selectedClipId={selectedClipId} onSelectClip={setSelectedClipId}
+                onClipMove={moveClip} onClipCreate={createClip} onClipDelete={deleteClip}
+                onClipTrim={trimClip} onClipSplit={splitClip} onSeek={seek}
+                durationOverrides={stemDurationOverrides}
+                mutedIds={mutedIds} soloId={soloId} onToggleMute={toggleMute} onToggleSolo={toggleSolo}
+                onStemRename={renameStem} onStemColor={setStemColor}
+              />
+            )}
 
-              // Per-stem playback clock: a single-stem preview drives only its own
-              // waveform — but when the BOARD is playing, ONE master timeline wins
-              // for every stem (ignore any stale per-stem preview position).
-              const previewing = isPreviewing(s) && !playing
-              const pbTime     = previewing ? preview.currentTime : currentTime
-              const pbDur      = previewing ? preview.duration    : duration
-              const pbPlaying  = previewing ? preview.playing     : playing
-              const stemPlaying = previewing && preview.playing   // this stem playing in the single-stem preview
-
-              return (
-                <TrackItem key={s.id} user={user} isOwner={activeProject?.owner_id === user?.id}
-                  stem={s} index={i} color={color}
-                  isMuted={mutedIds.has(s.id)} isSolo={soloId===s.id}
-                  isExpanded={expandedId===s.id} isDeleting={deletingId===s.id}
-                  loadPct={loadingPct[s.id]} volume={getVolume(s.id)}
-                  transpose={transposes[s.id] || 0} onTransposeChange={changeTranspose}
-                  transposeApplying={transposing === s.id}
-                  uploader={uploader} uploaderName={uploaderName}
-                  takes={stemHistory[hKey]}
-                  comments={stemComments[s.id]} commentDraft={commentDraft[s.id]}
-                  postingComment={postingComment}
-                  currentTime={pbTime} duration={pbDur}
-                  isPlaying={pbPlaying} previewPlaying={stemPlaying}
-                  storedPeaks={(() => { try { return JSON.parse(s.notes||'{}').peaks || null } catch { return null } })()}
-                  onMute={toggleMute} onSolo={toggleSolo}
-                  onPlay={handleStemPlay} onToggleExpand={handleToggleExpand}
-                  onSeek={(sec) => playing ? seek(sec) : handleStemSeek(s, sec)}
-                  onDelete={deleteStem}
-                  onVolumeChange={changeVolume}
-                  onCommentChange={(id, val) => setCommentDraft(prev=>({...prev,[id]:val}))}
-                  onPostComment={postComment}
-                  onLikeComment={likeComment}
-                  onReply={postReply}
-                  onAddCommentAt={(sec, text) => postCommentAt(s.id, text, sec)}
-                  onRemoveFromBoard={removeFromBoard}
-                  onOpenFx={() => setFxOpenFor(s.id)}
-                />
-              )
-            })}
-
-            {/* Persistent "drop more" cue — visible whenever the board has tracks
-                but stems remain to add, so there's always an obvious target. */}
-            {boardStems.length > 0 && boardStems.length < mixerStems.length && (
-              <div style={{ borderRadius:14, border:`2px dashed ${dragOver ? C.coral : C.border}`,
-                background: dragOver ? `${C.coral}0c` : 'transparent',
-                padding:'18px', flex:1, minHeight:96, display:'flex', alignItems:'center', justifyContent:'center', gap:10,
-                color: dragOver ? C.coral : C.t3, transition:'border-color .15s, background .15s, color .15s' }}>
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                <span style={{ fontSize:13, fontWeight:600 }}>{dragOver ? 'Drop to add to your mix' : 'Drag another stem here'}</span>
+            {/* Selected clip's mixer controls — inline below the Timeline,
+                full width. TrackItem's controls (transpose stepper, wide
+                fader, big waveform) are sized for a full-width row; a narrow
+                persistent sidebar squeezed and clipped them, so this stays
+                here instead of splitting into a third column. */}
+            {selectedClipId && (
+              <div ref={clipPanelRef} style={{ marginTop:4 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:10.5, fontWeight:500, letterSpacing:'.1em', textTransform:'uppercase', color:C.t3 }}>Editing clip</span>
+                  <button onClick={() => setSelectedClipId(null)} aria-label="Close"
+                    style={{ marginLeft:'auto', width:22, height:22, borderRadius:6, border:'none', background:'rgba(var(--fg),.06)', color:C.t3, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                    ✕
+                  </button>
+                </div>
+                {renderClipPanel()}
               </div>
             )}
           </div>
           </div>
+        </div>
+      )}
 
-          {/* ── AI / Mix panel ── */}
-          <div style={{ position:'sticky', top:headerH, zIndex:5, background:C.bg }}>
+      {/* ── Smart Mix / Export — a slide-over drawer instead of a permanent
+          sidebar column, so the Timeline gets that width back by default.
+          Opened from the "Mix & Export" button in the transport row. ── */}
+      {mixExportOpen && (
+        <>
+          {/* Barely-there scrim — the drawer itself is glass, so a heavy dim
+              behind it read as a dark opaque panel instead of blur. */}
+          <div onClick={() => setMixExportOpen(false)} aria-hidden="true"
+            style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,.15)' }}/>
+          {/* Floating glass card — hugs its content instead of a full-height
+              drawer (reported live: "so big and long for nothing"), heavily
+              translucent + blurred so the Studio shows through. */}
+          <div role="dialog" aria-label="Smart Mix & Export" style={{ position:'fixed', top:12, right:12, zIndex:301,
+            width: isMobile ? 'calc(100% - 24px)' : 340, maxWidth:'calc(100% - 24px)', maxHeight:'calc(100vh - 24px)', overflowY:'auto',
+            background:'color-mix(in srgb, var(--bg) 45%, transparent)',
+            backdropFilter:'blur(26px)', WebkitBackdropFilter:'blur(26px)',
+            border:`1px solid ${C.border}`, borderRadius:16, boxShadow:'0 18px 50px rgba(0,0,0,.35)', padding:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+              <span style={{ fontSize:13, fontWeight:500, color:C.t1 }}>Smart Mix & Export</span>
+              <button onClick={() => setMixExportOpen(false)} aria-label="Close"
+                style={{ marginLeft:'auto', width:24, height:24, borderRadius:7, border:'none', background:'rgba(var(--fg),.06)', color:C.t3, cursor:'pointer', fontSize:12, fontWeight:500 }}>
+                ✕
+              </button>
+            </div>
           <AIPanel
             aiAnalysis={aiAnalysis}
             smartMixUrl={smartMixUrl} smartMixInfo={smartMixInfo}
@@ -2120,14 +2607,16 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             allStems={mixerStems} boardIds={boardIds}
             onPickTake={(instrument, stemId) => {
               // Manual override: swap this part's take on the board (drives the
-              // mix + export). Remove other takes of the same instrument first.
+              // mix + export). Remove other takes of the same instrument first,
+              // and place the new one where the old one was — this should feel
+              // like an in-place replacement, not a fresh drop at row 0.
               const instr = (instrument || '').toLowerCase()
-              setBoardIds(prev => {
-                const next = new Set(prev)
-                for (const s of mixerStems) if ((s.instrument || '').toLowerCase() === instr) next.delete(s.id)
-                next.add(stemId)
-                return next
-              })
+              const outgoing = mixerStems.filter(s => (s.instrument || '').toLowerCase() === instr)
+              const outgoingClip = visibleClips.find(c => outgoing.some(s => s.id === c.stem_id))
+              const trackIndex = outgoingClip?.track_index ?? visibleClips.length
+              const startOffsetMs = outgoingClip?.start_offset_ms ?? 0
+              outgoing.forEach(s => removeFromBoard(s.id))
+              createClip(stemId, trackIndex, startOffsetMs)
             }}
             onGenerateMix={async () => {
               if (!activeId || smartMixing) return
@@ -2162,7 +2651,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             onExportBoard={onExportBoard} onExportAll={onExportAll} onExportToggleSong={onExportToggleSong}
           />
           </div>
-        </div>
+        </>
       )}
     </>
   )

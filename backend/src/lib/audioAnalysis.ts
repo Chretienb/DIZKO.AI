@@ -156,7 +156,16 @@ function detectKey(samples: Float32Array, sampleRate: number): string {
 // ── Peak extraction for waveform display ─────────────────────────────────────
 // Returns numPeaks normalised amplitudes [0, 1] — stored in stems.notes.peaks
 // so the frontend can render instantly without fetching from R2.
-export function extractWaveformPeaks(buf: Buffer, numPeaks = 512): number[] | null {
+//
+// RMS + peak blend: RMS is the block's actual average energy (what makes a
+// waveform read as "full"), the peak term keeps transients (kicks, snares)
+// sharp and visible. Both extremes were tried live and rejected: pure
+// per-block MAX draws the fine "hairy" texture of the wavesurfer.xyz demo
+// (too busy), an RMS-heavy 60/40 blend rounded everything into blobs (too
+// soft). The even split is the deliberate house style — DAW-like crisp
+// peaks over a full body. 1000 points keeps notes JSON small while still
+// ~1 point/px on typical clip widths.
+export function extractWaveformPeaks(buf: Buffer, numPeaks = 1000): number[] | null {
   const wav = readWavBuffer(buf)
   if (!wav || wav.samples.length < numPeaks) return null
 
@@ -165,13 +174,17 @@ export function extractWaveformPeaks(buf: Buffer, numPeaks = 512): number[] | nu
   const peaks       = new Array<number>(numPeaks)
 
   for (let i = 0; i < numPeaks; i++) {
-    let max = 0
+    let peak = 0
+    let sumSquares = 0
     const off = i * blockSize
     for (let j = 0; j < blockSize; j++) {
-      const v = Math.abs(samples[off + j] ?? 0)
-      if (v > max) max = v
+      const v = samples[off + j] ?? 0
+      const av = Math.abs(v)
+      if (av > peak) peak = av
+      sumSquares += v * v
     }
-    peaks[i] = parseFloat(max.toFixed(4))
+    const rms = Math.sqrt(sumSquares / blockSize)
+    peaks[i] = parseFloat((rms * 0.5 + peak * 0.5).toFixed(4))
   }
 
   // Normalise so the loudest bar hits 1.0
@@ -181,6 +194,18 @@ export function extractWaveformPeaks(buf: Buffer, numPeaks = 512): number[] | nu
   }
 
   return peaks
+}
+
+// Duration straight from the WAV data — stored in notes.audio_features.duration
+// at upload (and by backfillPeaks.ts), which is the exact field the frontend's
+// getStemDurationSec reads. Without it the Studio has to probe every stem's
+// metadata over the network before clips can lay out or show their stored
+// peaks — the "open Studio, stare at placeholders for a minute" experience.
+export function getWavDurationSec(buf: Buffer): number | null {
+  const wav = readWavBuffer(buf)
+  if (!wav || !wav.sampleRate) return null
+  const sec = wav.samples.length / wav.sampleRate   // samples are mono frames
+  return Number.isFinite(sec) && sec > 0 ? parseFloat(sec.toFixed(3)) : null
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

@@ -38,6 +38,7 @@ import accessRequestRoutes  from './routes/accessRequests'
 import assistantRoutes       from './routes/assistant'
 import inviteLinkRoutes      from './routes/inviteLinks'
 import stemCommentRoutes     from './routes/stemComments'
+import clipRoutes             from './routes/clips'
 import venueRoutes            from './routes/venues'
 import folderRoutes           from './routes/folders'
 import youtubeRoutes          from './routes/youtube'
@@ -113,6 +114,7 @@ app.route('/access-requests', accessRequestRoutes)
 app.route('/assistant',       assistantRoutes)
 app.route('/invite-links',    inviteLinkRoutes)
 app.route('/stem-comments',   stemCommentRoutes)
+app.route('/clips',           clipRoutes)
 app.route('/venues',          venueRoutes)
 app.route('/folders',         folderRoutes)
 app.route('/youtube',         youtubeRoutes)

@@ -97,4 +97,40 @@ describe('extractWaveformPeaks', () => {
     const wav = silentWav(44100, 0.001)
     expect(extractWaveformPeaks(wav, 512)).toBeNull()
   })
+
+  it('blends RMS with peak — quiet-but-present material stays visibly above the floor, not collapsed to ~0', () => {
+    // A quiet constant tone with ONE much louder transient partway through.
+    // The RMS+peak blend (the deliberate house style — see the comment on
+    // extractWaveformPeaks) must keep the transient block at ~full scale
+    // while quiet-but-real material stays visible above the floor.
+    const sampleRate = 44100, durationSec = 4
+    const numSamples = sampleRate * durationSec
+    const data = Buffer.alloc(numSamples * 2)
+    for (let i = 0; i < numSamples; i++) {
+      const quiet = Math.sin(i * 0.05) * 0.05        // low, constant-amplitude tone throughout
+      const transient = (i > numSamples / 2 && i < numSamples / 2 + 300) ? Math.sin(i * 0.4) * 0.95 : 0
+      const val = Math.max(-1, Math.min(1, quiet + transient)) * 32767
+      data.writeInt16LE(Math.round(val), i * 2)
+    }
+    const fmt = Buffer.alloc(16)
+    fmt.writeUInt16LE(1, 0); fmt.writeUInt16LE(1, 2); fmt.writeUInt32LE(sampleRate, 4)
+    fmt.writeUInt32LE(sampleRate * 2, 8); fmt.writeUInt16LE(2, 12); fmt.writeUInt16LE(16, 14)
+    const wav = Buffer.concat([
+      Buffer.from('RIFF'), u32(36 + data.length), Buffer.from('WAVE'),
+      Buffer.from('fmt '), u32(16), fmt,
+      Buffer.from('data'), u32(data.length), data,
+    ])
+
+    const peaks = extractWaveformPeaks(wav, 200)!
+    expect(peaks).not.toBeNull()
+
+    // The transient's own block should still be the (or near the) loudest.
+    expect(Math.max(...peaks)).toBeGreaterThan(0.9)
+
+    // Blocks well away from the transient (pure quiet tone) must still be
+    // clearly visible — not collapsed toward the floor.
+    const quietBlocks = peaks.slice(0, 80)   // first 80 of 200 blocks are pure quiet tone
+    const avgQuiet = quietBlocks.reduce((a, b) => a + b, 0) / quietBlocks.length
+    expect(avgQuiet).toBeGreaterThan(0.05)
+  })
 })

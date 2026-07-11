@@ -6,8 +6,53 @@ const BAR_OPTIONS = [0, 1, 2, 4]
 
 const stepBtnStyle = {
   width:26, height:26, borderRadius:7, border:'none', background:'transparent', color:INK.dim,
-  fontSize:15, fontWeight:800, cursor:'pointer', fontFamily:'inherit', display:'flex',
+  fontSize:15, fontWeight:500, cursor:'pointer', fontFamily:'inherit', display:'flex',
   alignItems:'center', justifyContent:'center', lineHeight:1,
+}
+
+// Live mic waveform while recording — a scrolling level history (voice-memo
+// style) drawn from the SAME getUserMedia stream the take is captured from,
+// via its own throwaway analyser graph (adding a second consumer to a
+// MediaStream doesn't affect the capture path).
+function LiveMicWave({ stream, color = '#ef4444', height = 56 }) {
+  const canvasRef = React.useRef(null)
+  React.useEffect(() => {
+    if (!stream || !canvasRef.current) return
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const src = ctx.createMediaStreamSource(stream)
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 1024
+    src.connect(analyser)
+    const data = new Float32Array(analyser.fftSize)
+    const levels = []
+    let raf
+    const draw = () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const dpr = window.devicePixelRatio || 1
+      const W = canvas.clientWidth, H = canvas.clientHeight
+      if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr }
+      analyser.getFloatTimeDomainData(data)
+      let peak = 0
+      for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > peak) peak = a }
+      levels.push(Math.min(1, peak * 1.4))
+      const barW = 3 * dpr, gap = 2 * dpr
+      const maxBars = Math.floor((W * dpr) / (barW + gap))
+      if (levels.length > maxBars) levels.splice(0, levels.length - maxBars)
+      const g = canvas.getContext('2d')
+      g.clearRect(0, 0, W * dpr, H * dpr)
+      g.fillStyle = color
+      const mid = (H * dpr) / 2
+      levels.forEach((v, i) => {
+        const h = Math.max(2 * dpr, v * H * dpr * 0.9)
+        g.fillRect(i * (barW + gap), mid - h / 2, barW, h)
+      })
+      raf = requestAnimationFrame(draw)
+    }
+    raf = requestAnimationFrame(draw)
+    return () => { cancelAnimationFrame(raf); try { src.disconnect() } catch { /* ok */ } ctx.close().catch(() => {}) }
+  }, [stream, color])
+  return <canvas ref={canvasRef} style={{ width:'100%', height, display:'block' }}/>
 }
 
 function BpmStepper({ bpm, onChange }) {
@@ -15,8 +60,8 @@ function BpmStepper({ bpm, onChange }) {
     <div style={{ display:'flex', alignItems:'center', gap:2, background:INK.strip2, border:`1px solid ${INK.border}`,
       borderRadius:10, padding:'0 3px', height:38, flexShrink:0 }}>
       <button onClick={() => onChange(Math.max(40, bpm - 1))} style={stepBtnStyle} aria-label="Decrease BPM">−</button>
-      <div style={{ width:46, textAlign:'center', fontSize:13, fontWeight:800, color:INK.text, fontVariantNumeric:'tabular-nums' }}>
-        {bpm} <span style={{ fontSize:9, fontWeight:700, color:INK.dim }}>BPM</span>
+      <div style={{ width:46, textAlign:'center', fontSize:13, fontWeight:600, color:INK.text, fontVariantNumeric:'tabular-nums' }}>
+        {bpm} <span style={{ fontSize:9, fontWeight:500, color:INK.dim }}>BPM</span>
       </div>
       <button onClick={() => onChange(Math.min(300, bpm + 1))} style={stepBtnStyle} aria-label="Increase BPM">+</button>
     </div>
@@ -38,9 +83,9 @@ function TapTempoButton({ onTap }) {
   return (
     <button onClick={handleClick} aria-label="Tap tempo"
       style={{ width:56, height:38, borderRadius:10, flexShrink:0, cursor:'pointer', fontFamily:'inherit',
-        border:`1px solid ${pulse ? '#F4937A' : INK.border}`, background: pulse ? 'rgba(244,147,122,.18)' : INK.strip2,
-        color: pulse ? '#F4937A' : INK.dim, fontSize:11, fontWeight:800, letterSpacing:'.04em',
-        transition:'background .08s, border-color .08s' }}>
+        border:'none', background: pulse ? 'rgba(244,147,122,.18)' : INK.strip2,
+        color: pulse ? '#F4937A' : INK.dim, fontSize:11, fontWeight:500, letterSpacing:'.04em',
+        transition:'background .08s' }}>
       TAP
     </button>
   )
@@ -56,6 +101,7 @@ export default function RecordPanel({
   countdownBars, onCountdownChange, metronomeOn, onToggleMetronome,
   bpm, onBpmChange, onTapTempo, monitorOn, onToggleMonitor, inputFx, onInputFxChange,
   armCount, isRecording, recordUploading, recordError, onStart, onStop,
+  micStream = null,
 }) {
   if (!open) return null
   const busy = armCount != null || isRecording || recordUploading
@@ -89,7 +135,7 @@ export default function RecordPanel({
           <div style={{ display:'flex', alignItems:'center', gap:9 }}>
             <span aria-hidden="true" style={{ width:8, height:8, borderRadius:'50%', background:'#ef4444',
               boxShadow: isRecording ? '0 0 0 4px rgba(239,68,68,.25)' : 'none', animation: isRecording ? 'recPulse 1s ease-in-out infinite' : 'none' }}/>
-            <span style={{ fontSize:14, fontWeight:800, color:INK.text, letterSpacing:'.02em' }}>Record</span>
+            <span style={{ fontSize:14, fontWeight:600, color:INK.text, letterSpacing:'.02em' }}>Record</span>
           </div>
           {!busy && (
             <button onClick={onClose} aria-label="Close" style={{ width:26, height:26, borderRadius:7, border:'none', background:'#2a2a30', color:INK.dim, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -101,15 +147,23 @@ export default function RecordPanel({
         {/* Countdown / recording state takes over the whole panel while active */}
         {armCount != null ? (
           <div style={{ textAlign:'center', padding:'28px 18px' }}>
-            <div style={{ fontSize:52, fontWeight:900, color:'#F4937A', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{armCount}</div>
+            <div style={{ fontSize:48, fontWeight:600, color:'#F4937A', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{armCount}</div>
             <div style={{ fontSize:12.5, color:INK.dim, marginTop:8 }}>Get ready…</div>
           </div>
         ) : isRecording ? (
-          <div style={{ textAlign:'center', padding:'20px 18px' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:6 }}>
-              {[0,1,2].map(i => <span key={i} style={{ width:3, borderRadius:2, background:'#ef4444', height:14, animation:`recBar .8s ${i*.15}s ease-in-out infinite alternate` }}/>)}
+          // Mic icon + LIVE input waveform (reported live: recording state
+          // should show what the mic actually hears, not an abstract pulse).
+          <div style={{ padding:'18px 18px 8px' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:12 }}>
+              <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:'50%',
+                background:'rgba(239,68,68,.12)', color:'#ef4444', animation:'recPulse 1.6s ease-in-out infinite' }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0014 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </span>
+              <span style={{ fontSize:13, fontWeight:500, color:INK.text }}>Recording…</span>
             </div>
-            <div style={{ fontSize:13.5, fontWeight:700, color:INK.text }}>Recording…</div>
+            <LiveMicWave stream={micStream}/>
           </div>
         ) : recordUploading ? (
           <div style={{ textAlign:'center', padding:'28px 18px', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
@@ -120,7 +174,7 @@ export default function RecordPanel({
           <div style={{ overflowY:'auto', padding:18 }}>
             {/* Input device */}
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:10, fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:6 }}>Input</div>
+              <div style={{ fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:6 }}>Input</div>
               <select value={selectedDeviceId} onChange={e => onSelectDevice(e.target.value)}
                 style={{ width:'100%', height:38, borderRadius:10, border:`1px solid ${INK.border}`, background:INK.strip2, color:INK.text,
                   fontSize:13, fontFamily:'inherit', padding:'0 10px' }}>
@@ -134,9 +188,9 @@ export default function RecordPanel({
               <BpmStepper bpm={bpm} onChange={onBpmChange}/>
               <TapTempoButton onTap={onTapTempo}/>
               <button onClick={onToggleMetronome}
-                style={{ flex:1, minWidth:100, height:38, borderRadius:10, border:`1px solid ${metronomeOn ? '#F4937A' : INK.border}`,
-                  background: metronomeOn ? 'rgba(244,147,122,.12)' : 'transparent', color: metronomeOn ? '#F4937A' : INK.dim,
-                  fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                style={{ flex:1, minWidth:100, height:38, borderRadius:10, border:'none',
+                  background: metronomeOn ? 'rgba(244,147,122,.12)' : INK.strip2, color: metronomeOn ? '#F4937A' : INK.dim,
+                  fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>
                 Metronome {metronomeOn ? 'On' : 'Off'}
               </button>
               <select value={countdownBars} onChange={e => onCountdownChange(Number(e.target.value))}
@@ -149,9 +203,9 @@ export default function RecordPanel({
             {/* Monitor: hear your voice through FX live while you sing — a
                 listen-only chain, never printed into the actual recording. */}
             <button onClick={onToggleMonitor}
-              style={{ width:'100%', height:38, borderRadius:10, border:`1px solid ${monitorOn ? '#8b5cf6' : INK.border}`,
-                background: monitorOn ? 'rgba(139,92,246,.12)' : 'transparent', color: monitorOn ? '#8b5cf6' : INK.dim,
-                fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom: monitorOn ? 12 : 14,
+              style={{ width:'100%', height:38, borderRadius:10, border:'none',
+                background: monitorOn ? 'rgba(139,92,246,.12)' : INK.strip2, color: monitorOn ? '#8b5cf6' : INK.dim,
+                fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginBottom: monitorOn ? 12 : 14,
                 display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
               <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>
               Monitor {monitorOn ? 'On' : 'Off'} — hear yourself with FX while you sing
@@ -159,7 +213,7 @@ export default function RecordPanel({
 
             {monitorOn && (
               <>
-                <div style={{ fontSize:10, fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:8 }}>
+                <div style={{ fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:8 }}>
                   Your voice — not any stem on the board
                 </div>
                 <div style={{ overflowX:'auto', overflowY:'hidden', display:'flex', gap:10, marginBottom:6, paddingBottom:2 }}>
@@ -181,9 +235,9 @@ export default function RecordPanel({
 
             <button onClick={onStart} disabled={!devices.length}
               style={{ width:'100%', height:46, borderRadius:12, border:'none', cursor: devices.length ? 'pointer' : 'default',
-                background: devices.length ? '#ef4444' : '#26262b', color:'#fff', fontSize:14, fontWeight:800,
+                background: devices.length ? '#ef4444' : '#26262b', color:'#fff', fontSize:14, fontWeight:600,
                 fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                boxShadow: devices.length ? '0 6px 18px rgba(239,68,68,.35)' : 'none', opacity: devices.length ? 1 : .6 }}>
+                opacity: devices.length ? 1 : .6 }}>
               <span aria-hidden="true" style={{ width:9, height:9, borderRadius:'50%', background:'#fff' }}/>
               Start Recording
             </button>
@@ -197,7 +251,7 @@ export default function RecordPanel({
           <div style={{ padding:'0 18px 18px' }}>
             <button onClick={onStop}
               style={{ width:'100%', height:46, borderRadius:12, border:`1px solid ${INK.border}`, cursor:'pointer',
-                background:'#202024', color:INK.text, fontSize:14, fontWeight:700, fontFamily:'inherit',
+                background:'#202024', color:INK.text, fontSize:14, fontWeight:500, fontFamily:'inherit',
                 display: recordUploading ? 'none' : 'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
               <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
               Stop

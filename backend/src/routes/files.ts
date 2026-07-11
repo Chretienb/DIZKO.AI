@@ -6,7 +6,7 @@ import { requireAuth }  from '../middleware/auth'
 import { rateLimit }    from '../middleware/rateLimit'
 import { sanitize }     from '../middleware/sanitize'
 import { startStemSeparation, pollStemSeparation } from '../lib/stemSeparation'
-import { analyzeWavBuffer, extractWaveformPeaks } from '../lib/audioAnalysis'
+import { analyzeWavBuffer, extractWaveformPeaks, getWavDurationSec } from '../lib/audioAnalysis'
 import { validateManualBpm, mergeBpmIntoNotes } from '../lib/stemNotes'
 import { transcodeToPlaybackAsset, decodeToWav, playbackKeyFor, PLAYBACK_CONTENT_TYPE } from '../lib/transcode'
 import { submitForAiDetection } from '../lib/aiDetect'
@@ -318,17 +318,24 @@ files.post('/upload', uploadLimit, async (c) => {
         file.name, resolvedInstrument, bpm, key, projectTitle, artist
       )
 
-      // Extract 512 waveform peaks from WAV buffer — stored so frontend renders
+      // Extract waveform peaks from WAV buffer — stored so frontend renders
       // instantly from DB instead of fetching from R2 on every page load.
-      const peaks = contentType === 'audio/wav' || file.name.endsWith('.wav')
-        ? extractWaveformPeaks(buffer, 512)
-        : null
+      const isWavUpload = contentType === 'audio/wav' || file.name.endsWith('.wav')
+      const peaks = isWavUpload ? extractWaveformPeaks(buffer) : null
+      // Duration lands in audio_features.duration — the field the frontend's
+      // getStemDurationSec reads. Without it, every Studio open probes each
+      // stem's metadata over the network before the timeline can lay out.
+      const wavDurationSec = isWavUpload ? getWavDurationSec(buffer) : null
+      const audioFeatures = {
+        ...((essentiaAnalysis as Record<string, unknown>) || {}),
+        ...(wavDurationSec && !(essentiaAnalysis as any)?.duration ? { duration: wavDurationSec } : {}),
+      }
 
       await supabase.from('stems').update({
         notes: JSON.stringify({
           status: 'ready', type: 'take', bpm, key,
-          ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
-          ...(peaks            ? { peaks }                              : {}),
+          ...(Object.keys(audioFeatures).length ? { audio_features: audioFeatures } : {}),
+          ...(peaks                             ? { peaks }                          : {}),
         }),
         suggested_name: suggestedName,
       }).eq('id', takeId)
@@ -393,9 +400,9 @@ async function uploadGate(userId: string, projectId: string, instrument: string,
 // the bytes are needed (fallback analysis or WAV peaks). Sets the row to 'ready'.
 function enrichStemInBackground(takeId: string, projectId: string, userId: string, opts: {
   fileUrl: string; fileName: string; contentType: string; instrument: string;
-  instrumentHint?: string | null; essentiaAnalysis?: any;
+  instrumentHint?: string | null; essentiaAnalysis?: any; recordOffsetMs?: number | null;
 }) {
-  const { fileUrl, fileName, contentType, instrument, instrumentHint, essentiaAnalysis } = opts
+  const { fileUrl, fileName, contentType, instrument, instrumentHint, essentiaAnalysis, recordOffsetMs } = opts
   ;(async () => {
     try {
       let bpm: number | null = essentiaAnalysis?.bpm ?? null
@@ -435,7 +442,14 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       }
 
       const suggestedName = await buildSuggestedName(fileName, resolvedInstrument, bpm, key, projectTitle, artist)
-      const peaks = pcmWav ? extractWaveformPeaks(pcmWav, 512) : null
+      const peaks = pcmWav ? extractWaveformPeaks(pcmWav) : null
+      // Same as the direct-upload path: persist duration so the Studio can
+      // lay out the timeline without a per-stem network metadata probe.
+      const wavDurationSec = pcmWav ? getWavDurationSec(pcmWav) : null
+      const audioFeatures = {
+        ...((essentiaAnalysis as Record<string, unknown>) || {}),
+        ...(wavDurationSec && !(essentiaAnalysis as any)?.duration ? { duration: wavDurationSec } : {}),
+      }
 
       // Compressed AAC playback asset for instant playback — the buffer is
       // already in memory, so this costs no extra download. ffmpeg reads WAV
@@ -470,9 +484,10 @@ function enrichStemInBackground(takeId: string, projectId: string, userId: strin
       await supabase.from('stems').update({
         notes: JSON.stringify({
           status: 'ready', type: 'take', bpm, key,
-          ...(essentiaAnalysis ? { audio_features: essentiaAnalysis } : {}),
+          ...(Object.keys(audioFeatures).length ? { audio_features: audioFeatures } : {}),
           ...(peaks ? { peaks } : {}),
           ...(previewKey ? { preview: previewKey } : {}),
+          ...(recordOffsetMs != null ? { record_offset_ms: recordOffsetMs } : {}),
         }),
         suggested_name: suggestedName,
       }).eq('id', takeId)
@@ -938,7 +953,7 @@ files.post('/register', uploadLimit, async (c) => {
   const user = c.var.user
   let body: any
   try { body = await c.req.json() } catch { return c.json({ data: null, error: 'Expected JSON', status: 400 }, 400) }
-  const { storage_path, project_id, file_name, file_size, content_type, instrument: instrumentHint, analysis: analysisRaw } = body || {}
+  const { storage_path, project_id, file_name, file_size, content_type, instrument: instrumentHint, analysis: analysisRaw, record_offset_ms } = body || {}
   if (!storage_path || !project_id || !file_name) return c.json({ data: null, error: 'storage_path, project_id and file_name are required', status: 400 }, 400)
   // Only accept paths we'd have signed for this user — stops registering arbitrary keys.
   if (!storage_path.startsWith(`takes/${user.id}/${project_id}/`)) {
@@ -971,18 +986,28 @@ files.post('/register', uploadLimit, async (c) => {
     trackId = (newTrack as { id: string }).id
   }
 
+  // Recording captures sample-accurately from wherever the transport was when
+  // Record was pressed (see Studio.jsx's startPcmCapture) — the WAV itself has
+  // no silence padding, so the resulting clip must start at that same position
+  // or it plays from 0:00 like every other stem, defeating the point of
+  // recording mid-song. Carried through notes (not a dedicated column) since
+  // it's only relevant once, at auto-placement — see the realtime INSERT
+  // handler in Studio.jsx that reads it back out.
+  const recordOffsetMs = Number.isFinite(record_offset_ms) && record_offset_ms >= 0 ? Math.round(record_offset_ms) : null
+
   const { data: takeRecord, error: takeErr } = await supabase
     .from('stems')
     .insert({
       track_id: trackId, original_name: file_name, suggested_name: file_name,
       file_url: fileUrl, storage_path, file_size: size, mime_type: contentType, instrument,
-      notes: JSON.stringify({ status: 'analyzing', type: 'take' }), uploaded_by: user.id,
+      notes: JSON.stringify({ status: 'analyzing', type: 'take', ...(recordOffsetMs != null ? { record_offset_ms: recordOffsetMs } : {}) }),
+      uploaded_by: user.id,
     })
     .select().single()
   if (takeErr) return c.json({ data: null, error: takeErr.message, status: 500 }, 500)
   const takeId = (takeRecord as { id: string }).id
 
-  enrichStemInBackground(takeId, project_id, user.id, { fileUrl, fileName: file_name, contentType, instrument, instrumentHint, essentiaAnalysis })
+  enrichStemInBackground(takeId, project_id, user.id, { fileUrl, fileName: file_name, contentType, instrument, instrumentHint, essentiaAnalysis, recordOffsetMs })
 
   // Let the rest of the crew know a stem landed — in-app + email. Deduped on the
   // project (5-min window), so uploading a whole folder is a single notification.
