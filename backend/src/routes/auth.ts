@@ -297,11 +297,26 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
   const body = c.var.body as Record<string, unknown>
 
   const project_id = typeof body.project_id === 'string' ? body.project_id : null
-  const email      = validateEmail(body.email)
+  let email        = validateEmail(body.email)
   const role       = typeof body.role === 'string' ? body.role.trim() : 'Collaborator'
+  // Invite by dizko @handle (Angel's note) — resolve it to the account and
+  // continue the exact same email-notification flow below.
+  const handle = typeof body.handle === 'string'
+    ? body.handle.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '').slice(0, 30)
+    : null
 
   if (!project_id) return c.json({ data: null, error: 'project_id is required', status: 400 }, 400)
-  if (!email)      return c.json({ data: null, error: 'Valid email is required', status: 400 }, 400)
+  let invitedViaHandle = false
+  if (!email && handle) {
+    const { data: prof } = await supabase
+      .from('profiles').select('id').eq('handle', handle).maybeSingle()
+    if (!prof) return c.json({ data: null, error: `No dizko account found for @${handle}`, status: 404 }, 404)
+    const { data: u } = await supabase.auth.admin.getUserById((prof as any).id)
+    email = validateEmail(u?.user?.email)
+    if (!email) return c.json({ data: null, error: `Couldn't resolve @${handle} — try their email`, status: 404 }, 404)
+    invitedViaHandle = true
+  }
+  if (!email)      return c.json({ data: null, error: 'Valid email or @handle is required', status: 400 }, 400)
 
   // Verify caller OWNS the project (not just a collaborator)
   const { data: project } = await supabase
@@ -336,6 +351,8 @@ auth.post('/invite', requireAuth, sanitize, async (c) => {
     .select().single()
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  // A handle invite shouldn't reveal the account's email address back to the caller.
+  if (invitedViaHandle && collaborator) (collaborator as any).email = null
 
   if (inviteeId) {
     const { data: inviter } = await supabase.auth.admin.getUserById(user.id)

@@ -807,10 +807,25 @@ projects.get('/:id/collaborators', async (c) => {
 projects.post('/:id/collaborators', sanitize, async (c) => {
   const projectId = c.req.param('id')
   const user = c.var.user
-  const { email, role } = c.var.body as { email?: string; role?: string }
+  const { email: rawEmail, role, handle: rawHandle } = c.var.body as { email?: string; role?: string; handle?: string }
 
+  // Invite by dizko @handle as well as email (Angel's note) — resolve the
+  // handle to the account's email and continue the normal flow.
+  let email = typeof rawEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail.trim())
+    ? rawEmail.trim().toLowerCase() : null
+  let invitedViaHandle = false
+  if (!email && typeof rawHandle === 'string') {
+    const handle = rawHandle.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '').slice(0, 30)
+    if (handle) {
+      const { data: prof } = await supabase.from('profiles').select('id').eq('handle', handle).maybeSingle()
+      if (!prof) return c.json({ data: null, error: `No dizko account found for @${handle}`, status: 404 }, 404)
+      const { data: u } = await supabase.auth.admin.getUserById((prof as any).id)
+      email = u?.user?.email?.toLowerCase() ?? null
+      invitedViaHandle = !!email
+    }
+  }
   if (!email) {
-    return c.json({ data: null, error: 'email is required', status: 400 }, 400)
+    return c.json({ data: null, error: 'Valid email or @handle is required', status: 400 }, 400)
   }
 
   // Only the project owner may add collaborators — otherwise anyone could add
@@ -848,6 +863,7 @@ projects.post('/:id/collaborators', sanitize, async (c) => {
     .single()
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  if (invitedViaHandle && collaborator) (collaborator as any).email = null
 
   // Notify the invitee — in-app + email for an existing account, or a signup
   // invite email for someone who doesn't have an account yet.

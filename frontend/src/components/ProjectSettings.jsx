@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Modal, Field, PillSelect, MLabel } from './modals/shared.jsx'
 import { projects as projectsApi, collaborators as collabsApi, foldersApi } from '../lib/api.js'
 import { STATUSES } from '../pages/project/meta.js'
@@ -6,6 +6,7 @@ import { Spinner } from './ui/index.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.jsx'
 import { Alert, AlertDescription } from './ui/alert.jsx'
 import { AlertCircle } from 'lucide-react'
+import InviteeInput from './InviteeInput.jsx'
 
 const C = { coral:'#6D5AE6', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)' }
 const TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
@@ -26,7 +27,8 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
   const [err, setErr]       = useState(null)
 
   const [crew, setCrew]          = useState(null)   // null = loading
-  const [inviteEmail, setInvite] = useState('')
+  const [invitee, setInvitee]    = useState(null)   // { email } | { handle, name } from InviteeInput
+  const [inviteKey, setInviteKey] = useState(0)      // remount the input to clear it after a send
   const [inviting, setInviting]  = useState(false)
   const [folders, setFolders]    = useState([])
   const [scopeOpenFor, setScopeOpenFor] = useState(null)
@@ -65,13 +67,13 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
   const isPending = (c) => c.status && c.status !== 'active' && c.status !== 'accepted'
 
   const addCollaborator = async () => {
-    const email = inviteEmail.trim().toLowerCase()
-    if (!email || inviting) return
+    if (!invitee || inviting) return
     setInviting(true)
     try {
-      await collabsApi.invite({ project_id: project.id, email, role: 'Collaborator' })
-      await refreshCrew(); setInvite('')
-      addToast?.(`Invited ${email}`, { type: 'success' })
+      await collabsApi.invite({ project_id: project.id, role: 'Collaborator',
+        ...(invitee.email ? { email: invitee.email } : { handle: invitee.handle }) })
+      await refreshCrew(); setInvitee(null); setInviteKey(k => k + 1)
+      addToast?.(`Invited ${invitee.email || `@${invitee.handle}`}`, { type: 'success' })
     } catch (e) { addToast?.(e?.message || 'Could not invite', { type: 'error' }) }
     setInviting(false)
   }
@@ -244,12 +246,10 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
           })}
         </div>
         <div style={{ display:'flex', gap:8, marginBottom:6 }}>
-          <input type="email" value={inviteEmail} onChange={e => setInvite(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addCollaborator() }} placeholder="Invite by email…"
-            style={{ flex:1, padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:'var(--bg)', color:C.t1, fontSize:13, fontFamily:'inherit', boxSizing:'border-box' }} />
-          <button onClick={addCollaborator} disabled={!inviteEmail.trim() || inviting}
-            style={{ border:'none', borderRadius:10, padding:'0 16px', cursor: (!inviteEmail.trim() || inviting) ? 'default' : 'pointer',
-              background: (!inviteEmail.trim() || inviting) ? 'rgba(var(--fg),.10)' : C.coral, color:'#fff', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+          <InviteeInput key={inviteKey} onPick={setInvitee} onEnter={addCollaborator}/>
+          <button onClick={addCollaborator} disabled={!invitee || inviting}
+            style={{ border:'none', borderRadius:10, padding:'0 16px', cursor: (!invitee || inviting) ? 'default' : 'pointer',
+              background: (!invitee || inviting) ? 'rgba(var(--fg),.10)' : C.coral, color:'#fff', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
             {inviting ? '…' : 'Invite'}
           </button>
         </div>

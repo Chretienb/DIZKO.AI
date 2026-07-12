@@ -12,6 +12,7 @@ import { fileLabel, fileMeta, typeColor, statusStyle } from '../lib/fileHelpers.
 // Shared primitives + upload helpers live in ./modals/* — imported for use here
 // and re-exported below so existing `from './modals.jsx'` imports keep working.
 import { Modal, Field, ModalSuccess, PillSelect, MLabel } from './modals/shared.jsx'
+import InviteeInput from './InviteeInput.jsx'
 import { ROLE_PERMS, INSTR_LIST, detectInstrument, InstrPicker, collectAudioFiles, filesFromDataTransfer } from './modals/upload.jsx'
 import logo from '../assets/logo.png'
 import { setUploadPreview } from '../pages/project/uploadPreview.js'
@@ -965,7 +966,8 @@ export function ModalKeyboardShortcuts({ onClose }) {
 
 // ─── MODAL: INVITE ──────────────────────────────────────────────────────────
 export function ModalInvite({ project: initialProject, onClose }) {
-  const [email,    setEmail]    = useState('')
+  const [invitee,  setInvitee]  = useState(null)   // { email } | { handle } from InviteeInput
+  const [inviteKey, setInviteKey] = useState(0)
   const [role,     setRole]     = useState('Collaborator')
   const [projects, setProjects] = useState([])
   const [selProj,  setSelProj]  = useState(initialProject || null)
@@ -994,10 +996,11 @@ export function ModalInvite({ project: initialProject, onClose }) {
   }, [initialProject])
 
   const send = async () => {
-    if (!email.trim() || !selProj?.id) return
+    if (!invitee || !selProj?.id) return
     setSending(true); setErr(null)
     try {
-      await collabsApi.addToProject(selProj.id, { email: email.trim(), role })
+      await collabsApi.addToProject(selProj.id, { role,
+        ...(invitee.email ? { email: invitee.email } : { handle: invitee.handle }) })
       setSent(true)
       window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 2 } }))
     } catch (e) {
@@ -1017,14 +1020,14 @@ export function ModalInvite({ project: initialProject, onClose }) {
             <polyline points="20,6 9,17 4,12"/>
           </svg>
         </div>
-        <div style={{ fontSize:15, fontWeight:800, color:C.t1, marginBottom:4 }}>
-          Invite sent to {email}
+        <div style={{ fontSize:15, fontWeight:600, color:C.t1, marginBottom:4 }}>
+          Invite sent to {invitee?.email || `@${invitee?.handle}`}
         </div>
         <div style={{ fontSize:13, color:C.t3, marginBottom:24 }}>
           as <strong style={{ color:C.t2 }}>{role}</strong> on <strong style={{ color:C.t2 }}>{selProj?.title}</strong>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <Btn onClick={() => { setEmail(''); setSent(false); setErr(null) }} variant="ghost" style={{ flex:1 }}>
+          <Btn onClick={() => { setInvitee(null); setInviteKey(k => k + 1); setSent(false); setErr(null) }} variant="ghost" style={{ flex:1 }}>
             Invite another
           </Btn>
           <Btn onClick={onClose} style={{ flex:1 }}>Done</Btn>
@@ -1057,8 +1060,10 @@ export function ModalInvite({ project: initialProject, onClose }) {
         </div>
       )}
 
-      <Field label="Email Address" type="email" placeholder="collaborator@email.com"
-        value={email} onChange={e => setEmail(e.target.value)} />
+      <div style={{ marginBottom:14 }}>
+        <MLabel>Email or @username</MLabel>
+        <InviteeInput key={inviteKey} onPick={setInvitee} onEnter={send}/>
+      </div>
 
       <div style={{ marginBottom:16 }}>
         <MLabel>Role & Permissions</MLabel>
@@ -1085,7 +1090,7 @@ export function ModalInvite({ project: initialProject, onClose }) {
 
       {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)',
         border:'1px solid rgba(239,68,68,.15)', color:'#ef4444', fontSize:12.5, marginBottom:12 }}>{err}</div>}
-      {!selProj?.id && email && (
+      {!selProj?.id && invitee && (
         <div style={{ padding:'9px 13px', borderRadius:9, background:'rgba(245,158,11,.06)',
           border:'1px solid rgba(245,158,11,.2)', color:'#b45309', fontSize:12, marginBottom:12 }}>
           Select a project first.
@@ -1093,7 +1098,7 @@ export function ModalInvite({ project: initialProject, onClose }) {
       )}
 
       <div style={{ display:'flex', gap:8, borderTop:`1px solid ${C.border}`, paddingTop:18 }}>
-        <Btn onClick={send} style={{ flex:1 }} disabled={sending || !email.trim() || !selProj?.id}>
+        <Btn onClick={send} style={{ flex:1 }} disabled={sending || !invitee || !selProj?.id}>
           {sending ? <><Spinner size={13} color="#fff"/> Sending…</> : 'Send Invite'}
         </Btn>
         <Btn onClick={onClose} variant='ghost' style={{ flex:1 }}>Cancel</Btn>
