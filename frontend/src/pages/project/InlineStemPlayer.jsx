@@ -11,9 +11,9 @@ import { cachedPreviewBlobUrl, warmPreviewBytes } from '../../lib/audioCache.js'
 // a muted theme tone and the played portion fills a coral→pink gradient (clipped
 // by clip-path so the waves stay perfectly aligned). Mirrors the MiniPlayer engine.
 const CORAL = '#6D5AE6'
-const GRAD  = 'linear-gradient(90deg, #6D5AE6 0%, #F0739A 55%, #A78BFA 100%)'
+const GRAD  = 'var(--grad)'
 
-export default function InlineStemPlayer({ track, playlist = [], user, projectTitle = '', onPlay, onClose, autoPlay = true }) {
+export default function InlineStemPlayer({ track, playlist = [], user, projectTitle = '', onPlay, onClose, autoPlay = true, startAt = null }) {
   const audioRef                = useRef(null)
   const [playing,  setPlaying]  = useState(false)
   const [progress, setProgress] = useState(0)
@@ -41,6 +41,11 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
 
   const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
+  // Open-at-a-comment: seek once, as soon as the track's metadata is in.
+  // Consumed via ref so re-renders don't re-seek.
+  const startAtRef = useRef(null)
+  useEffect(() => { if (typeof startAt === 'number') startAtRef.current = startAt }, [startAt, track?.id])
+
   useEffect(() => {
     if (!track) return
     try {
@@ -64,7 +69,13 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     audioRef.current = a
     warmPreviewBytes(track.preview_url)   // fill the cache so replays/reloads are instant
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
-    a.onloadedmetadata = () => setDuration(a.duration)
+    a.onloadedmetadata = () => {
+      setDuration(a.duration)
+      if (startAtRef.current != null) {
+        a.currentTime = Math.max(0, Math.min(a.duration || startAtRef.current, startAtRef.current))
+        startAtRef.current = null
+      }
+    }
     a.oncanplay        = () => { setLoading(false); setUnsupported(false) }
     a.onended          = () => { setPlaying(false); goNext() }
     // If we're streaming the ORIGINAL file (no transcoded MP3 preview) and the
@@ -121,6 +132,11 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
       if (action==='pause')    { a.pause(); setPlaying(false) }
       if (action==='seekBack') a.currentTime = Math.max(0, a.currentTime-5)
       if (action==='seekFwd')  a.currentTime = Math.min(a.duration||0, a.currentTime+5)
+      // Jump to a comment's moment (StemComments timestamp chips) and play.
+      if (action==='seekTo' && typeof e.detail?.sec === 'number') {
+        a.currentTime = Math.max(0, Math.min(a.duration || e.detail.sec, e.detail.sec))
+        a.play().catch(()=>{}); setPlaying(true)
+      }
     }
     window.addEventListener('dizko:playback', handler)
     return () => window.removeEventListener('dizko:playback', handler)
@@ -189,7 +205,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
         </button>
 
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:17, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
+          <div style={{ fontSize:17, fontWeight:650, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
           {meta && <div style={{ fontSize:12.5, color:'var(--t3)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{meta}</div>}
         </div>
 
@@ -212,7 +228,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
             <svg width={17} height={17} viewBox="0 0 24 24" fill={liked?'#ef4444':'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
             </svg>
-            {likeCount > 0 && <span style={{ fontSize:12.5, fontWeight:700 }}>{likeCount}</span>}
+            {likeCount > 0 && <span style={{ fontSize:12.5, fontWeight:600 }}>{likeCount}</span>}
           </button>
 
           <button onClick={onClose} aria-label="Close player" style={navBtn(true)}
@@ -266,8 +282,8 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
 
       {/* Times */}
       <div style={{ display:'flex', justifyContent:'space-between', marginTop:-4 }}>
-        <span style={{ fontSize:12, fontFamily:'monospace', color:'var(--t2)', fontWeight:600 }}>{fmt(current)}</span>
-        <span style={{ fontSize:12, fontFamily:'monospace', color:'var(--t3)' }}>{duration ? fmt(duration) : '--:--'}</span>
+        <span style={{ fontSize:12, fontFamily:'var(--font-mono)', color:'var(--t2)', fontWeight:500 }}>{fmt(current)}</span>
+        <span style={{ fontSize:12, fontFamily:'var(--font-mono)', color:'var(--t3)' }}>{duration ? fmt(duration) : '--:--'}</span>
       </div>
     </div>
   )

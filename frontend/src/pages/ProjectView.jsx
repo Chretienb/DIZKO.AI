@@ -3,7 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, foldersApi, collaborators as collabsApi, messagesApi, cacheBust } from '../lib/api.js'
 import posthog from '../lib/posthog.js'
-import { Spinner } from '../components/ui/index.jsx'
+import { Spinner, Avatar } from '../components/ui/index.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { Skeleton } from '../components/ui/skeleton.jsx'
+import { Upload, Share2, Play, MoreHorizontal } from 'lucide-react'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
@@ -41,8 +44,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [projMenu,     setProjMenu]     = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
+  const [playerStartAt,  setPlayerStartAt]  = useState(null)   // open-at-a-comment: seek here once loaded
   const [showArchived,   setShowArchived]   = useState(false)
-  const openPlayer = (f) => { setPlayerAutoplay(true); setPlayerFile(f) }
+  const openPlayer = (f) => { setPlayerStartAt(null); setPlayerAutoplay(true); setPlayerFile(f) }
   const [isPlaying,    setIsPlaying]    = useState(false)
   const [selectedFolderId,   setSelectedFolderId]   = useState(null)
   const [newSongInput,       setNewSongInput]       = useState(false)
@@ -66,6 +70,18 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     window.addEventListener('dizko:player_state', h)
     return () => window.removeEventListener('dizko:player_state', h)
   }, [])
+
+  // A comment's timestamp chip → jump the inline player to that moment (the
+  // Studio ↔ project-page comment bridge). If the stem is already loaded,
+  // seek it live; otherwise open the player right at that position.
+  const seekToComment = (f, sec) => {
+    if (!f) return
+    if (playback.id === f.id) {
+      window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'seekTo', sec } }))
+    } else {
+      setPlayerStartAt(sec); setPlayerAutoplay(true); setPlayerFile(f)
+    }
+  }
 
   // Warm every stem/mix preview in the background (mem ← IndexedDB ← network, 3 at
   // a time) so clicking play on any row in this project is instant — no R2 wait.
@@ -450,10 +466,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // Shared minimal chip style for the meta row.
   // Flat, unboxed text on mobile — "simple modern," not a row of pill chips.
   const chip = isMobile
-    ? { display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:600, color:'var(--t2)', whiteSpace:'nowrap' }
+    ? { display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:500, color:'var(--t2)', whiteSpace:'nowrap' }
     : { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
         borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
-        fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap' }
+        fontSize:12.5, fontWeight:500, color:'var(--t1)', whiteSpace:'nowrap' }
   const chipSep = isMobile ? <span style={{ color:'var(--t4)' }}>·</span> : null
 
   // Header BPM/key describe the SELECTED SONG, not the whole album. Prefer the
@@ -502,9 +518,61 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const coverInput = useRef(null)
   const [coverBusy, setCoverBusy] = useState(false)
 
+  // Skeleton mirroring the real three-column layout — same loading language as
+  // the Dashboard/Inbox, no spinner, no layout jump when data lands.
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', flexDirection:'column', gap:12 }}>
-      <Spinner size={28}/><p style={{ margin:0, fontSize:13, color:'var(--t3)' }}>Loading project…</p>
+    <div style={{ margin: isMobile ? '-16px' : '-24px', display:'flex', height: isMobile ? 'calc(100vh - 44px)' : '100vh', overflow:'hidden', background:'var(--bg)' }}>
+      {!isMobile && (
+        <div style={{ width:210, background:'var(--surface)', borderRight:'1px solid var(--border)', padding:'16px', display:'flex', flexDirection:'column', gap:14, flexShrink:0 }}>
+          <Skeleton style={{ width:72, height:10 }}/>
+          <Skeleton style={{ width:'80%', height:16 }}/>
+          <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:10 }}>
+            {[0,1,2].map(i => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <Skeleton style={{ width:16, height:12, flexShrink:0 }}/>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:5 }}>
+                  <Skeleton style={{ width:'70%', height:11 }}/>
+                  <Skeleton style={{ width:'40%', height:9 }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+        <div style={{ background:'var(--surface)', margin:'38px 0 0', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding: isMobile ? '18px 16px' : '18px 24px', display:'flex', alignItems:'center', gap:14 }}>
+          <Skeleton style={{ width:68, height:68, borderRadius:12, flexShrink:0 }}/>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
+            <Skeleton style={{ width:'38%', height:22 }}/>
+            <Skeleton style={{ width:'22%', height:11 }}/>
+          </div>
+        </div>
+        <div style={{ padding: isMobile ? 16 : '16px 24px', display:'flex', flexDirection:'column', gap:10 }}>
+          <Skeleton style={{ width:'100%', height:52, borderRadius:13 }}/>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', borderRadius:10, background:'var(--surface)', border:'1px solid var(--border)' }}>
+              <Skeleton style={{ width:36, height:36, borderRadius:8, flexShrink:0 }}/>
+              <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                <Skeleton style={{ width:`${52 - i * 7}%`, height:12 }}/>
+                <Skeleton style={{ width:'26%', height:9 }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {!isMobile && (
+        <div style={{ width:256, background:'var(--surface)', borderLeft:'1px solid var(--border)', padding:14, display:'flex', flexDirection:'column', gap:12, flexShrink:0 }}>
+          <Skeleton style={{ width:90, height:10 }}/>
+          <Skeleton style={{ width:'100%', height:110, borderRadius:10 }}/>
+          <Skeleton style={{ width:110, height:10, marginTop:8 }}/>
+          {[0,1].map(i => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <Skeleton className="rounded-full" style={{ width:30, height:30, flexShrink:0 }}/>
+              <Skeleton style={{ width:'60%', height:11 }}/>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 
@@ -512,9 +580,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // collaborator). Show a clean message instead of an empty shell.
   if (!project) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', flexDirection:'column', gap:14, textAlign:'center', padding:24 }}>
-      <div style={{ fontSize:16, fontWeight:700, color:'var(--t1)' }}>You don’t have access to this project</div>
+      <div style={{ fontSize:16, fontWeight:600, color:'var(--t1)' }}>You don’t have access to this project</div>
       <p style={{ margin:0, fontSize:13, color:'var(--t3)', maxWidth:320, lineHeight:1.5 }}>Ask the owner to invite you, then it’ll show up on your dashboard.</p>
-      <a href="/" style={{ height:40, padding:'0 18px', borderRadius:10, background:'#6D5AE6', color:'#fff', fontSize:13, fontWeight:700, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>Back to dashboard</a>
+      <a href="/" style={{ height:40, padding:'0 18px', borderRadius:99, background:'var(--grad)', color:'#fff', fontSize:13, fontWeight:600, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>Back to dashboard</a>
     </div>
   )
 
@@ -562,13 +630,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       }
     })
 
-  const ACT_COLORS = ['#6D5AE6','#7E77D0','#3CDA6F','var(--t3)']
+  const ACT_COLORS = ['var(--brand-strong)','#7E77D0','#3CDA6F','var(--t3)']
 
   // ── Shared styles ─────────────────────────────────────────────────────────
   const S = {
     border: '1px solid var(--border)',
     border2: '1px solid var(--border-2)',
-    sectionLabel: { fontSize:10, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:'var(--t3)', marginBottom:9 },
+    sectionLabel: { fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:9 },
     card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden' },
   }
 
@@ -594,7 +662,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <svg width={13} height={13} viewBox="0 0 14 14" fill="none"><path d="M9 2.5L4.5 7 9 11.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
               Projects
             </button>
-            <div style={{ fontSize:15, fontWeight:700, color:'var(--t1)', letterSpacing:'-.3px', marginBottom:2 }}>
+            <div style={{ fontSize:15, fontWeight:650, color:'var(--t1)', letterSpacing:'-.3px', marginBottom:2 }}>
               {(project?.title || '').toUpperCase()}
             </div>
             <div style={{ fontSize:11.5, color:'var(--t3)' }}>
@@ -624,10 +692,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s, box-shadow .1s' }}
                   onMouseEnter={e => { if (!on && !dropHere) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
                   onMouseLeave={e => { if (!on && !dropHere) e.currentTarget.style.background='transparent' }}>
-                  <span style={{ fontSize:11.5, color: on ? '#6D5AE6' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 700 : 400 }}>{i + 1}</span>
+                  <span style={{ fontSize:11.5, color: on ? 'var(--brand-strong)' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 600 : 400 }}>{i + 1}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight: on ? 700 : 600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
-                    <div style={{ fontSize:11, color: dropHere ? '#6D5AE6' : 'var(--t3)', marginTop:1, fontWeight: dropHere ? 700 : 400 }}>
+                    <div style={{ fontSize:13, fontWeight: on ? 600 : 500, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
+                    <div style={{ fontSize:11, color: dropHere ? 'var(--brand-strong)' : 'var(--t3)', marginTop:1, fontWeight: dropHere ? 600 : 400 }}>
                       {dropHere ? 'Drop to move here' : `${parentFiles.filter(f => f.folder_id === folder.id).length} stems`}
                     </div>
                   </div>
@@ -641,7 +709,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                     </span>
                   ) : (
-                    <div style={{ width:8, height:8, borderRadius:'50%', background: on ? '#6D5AE6' : 'var(--t4)', flexShrink:0 }}/>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background: on ? 'var(--brand-strong)' : 'var(--t4)', flexShrink:0 }}/>
                   )}
                 </button>
               )
@@ -651,14 +719,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           {/* + NEW SONG */}
           <div style={{ padding:'8px 10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
             {newSongInput ? (
-              <div style={{ background:'var(--bg)', borderRadius:10, padding:'10px 10px 8px', border:'1.5px solid #6D5AE6' }}>
+              <div style={{ background:'var(--bg)', borderRadius:10, padding:'10px 10px 8px', border:'1.5px solid var(--brand-strong)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                  <div style={{ width:20, height:20, borderRadius:5, background:'#6D5AE6', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <div style={{ width:20, height:20, borderRadius:5, background:'var(--brand-strong)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                     <svg width={9} height={9} viewBox="0 0 10 10" fill="none">
                       <path d="M5 1v8M1 5h8" stroke="#fff" strokeWidth={1.8} strokeLinecap="round"/>
                     </svg>
                   </div>
-                  <span style={{ fontSize:10.5, fontWeight:700, color:'#6D5AE6', letterSpacing:'.04em', textTransform:'uppercase' }}>New Song</span>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', letterSpacing:'.14em', textTransform:'uppercase' }}>New Song</span>
                 </div>
                 <input
                   autoFocus
@@ -684,7 +752,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <button
                 onClick={() => { setNewSongInput(true); setNewSongName('') }}
                 style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 8px', borderRadius:9, border:'1.5px dashed var(--border)', background:'transparent', cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor='#6D5AE6'; e.currentTarget.style.background='rgba(109,90,230,.04)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor='var(--brand-strong)'; e.currentTarget.style.background='rgba(109,90,230,.04)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='transparent' }}>
                 <div style={{ width:22, height:22, borderRadius:6, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
                   <svg width={10} height={10} viewBox="0 0 10 10" fill="none">
@@ -709,7 +777,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
               {(project?.title || 'Album').toUpperCase()}
             </button>
-            <span style={{ fontSize:15, fontWeight:800, color:'var(--t1)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.4px' }}>{headerTitle}</span>
+            <span style={{ fontSize:15, fontWeight:650, color:'var(--t1)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.4px' }}>{headerTitle}</span>
           </div>
         )}
 
@@ -782,45 +850,38 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <input autoFocus defaultValue={headerTitle}
                   onBlur={e => renameHeader(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') renameHeader(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
-                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px',
+                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:650, color:'var(--t1)', letterSpacing:'-1px',
                     textTransform:'uppercase', lineHeight:1.05, fontFamily:'inherit', minWidth:0, flex:1,
-                    background:'var(--surface)', border:'1.5px solid #6D5AE6', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
+                    background:'var(--surface)', border:'1.5px solid var(--brand-strong)', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
               ) : (
                 <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
                   title={isOwner ? 'Double-click to rename' : headerTitle}
-                  style={{ margin:0, fontSize: isMobile ? 20 : 30, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05,
+                  style={{ margin:0, fontSize: isMobile ? 20 : 30, fontWeight:650, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05,
                     minWidth:0, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: isOwner ? 'text' : 'default' }}>
                   {headerTitle}
                 </h1>
               )}
-              <div style={{ width:9, height:9, borderRadius:'50%', background:ltDot(status), flexShrink:0, marginTop:4 }}/>
             </div>
             {/* Action buttons — full width row of their own on mobile, wrapping
                 below the title, so labels have real room instead of being
                 squeezed illegibly next to a long project name. */}
             <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, flexShrink:0, paddingTop:4,
               width: isMobile ? '100%' : undefined, justifyContent: isMobile ? 'flex-start' : undefined }}>
-              <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} title="Upload"
-                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 8px' : '0 13px', borderRadius: isMobile ? 8 : 10, border:'none', background:'transparent', color:'var(--t2)', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
-                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
-                onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-                Upload
-              </button>
-              <button onClick={() => setShareOpen(true)} title="Make a share card"
-                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 8px' : '0 13px', borderRadius: isMobile ? 8 : 10, border:'none', background:'transparent', color:'var(--t2)', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'background .1s,color .1s' }}
-                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
-                onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t2)' }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
-                Share
-              </button>
-              <button onClick={() => navigate('/studio')} title="Open in Studio"
-                style={{ height: isMobile ? 30 : 36, padding: isMobile ? '0 10px' : '0 14px', borderRadius: isMobile ? 8 : 9, border:'none', background:'#6D5AE6', color:'#fff', fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap: isMobile ? 4 : 6, fontFamily:'inherit', transition:'opacity .1s' }}
-                onMouseEnter={e=>e.currentTarget.style.opacity='.85'}
-                onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                <svg width={10} height={10} viewBox="0 0 12 12" fill="none" style={{ flexShrink:0 }}><path d="M3 2l7 4-7 4V2z" fill="#fff"/></svg>
+              <Button variant="ghost" size="sm" title="Upload"
+                onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })}
+                className="text-[13px]" style={{ color:'var(--t2)' }}>
+                <Upload aria-hidden="true"/> Upload
+              </Button>
+              <Button variant="ghost" size="sm" title="Make a share card"
+                onClick={() => setShareOpen(true)}
+                className="text-[13px]" style={{ color:'var(--t2)' }}>
+                <Share2 aria-hidden="true"/> Share
+              </Button>
+              <Button variant="brand" size="sm" title="Open in Studio"
+                onClick={() => navigate('/studio')} className="text-[13px]">
+                <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-3"/>
                 {isMobile ? 'Studio' : 'Open in Studio'}
-              </button>
+              </Button>
 
               {/* Owner: archive / delete project */}
               {isOwner && (
@@ -831,7 +892,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                       display:'flex', alignItems:'center', justifyContent:'center', transition:'background .1s' }}
                     onMouseEnter={e=>{ e.currentTarget.style.background='rgba(var(--fg),.06)' }}
                     onMouseLeave={e=>{ if (!projMenu) e.currentTarget.style.background='transparent' }}>
-                    <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+                    <MoreHorizontal size={16} aria-hidden="true"/>
                   </button>
                   {projMenu && (
                     <>
@@ -880,7 +941,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:8,
                             background: on ? 'var(--surface-2)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit' }}>
                           <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(s), flexShrink:0 }}/>
-                          <span style={{ fontSize:12.5, fontWeight: on ? 700 : 500, color: on ? 'var(--t1)' : 'var(--t2)' }}>{s}</span>
+                          <span style={{ fontSize:12.5, fontWeight: on ? 600 : 500, color: on ? 'var(--t1)' : 'var(--t2)' }}>{s}</span>
                           {on && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#3CDA6F" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:'auto' }}><polyline points="20,6 9,17 4,12"/></svg>}
                         </button>
                       )
@@ -890,8 +951,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )}
             </div>
 
-            {projBpm && <>{chipSep}<span style={chip}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span></>}
-            {projKey?.trim() && <>{chipSep}<span style={chip}>{projKey}</span></>}
+            {projBpm && <>{chipSep}<span style={{ ...chip, fontFamily:'var(--font-mono)' }}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span></>}
+            {projKey?.trim() && <>{chipSep}<span style={{ ...chip, fontFamily:'var(--font-mono)' }}>{projKey}</span></>}
             {chipSep}<span style={chip}>{project?.type || 'Single'}</span>
             {/* "Auto-labeled" badge removed per Angel — visual bloat. */}
           </div>
@@ -913,6 +974,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               user={user}
               projectTitle={project?.title}
               autoPlay={playerAutoplay}
+              startAt={playerStartAt}
               onPlay={openPlayer}
               onClose={() => setPlayerFile(null)}
             />
@@ -931,24 +993,24 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 return (
                   <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:14,
                     position:'relative', overflow:'hidden',
-                    background:'var(--surface)', border: isActive ? '1px solid #6D5AE6' : S.border }}>
+                    background:'var(--surface)', border: isActive ? '1px solid var(--brand-strong)' : S.border }}>
                     {isLoading && (
                       <div aria-hidden="true" style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(109,90,230,.12)' }}>
-                        <div style={{ height:'100%', background:'linear-gradient(90deg,#6D5AE6,#F59E8C)', boxShadow:'0 0 8px rgba(109,90,230,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
+                        <div style={{ height:'100%', background:'var(--grad)', boxShadow:'0 0 8px rgba(109,90,230,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
                       </div>
                     )}
                     <button
                       onClick={() => { if (isActive) window.dispatchEvent(new CustomEvent('dizko:playback', { detail:{ action:'toggle' } })); else openPlayer(m) }}
                       aria-label={isPlayingThis ? `Pause ${m.suggested_name || 'mix'}` : `Play ${m.suggested_name || 'mix'}`}
-                      style={{ width:36, height:36, borderRadius:'50%', border:'none', background:'#6D5AE6', color:'#fff', cursor:'pointer',
+                      style={{ width:36, height:36, borderRadius:'50%', border:'none', background:'var(--brand-strong)', color:'#fff', cursor:'pointer',
                         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 3px 10px rgba(109,90,230,.4)' }}>
                       {isPlayingThis
                         ? <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><rect x={6} y={4} width={4} height={16} rx={1}/><rect x={14} y={4} width={4} height={16} rx={1}/></svg>
                         : <svg width={13} height={13} viewBox="0 0 24 24" fill="#fff"><path d="M6 3l15 9-15 9V3z"/></svg>}
                     </button>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.suggested_name || 'Mix'}</div>
-                      <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+                      <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.suggested_name || 'Mix'}</div>
+                      <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--t3)' }}>
                         {mn.duration ? fmtDur(mn.duration) + ' · ' : ''}{mn.stem_count || '—'} stems{isPlayingThis ? ' · playing' : ''}
                       </div>
                     </div>
@@ -977,7 +1039,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           {parentFiles.length === 0 ? (
             <div style={{ background:'var(--surface)', borderRadius:14, border:S.border, padding:'48px 24px', textAlign:'center' }}>
               <p style={{ margin:'0 0 10px', fontSize:13, fontWeight:600, color:'var(--t2)' }}>No stems in <span style={{ color:'var(--t1)' }}>{project?.title}</span> yet</p>
-              <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} style={{ fontSize:13, fontWeight:700, color:'#6D5AE6', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>Upload your first stem →</button>
+              <button onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })} style={{ fontSize:13, fontWeight:600, color:'var(--brand-strong)', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>Upload your first stem →</button>
             </div>
           ) : (<>
             {/* Search */}
@@ -1018,7 +1080,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 style={{ borderRadius:12, transition:'background .12s, box-shadow .12s',
                   ...(isDropTarget ? { background:'rgba(109,90,230,.06)', boxShadow:'inset 0 0 0 2px rgba(109,90,230,.45)', padding:8 } : {}) }}>
                 <div style={S.sectionLabel}>{group.label}{isDropTarget ? ' · drop to tag' : ''}</div>
-                <div style={isFinals ? { background:'#EAF6DE', border:'1.5px solid #B8D98A', borderRadius:10, padding:10, display:'flex', flexDirection:'column', gap:7 } : { display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={isFinals ? { background:'rgba(60,218,111,.05)', border:'1px solid rgba(60,218,111,.22)', borderRadius:10, padding:10, display:'flex', flexDirection:'column', gap:7 } : { display:'flex', flexDirection:'column', gap:8 }}>
                   {group.items.length === 0 && (
                     <div style={{ fontSize:12, color:'var(--t3)', padding:'14px', border:'1.5px dashed rgba(var(--fg),.18)', borderRadius:10, textAlign:'center' }}>
                       Drop a stem here to tag it {group.label.toLowerCase()}
@@ -1058,7 +1120,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); setBpmEditing(false); if (isMobile && ns) setMobileDetailOpen(true) } }}
                         style={{
                           background: isActive ? 'rgba(109,90,230,.045)' : 'var(--surface)',
-                          border: isSel ? '1.5px solid #6D5AE6' : (isFinals ? '1px solid #C8E8A0' : S.border),
+                          border: isSel ? '1.5px solid var(--brand-strong)' : (isFinals ? '1px solid rgba(60,218,111,.25)' : S.border),
                           borderRadius:10, padding: isMobile ? '11px 10px' : '13px 16px', position:'relative', overflow:'hidden',
                           display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, cursor:'pointer',
                           opacity: draggingId === f.id ? .4 : 1,
@@ -1066,22 +1128,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           boxShadow: isSel ? '0 0 0 3px rgba(109,90,230,.08)' : 'none',
                         }}
                         onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.borderColor='var(--t4)' }}
-                        onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.borderColor = isFinals ? '#C8E8A0' : 'var(--border)' }}>
+                        onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.borderColor = isFinals ? 'rgba(60,218,111,.25)' : 'var(--border)' }}>
                         {/* Charging light lane — fills while the track loads, then it plays */}
                         {isLoading && (
                           <div aria-hidden="true" style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(109,90,230,.12)' }}>
-                            <div style={{ height:'100%', background:'linear-gradient(90deg,#6D5AE6,#F59E8C)', boxShadow:'0 0 8px rgba(109,90,230,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
+                            <div style={{ height:'100%', background:'var(--grad)', boxShadow:'0 0 8px rgba(109,90,230,.75)', animation:'chargeLane 1.6s ease-out forwards' }}/>
                           </div>
                         )}
                         <div style={{ width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                          background: isActive ? 'rgba(109,90,230,.12)' : (isFinals ? '#C4E4A0' : 'rgba(var(--fg),.06)'),
+                          background: isActive ? 'rgba(109,90,230,.12)' : (isFinals ? 'rgba(60,218,111,.14)' : 'rgba(var(--fg),.06)'),
                           border: isActive ? '1px solid rgba(109,90,230,.35)' : '1px solid transparent', transition:'background .15s' }}>
                           {isPlayingThis ? (
                             <span style={{ display:'flex', alignItems:'flex-end', gap:2, height:14 }}>
-                              {[0,1,2].map(i => <span key={i} style={{ width:2.5, borderRadius:2, background:'#6D5AE6', height:5, animation:`eq .85s ${i*0.16}s ease-in-out infinite alternate` }}/>)}
+                              {[0,1,2].map(i => <span key={i} style={{ width:2.5, borderRadius:2, background:'var(--brand-strong)', height:5, animation:`eq .85s ${i*0.16}s ease-in-out infinite alternate` }}/>)}
                             </span>
                           ) : (
-                            <span style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: isActive ? '#6D5AE6' : (isFinals ? '#4D8A20' : 'var(--t3)'), fontVariantNumeric:'tabular-nums' }}>{stemNo.get(f.id)}</span>
+                            <span style={{ fontFamily:'var(--font-mono)', fontSize: isMobile ? 11 : 12, fontWeight:500, color: isActive ? 'var(--brand)' : (isFinals ? '#3CDA6F' : 'var(--t3)'), fontVariantNumeric:'tabular-nums' }}>{stemNo.get(f.id)}</span>
                           )}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
@@ -1090,14 +1152,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           ) : (
                             <div title={f.original_name ? `Source: ${f.original_name}` : name}
                               style={ isMobile
-                                ? { fontSize:12.5, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', letterSpacing:'-.1px', marginBottom:3,
+                                ? { fontSize:12.5, fontWeight:600, color:'var(--t1)', letterSpacing:'-.1px', marginBottom:3,
                                     display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word', lineHeight:1.25 }
-                                : { fontSize:14, fontWeight:600, color: isFinals ? '#1E4706' : 'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 } }
+                                : { fontSize:14, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 } }
                               onDoubleClick={e=>{ e.stopPropagation(); setRenamingId(f.id) }}>
                               {name}
                             </div>
                           )}
-                          {sub && <div style={{ fontSize: isMobile ? 10.5 : 11.5, color: isFinals ? '#4D8A20' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
+                          {sub && <div style={{ fontFamily:'var(--font-mono)', fontSize: isMobile ? 10 : 10.5, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
                           {/* Noisy source filename only when the row is selected */}
                           {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
@@ -1124,13 +1186,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             else { openPlayer(preview ? { ...f, file_url: preview } : f); setIsPlaying(true) } }}
                           className="lt-play-btn"
                           style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                            border: isActive ? '1.5px solid transparent' : '1.5px solid #6D5AE6',
-                            background: isActive ? '#6D5AE6' : 'transparent',
-                            color: isActive ? '#fff' : '#6D5AE6',
+                            border: isActive ? '1.5px solid transparent' : '1.5px solid var(--brand-strong)',
+                            background: isActive ? 'var(--brand-strong)' : 'transparent',
+                            color: isActive ? '#fff' : 'var(--brand-strong)',
                             transition:'background .15s, color .15s, transform .15s, opacity .15s',
                             ...(isActive ? { opacity:1 } : {}) }}
-                          onMouseEnter={e=>{ e.currentTarget.style.background='#6D5AE6'; e.currentTarget.style.color='#fff'; e.currentTarget.style.transform='scale(1.08)' }}
-                          onMouseLeave={e=>{ if(!isActive){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#6D5AE6' } e.currentTarget.style.transform='scale(1)' }}>
+                          onMouseEnter={e=>{ e.currentTarget.style.background='var(--brand-strong)'; e.currentTarget.style.color='#fff'; e.currentTarget.style.transform='scale(1.08)' }}
+                          onMouseLeave={e=>{ if(!isActive){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--brand-strong)' } e.currentTarget.style.transform='scale(1)' }}>
                           {isPlayingThis
                             ? <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
                             : <svg width={9} height={9} viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>}
@@ -1173,7 +1235,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     {(isOwner || m.uploaded_by === user?.id) && (
                       <button onClick={()=>toggleArchive(m.id)} title="Restore to the project"
                         style={{ height:28, padding:'0 12px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:11.5, fontWeight:600, cursor:'pointer' }}
-                        onMouseEnter={e=>{ e.currentTarget.style.borderColor='#6D5AE6'; e.currentTarget.style.color='#6D5AE6' }}
+                        onMouseEnter={e=>{ e.currentTarget.style.borderColor='var(--brand-strong)'; e.currentTarget.style.color='var(--brand-strong)' }}
                         onMouseLeave={e=>{ e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)' }}>
                         Restore
                       </button>
@@ -1195,7 +1257,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <div key={n.id||i} style={{ display:'flex', alignItems:'center', gap:11, padding:'11px 16px', borderBottom: i<actItems.length-1 ? '1px solid var(--surface-2)' : 'none' }}>
                 <div style={{ width:7, height:7, borderRadius:'50%', background:ACT_COLORS[i%4], flexShrink:0 }}/>
                 <div style={{ flex:1, fontSize:12.5, color:'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  <strong style={{ color:'var(--t1)', fontWeight:700 }}>{n.who}</strong> {n.verb} <span style={{ color:'var(--t1)' }}>{n.what}</span>
+                  <strong style={{ color:'var(--t1)', fontWeight:600 }}>{n.who}</strong> {n.verb} <span style={{ color:'var(--t1)' }}>{n.what}</span>
                 </div>
                 <span style={{ fontSize:11, color:'var(--t4)', flexShrink:0 }}>{timeAgo(n.created_at)}</span>
               </div>
@@ -1208,12 +1270,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <div style={{ padding:'0 16px 24px' }}>
             <div style={{ background:'var(--surface)', borderRadius:14, border:S.border, overflow:'hidden' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px', borderBottom:'1px solid var(--border)' }}>
-                <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
-                {isOwner && <button onClick={() => openModal?.('invite', { project })} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(109,90,230,.3)', background:'rgba(109,90,230,.08)', color:'#6D5AE6', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ Invite</button>}
+                <span style={{ fontSize:13, fontWeight:600, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
+                {isOwner && <button onClick={() => openModal?.('invite', { project })} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(109,90,230,.3)', background:'rgba(109,90,230,.08)', color:'var(--brand-strong)', fontSize:11.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>+ Invite</button>}
               </div>
               {collabs.map((collab, ci) => {
-                const COLLAB_COLORS = ['#6D5AE6','#7E77D0','#3CDA6F','#EA9F1E','#C084FC']
-                const clr = COLLAB_COLORS[ci%5]
                 const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
@@ -1222,18 +1282,18 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const isInvited = isPending && !!collab.invited_by  // owner invited → awaiting their acceptance
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
-                    <div style={{ width:32, height:32, borderRadius:'50%', background:`${clr}18`, border:`1.5px solid ${clr}35`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
+                    <Avatar name={nm} url={collab.user?.avatar_url} size={32} border="none"/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
                       {isRequest
-                        ? <span style={{ fontSize:10, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.12)', border:'1px solid rgba(234,159,30,.25)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
+                        ? <span style={{ fontSize:10, fontWeight:500, color:'#EA9F1E', background:'rgba(234,159,30,.1)', padding:'2px 8px', borderRadius:20 }}>Wants to join</span>
                         : isInvited
-                          ? <span style={{ fontSize:10, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.22)', padding:'1px 7px', borderRadius:20 }}>Invited · pending</span>
-                          : <span style={{ fontSize:10, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.12)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.25)':'rgba(165,165,173,.2)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                          ? <span style={{ fontSize:10, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 8px', borderRadius:20 }}>Invited · pending</span>
+                          : <span style={{ fontSize:10, fontWeight:500, color:'var(--t3)' }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                     </div>
                     {isOwner && isRequest ? (
                       <div style={{ display:'flex', gap:5, flexShrink:0 }}>
-                        <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 11px', borderRadius:7, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:11.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                        <button onClick={() => reviewJoin(collab, true)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 11px', borderRadius:7, border:'none', background:'#3CDA6F', color:'#06310f', fontSize:11.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
                         <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ height:28, padding:'0 10px', borderRadius:7, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444', fontSize:11.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Decline</button>
                       </div>
                     ) : isOwner && isInvited ? (
@@ -1254,7 +1314,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           {/* Selected Stem */}
           <div style={{ borderBottom:S.border }}>
             <div style={{ padding:'14px 14px 12px', borderBottom:'1px solid var(--border)' }}>
-              <span style={{ fontSize:9.5, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:'var(--t3)' }}>Selected Stem</span>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)' }}>Selected Stem</span>
             </div>
             {!selectedFile ? (
               <div style={{ padding:'22px 14px', textAlign:'center' }}>
@@ -1266,16 +1326,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             ) : (
               <div style={{ padding:'14px' }}>
                 <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
-                  <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:8 }}>
+                  <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:8 }}>
                     {project?.title} — {selectedFile.suggested_name || selectedFile.original_name || 'Untitled'}
                   </div>
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'#E8E3FB', border:'1px solid #C8C0F0', fontSize:10.5, fontWeight:600, color:'#4532A0' }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'var(--brand-tint)', border:'1px solid rgba(124,108,240,.25)', fontSize:10.5, fontWeight:500, color:'var(--brand)' }}>
                     <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                     Auto-analyzed
                   </span>
                   {selAiFlag && (
                     <button onClick={() => setAiDetailsOpen(true)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:10.5, fontWeight:700,
+                      style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:10.5, fontWeight:600,
                         border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
                         color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
                         background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
@@ -1294,12 +1354,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     // Long values (file paths) get their own line so they don't squish.
                     <div key={row.label} style={{ display:'flex', flexDirection:'column', gap:3 }}>
                       <span style={{ fontSize:11, color:'var(--t3)' }}>{row.label}</span>
-                      <span title={row.val} style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', wordBreak:'break-word' }}>{row.val}</span>
+                      <span title={row.val} style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', wordBreak:'break-word' }}>{row.val}</span>
                     </div>
                   ) : (
                     <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
                       <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>{row.label}</span>
-                      <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right' }}>{row.val}</span>
+                      <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', textAlign:'right' }}>{row.val}</span>
                     </div>
                   ))}
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
@@ -1310,10 +1370,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
                         onBlur={e => saveBpm(selectedFile.id, e.target.value)}
                         style={{ width:64, fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
-                          border:'1.5px solid #6D5AE6', borderRadius:6, outline:'none', padding:'2px 6px', fontFamily:'inherit' }}/>
+                          border:'1.5px solid var(--brand-strong)', borderRadius:6, outline:'none', padding:'2px 6px', fontFamily:'inherit' }}/>
                     ) : (
                       <span onClick={() => setBpmEditing(true)} title="Click to edit"
-                        style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
+                        style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', textAlign:'right', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
                         {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
                       </span>
                     )}
@@ -1321,23 +1381,23 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </div>
                 {selLabels.length > 0 && (
                   <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
-                    <div style={{ fontSize:9.5, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.12em', marginBottom:8 }}>Detected Labels</div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:8 }}>Detected Labels</div>
                     <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                       {selLabels.map(([lbl, clr], i) => (
-                        <div key={i} style={{ padding:'6px 12px', borderRadius:7, background:`${clr}12`, border:`1px solid ${clr}25`, textAlign:'center', fontSize:11.5, fontWeight:600, color:clr }}>{lbl}</div>
+                        <div key={i} style={{ padding:'6px 12px', borderRadius:7, background:`${clr}12`, border:`1px solid ${clr}25`, textAlign:'center', fontSize:11.5, fontWeight:500, color:clr }}>{lbl}</div>
                       ))}
                     </div>
                   </div>
                 )}
                 {(selVNum !== null || selVersions.length > 0) && (
                   <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:9.5, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.12em', marginBottom:8 }}>Versions</div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:8 }}>Versions</div>
                     <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                       {selVNum !== null && (
                         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:7, background:'rgba(109,90,230,.07)', border:'1px solid rgba(109,90,230,.2)' }}>
-                          <span style={{ fontSize:10.5, fontWeight:800, color:'#6D5AE6', minWidth:20 }}>v{selVNum}</span>
+                          <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', minWidth:20 }}>v{selVNum}</span>
                           <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', flex:1 }}>{versionLabel(selVNum)}</span>
-                          <span style={{ fontSize:9, fontWeight:700, color:'#6D5AE6', background:'rgba(109,90,230,.12)', padding:'2px 6px', borderRadius:4 }}>Current</span>
+                          <span style={{ fontFamily:'var(--font-mono)', fontSize:9, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 6px', borderRadius:4 }}>Current</span>
                         </div>
                       )}
                       {selVersions.map(f => (
@@ -1345,7 +1405,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:7, background:'var(--bg)', border:S.border, cursor:'pointer', textAlign:'left', width:'100%', fontFamily:'inherit', transition:'all .1s' }}
                           onMouseEnter={e=>{e.currentTarget.style.background='rgba(var(--fg),.06)';e.currentTarget.style.borderColor='var(--t4)'}}
                           onMouseLeave={e=>{e.currentTarget.style.background='var(--bg)';e.currentTarget.style.borderColor='var(--border)'}}>
-                          <span style={{ fontSize:10.5, fontWeight:700, color:'var(--t3)', minWidth:20 }}>{f.vNum !== null ? `v${f.vNum}` : '—'}</span>
+                          <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--t3)', minWidth:20 }}>{f.vNum !== null ? `v${f.vNum}` : '—'}</span>
                           <span style={{ fontSize:11.5, fontWeight:500, color:'var(--t2)', flex:1 }}>{f.vNum !== null ? versionLabel(f.vNum) : (f.suggested_name || f.original_name)}</span>
                         </button>
                       ))}
@@ -1354,7 +1414,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 )}
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true) }}
-                    style={{ height:34, borderRadius:8, border:'none', cursor:'pointer', background:'#6D5AE6', color:'#fff', fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'inherit', transition:'opacity .1s' }}
+                    style={{ height:34, borderRadius:99, border:'none', cursor:'pointer', background:'var(--grad)', color:'#fff', fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'inherit', transition:'opacity .1s' }}
                     onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
                     <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
                     Play Stem
@@ -1370,21 +1430,25 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             )}
           </div>
 
+          {/* Comments for the selected stem — the same thread the Studio shows
+              on its timeline, so feedback lives in one place. */}
+          <StemComments stemId={selectedFile?.id} collabs={collabs} user={user}
+            owner={{ id: project?.owner_id, name: project?.owner?.full_name?.split(' ')[0] || 'Owner' }}
+            onSeekTo={sec => seekToComment(selectedFile, sec)} />
+
           {/* Collaborators */}
           {collabs.length > 0 && (
-            <div>
+            <div style={{ borderTop:'1px solid var(--border)' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px', borderBottom:'1px solid var(--border)' }}>
-                <span style={{ fontSize:12, fontWeight:700, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
+                <span style={{ fontSize:12, fontWeight:600, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
                 {isOwner && (
                   <button onClick={() => openModal?.('invite', { project })}
-                    style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(109,90,230,.3)', background:'rgba(109,90,230,.08)', color:'#6D5AE6', fontSize:10.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                    style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(109,90,230,.3)', background:'rgba(109,90,230,.08)', color:'var(--brand-strong)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                     + Invite
                   </button>
                 )}
               </div>
               {collabs.map((collab, ci) => {
-                const COLLAB_COLORS = ['#6D5AE6','#7E77D0','#3CDA6F','#EA9F1E','#C084FC']
-                const clr = COLLAB_COLORS[ci%5]
                 const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
                 const isSelf = collab.user_id === user?.id
                 const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
@@ -1399,20 +1463,20 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 const aBtn = { flex:1, height:26, borderRadius:7, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }
                 return (
                   <div key={collab.id} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'11px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
-                    <div style={{ width:30, height:30, borderRadius:'50%', background:`${clr}15`, border:`1.5px solid ${clr}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:clr, flexShrink:0 }}>{nm.charAt(0).toUpperCase()}</div>
+                    <Avatar name={nm} url={collab.user?.avatar_url} size={30} border="none"/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
                       <div style={{ marginTop:4 }}>
                         {isRequest
-                          ? <span style={{ fontSize:9.5, fontWeight:700, color:'#EA9F1E', background:'rgba(234,159,30,.1)', border:'1px solid rgba(234,159,30,.22)', padding:'1px 7px', borderRadius:20 }}>Wants to join</span>
+                          ? <span style={{ fontSize:9.5, fontWeight:500, color:'#EA9F1E', background:'rgba(234,159,30,.1)', padding:'2px 8px', borderRadius:20 }}>Wants to join</span>
                           : isInvited
-                            ? <span style={{ fontSize:9.5, fontWeight:700, color:'#6366f1', background:'rgba(99,102,241,.1)', border:'1px solid rgba(99,102,241,.22)', padding:'1px 7px', borderRadius:20 }}>Invited · pending</span>
-                            : <span style={{ fontSize:9.5, fontWeight:700, color: isOwnerEntry?'#EA9F1E':'var(--t3)', background: isOwnerEntry?'rgba(234,159,30,.1)':'rgba(165,165,173,.1)', border:`1px solid ${isOwnerEntry?'rgba(234,159,30,.22)':'rgba(165,165,173,.18)'}`, padding:'1px 7px', borderRadius:20 }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                            ? <span style={{ fontSize:9.5, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 8px', borderRadius:20 }}>Invited · pending</span>
+                            : <span style={{ fontSize:9.5, fontWeight:500, color:'var(--t3)' }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                       </div>
                       {hasActions && (
                         <div style={{ display:'flex', gap:6, marginTop:9 }}>
                           {showApproval && <>
-                            <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', fontWeight:800, opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                            <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', fontWeight:600, opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
                             <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Decline</button>
                           </>}
                           {showCancel  && <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t3)' }}>Cancel invite</button>}
@@ -1427,8 +1491,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
           )}
 
-          {/* Comments for the selected stem — under collaborators (Angel #73) */}
-          <StemComments stemId={selectedFile?.id} collabs={collabs} user={user} />
         </div>
       )}
 
@@ -1444,13 +1506,13 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               return (
                 <button key={folder.id} onClick={() => { setSelectedFolderId(folder.id); setMobileProjectsOpen(false) }}
                   style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'14px 20px', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit',
-                    background: on ? 'rgba(109,90,230,.05)' : 'transparent', borderLeft:`3px solid ${on ? '#6D5AE6' : 'transparent'}` }}>
-                  <span style={{ fontSize:11, fontWeight:700, color: on ? '#6D5AE6' : 'var(--t3)', minWidth:22, textAlign:'right', flexShrink:0 }}>{i+1}</span>
+                    background: on ? 'rgba(109,90,230,.05)' : 'transparent', borderLeft:`3px solid ${on ? 'var(--brand-strong)' : 'transparent'}` }}>
+                  <span style={{ fontSize:11, fontWeight:600, color: on ? 'var(--brand-strong)' : 'var(--t3)', minWidth:22, textAlign:'right', flexShrink:0 }}>{i+1}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13.5, fontWeight: on ? 800 : 600, color: on ? 'var(--t1)' : 'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
+                    <div style={{ fontSize:13.5, fontWeight: on ? 600 : 500, color: on ? 'var(--t1)' : 'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
                     <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{parentFiles.filter(f => f.folder_id === folder.id).length} stems</div>
                   </div>
-                  <div style={{ width:8, height:8, borderRadius:'50%', background: on ? '#6D5AE6' : 'var(--t4)', flexShrink:0 }}/>
+                  <div style={{ width:8, height:8, borderRadius:'50%', background: on ? 'var(--brand-strong)' : 'var(--t4)', flexShrink:0 }}/>
                 </button>
               )
             })}
@@ -1466,16 +1528,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         <BottomSheet open={mobileDetailOpen} onClose={() => { setMobileDetailOpen(false); setSelectedFile(null) }} title="Stem Details">
           <div style={{ padding:'16px 20px 24px' }}>
             <div style={{ marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
-              <div style={{ fontSize:15, fontWeight:800, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:9 }}>
+              <div style={{ fontSize:15, fontWeight:650, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:9 }}>
                 {project?.title} — {selectedFile.suggested_name || selectedFile.original_name || 'Untitled'}
               </div>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'#E8E3FB', border:'1px solid #C8C0F0', fontSize:11, fontWeight:600, color:'#4532A0' }}>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'var(--brand-tint)', border:'1px solid rgba(124,108,240,.25)', fontSize:11, fontWeight:500, color:'var(--brand)' }}>
                 <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
                 Auto-analyzed
               </span>
               {selAiFlag && (
                 <button onClick={() => setAiDetailsOpen(true)}
-                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:600,
                     border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
                     color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
                     background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
@@ -1492,7 +1554,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               ].map(row => (
                 <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <span style={{ fontSize:13, color:'var(--t3)' }}>{row.label}</span>
-                  <span style={{ fontSize:13, fontWeight:600, color:'var(--t1)' }}>{row.val}</span>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:12.5, fontWeight:500, color:'var(--t1)' }}>{row.val}</span>
                 </div>
               ))}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -1503,10 +1565,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
                     onBlur={e => saveBpm(selectedFile.id, e.target.value)}
                     style={{ width:70, fontSize:13, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
-                      border:'1.5px solid #6D5AE6', borderRadius:6, outline:'none', padding:'3px 8px', fontFamily:'inherit' }}/>
+                      border:'1.5px solid var(--brand-strong)', borderRadius:6, outline:'none', padding:'3px 8px', fontFamily:'inherit' }}/>
                 ) : (
                   <span onClick={() => setBpmEditing(true)}
-                    style={{ fontSize:13, fontWeight:600, color:'var(--t1)', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
+                    style={{ fontFamily:'var(--font-mono)', fontSize:12.5, fontWeight:500, color:'var(--t1)', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
                     {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
                   </span>
                 )}
@@ -1514,19 +1576,25 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
             {selLabels.length > 0 && (
               <div style={{ marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
-                <div style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.12em', marginBottom:10 }}>Detected Labels</div>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:10 }}>Detected Labels</div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
                   {selLabels.map(([lbl, clr], i) => (
-                    <span key={i} style={{ padding:'6px 14px', borderRadius:8, background:`${clr}12`, border:`1px solid ${clr}25`, fontSize:12.5, fontWeight:700, color:clr }}>{lbl}</span>
+                    <span key={i} style={{ padding:'6px 14px', borderRadius:8, background:`${clr}12`, border:`1px solid ${clr}25`, fontSize:12.5, fontWeight:500, color:clr }}>{lbl}</span>
                   ))}
                 </div>
               </div>
             )}
             <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true); setMobileDetailOpen(false) }}
-              style={{ width:'100%', height:46, borderRadius:11, border:'none', cursor:'pointer', background:'#6D5AE6', color:'#fff', fontSize:15, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'inherit', boxShadow:'0 4px 16px rgba(109,90,230,.3)' }}>
+              style={{ width:'100%', height:46, borderRadius:11, border:'none', cursor:'pointer', background:'var(--grad)', color:'#fff', fontSize:15, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'inherit', boxShadow:'0 4px 16px rgba(109,90,230,.3)' }}>
               <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
               Play Stem
             </button>
+            {/* Same Studio-linked comment thread as the desktop rail. */}
+            <div style={{ margin:'18px -20px -24px' }}>
+              <StemComments stemId={selectedFile?.id} collabs={collabs} user={user}
+                owner={{ id: project?.owner_id, name: project?.owner?.full_name?.split(' ')[0] || 'Owner' }}
+                onSeekTo={sec => { seekToComment(selectedFile, sec); setMobileDetailOpen(false) }} />
+            </div>
           </div>
         </BottomSheet>
       )}
@@ -1554,7 +1622,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             style={{ width:'100%', maxWidth:340, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:20, boxShadow:'0 20px 60px rgba(0,0,0,.4)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
               <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a' }}/>
-              <div style={{ fontSize:15, fontWeight:800, color:'var(--t1)' }}>
+              <div style={{ fontSize:15, fontWeight:650, color:'var(--t1)' }}>
                 {selAiFlag.tone==='red' ? 'This beat was made by AI' : 'This might be AI-made'}
               </div>
             </div>
@@ -1568,7 +1636,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
             <button onClick={() => setAiDetailsOpen(false)}
               style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:'inherit',
-                background:'rgba(var(--fg),.08)', color:'var(--t1)', fontSize:13, fontWeight:700 }}>
+                background:'rgba(var(--fg),.08)', color:'var(--t1)', fontSize:13, fontWeight:600 }}>
               Got it
             </button>
           </div>
