@@ -11,6 +11,7 @@ import StemComments from './project/StemComments.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import ProjectSettings from '../components/ProjectSettings.jsx'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb.jsx'
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
 import { warmPreviewBytes } from '../lib/audioCache.js'
 import { cachedUrlFor } from '../lib/uploadStore.js'
@@ -712,21 +713,35 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
         )}
 
-        {/* Breadcrumb */}
+        {/* Breadcrumb — shadcn (proper nav landmark + aria-current) */}
         {!isMobile && (
-          <div style={{ display:'flex', alignItems:'center', gap:5, padding:'14px 24px 0', fontSize:12, color:'var(--t3)' }}>
-            <button onClick={() => navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:12, padding:0, fontFamily:'inherit' }}>Dashboard</button>
-            <span style={{ color:'var(--t4)' }}>›</span>
-            {selectedFolderId ? (
-              <>
-                <button onClick={() => setSelectedFolderId(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:12, padding:0, fontFamily:'inherit' }}>{project?.title}</button>
-                <span style={{ color:'var(--t4)' }}>›</span>
-                <span style={{ color:'var(--t2)', fontWeight:500 }}>{folders.find(f => f.id === selectedFolderId)?.name}</span>
-              </>
-            ) : (
-              <span style={{ color:'var(--t2)', fontWeight:500 }}>{project?.title}</span>
-            )}
-          </div>
+          <Breadcrumb style={{ padding:'14px 24px 0' }}>
+            <BreadcrumbList className="text-xs">
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <button onClick={() => navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', fontSize:12 }}>Dashboard</button>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator/>
+              {selectedFolderId ? (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <button onClick={() => setSelectedFolderId(null)} style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', fontSize:12 }}>{project?.title}</button>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator/>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="text-xs font-medium">{folders.find(f => f.id === selectedFolderId)?.name}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              ) : (
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="text-xs font-medium">{project?.title}</BreadcrumbPage>
+                </BreadcrumbItem>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
         )}
 
         {/* Song Header */}

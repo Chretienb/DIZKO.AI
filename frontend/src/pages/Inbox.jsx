@@ -1,15 +1,27 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Search, X, MessageCircle, ArrowUp, EllipsisVertical } from 'lucide-react'
 import { messagesApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { getToken } from '../lib/utils.js'
 import { MobileCtx } from '../lib/mobile.js'
-import { Spinner, C, Avatar } from '../components/ui/index.jsx'
+import { C, Avatar } from '../components/ui/index.jsx'
+import { Badge } from '../components/ui/badge.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { Input } from '../components/ui/input.jsx'
+import { Spinner } from '../components/ui/spinner.jsx'
+import { Bubble, BubbleContent } from '../components/ui/bubble.jsx'
+import { Message, MessageGroup } from '../components/ui/message.jsx'
+import {
+  MessageScrollerProvider, MessageScroller, MessageScrollerViewport,
+  MessageScrollerContent, MessageScrollerItem, MessageScrollerButton,
+} from '../components/ui/message-scroller.jsx'
 import { timeAgo } from '../lib/utils.js'
 import { track } from '../lib/posthog.js'
 
 // Inbox — two-pane on desktop (conversation list + open thread), single column
-// on mobile. Messages from public profiles land here too.
+// on mobile. Messages from public profiles land here too. Chat surface is the
+// shadcn message stack (Message/Bubble/MessageScroller) on Dizko tokens.
 export default function PageInbox({ openModal, user }) {
   const isMobile = React.useContext(MobileCtx)
   const navigate = useNavigate()
@@ -28,7 +40,6 @@ export default function PageInbox({ openModal, user }) {
   const [msgsLoading, setMsgsLoading] = useState(false)
   const [text, setText]       = useState('')
   const [sending, setSending] = useState(false)
-  const endRef = useRef(null)
 
   const load = () => messagesApi.threads().then(r => setThreads(r?.data || [])).catch(() => {}).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
@@ -61,8 +72,6 @@ export default function PageInbox({ openModal, user }) {
       }).subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [selId, myId])
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
 
   const send = async () => {
     const t = text.trim()
@@ -125,60 +134,68 @@ export default function PageInbox({ openModal, user }) {
   const filtered = q.trim() ? threads.filter(t => t.name.toLowerCase().includes(q.trim().toLowerCase())) : threads
   const totalUnread = threads.reduce((n, t) => n + (t.unread || 0), 0)
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'100px 0' }}><Spinner size={24} /></div>
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'100px 0' }}>
+      <Spinner className="size-6 text-[color:var(--brand)]"/>
+    </div>
+  )
 
   // ── Conversation list (left pane / full on mobile) ──
   const List = (
     <div style={{ display:'flex', flexDirection:'column', minWidth:0 }}>
       <div style={{ position:'relative', marginBottom:12 }}>
-        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round" style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search messages"
-          style={{ width:'100%', padding:'10px 14px 10px 38px', borderRadius:12, border:`1px solid ${C.border}`, background:C.surface, color:C.t1, fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box' }} />
+        <Search size={14} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'var(--t3)', pointerEvents:'none' }}/>
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search messages"
+          className="h-10 pl-9 text-[13px] bg-[color:var(--surface)]"/>
       </div>
 
       {threads.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px', background:C.surface, borderRadius:20, border:`1px solid ${C.border}` }}>
-          <div style={{ width:48, height:48, borderRadius:14, background:`${C.coral}12`, border:`1px solid ${C.coral}20`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', color:C.coral }}>
-            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div style={{ textAlign:'center', padding:'60px 24px', background:'var(--surface)', borderRadius:'var(--r-3)', border:'1px solid var(--border)' }}>
+          <div style={{ width:48, height:48, borderRadius:14, background:'var(--brand-tint)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', color:'var(--brand)' }}>
+            <MessageCircle size={22} strokeWidth={1.8}/>
           </div>
-          <div style={{ fontSize:15, fontWeight:600, color:C.t1, marginBottom:6 }}>No messages yet</div>
-          <div style={{ fontSize:13, color:C.t3 }}>DMs from your profile and collaborators show up here.</div>
+          <div style={{ fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6 }}>No messages yet</div>
+          <div style={{ fontSize:13, color:'var(--t3)' }}>DMs from your profile and collaborators show up here.</div>
         </div>
       ) : (
-        <div style={{ background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+        <div style={{ background:'var(--surface)', borderRadius:'var(--r-3)', border:'1px solid var(--border)', overflow:'hidden' }}>
           {filtered.map((t, i) => {
             const unread = t.unread > 0
             const active = t.user_id === selId
             return (
               <div key={t.user_id} onClick={() => open(t)} className="ib-row"
                 style={{ position:'relative', display:'flex', alignItems:'center', gap:13, padding:'12px 14px', cursor:'pointer',
-                  background: active ? C.surface2 : 'transparent', borderBottom: i < filtered.length - 1 ? `1px solid ${C.border2}` : 'none', transition:'background .12s' }}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.background = C.surface2 }}
+                  background: active ? 'var(--surface-2)' : 'transparent', borderBottom: i < filtered.length - 1 ? '1px solid var(--border-2)' : 'none',
+                  transition:'background var(--dur-1) var(--ease)' }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)' }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
                 <Avatar name={t.name} url={t.avatar} size={46} />
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14.5, fontWeight: unread ? 700 : 600, color:C.t1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.name}</div>
-                  <div style={{ fontSize:13, color:C.t3, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.last_from_me ? 'You: ' : ''}{t.last_text}</div>
+                  <div style={{ fontSize:14, fontWeight: unread ? 650 : 550, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.name}</div>
+                  <div style={{ fontSize:12.5, color:'var(--t3)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.last_from_me ? 'You: ' : ''}{t.last_text}</div>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
-                  <span style={{ fontSize:11, color: unread ? C.coral : C.t3 }}>{timeAgo(t.last_at)}</span>
-                  {unread && <span style={{ minWidth:20, height:20, padding:'0 6px', borderRadius:10, background:C.coral, color:'#fff', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>{t.unread > 99 ? '99+' : t.unread}</span>}
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color: unread ? 'var(--brand)' : 'var(--t4)' }}>{timeAgo(t.last_at)}</span>
+                  {unread && <Badge className="h-5 min-w-5 px-1.5 text-[11px] bg-[color:var(--brand-strong)] text-white">{t.unread > 99 ? '99+' : t.unread}</Badge>}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === t.user_id ? null : t.user_id) }} className="ib-menu"
-                  style={{ flexShrink:0, width:28, height:28, borderRadius:8, border:'none', cursor:'pointer', background:'transparent', color:C.t3, fontSize:17, lineHeight:1 }}>⋯</button>
+                <Button variant="ghost" size="icon-sm" className="ib-menu shrink-0 text-[color:var(--t3)]"
+                  aria-label="Conversation options"
+                  onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === t.user_id ? null : t.user_id) }}>
+                  <EllipsisVertical/>
+                </Button>
                 {menuFor === t.user_id && (
                   <>
                     <div onClick={(e) => { e.stopPropagation(); setMenuFor(null) }} style={{ position:'fixed', inset:0, zIndex:5 }} />
-                    <div style={{ position:'absolute', top:44, right:10, zIndex:6, background:C.bg, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:'0 10px 30px rgba(0,0,0,.25)', overflow:'hidden', minWidth:160 }}>
-                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:C.t1, fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Block user</button>
-                      <button onClick={(e) => { e.stopPropagation(); deleteChat(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', borderTop:`1px solid ${C.border}`, cursor:'pointer', background:'transparent', color:'#ef4444', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>Delete chat</button>
+                    <div style={{ position:'absolute', top:44, right:10, zIndex:6, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:'var(--r-2)', boxShadow:'var(--shadow-2)', overflow:'hidden', minWidth:160 }}>
+                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'var(--t1)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Block user</button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteChat(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', borderTop:'1px solid var(--border)', cursor:'pointer', background:'transparent', color:'var(--danger)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Delete chat</button>
                     </div>
                   </>
                 )}
               </div>
             )
           })}
-          {filtered.length === 0 && <div style={{ fontSize:13, color:C.t3, padding:'16px' }}>No conversations match “{q}”.</div>}
+          {filtered.length === 0 && <div style={{ fontSize:13, color:'var(--t3)', padding:'16px' }}>No conversations match “{q}”.</div>}
         </div>
       )}
     </div>
@@ -186,48 +203,74 @@ export default function PageInbox({ openModal, user }) {
 
   // ── Conversation thread (right pane, desktop only) ──
   const Thread = (
-    <div style={{ height:'calc(100vh - 150px)', minHeight:420, background:C.bg, border:`1px solid ${C.border}`, borderRadius:18, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ height:'calc(100vh - 150px)', minHeight:420, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'var(--shadow-1)' }}>
       {!sel ? (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:C.t3, gap:10 }}>
-          <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'var(--t3)', gap:10 }}>
+          <MessageCircle size={32} strokeWidth={1.5}/>
           <div style={{ fontSize:13.5 }}>Select a conversation</div>
         </div>
       ) : (
         <>
-          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'13px 16px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'13px 16px', borderBottom:'1px solid var(--border)' }}>
             <Avatar name={sel.name} url={sel.avatar} size={38} />
-            <div style={{ fontSize:14.5, fontWeight:700, color:C.t1 }}>{sel.name}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:'var(--t1)' }}>{sel.name}</div>
           </div>
-          <div style={{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:8 }}>
-            {msgsLoading ? <div style={{ color:C.t3, fontSize:13, textAlign:'center', marginTop:20 }}>Loading…</div> :
-             msgs.length === 0 ? <div style={{ color:C.t3, fontSize:12.5, textAlign:'center', margin:'auto' }}>Say hi to {sel.name}</div> :
-             msgs.map(m => {
-               const mine = m.from_user_id === myId
-               return (
-                 <div key={m.id} className="ib-msg" style={{ display:'flex', flexDirection:'column', alignItems: mine ? 'flex-end' : 'flex-start', gap:2 }}>
-                   <div style={{ display:'flex', alignItems:'center', gap:6, flexDirection: mine ? 'row-reverse' : 'row', maxWidth:'78%' }}>
-                     <div onDoubleClick={() => likeMsg(m)} title="Double-click to like"
-                       style={{ position:'relative', padding:'9px 13px', borderRadius:16, fontSize:13.5, lineHeight:1.4, wordBreak:'break-word', cursor:'default',
-                         background: mine ? C.coral : C.surface2, color: mine ? '#fff' : C.t1,
-                         borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4 }}>
-                       {m.text}
-                       {m.liked && <span style={{ position:'absolute', bottom:-9, [mine ? 'left' : 'right']:6, fontSize:12, lineHeight:1, background:C.bg, borderRadius:100, padding:'1px 3px', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}>❤️</span>}
-                     </div>
-                     {mine && !String(m.id).startsWith('tmp-') && (
-                       <button className="ib-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
-                         style={{ background:'none', border:'none', cursor:'pointer', color:C.t3, fontSize:13, flexShrink:0, padding:2 }}>✕</button>
-                     )}
-                   </div>
-                   <span style={{ fontSize:10, color:C.t3, padding:'0 5px' }}>{timeAgo(m.created_at)}</span>
-                 </div>
-               )
-             })}
-            <div ref={endRef} />
-          </div>
-          <div style={{ display:'flex', gap:8, padding:'12px 14px', borderTop:`1px solid ${C.border}` }}>
-            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Message…"
-              style={{ flex:1, minWidth:0, padding:'10px 14px', borderRadius:100, border:`1px solid ${C.border}`, background:C.surface, color:C.t1, fontSize:13.5, fontFamily:'inherit' }} />
-            <button onClick={send} disabled={!text.trim() || sending} style={{ flexShrink:0, width:42, height:42, borderRadius:'50%', border:'none', cursor:'pointer', background:C.grad, color:'#fff', fontSize:16, opacity:(!text.trim()||sending)?.5:1 }}>➤</button>
+
+          {/* Messages — shadcn MessageScroller sticks to the bottom and offers
+              a jump-to-latest button when scrolled up. */}
+          <MessageScrollerProvider>
+            <MessageScroller className="flex-1">
+              <MessageScrollerViewport className="px-4 py-4">
+                <MessageScrollerContent className="gap-3">
+                  {msgsLoading ? (
+                    <div style={{ display:'flex', justifyContent:'center', marginTop:20 }}>
+                      <Spinner className="size-5 text-[color:var(--t3)]"/>
+                    </div>
+                  ) : msgs.length === 0 ? (
+                    <div style={{ color:'var(--t3)', fontSize:12.5, textAlign:'center', margin:'auto', paddingTop:40 }}>Say hi to {sel.name}</div>
+                  ) : msgs.map(m => {
+                    const mine = m.from_user_id === myId
+                    return (
+                      <MessageScrollerItem key={m.id}>
+                        <MessageGroup className="ib-msg">
+                          <Message align={mine ? 'end' : 'start'}>
+                            <Bubble variant={mine ? 'default' : 'secondary'} align={mine ? 'end' : 'start'}>
+                              <BubbleContent onDoubleClick={() => likeMsg(m)} title="Double-click to like"
+                                className="text-[13.5px] leading-relaxed relative">
+                                {m.text}
+                                {m.liked && (
+                                  <span style={{ position:'absolute', bottom:-9, [mine ? 'left' : 'right']:6, fontSize:12, lineHeight:1,
+                                    background:'var(--bg)', borderRadius:100, padding:'1px 3px', boxShadow:'var(--shadow-1)' }}>❤️</span>
+                                )}
+                              </BubbleContent>
+                              <div style={{ display:'flex', alignItems:'center', gap:6, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
+                                <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--t4)', padding:'0 3px' }}>{timeAgo(m.created_at)}</span>
+                                {mine && !String(m.id).startsWith('tmp-') && (
+                                  <button className="ib-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
+                                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t4)', fontSize:11, padding:1, display:'flex' }}>
+                                    <X size={11}/>
+                                  </button>
+                                )}
+                              </div>
+                            </Bubble>
+                          </Message>
+                        </MessageGroup>
+                      </MessageScrollerItem>
+                    )
+                  })}
+                </MessageScrollerContent>
+              </MessageScrollerViewport>
+              <MessageScrollerButton/>
+            </MessageScroller>
+          </MessageScrollerProvider>
+
+          <div style={{ display:'flex', gap:8, padding:'12px 14px', borderTop:'1px solid var(--border)' }}>
+            <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Message…" className="h-10 rounded-full px-4 text-[13.5px] bg-[color:var(--surface-2)] border-transparent"/>
+            <Button variant="brand" size="icon-lg" className="rounded-full shrink-0" aria-label="Send message"
+              onClick={send} disabled={!text.trim() || sending}>
+              {sending ? <Spinner/> : <ArrowUp/>}
+            </Button>
           </div>
         </>
       )}
@@ -248,14 +291,15 @@ export default function PageInbox({ openModal, user }) {
       `}</style>
 
       <div style={{ display:'flex', alignItems:'center', gap:10, margin:'0 0 6px' }}>
-        <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:C.t1, letterSpacing:'-.7px' }}>Inbox</h1>
-        {totalUnread > 0 && <span style={{ minWidth:20, height:20, padding:'0 6px', borderRadius:10, background:C.coral, color:'#fff', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{totalUnread}</span>}
+        <h1 style={{ margin:0, fontSize:26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Inbox</h1>
+        {totalUnread > 0 && <Badge className="h-5 min-w-5 px-1.5 text-[11px] bg-[color:var(--brand-strong)] text-white">{totalUnread}</Badge>}
         {pubReturn && (
-          <button onClick={goBackToPublic} aria-label="Back to profile" title="Back to profile"
-            style={{ marginLeft:'auto', width:32, height:32, borderRadius:9, border:`1px solid ${C.border}`, background:C.surface, color:C.t1, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✕</button>
+          <Button variant="outline" size="icon-sm" className="ml-auto shrink-0" aria-label="Back to profile" title="Back to profile" onClick={goBackToPublic}>
+            <X/>
+          </Button>
         )}
       </div>
-      <div style={{ fontSize:13, color:C.t3, marginBottom:18 }}>Messages from collaborators and your public profile.</div>
+      <div style={{ fontSize:13, color:'var(--t3)', marginBottom:18 }}>Messages from collaborators and your public profile.</div>
 
       {isMobile ? List : <div className="ib-grid">{List}{Thread}</div>}
     </div>

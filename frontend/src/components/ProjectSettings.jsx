@@ -3,6 +3,7 @@ import { Modal, Field, PillSelect, MLabel } from './modals/shared.jsx'
 import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
 import { STATUSES } from '../pages/project/meta.js'
 import { Spinner } from './ui/index.jsx'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.jsx'
 
 const C = { coral:'#6D5AE6', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)' }
 const TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
@@ -100,7 +101,6 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
   }
 
   const initials = (c) => (c.user?.full_name || c.user?.email || c.email || '?').trim().charAt(0).toUpperCase()
-  const selStyle = { padding:'5px 8px', borderRadius:8, border:`1px solid ${C.border}`, background:'var(--surface)', color:C.t1, fontSize:12, fontFamily:'inherit', cursor:'pointer' }
   const smallBtn = { flexShrink:0, background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'5px 11px', cursor:'pointer', color:C.t2, fontSize:12, fontWeight:600, fontFamily:'inherit' }
 
   return (
@@ -168,9 +168,14 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
                   </>
                 ) : (
                   <>
-                    <select value={ROLE_NAMES.includes(c.role) ? c.role : 'Collaborator'} onChange={e => changeRole(c, e.target.value)} style={selStyle}>
-                      {ROLE_NAMES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                    <Select value={ROLE_NAMES.includes(c.role) ? c.role : 'Collaborator'} onValueChange={v => changeRole(c, v)}>
+                      <SelectTrigger size="sm" className="w-[130px] text-xs">
+                        <SelectValue/>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLE_NAMES.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     <button onClick={() => removeCollaborator(c)} style={smallBtn}>Remove</button>
                   </>
                 )}
