@@ -1,48 +1,32 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, Avatar } from '../components/ui/index.jsx'
+import { Avatar } from '../components/ui/index.jsx'
+import { UserPen, CreditCard, Keyboard, LogOut, ChevronRight, Mail } from 'lucide-react'
 
-// Card row — a tinted icon chip (per-item accent), label + sub, an optional
-// status pill (e.g. trial days on Billing), and a chevron that slides on hover.
-// The whole card lifts + accent-borders on hover.
-const Row = ({ icon, label, sub, badge, badgeColor, onClick, danger, accent = '#6366f1' }) => {
-  const [hov, setHov] = React.useState(false)
-  const tone = danger ? '#ef4444' : accent
-  return (
-    <button onClick={onClick}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display:'flex', alignItems:'center', gap:13, width:'100%', padding:'13px 14px',
-        border:`1px solid ${hov ? `${tone}55` : 'var(--border)'}`, cursor:'pointer', textAlign:'left',
-        fontFamily:'inherit', borderRadius:13,
-        transition:'background .14s, border-color .14s, transform .14s, box-shadow .14s',
-        background: hov ? (danger ? 'rgba(239,68,68,.05)' : 'var(--surface-2)') : 'var(--surface)',
-        boxShadow: hov ? `0 4px 16px ${tone}1f` : 'none',
-        transform: hov ? 'translateY(-1px)' : 'none' }}>
-      {/* tinted icon chip */}
-      <span style={{ width:36, height:36, borderRadius:10, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-        background:`${tone}14`, border:`1px solid ${tone}22` }}>
-        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={tone}
-          strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>
+// Quiet settings row — plain icon, label + sub, optional status text, chevron.
+// No tinted chips, no glows: hover is a soft background, color only where it
+// means something (danger red on Log out).
+const Row = ({ icon: Icon, label, sub, badge, onClick, danger }) => (
+  <button onClick={onClick}
+    style={{ display:'flex', alignItems:'center', gap:13, width:'100%', padding:'13px 14px',
+      border:'1px solid var(--border)', cursor:'pointer', textAlign:'left',
+      fontFamily:'inherit', borderRadius:13, background:'var(--surface)',
+      transition:'background .12s' }}
+    onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,.05)' : 'var(--surface-2)' }}
+    onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
+    <Icon size={17} strokeWidth={1.8} aria-hidden="true"
+      style={{ flexShrink:0, color: danger ? 'var(--danger, #ef4444)' : 'var(--t3)' }}/>
+    <div style={{ flex:1, minWidth:0 }}>
+      <div style={{ fontSize:13.5, fontWeight:500, color: danger ? 'var(--danger, #ef4444)' : 'var(--t1)', letterSpacing:'-.1px' }}>{label}</div>
+      {sub && <div style={{ fontSize:11.5, color:'var(--t4)', marginTop:2 }}>{sub}</div>}
+    </div>
+    {badge && (
+      <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, color:'var(--t3)', flexShrink:0, whiteSpace:'nowrap' }}>
+        {badge}
       </span>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:13.5, fontWeight:650, color: danger ? '#ef4444' : C.t1, letterSpacing:'-.1px' }}>{label}</div>
-        {sub && <div style={{ fontSize:11.5, color:'var(--t4)', marginTop:2 }}>{sub}</div>}
-      </div>
-      {badge && (
-        <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.02em', color: badgeColor || tone,
-          background:`${badgeColor || tone}16`, border:`1px solid ${badgeColor || tone}30`,
-          padding:'3px 9px', borderRadius:999, flexShrink:0, whiteSpace:'nowrap' }}>{badge}</span>
-      )}
-      {!danger && (
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-          stroke={hov ? tone : 'var(--t4)'} strokeWidth={2} strokeLinecap="round"
-          style={{ flexShrink:0, transition:'stroke .14s, transform .14s', transform: hov ? 'translateX(2px)' : 'none' }}>
-          <polyline points="9,18 15,12 9,6"/>
-        </svg>
-      )}
-    </button>
-  )
-}
+    )}
+    {!danger && <ChevronRight size={14} strokeWidth={2} aria-hidden="true" style={{ flexShrink:0, color:'var(--t4)' }}/>}
+  </button>
+)
 
 export default function PageAccount({ user, billingStatus, currentPlanLabel, trialDaysLeft, openModal, onLogout }) {
   const navigate = useNavigate()
@@ -65,76 +49,69 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
     if (b >= 1024)          return `${(b / 1024).toFixed(0)} KB`
     return `${b} B`
   }
-  const barWidth   = usedBytes > 0 ? Math.max(1, storage) : 0
-  // Amber is reserved for an actually-expiring trial — the permanent free
-  // tier isn't urgent/expiring, so it gets a neutral color, not a warning one.
-  const planColor  = isTrial ? '#f59e0b' : isPro ? '#22c55e' : 'var(--t3)'
+  const barWidth = usedBytes > 0 ? Math.max(1, storage) : 0
+
+  const eyebrow = { fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em',
+    textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }
 
   return (
     <div style={{ maxWidth:560, margin:'0 auto', padding:'24px 20px 60px', fontFamily:'inherit' }}>
 
       {/* ── Profile header ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:18 }}>
-        <Avatar name={user?.full_name} url={user?.avatar_url} size={54} color={C.coral}
+      <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22 }}>
+        <Avatar name={user?.full_name} url={user?.avatar_url} size={54} border="none"
           style={{ borderRadius:15, display:'block', flexShrink:0 }}/>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:C.t1, letterSpacing:'-.3px', lineHeight:1.2,
+          <div style={{ fontSize:18, fontWeight:650, color:'var(--t1)', letterSpacing:'-.3px', lineHeight:1.2,
             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {user?.full_name || 'My Account'}
           </div>
           <div style={{ fontSize:12.5, color:'var(--t4)', marginTop:2,
             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.email}</div>
         </div>
-        {/* Plan — quiet dot + label */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-          <span style={{ width:6, height:6, borderRadius:'50%', background:planColor }}/>
-          <span style={{ fontSize:11, fontWeight:700, color:planColor, letterSpacing:'.05em' }}>
-            {currentPlanLabel.toUpperCase()}{isTrial && trialDaysLeft !== null ? ` · ${trialDaysLeft}D` : ''}
-          </span>
-        </div>
+        {/* Plan — quiet mono, brand only when paid */}
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em',
+          textTransform:'uppercase', color: isPro ? 'var(--brand)' : 'var(--t3)', flexShrink:0 }}>
+          {currentPlanLabel}{isTrial && trialDaysLeft !== null ? ` · ${trialDaysLeft}d` : ''}
+        </span>
       </div>
 
       {/* ── Storage ── */}
       {billingStatus && (
         <div style={{ marginBottom:8 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6 }}>
-            <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t4)' }}>Storage</span>
-            <span style={{ fontSize:11.5, fontWeight:600, color: storage > 80 ? '#f87171' : C.t2 }}>
-              {fmtBytes(usedBytes)} <span style={{ color:'var(--t4)', fontWeight:500 }}>/ {fmtBytes(limitBytes)}</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--t4)' }}>Storage</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:11.5, fontWeight:500, color: storage > 80 ? 'var(--danger, #ef4444)' : 'var(--t2)' }}>
+              {fmtBytes(usedBytes)} <span style={{ color:'var(--t4)' }}>/ {fmtBytes(limitBytes)}</span>
             </span>
           </div>
           <div style={{ height:4, borderRadius:3, background:'rgba(var(--fg),.07)' }}>
             <div style={{ height:'100%', borderRadius:3, width:`${barWidth}%`,
-              background: storage > 80 ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : C.grad,
+              background: storage > 80 ? 'var(--danger, #ef4444)' : 'var(--brand)',
               transition:'width .4s ease' }}/>
           </div>
         </div>
       )}
 
       {/* ── Settings ── */}
-      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:18, paddingTop:14 }}>
-        <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.06em', textTransform:'uppercase',
-          color:'var(--t4)', marginBottom:10 }}>Settings</div>
+      <div style={{ borderTop:'1px solid var(--border)', marginTop:18, paddingTop:16 }}>
+        <div style={eyebrow}>Settings</div>
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           <Row
-            accent="#6366f1"
-            icon="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+            icon={UserPen}
             label="Account Settings"
             sub="Edit name, avatar, and preferences"
             onClick={() => openModal('account-settings', {})}
           />
           <Row
-            accent="#22c55e"
-            icon="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+            icon={CreditCard}
             label="Billing & Plan"
             sub={currentPlanLabel}
             badge={isTrial && trialDaysLeft !== null ? `${trialDaysLeft} days left` : (isPro ? 'Active' : null)}
-            badgeColor={isTrial ? '#f59e0b' : '#22c55e'}
             onClick={() => openModal('billing', {})}
           />
           <Row
-            accent="#8b5cf6"
-            icon="M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4h-4v4h4V3z"
+            icon={Keyboard}
             label="Keyboard Shortcuts"
             sub="Speed up your workflow"
             onClick={() => openModal('shortcuts', {})}
@@ -145,7 +122,7 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
       {/* ── Log out ── */}
       <div style={{ marginTop:18 }}>
         <Row
-          icon="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+          icon={LogOut}
           label="Log out"
           onClick={() => { onLogout(); navigate('/login') }}
           danger
@@ -153,17 +130,19 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
       </div>
 
       {/* ── Delete account — handled by the team via email ── */}
-      <div style={{ marginTop:20, padding:'16px 18px', borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)' }}>
-        <div style={{ fontSize:13.5, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>Want to delete your account?</div>
+      <div style={{ marginTop:20, padding:'16px 18px', borderRadius:13, border:'1px solid var(--border)', background:'var(--surface)' }}>
+        <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', marginBottom:6 }}>Want to delete your account?</div>
         <div style={{ fontSize:12.5, color:'var(--t3)', lineHeight:1.6, marginBottom:12 }}>
           Deleting your account permanently removes your profile, projects, stems, and showcase — this can’t be undone.
           For your security we handle deletions by hand, so just email us and we’ll fully remove your data within 30 days.
-          See our <a href="/privacy" target="_blank" rel="noreferrer" style={{ color:'var(--brand)', textDecoration:'none', fontWeight:600 }}>Privacy Policy</a> for details.
+          See our <a href="/privacy" target="_blank" rel="noreferrer" style={{ color:'var(--brand)', textDecoration:'none', fontWeight:500 }}>Privacy Policy</a> for details.
         </div>
         <a href="mailto:team@dizko.ai?subject=Delete%20my%20account&body=Please%20delete%20my%20Dizko%20account%20associated%20with%20this%20email."
-          style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'9px 14px', borderRadius:10, border:'1px solid var(--border)',
-            background:'var(--bg)', color:'var(--t1)', textDecoration:'none', fontSize:13, fontWeight:600 }}>
-          <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          style={{ display:'inline-flex', alignItems:'center', gap:8, height:34, padding:'0 14px', borderRadius:99, border:'1px solid var(--border)',
+            background:'transparent', color:'var(--t1)', textDecoration:'none', fontSize:12.5, fontWeight:500, transition:'border-color .12s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--t4)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}>
+          <Mail size={14} strokeWidth={1.8} aria-hidden="true" style={{ color:'var(--t3)' }}/>
           team@dizko.ai
         </a>
       </div>

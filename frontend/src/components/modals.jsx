@@ -427,11 +427,9 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
     <Modal title="Account Settings" sub="Profile and preferences" onClose={onClose} accent="#6366f1">
       {/* Avatar */}
       <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', marginBottom:20,
-        background:`linear-gradient(135deg,rgba(99,102,241,.08),rgba(124,108,240,.05))`,
-        borderRadius:14, border:`1px solid rgba(99,102,241,.15)` }}>
+        background:'var(--surface-2)', borderRadius:14, border:'1px solid var(--border)' }}>
         <div style={{ position:'relative', cursor:'pointer' }} onClick={() => avatarInput.current?.click()}>
-          <Avatar name={name || user?.full_name} url={avatarUrl} size={54} color={C.coral}
-            border={`3px solid ${C.coral}40`}/>
+          <Avatar name={name || user?.full_name} url={avatarUrl} size={54} border="none"/>
           <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'rgba(0,0,0,.5)',
             display:'flex', alignItems:'center', justifyContent:'center', opacity:0, transition:'opacity .15s' }}
             onMouseEnter={e => e.currentTarget.style.opacity=1}

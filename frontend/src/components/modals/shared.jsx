@@ -5,13 +5,14 @@ import { C, Btn } from '../ui/index.jsx'
 import { useIsMobile } from '../../lib/mobile'
 
 // ─── MODAL SHELL ───────────────────────────────────────────────────────────
-// `accent` themes the shell: a slim accent top-bar, an accent dot beside the
-// title, and a tinted close button on hover — so each modal carries the same
-// identity colour its launcher row uses. Subtle scale/opacity pop on mount.
+// Quiet header: no accent bar, no colored dot — title + sub + a plain close
+// button (per the rebrand: color only where it means something; a dialog
+// chrome doesn't). `accent` is still accepted so callers don't break, but it
+// no longer paints the shell. Subtle scale/opacity pop on mount.
 // On mobile every modal in the app that goes through this shell becomes a
 // real full-page view (back button + title bar, content fills the rest) —
 // a centered card with 20px of margin on all sides is not "full page."
-export function Modal({ title, sub, onClose, children, width=520, accent='#6D5AE6' }) {
+export function Modal({ title, sub, onClose, children, width=520, accent='#6D5AE6' }) { // eslint-disable-line no-unused-vars -- accent kept for caller compat
   const isMobile = useIsMobile()
   const [shown, setShown] = React.useState(false)
   React.useEffect(() => { const r = requestAnimationFrame(() => setShown(true)); return () => cancelAnimationFrame(r) }, [])
@@ -28,7 +29,7 @@ export function Modal({ title, sub, onClose, children, width=520, accent='#6D5AE
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:16, fontWeight:800, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{title}</div>
+            <div style={{ fontSize:16, fontWeight:600, color:'var(--t1)', letterSpacing:'-.3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{title}</div>
             {sub && <div style={{ fontSize:12, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sub}</div>}
           </div>
         </div>
@@ -51,26 +52,20 @@ export function Modal({ title, sub, onClose, children, width=520, accent='#6D5AE
         opacity: shown ? 1 : 0,
         transform: shown ? 'translateY(0) scale(1)' : 'translateY(8px) scale(.985)',
         transition:'opacity .19s ease, transform .19s cubic-bezier(.2,.8,.2,1)' }}>
-        {/* Accent top-bar */}
-        <div style={{ height:3, flexShrink:0, background:`linear-gradient(90deg, ${accent}, ${accent}55)` }}/>
         <div style={{ overflowY:'auto' }}>
-          {/* Header */}
-          <div style={{ padding:'15px 18px', display:'flex', alignItems:'flex-start',
+          {/* Header — quiet: title + sub, plain close */}
+          <div style={{ padding:'16px 18px 14px', display:'flex', alignItems:'flex-start',
             justifyContent:'space-between', gap:12, borderBottom:'1px solid var(--surface-2)' }}>
-            <div style={{ display:'flex', alignItems:'flex-start', gap:11, minWidth:0 }}>
-              <span style={{ width:8, height:8, borderRadius:3, background:accent, marginTop:5, flexShrink:0,
-                boxShadow:`0 0 0 3px ${accent}22` }}/>
-              <div style={{ minWidth:0 }}>
-                <h2 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--t1)', letterSpacing:'-.2px' }}>{title}</h2>
-                {sub && <p style={{ margin:'3px 0 0', fontSize:12.5, color:'var(--t3)', lineHeight:1.4 }}>{sub}</p>}
-              </div>
+            <div style={{ minWidth:0 }}>
+              <h2 style={{ margin:0, fontSize:15, fontWeight:600, color:'var(--t1)', letterSpacing:'-.2px' }}>{title}</h2>
+              {sub && <p style={{ margin:'3px 0 0', fontSize:12.5, color:'var(--t3)', lineHeight:1.4 }}>{sub}</p>}
             </div>
             <button onClick={onClose} aria-label="Close dialog"
               style={{ width:26, height:26, borderRadius:8, flexShrink:0,
-              background:'transparent', border:'1px solid var(--border)', cursor:'pointer',
+              background:'transparent', border:'none', cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)', transition:'all .12s' }}
-              onMouseEnter={e => { e.currentTarget.style.background=`${accent}14`; e.currentTarget.style.borderColor=`${accent}40`; e.currentTarget.style.color=accent }}
-              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t3)' }}>
+              onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.06)'; e.currentTarget.style.color='var(--t1)' }}
+              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)' }}>
               <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
                 <path d="M18 6L6 18M6 6l12 12"/>
               </svg>

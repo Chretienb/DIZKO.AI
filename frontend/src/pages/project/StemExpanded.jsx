@@ -101,6 +101,21 @@ export default function StemExpanded({
   const nameFor = cm => (cm.user_id === user?.id ? 'You' : (cm.user_name || nameById.get(cm.user_id) || 'Member'))
 
   // Author deletes their own comment; the project owner can moderate any.
+  // Two-step: first click arms a small inline "Delete?" confirm (auto-resets
+  // after a moment), second click actually deletes — no browser dialogs.
+  const [confirmDel, setConfirmDel] = useState(null)
+  const confirmTimer = useRef(null)
+  const askRemove = (cm) => {
+    if (confirmDel !== cm.id) {
+      setConfirmDel(cm.id)
+      clearTimeout(confirmTimer.current)
+      confirmTimer.current = setTimeout(() => setConfirmDel(null), 3000)
+      return
+    }
+    clearTimeout(confirmTimer.current)
+    setConfirmDel(null)
+    removeComment(cm)
+  }
   const removeComment = async (cm) => {
     const prev = comments
     setComments(list => list.filter(x => x.id !== cm.id))   // optimistic
@@ -271,14 +286,23 @@ export default function StemExpanded({
                     )}
                     {cm.created_at && <span style={{ fontSize:10, color:'var(--t4)' }}>{timeAgo(cm.created_at)}</span>}
                     {(cm.user_id === user?.id || isOwner) && (
-                      <button onClick={() => removeComment(cm)} className="cm-del" aria-label="Delete comment" title="Delete comment"
-                        style={{ marginLeft:'auto', width:20, height:20, borderRadius:6, border:'none', background:'transparent',
-                          color:'var(--t4)', cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center',
-                          flexShrink:0, transition:'color .12s, opacity .12s' }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--t4)' }}>
-                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                      </button>
+                      confirmDel === cm.id ? (
+                        <button onClick={() => askRemove(cm)} aria-label="Confirm delete"
+                          style={{ marginLeft:'auto', height:20, padding:'0 9px', borderRadius:20, border:'none', flexShrink:0,
+                            background:'rgba(239,68,68,.12)', color:'var(--danger, #ef4444)', cursor:'pointer',
+                            fontFamily:'inherit', fontSize:10.5, fontWeight:600 }}>
+                          Delete?
+                        </button>
+                      ) : (
+                        <button onClick={() => askRemove(cm)} className="cm-del" aria-label="Delete comment" title="Delete comment"
+                          style={{ marginLeft:'auto', width:20, height:20, borderRadius:6, border:'none', background:'transparent',
+                            color:'var(--t4)', cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center',
+                            flexShrink:0, transition:'color .12s, opacity .12s' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--t4)' }}>
+                          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                      )
                     )}
                   </div>
                   <div style={{ fontSize:12, color:'var(--t2)', lineHeight:1.5, wordBreak:'break-word', marginTop:1 }}>{cm.text}</div>
