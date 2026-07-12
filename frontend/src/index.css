@@ -1,4 +1,42 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind `dark:` utilities key off the app's data-theme attribute (set
+   pre-paint in index.html), not prefers-color-scheme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ─── shadcn/Tailwind semantic tokens ───────────────────────────────────────
+   Maps shadcn's semantic names onto Dizko's own CSS variables, so Tailwind
+   utilities (bg-background, text-muted-foreground, ring-ring…) resolve to the
+   same tokens the inline-styled app uses — and flip with data-theme for free. */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--t1);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--t1);
+  --color-popover: var(--surface-2);
+  --color-popover-foreground: var(--t1);
+  --color-primary: var(--brand-strong);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--t1);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--t3);
+  --color-accent: var(--surface-3);
+  --color-accent-foreground: var(--t1);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--brand);
+  --color-brand: var(--brand);
+  --radius-sm: calc(var(--r-1) - 2px);
+  --radius-md: var(--r-1);
+  --radius-lg: var(--r-2);
+  --radius-xl: var(--r-3);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    THEME TOKENS
