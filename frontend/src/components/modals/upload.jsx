@@ -235,7 +235,7 @@ export function InstrPicker({ value, onChange }) {
         style={{ height:24, padding:'0 10px', borderRadius:100, border:'none', cursor:'pointer',
           background: current ? `${current.color}18` : 'rgba(0,0,0,.06)',
           color: current ? current.color : C.t3, maxWidth: isMobile ? 84 : undefined,
-          fontSize:11, fontWeight:700, display:'flex', alignItems:'center', gap:5,
+          fontSize:11, fontWeight:600, display:'flex', alignItems:'center', gap:5,
           whiteSpace:'nowrap', transition:'all .12s' }}>
         <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           {current ? current.label : (isMobile ? 'Instrument' : 'Set instrument')}
@@ -244,15 +244,20 @@ export function InstrPicker({ value, onChange }) {
       </button>
       {open && (
         <div style={{ position:'fixed', zIndex:9999,
-          background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10,
-          boxShadow:'0 8px 24px rgba(0,0,0,.5)', padding:4, width:190, display:'flex', flexDirection:'column' }}
+          background:C.surface2, border:`1px solid ${C.border}`, borderRadius:12,
+          boxShadow:'0 12px 32px rgba(0,0,0,.35)', padding:4, width:190, display:'flex', flexDirection:'column' }}
           ref={el => {
             if (!el || !ref.current) return
             const btn = ref.current.querySelector('button')
             if (!btn) return
+            // Open below the chip when there's room, above otherwise — never
+            // off-screen (it used to always open upward, sprawling over the
+            // rows above and clipping at the viewport top).
             const r = btn.getBoundingClientRect()
-            el.style.top  = (r.top - el.offsetHeight - 6) + 'px'
-            el.style.left = r.left + 'px'
+            const h = el.offsetHeight
+            const below = window.innerHeight - r.bottom - 8
+            el.style.top  = (below >= h || r.top - 8 < h ? r.bottom + 6 : r.top - h - 6) + 'px'
+            el.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 198)) + 'px'
           }}>
           {/* Search / type a custom instrument */}
           <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
@@ -267,20 +272,18 @@ export function InstrPicker({ value, onChange }) {
               const selected = value === ins.id
               return (
               <button key={ins.id} onClick={() => pick(ins.id)}
-                style={{ width:'100%', padding: isMaster ? '10px 10px' : '7px 10px', border:'none',
+                style={{ width:'100%', padding:'7px 10px', border:'none',
                   borderRadius:7, marginBottom: isMaster ? 4 : 0,
                   borderBottom: isMaster ? `1px solid ${C.border}` : 'none',
-                  background: selected ? `${ins.color}12` : isMaster ? `${ins.color}10` : 'transparent',
-                  color: selected || isMaster ? ins.color : C.t1,
-                  fontSize: isMaster ? 14 : 12, fontWeight: selected || isMaster ? 800 : 500,
+                  background: selected ? `${ins.color}12` : 'transparent',
+                  color: selected ? ins.color : C.t1,
+                  fontSize:12, fontWeight: selected ? 600 : 500,
                   cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}
-                onMouseEnter={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}1c` : 'rgba(var(--fg),.06)' }}
-                onMouseLeave={e => { if (!selected) e.currentTarget.style.background = isMaster ? `${ins.color}10` : 'transparent' }}>
-                {isMaster
-                  ? <span aria-hidden="true" style={{ fontSize:13, lineHeight:1 }}>★</span>
-                  : <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>}
+                onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(var(--fg),.06)' }}
+                onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent' }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:ins.color, display:'inline-block', flexShrink:0 }}/>
                 <span style={{ flex:1 }}>{ins.label}</span>
-                {isMaster && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.06em', textTransform:'uppercase', opacity:.8 }}>Final</span>}
+                {isMaster && <span style={{ fontFamily:'var(--font-mono)', fontSize:9, fontWeight:500, letterSpacing:'.1em', textTransform:'uppercase', color:C.t3 }}>Final</span>}
               </button>
             )})}
             {/* Custom instrument from the typed text */}
