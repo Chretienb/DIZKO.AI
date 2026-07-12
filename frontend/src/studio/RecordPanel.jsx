@@ -1,5 +1,7 @@
 import React from 'react'
+import { AlertCircle } from 'lucide-react'
 import { Spinner } from '../components/ui/index.jsx'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.jsx'
 import { INK, FxGroup, fxGroups } from './MixerControls.jsx'
 
 const BAR_OPTIONS = [0, 1, 2, 4]
@@ -229,8 +231,11 @@ export default function RecordPanel({
             )}
 
             {recordError && (
-              <div style={{ fontSize:12, color:'#ef6b6b', background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
-                borderRadius:10, padding:'9px 11px', marginBottom:14, lineHeight:1.4 }}>{recordError}</div>
+              <Alert variant="destructive" className="mb-3.5">
+                <AlertCircle/>
+                <AlertTitle>Recording failed</AlertTitle>
+                <AlertDescription>{recordError}</AlertDescription>
+              </Alert>
             )}
 
             <button onClick={onStart} disabled={!devices.length}

@@ -54,6 +54,8 @@ const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default:
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
 import { House, UsersThree, ChartBar, ChatCircle, UserCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
+import { toast as sonnerToast } from 'sonner'
+import { Toaster } from './components/ui/sonner.jsx'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
@@ -376,91 +378,61 @@ const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.cora
 })
 
 // Toast notification — stacks at top-right, auto-dismisses
+// Toasts — rendered by shadcn's Sonner (see components/ui/sonner.jsx); this
+// adapter keeps the app's existing addToast/updateToast/removeToast API
+// (incl. sticky live-progress toasts updated in place) on top of it.
 function useToasts() {
-  const [toasts, setToasts] = React.useState([])
-  const timers = React.useRef({})
-  // Arm (or cancel) a toast's auto-dismiss. duration:0 keeps it sticky — used by
-  // live-progress toasts that stay until the work finishes and finalizes them.
-  const arm = React.useCallback((id, duration) => {
-    clearTimeout(timers.current[id])
-    if (duration === 0) return
-    timers.current[id] = setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration || 6000)
+  const state = React.useRef({})   // id → { msg, type, action, progress, sub, duration }
+
+  const render = React.useCallback((id) => {
+    const t = state.current[id]
+    if (!t) return
+    const rich = typeof t.progress === 'number' || t.sub
+    const content = rich ? (
+      <div style={{ minWidth:230 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
+          <span style={{ fontSize:13, lineHeight:1.45 }}>{t.msg}</span>
+          {typeof t.progress === 'number' && (
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:600, color:'var(--brand)', flexShrink:0 }}>
+              {Math.round(t.progress * 100)}%
+            </span>
+          )}
+        </div>
+        {t.sub && <div style={{ fontSize:11.5, color:'var(--t3)', marginTop:2, fontVariantNumeric:'tabular-nums' }}>{t.sub}</div>}
+        {typeof t.progress === 'number' && (
+          <div style={{ marginTop:8, height:4, borderRadius:4, background:'rgba(var(--fg),.1)', overflow:'hidden' }}>
+            <div style={{ height:'100%', width:`${Math.max(5, Math.round(t.progress * 100))}%`, background:'var(--grad)', borderRadius:4, transition:'width .2s var(--ease)' }}/>
+          </div>
+        )}
+      </div>
+    ) : t.msg
+    const opts = {
+      id,
+      duration: t.duration === 0 ? Infinity : (t.duration || 6000),
+      ...(t.action ? { action: { label: t.action.label, onClick: t.action.fn } } : {}),
+    }
+    if (t.type === 'success') sonnerToast.success(content, opts)
+    else if (t.type === 'error') sonnerToast.error(content, opts)
+    else sonnerToast(content, opts)
   }, [])
+
   const add = React.useCallback((msg, opts = {}) => {
     const id = Date.now() + Math.random()
-    setToasts(t => [...t, { id, msg, type: opts.type || 'info', action: opts.action, progress: opts.progress, sub: opts.sub }])
-    arm(id, opts.duration)
+    state.current[id] = { msg, type: opts.type || 'info', action: opts.action, progress: opts.progress, sub: opts.sub, duration: opts.duration }
+    render(id)
     return id
-  }, [arm])
+  }, [render])
   // Patch an existing toast in place (e.g. "6 / 26 uploaded"); pass duration in
   // opts to (re)arm dismissal — e.g. finalize a sticky toast so it fades out.
   const update = React.useCallback((id, patch = {}, opts = {}) => {
-    setToasts(t => t.map(x => x.id === id ? { ...x, ...patch } : x))
-    if ('duration' in opts) arm(id, opts.duration)
-  }, [arm])
-  const remove = React.useCallback(id => { clearTimeout(timers.current[id]); setToasts(t => t.filter(x => x.id !== id)) }, [])
-  return { toasts, add, update, remove }
+    if (!state.current[id]) return
+    Object.assign(state.current[id], patch)
+    if ('duration' in opts) state.current[id].duration = opts.duration
+    render(id)
+  }, [render])
+  const remove = React.useCallback(id => { delete state.current[id]; sonnerToast.dismiss(id) }, [])
+  return { toasts: [], add, update, remove }
 }
-
-const TOAST_CSS = `
-@keyframes toastIn { from{opacity:0;transform:translateY(-8px) scale(.98)} to{opacity:1;transform:none} }
-@keyframes toastShimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
-`
-function ToastContainer({ toasts, remove }) {
-  if (!toasts.length) return null
-  return (
-    <div style={{ position:'fixed', top:16, right:16, zIndex:9999, display:'flex', flexDirection:'column', gap:8 }}>
-      <style>{TOAST_CSS}</style>
-      {toasts.map(t => {
-        const colors = {
-          info:    { bg:'#1a1a1a', border:'rgba(var(--fg),.12)', icon:'#6366f1' },
-          success: { bg:'#052e16', border:'rgba(34,197,94,.3)',    icon:'#22c55e' },
-          new:     { bg:'#0c1a2e', border:`rgba(124,108,240,.3)`, icon:C.coral   },
-        }[t.type] || {}
-        return (
-          <div key={t.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
-            background: colors.bg, borderRadius:14, border:`1px solid ${colors.border}`,
-            boxShadow:'0 8px 32px rgba(0,0,0,.4)', minWidth:280, maxWidth:360,
-            animation:'toastIn .22s cubic-bezier(.2,.8,.2,1)' }}>
-            <div style={{ width:8, height:8, borderRadius:'50%', background:colors.icon,
-              flexShrink:0, marginTop:4, boxShadow:`0 0 8px ${colors.icon}` }}/>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:10 }}>
-                <div style={{ fontSize:13, fontWeight: typeof t.progress === 'number' ? 600 : 400, color:'#fff', lineHeight:1.45 }}>{t.msg}</div>
-                {typeof t.progress === 'number' && (
-                  <div style={{ fontSize:12, fontWeight:700, color:colors.icon, flexShrink:0, fontVariantNumeric:'tabular-nums' }}>
-                    {Math.round(t.progress * 100)}%
-                  </div>
-                )}
-              </div>
-              {t.sub && <div style={{ fontSize:11.5, color:'rgba(var(--fg),.5)', marginTop:2, fontVariantNumeric:'tabular-nums' }}>{t.sub}</div>}
-              {typeof t.progress === 'number' && (
-                <div style={{ marginTop:9, height:5, borderRadius:4, background:'rgba(var(--fg),.1)', overflow:'hidden' }}>
-                  <div style={{ position:'relative', height:'100%', width:`${Math.max(5, Math.round(t.progress * 100))}%`, borderRadius:4,
-                    background:`linear-gradient(90deg, ${colors.icon}, ${colors.icon}cc)`, transition:'width .4s cubic-bezier(.2,.8,.2,1)', overflow:'hidden' }}>
-                    <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent)', animation:'toastShimmer 1.1s ease-in-out infinite' }}/>
-                  </div>
-                </div>
-              )}
-              {t.action && (
-                <button onClick={() => { t.action.fn(); remove(t.id) }} style={{
-                  marginTop:6, fontSize:12, fontWeight:700, color:colors.icon,
-                  background:'none', border:'none', cursor:'pointer', padding:0 }}>
-                  {t.action.label} →
-                </button>
-              )}
-            </div>
-            <button onClick={() => remove(t.id)} style={{ background:'none', border:'none',
-              cursor:'pointer', color:'rgba(var(--fg),.3)', fontSize:16, padding:0, flexShrink:0 }}>
-              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 
 // Register service worker + request push permission
 async function setupPushNotifications() {
@@ -1102,7 +1074,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
       {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} updateToast={updateToast} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
       {modal?.type==='upgrade-required' && <ModalUpgradeRequired title={modal.data?.title} message={modal.data?.message} onClose={closeModal} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
-      <ToastContainer toasts={toasts} remove={removeToast} />
+      <Toaster position="top-right" offset={16} />
     </div>
     </MobileCtx.Provider>
   )

@@ -4,6 +4,8 @@ import { projects as projectsApi, collaborators as collabsApi } from '../lib/api
 import { STATUSES } from '../pages/project/meta.js'
 import { Spinner } from './ui/index.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.jsx'
+import { Alert, AlertDescription } from './ui/alert.jsx'
+import { AlertCircle } from 'lucide-react'
 
 const C = { coral:'#6D5AE6', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)' }
 const TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
@@ -194,7 +196,12 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
           </button>
         </div>
 
-        {err && <div style={{ padding:'10px 13px', borderRadius:9, background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)', color:'#ef4444', fontSize:12.5, marginTop:12 }}>{err}</div>}
+        {err && (
+          <Alert variant="destructive" className="mt-3">
+            <AlertCircle/>
+            <AlertDescription>{err}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Actions */}
         <div style={{ display:'flex', gap:10, marginTop:18 }}>
