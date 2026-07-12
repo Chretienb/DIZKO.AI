@@ -16,6 +16,40 @@ import {
   MessageScrollerProvider, MessageScroller, MessageScrollerViewport,
   MessageScrollerContent, MessageScrollerItem, MessageScrollerButton,
 } from '../components/ui/message-scroller.jsx'
+
+// Jump-to-latest only makes sense when there's somewhere to jump — the
+// primitive keeps its button "active" even on non-scrollable content
+// (verified: scrollHeight === clientHeight and the button still shows, and
+// its useMessageScrollerScrollable().end also reports true there). Measure
+// the real viewport instead and render the button only when it overflows.
+function JumpToLatest() {
+  const ref = React.useRef(null)
+  const [scrolls, setScrolls] = useState(false)
+  useEffect(() => {
+    const vp = ref.current?.parentElement?.querySelector('[data-slot="message-scroller-viewport"]')
+    if (!vp) return
+    let alive = true
+    const timers = []
+    const measure = () => { if (alive) setScrolls(vp.scrollHeight > vp.clientHeight + 1) }
+    // Measured live: on first message render, content-visibility placeholders
+    // (160px/item) inflate scrollHeight (e.g. 720→1064), which collapses to
+    // real sizes ~150ms later WITHOUT another mutation/viewport resize — so
+    // every trigger re-measures again after paint + after a settle delay.
+    const check = () => {
+      measure()
+      requestAnimationFrame(() => requestAnimationFrame(measure))
+      timers.push(setTimeout(measure, 350))
+    }
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(vp)
+    if (vp.firstElementChild) ro.observe(vp.firstElementChild)
+    const mo = new MutationObserver(check)
+    mo.observe(vp, { childList: true, subtree: true })
+    return () => { alive = false; timers.forEach(clearTimeout); ro.disconnect(); mo.disconnect() }
+  }, [])
+  return <span ref={ref} style={{ display:'contents' }}>{scrolls && <MessageScrollerButton/>}</span>
+}
 import { timeAgo } from '../lib/utils.js'
 import { track } from '../lib/posthog.js'
 
@@ -211,27 +245,45 @@ export default function PageInbox({ openModal, user }) {
         </div>
       ) : (
         <>
-          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'13px 16px', borderBottom:'1px solid var(--border)' }}>
-            <Avatar name={sel.name} url={sel.avatar} size={38} />
-            <div style={{ fontSize:14, fontWeight:600, color:'var(--t1)' }}>{sel.name}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'12px 16px', borderBottom:'1px solid var(--border)' }}>
+            <Avatar name={sel.name} url={sel.avatar} size={36} />
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:'var(--t1)' }}>{sel.name}</div>
+              <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>
+                {sel.last_at ? `Last message ${timeAgo(sel.last_at)}` : 'New conversation'}
+              </div>
+            </div>
           </div>
 
           {/* Messages — shadcn MessageScroller sticks to the bottom and offers
-              a jump-to-latest button when scrolled up. */}
+              a jump-to-latest button when scrolled up. Content is bottom-
+              anchored (min-h-full justify-end) so short conversations read
+              like chat, not a top-aligned list. Consecutive messages from the
+              same sender within 5 minutes group together: tight spacing and
+              one timestamp per run. */}
           <MessageScrollerProvider>
             <MessageScroller className="flex-1">
               <MessageScrollerViewport className="px-4 py-4">
-                <MessageScrollerContent className="gap-3">
+                <MessageScrollerContent className="min-h-full justify-end gap-0">
                   {msgsLoading ? (
-                    <div style={{ display:'flex', justifyContent:'center', marginTop:20 }}>
+                    <div style={{ display:'flex', justifyContent:'center', margin:'auto' }}>
                       <Spinner className="size-5 text-[color:var(--t3)]"/>
                     </div>
                   ) : msgs.length === 0 ? (
-                    <div style={{ color:'var(--t3)', fontSize:12.5, textAlign:'center', margin:'auto', paddingTop:40 }}>Say hi to {sel.name}</div>
-                  ) : msgs.map(m => {
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, margin:'auto', padding:'40px 0' }}>
+                      <Avatar name={sel.name} url={sel.avatar} size={56}/>
+                      <div style={{ color:'var(--t2)', fontSize:13.5, fontWeight:500 }}>Say hi to {sel.name.split(' ')[0]}</div>
+                      <div style={{ color:'var(--t4)', fontSize:12 }}>This is the start of your conversation.</div>
+                    </div>
+                  ) : msgs.map((m, i) => {
                     const mine = m.from_user_id === myId
+                    const next = msgs[i + 1]
+                    // Last message of a sender-run (or >5 min before the next)
+                    // carries the run's timestamp; messages inside a run pack tight.
+                    const endsRun = !next || next.from_user_id !== m.from_user_id ||
+                      (new Date(next.created_at) - new Date(m.created_at)) > 5 * 60 * 1000
                     return (
-                      <MessageScrollerItem key={m.id}>
+                      <MessageScrollerItem key={m.id} className={endsRun ? 'pb-3' : 'pb-1'}>
                         <MessageGroup className="ib-msg">
                           <Message align={mine ? 'end' : 'start'}>
                             <Bubble variant={mine ? 'default' : 'secondary'} align={mine ? 'end' : 'start'}>
@@ -243,15 +295,17 @@ export default function PageInbox({ openModal, user }) {
                                     background:'var(--bg)', borderRadius:100, padding:'1px 3px', boxShadow:'var(--shadow-1)' }}>❤️</span>
                                 )}
                               </BubbleContent>
-                              <div style={{ display:'flex', alignItems:'center', gap:6, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
-                                <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--t4)', padding:'0 3px' }}>{timeAgo(m.created_at)}</span>
-                                {mine && !String(m.id).startsWith('tmp-') && (
-                                  <button className="ib-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
-                                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t4)', fontSize:11, padding:1, display:'flex' }}>
-                                    <X size={11}/>
-                                  </button>
-                                )}
-                              </div>
+                              {endsRun && (
+                                <div style={{ display:'flex', alignItems:'center', gap:6, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
+                                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--t4)', padding:'0 3px' }}>{timeAgo(m.created_at)}</span>
+                                  {mine && !String(m.id).startsWith('tmp-') && (
+                                    <button className="ib-msgdel" onClick={() => deleteMsg(m)} aria-label="Delete message"
+                                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t4)', fontSize:11, padding:1, display:'flex' }}>
+                                      <X size={11}/>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </Bubble>
                           </Message>
                         </MessageGroup>
@@ -260,7 +314,7 @@ export default function PageInbox({ openModal, user }) {
                   })}
                 </MessageScrollerContent>
               </MessageScrollerViewport>
-              <MessageScrollerButton/>
+              <JumpToLatest/>
             </MessageScroller>
           </MessageScrollerProvider>
 
