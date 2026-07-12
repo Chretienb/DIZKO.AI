@@ -650,8 +650,11 @@ export const showcaseApi = {
 // ── Stem comments ─────────────────────────────────────────────────────────────
 export const stemCommentsApi = {
   // request() directly (not cached get) so new comments show immediately.
-  list: (stemId)       => request('GET', `/stem-comments/${stemId}`),
-  add:  (stemId, body) => post(`/stem-comments/${stemId}`, body),
+  list:    (stemId)       => request('GET', `/stem-comments/${stemId}`),
+  add:     (stemId, body) => post(`/stem-comments/${stemId}`, body),
+  remove:  (commentId)    => del(`/stem-comments/${commentId}`),
+  /** Per-stem {count,last_at,last_user_id} for a whole project (unread dots). */
+  summary: (projectId)    => request('GET', `/stem-comments/summary/${projectId}`),
 }
 
 // ── YouTube Analytics ─────────────────────────────────────────────────────────

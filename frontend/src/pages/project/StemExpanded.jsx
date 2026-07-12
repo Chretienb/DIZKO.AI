@@ -20,10 +20,10 @@ const versionLabel = n => n === 4 ? 'Final take' : n === 3 ? 'Pre-mix' : n === 2
  * while this stem is playing, new comments pin to the playhead.
  */
 export default function StemExpanded({
-  file, notes = {}, user, collabs = [], owner,
+  file, notes = {}, user, collabs = [], owner, isOwner = false,
   fmt, labels = [], aiFlag, onAiInfo,
   versions = [], currentVNum = null, onOpenVersion,
-  onSeek, onSaveBpm,
+  onSeek, onSaveBpm, onThreadChange,
 }) {
   // ── Waveform (real decoded peaks; neutral flat bars until they're in) ────
   // Decode from the small MP3 preview when it exists (ProjectView warms every
@@ -84,6 +84,13 @@ export default function StemExpanded({
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
   }, [file?.id])
+  // Keep the collapsed-row badge in sync (count + latest timestamp) and let
+  // the page mark this thread read while it's open.
+  useEffect(() => {
+    if (!file?.id || loading) return
+    onThreadChange?.(file.id, comments.length, comments.at(-1)?.created_at || null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments, loading, file?.id])
 
   const nameById = useMemo(() => {
     const m = new Map()
@@ -92,6 +99,14 @@ export default function StemExpanded({
     return m
   }, [collabs, owner])
   const nameFor = cm => (cm.user_id === user?.id ? 'You' : (cm.user_name || nameById.get(cm.user_id) || 'Member'))
+
+  // Author deletes their own comment; the project owner can moderate any.
+  const removeComment = async (cm) => {
+    const prev = comments
+    setComments(list => list.filter(x => x.id !== cm.id))   // optimistic
+    try { await stemCommentsApi.remove(cm.id) }
+    catch { setComments(prev) }
+  }
 
   const posAt = pos.active ? Math.floor(pos.cur) : null
   const post = async () => {
@@ -241,7 +256,7 @@ export default function StemExpanded({
         ) : (
           <div ref={listRef} style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:12, maxHeight:220, overflowY:'auto' }}>
             {comments.map(cm => (
-              <div key={cm.id} style={{ display:'flex', gap:8 }}>
+              <div key={cm.id} className="cm-row" style={{ display:'flex', gap:8 }}>
                 <Avatar name={nameFor(cm)} url={cm.avatar_url} size={24} border="none"/>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
@@ -255,11 +270,26 @@ export default function StemExpanded({
                       </button>
                     )}
                     {cm.created_at && <span style={{ fontSize:10, color:'var(--t4)' }}>{timeAgo(cm.created_at)}</span>}
+                    {(cm.user_id === user?.id || isOwner) && (
+                      <button onClick={() => removeComment(cm)} className="cm-del" aria-label="Delete comment" title="Delete comment"
+                        style={{ marginLeft:'auto', width:20, height:20, borderRadius:6, border:'none', background:'transparent',
+                          color:'var(--t4)', cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center',
+                          flexShrink:0, transition:'color .12s, opacity .12s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--t4)' }}>
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                   <div style={{ fontSize:12, color:'var(--t2)', lineHeight:1.5, wordBreak:'break-word', marginTop:1 }}>{cm.text}</div>
                 </div>
               </div>
             ))}
+            <style>{`
+              .cm-row .cm-del { opacity: 0; }
+              .cm-row:hover .cm-del, .cm-del:focus-visible { opacity: 1; }
+              @media (max-width: 767px) { .cm-row .cm-del { opacity: 1; } }
+            `}</style>
           </div>
         )}
 

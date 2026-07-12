@@ -8,6 +8,32 @@ import type { HonoVariables } from '../types'
 const stemComments = new Hono<{ Variables: HonoVariables }>()
 stemComments.use('*', requireAuth)
 
+// Per-stem comment summary for a whole project — one call so the stem list
+// can show comment counts / unread dots without opening each thread.
+stemComments.get('/summary/:projectId', async (c) => {
+  const userId    = c.var.user.id
+  const projectId = c.req.param('projectId')
+  if (!(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  const { data, error } = await supabase
+    .from('stem_comments')
+    .select('stem_id, user_id, created_at')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true })
+  if (error) return c.json({ error: error.message }, 500)
+
+  const summary: Record<string, { count: number; last_at: string; last_user_id: string }> = {}
+  for (const r of (data ?? []) as any[]) {
+    const s = summary[r.stem_id] ?? { count: 0, last_at: r.created_at, last_user_id: r.user_id }
+    s.count += 1
+    s.last_at = r.created_at
+    s.last_user_id = r.user_id
+    summary[r.stem_id] = s
+  }
+  return c.json({ data: summary })
+})
+
 stemComments.get('/:stemId', async (c) => {
   const userId = c.var.user.id
 

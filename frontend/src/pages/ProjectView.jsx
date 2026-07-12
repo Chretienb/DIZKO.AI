@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
-import { projects as projectsApi, files as filesApi, foldersApi, collaborators as collabsApi, messagesApi, cacheBust } from '../lib/api.js'
+import { projects as projectsApi, files as filesApi, foldersApi, collaborators as collabsApi, messagesApi, stemCommentsApi, cacheBust } from '../lib/api.js'
 import posthog from '../lib/posthog.js'
 import { Spinner, Avatar } from '../components/ui/index.jsx'
 import { Button } from '../components/ui/button.jsx'
 import { Skeleton } from '../components/ui/skeleton.jsx'
-import { Upload, Share2, Play, MoreHorizontal } from 'lucide-react'
+import { Upload, Share2, Play, MoreHorizontal, MessageCircle } from 'lucide-react'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
@@ -42,6 +42,26 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [projMenu,     setProjMenu]     = useState(false)
   const [crewOpen,     setCrewOpen]     = useState(false)
+  // Per-stem comment summary ({count,last_at,last_user_id}) + what the user
+  // has already seen (localStorage) — powers the unread badge on closed rows.
+  const [commentSummary, setCommentSummary] = useState({})
+  const [seenComments,   setSeenComments]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dizko_seen_comments') || '{}') } catch { return {} }
+  })
+  const onThreadChange = useCallback((stemId, count, lastAt) => {
+    setCommentSummary(prev => ({ ...prev, [stemId]: { count, last_at: lastAt || '', last_user_id: prev[stemId]?.last_user_id || '' } }))
+    if (lastAt) markCommentsSeen(stemId, lastAt)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const markCommentsSeen = useCallback((stemId, lastAt) => {
+    if (!stemId || !lastAt) return
+    setSeenComments(prev => {
+      if (prev[stemId] && prev[stemId] >= lastAt) return prev
+      const next = { ...prev, [stemId]: lastAt }
+      try { localStorage.setItem('dizko_seen_comments', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
   const [playerStartAt,  setPlayerStartAt]  = useState(null)   // open-at-a-comment: seek here once loaded
@@ -172,6 +192,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       setAllProjects(allProjsRes.data || [])
       setFolders(foldersRes.data || [])
       setCollabs(collabsRes.data || [])
+
+      stemCommentsApi.summary(projectId)
+        .then(r => setCommentSummary(r.data || {}))
+        .catch(() => {})
 
       const filesRes = await filesApi.list(projectId)
       const loaded   = filesRes.data || []
@@ -1272,6 +1296,22 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           )}
                           {sub && <div style={{ fontFamily:'var(--font-mono)', fontSize: isMobile ? 10 : 10.5, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
                         </div>
+                        {(() => {
+                          const cs = commentSummary[f.id]
+                          if (!cs?.count || isSel) return null
+                          const unread = cs.last_at > (seenComments[f.id] || '') && cs.last_user_id !== user?.id
+                          return (
+                            <span title={unread ? 'New comments' : `${cs.count} comment${cs.count > 1 ? 's' : ''}`}
+                              style={{ display:'inline-flex', alignItems:'center', gap:4, height:22, padding:'0 8px', borderRadius:20, flexShrink:0,
+                                background: unread ? 'var(--brand-tint)' : 'transparent',
+                                color: unread ? 'var(--brand)' : 'var(--t4)',
+                                fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500 }}>
+                              <MessageCircle size={11} aria-hidden="true"/>
+                              {cs.count}
+                              {unread && <span style={{ width:5, height:5, borderRadius:'50%', background:'var(--brand)' }}/>}
+                            </span>
+                          )
+                        })()}
                         {(isOwner || f.uploaded_by === user?.id) && (
                           <button onClick={e=>{ e.stopPropagation(); toggleArchive(f.id) }} aria-label="Archive stem" title="Archive — hides it but keeps it stored"
                             className="lt-play-btn"
@@ -1320,7 +1360,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             fmt={selExt} labels={selLabels} aiFlag={selAiFlag} onAiInfo={() => setAiDetailsOpen(true)}
                             versions={selVersions} currentVNum={selVNum} onOpenVersion={v => setSelectedFile(v)}
                             onSeek={sec => seekToComment(preview ? { ...f, file_url: preview } : f, sec)}
-                            onSaveBpm={v => saveBpm(f.id, v)}
+                            onSaveBpm={v => saveBpm(f.id, v)} isOwner={isOwner} onThreadChange={onThreadChange}
                           />
                         )}
                       </div>
