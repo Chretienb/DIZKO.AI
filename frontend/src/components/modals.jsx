@@ -796,41 +796,36 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   // ── Management — card on file ─────────────────────────────────────────────────
   const PLAN_LABEL = { free_trial:'Free Trial', pro:'Pro', studio:'Studio', label:'Label' }
   const PLAN_PRICE = { free_trial:'0', pro:'14.99', studio:'29.99', label:'99' }
-  const STATUS_COLOR = { trialing:'#f59e0b', active:'#22c55e', past_due:'#ef4444', canceled:'#6b7280' }
 
   return (
-    <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose} accent="#22c55e">
-      <div style={{ position:'relative', overflow:'hidden', borderRadius:16,
-        background:'linear-gradient(135deg,#141414,#1c0a12)', border:'1px solid rgba(255,255,255,.08)',
-        boxShadow:'0 10px 30px rgba(0,0,0,.3)', padding:'18px 20px', marginBottom:16 }}>
-        {/* soft accent glow */}
-        <div style={{ position:'absolute', top:-40, right:-30, width:160, height:160, borderRadius:'50%',
-          background:`radial-gradient(circle, ${C.coral}33, transparent 70%)`, pointerEvents:'none' }}/>
-        <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+    <Modal title="Billing & Plan" sub="Your current subscription" onClose={onClose}>
+      {/* Quiet plan card — no gradients/glows; red reserved for a real problem */}
+      <div style={{ borderRadius:14, background:C.surface2, border:`1px solid ${C.border}`,
+        padding:'18px 20px', marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
           <div>
-            <div style={{ fontSize:10, color:'rgba(255,255,255,.4)', fontWeight:700,
-              letterSpacing:'.1em', textTransform:'uppercase', marginBottom:5 }}>Current Plan</div>
-            <div style={{ fontSize:21, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--t4)', fontWeight:500,
+              letterSpacing:'.14em', textTransform:'uppercase', marginBottom:5 }}>Current Plan</div>
+            <div style={{ fontSize:20, fontWeight:650, color:C.t1, letterSpacing:'-.4px' }}>
               {PLAN_LABEL[plan] ?? plan}
             </div>
           </div>
-          <span style={{ fontSize:10, fontWeight:700, padding:'5px 13px', borderRadius:100, letterSpacing:'.02em',
-            background: `${STATUS_COLOR[status] ?? '#6b7280'}26`, color: STATUS_COLOR[status] ?? '#9ca3af',
-            border:`1px solid ${STATUS_COLOR[status] ?? '#6b7280'}55` }}>
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.1em',
+            textTransform:'uppercase', color: status === 'past_due' ? 'var(--danger, #ef4444)' : 'var(--t3)' }}>
             {status === 'trialing' ? `${daysLeft}d left` : status}
           </span>
         </div>
-        <div style={{ fontSize:28, fontWeight:900, color:C.coral, letterSpacing:'-1px' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:26, fontWeight:500, color:C.t1, letterSpacing:'-.5px' }}>
           {status === 'trialing' ? '$0' : `$${PLAN_PRICE[plan] ?? '—'}`}
-          <span style={{ fontSize:13, color:'rgba(var(--fg),.3)', fontWeight:400 }}>/mo</span>
+          <span style={{ fontSize:13, color:'var(--t4)' }}>/mo</span>
         </div>
         {status === 'trialing' && (
-          <div style={{ fontSize:11, color:'#f59e0b', marginTop:4, fontWeight:600 }}>
+          <div style={{ fontSize:11.5, color:'var(--t3)', marginTop:4 }}>
             Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''} · then ${PLAN_PRICE[plan]}/mo
           </div>
         )}
         {status === 'past_due' && (
-          <div style={{ fontSize:11, color:'#ef4444', marginTop:4, fontWeight:600 }}>
+          <div style={{ fontSize:11.5, color:'var(--danger, #ef4444)', marginTop:4, fontWeight:500 }}>
             Payment failed — update your card to avoid losing access
           </div>
         )}
@@ -844,15 +839,15 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         const barW   = usedB > 0 ? Math.max(1, storagePct) : 0
         return (
           <div style={{ padding:'13px 15px', background:C.surface2, borderRadius:12, border:`1px solid ${C.border}`, marginBottom:18 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontSize:12, marginBottom:8 }}>
-              <span style={{ fontWeight:700, color:C.t2 }}>Storage</span>
-              <span style={{ fontWeight:700, color:C.t1 }}>{fmt(usedB)} <span style={{ color:C.t3, fontWeight:500 }}>/ {fmt(limB)}</span></span>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--t4)' }}>Storage</span>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:11.5, fontWeight:500, color:C.t1 }}>{fmt(usedB)} <span style={{ color:'var(--t4)' }}>/ {fmt(limB)}</span></span>
             </div>
-            <div style={{ height:7, background:'rgba(var(--fg),.08)', borderRadius:99, overflow:'hidden' }}>
+            <div style={{ height:4, background:'rgba(var(--fg),.08)', borderRadius:99, overflow:'hidden' }}>
               <div style={{ width:`${barW}%`, height:'100%', transition:'width .3s',
-                background: storagePct > 90 ? 'linear-gradient(90deg,#f87171,#ef4444)' : 'linear-gradient(90deg,#22c55e,#16a34a)' }}/>
+                background: storagePct > 90 ? 'var(--danger, #ef4444)' : 'var(--brand)' }}/>
             </div>
-            <div style={{ fontSize:11, marginTop:6, fontWeight:600, color: storagePct > 90 ? '#f87171' : C.t3 }}>
+            <div style={{ fontSize:11, marginTop:6, color: storagePct > 90 ? 'var(--danger, #ef4444)' : C.t3 }}>
               {storagePct > 90 ? 'Storage almost full — upgrade your plan' : `${Math.round(storagePct)}% used`}
             </div>
           </div>
