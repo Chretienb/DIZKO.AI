@@ -7,7 +7,7 @@ import { track } from './lib/posthog.js'
 import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './lib/demoProfiles.js'
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
-import { Spinner, Btn, EmptyState } from './components/ui/index.jsx'
+import { Spinner, Btn, EmptyState, Avatar } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
 
 const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
@@ -441,12 +441,15 @@ export default function PublicProfile({ embedded = false }) {
       )}
       <div className={`pp-grid${embedded ? ' pp-grid-3' : ''}`}>
       <div className="pp-left">
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:18, padding:'14px 4px 14px' }}>
-        <div style={{ width:88, height:88, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-          border:'2px solid rgba(var(--fg),.12)', boxShadow:'0 10px 30px rgba(0,0,0,.5)',
-          background: p.avatar_url ? `center/cover url(${p.avatar_url})` : C.grad }} />
-        <div style={{ flex:1, minWidth:0 }}>
+      {/* Header — profile hero card */}
+      <div style={{ display:'flex', alignItems:'center', gap:18, padding:'20px 18px',
+        background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
+        boxShadow:'var(--shadow-1)', position:'relative', overflow:'hidden', marginBottom:14 }}>
+        <div aria-hidden="true" style={{ position:'absolute', inset:0, pointerEvents:'none',
+          background:'radial-gradient(70% 110% at 0% 0%, var(--brand-tint) 0%, transparent 60%)' }}/>
+        <Avatar name={p.display_name} url={p.avatar_url} size={84} border="none"
+          style={{ boxShadow:'var(--shadow-2)', position:'relative' }}/>
+        <div style={{ flex:1, minWidth:0, position:'relative' }}>
           <div style={{ display:'flex', gap:26 }}>
             <Stat n={items.length} label="tracks" />
             <Stat n={p.follower_count} label="followers" />
@@ -468,7 +471,8 @@ export default function PublicProfile({ embedded = false }) {
         ) : (
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={toggleFollow}
-              style={following ? ghostBtn : { ...ghostBtn, background:'rgba(109,90,230,.16)', border:'1px solid rgba(109,90,230,.4)', color:'#fff' }}>
+              style={following ? { ...ghostBtn, borderRadius:100 } : { ...ghostBtn, borderRadius:100, border:'none',
+                background:'var(--grad)', color:'#fff', fontWeight:600 }}>
               {following ? 'Following' : 'Follow'}
             </button>
             <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
@@ -479,7 +483,7 @@ export default function PublicProfile({ embedded = false }) {
       {/* Identity */}
       <div style={{ padding:'0 4px 22px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-          <div style={{ fontSize:16, fontWeight:800 }}>{p.display_name}</div>
+          <div style={{ fontSize:17, fontWeight:650, letterSpacing:'-.3px' }}>{p.display_name}</div>
           {p.verified && (
             <svg width={17} height={17} viewBox="0 0 24 24" fill="#1d9bf0" aria-label="Verified" title="Verified" style={{ flexShrink:0 }}>
               <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.44 0-.863.08-1.256.23C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.393-.15-.816-.23-1.256-.23-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .44 0 .863-.08 1.256-.23.62 1.334 1.926 2.25 3.437 2.25s2.817-.916 3.438-2.25c.393.15.816.23 1.256.23 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.514 1.16-.688 1.943-1.99 1.943-3.486z"/>
@@ -488,7 +492,7 @@ export default function PublicProfile({ embedded = false }) {
           )}
           {isDemo && !p.verified && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(124,108,240,.18)', color:C.coral }}>DEMO</span>}
         </div>
-        <div style={{ fontSize:13, color:'rgba(var(--fg),.45)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'var(--brand)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
         {p.bio && <div style={{ fontSize:13.5, lineHeight:1.5, color:'rgba(var(--fg),.78)', whiteSpace:'pre-wrap' }}>{p.bio}</div>}
         {Array.isArray(p.links) && p.links.length > 0 && (
           <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginTop:10 }}>
@@ -512,8 +516,9 @@ export default function PublicProfile({ embedded = false }) {
       <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'1px solid rgba(var(--fg),.08)' }}>
         {[['tracks', `Tracks${items.length ? ` · ${items.length}` : ''}`], ['reposts', `Reposts${p.repost_count ? ` · ${p.repost_count}` : ''}`]].map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700, padding:'8px 12px',
-              color: tab === k ? '#fff' : 'rgba(var(--fg),.45)', borderBottom: tab === k ? `2px solid ${C.coral}` : '2px solid transparent', marginBottom:-1 }}>
+            style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight: tab === k ? 600 : 400, padding:'8px 12px',
+              color: tab === k ? 'var(--t1)' : 'var(--t3)', borderBottom: tab === k ? '2px solid var(--brand)' : '2px solid transparent', marginBottom:-1,
+              transition:'color var(--dur-1) var(--ease)' }}>
             {label}
           </button>
         ))}
@@ -855,16 +860,16 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
         .pp-pcard:hover { transform:translateY(-3px); border-color:rgba(124,108,240,.4)!important; background:rgba(var(--fg),.06)!important; }
       `}</style>
       <div style={{ marginTop: bare ? 0 : 44 }}>
-        {!bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Discover</div>}
+        {!bare && <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:14 }}>Discover</div>}
 
         <div style={{ position:'relative', maxWidth: bare ? 460 : 380, margin: bare ? '0 auto 26px' : '0 0 18px' }}>
           <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="rgba(var(--fg),.35)" strokeWidth={2} strokeLinecap="round"
             style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or @handle"
-            style={{ width:'100%', padding: bare ? '12px 14px 12px 40px' : '9px 12px 9px 34px', borderRadius: bare ? 100 : 10, border:'1px solid rgba(var(--fg),.1)', background:'rgba(var(--fg),.04)', color:'#fff', fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box', outline:'none' }} />
+            style={{ width:'100%', padding: bare ? '12px 14px 12px 40px' : '9px 12px 9px 34px', borderRadius: bare ? 100 : 10, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--t1)', fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box', outline:'none' }} />
         </div>
 
-        {bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Producers</div>}
+        {bare && <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:14 }}>Producers</div>}
 
         {results === null ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? 'Searching…' : 'Loading…'}</div> :
          list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? `No users found for “${q}”.` : 'No public producers yet.'}</div> : (
@@ -972,8 +977,8 @@ function ReelsRow({ onOpen }) {
 function Stat({ n, label }) {
   return (
     <div style={{ textAlign:'center' }}>
-      <div style={{ fontSize:15, fontWeight:800 }}>{fmt(n)}</div>
-      <div style={{ fontSize:11.5, color:'rgba(var(--fg),.45)' }}>{label}</div>
+      <div style={{ fontFamily:'var(--font-mono)', fontSize:15, fontWeight:600 }}>{fmt(n)}</div>
+      <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{label}</div>
     </div>
   )
 }
