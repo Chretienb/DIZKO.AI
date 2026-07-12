@@ -189,7 +189,7 @@ export default function AIPanel({
             style={{ width:'100%', height:32, borderRadius:8, border:'none', background:`${C.coral}14`, color:C.coral, fontSize:12.5, fontWeight:500, cursor:smartMixing?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:smartMixing?.6:1, transition:'background .15s' }}
             onMouseEnter={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}24` }} onMouseLeave={e=>{ if(!smartMixing) e.currentTarget.style.background=`${C.coral}14` }}>
             {smartMixing
-              ? <><Spinner size={13} color={C.coral}/> Mixing…</>
+              ? <><Spinner size={13} color={C.coral}/> <span className="shimmer">Mixing…</span></>
               : activeProject && !activeProject.owner_paid
                 ? <>Upgrade to use Smart Mix</>
                 : smartMixUrl

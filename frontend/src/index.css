@@ -183,6 +183,35 @@
   --glass: color-mix(in srgb, var(--bg) 55%, transparent);
 }
 
+/* ─── shadcn utilities (hand-inlined — we don't import shadcn/tailwind.css) ──
+   scroll-fade / scroll-fade-b: soft mask at scroll edges (message-scroller's
+   viewport already references scroll-fade-b). shimmer: animated sheen for
+   in-progress text. scrollbar helpers used by the scroller. */
+@utility scroll-fade {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+@utility scroll-fade-b {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-4) transparent;
+}
+@utility scrollbar-gutter-stable { scrollbar-gutter: stable; }
+@utility shimmer {
+  background: linear-gradient(90deg, var(--t3) 30%, var(--t1) 50%, var(--t3) 70%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: dz-shimmer 2s linear infinite;
+}
+@keyframes dz-shimmer { to { background-position: -200% 0; } }
+
 /* ─── Accessibility ─────────────────────────────────────────────────────────
    Most buttons set border:none and strip the user-agent outline, leaving
    keyboard users with no focus indicator. Restore a consistent, theme-aware

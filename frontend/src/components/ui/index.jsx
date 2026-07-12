@@ -1,4 +1,5 @@
 import React from 'react'
+import { Avatar as ShadAvatar, AvatarImage, AvatarFallback } from './avatar.jsx'
 
 export const C = {
   // Brand colors — fixed across themes. Rebrand 2026-07: coral → purple.
@@ -108,33 +109,22 @@ export const Btn = React.memo(function Btn({ children, onClick, style={}, varian
   </button>
 })
 
-export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
-  const s   = typeof size === 'number' ? size : 36
-  const fs  = Math.round(s * 0.36)
-  const base = {
-    width:s, height:s, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-    border: border || `2px solid ${color}44`,
-    ...(extra || {}),
-  }
-  const fallback = (display) => (
-    <div style={{ ...base, background:`linear-gradient(135deg,${color},${color}bb)`,
-      display, alignItems:'center', justifyContent:'center',
-      fontSize:fs, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
-      {initials(name || '')}
-    </div>
+// Backed by shadcn's radix Avatar (proper image load-state handling: the
+// initials fallback shows until the image actually loads, and on error) —
+// this wrapper keeps the app-wide { name, url, size, color, border } API.
+export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.brand, border, style: extra }) {
+  const s  = typeof size === 'number' ? size : 36
+  const fs = Math.round(s * 0.36)
+  return (
+    <ShadAvatar style={{ width:s, height:s, flexShrink:0,
+      border: border === 'none' ? 'none' : (border || `2px solid ${color}44`), ...(extra || {}) }}>
+      {url && <AvatarImage src={url} alt="" style={{ objectFit:'cover' }}/>}
+      <AvatarFallback style={{ background:`linear-gradient(135deg,${color},${color}bb)`,
+        fontSize:fs, fontWeight:700, color:'#fff', letterSpacing:'-.5px' }}>
+        {initials(name || '')}
+      </AvatarFallback>
+    </ShadAvatar>
   )
-  if (url) {
-    // Render img + a hidden initials fallback; on load error, swap to fallback.
-    // alt="" so a broken image never shows the name as alt text.
-    return (
-      <>
-        <img src={url} alt="" style={{ ...base, objectFit:'cover', background:`${color}22` }}
-          onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
-        {fallback('none')}
-      </>
-    )
-  }
-  return fallback('flex')
 })
 
 // Centered spinner block for loading states inside panels/modals.

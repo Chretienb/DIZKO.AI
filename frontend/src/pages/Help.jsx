@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Rocket, MusicNotes, Microphone, UploadSimple, UsersThree, CreditCard, ShieldCheck, Export, Wrench, EnvelopeSimple } from '@phosphor-icons/react'
 import { C } from '../components/ui/index.jsx'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion.jsx'
 
 // ── Knowledge base content ────────────────────────────────────────────────────
 // Each category groups a few real Q&A articles. Counts are derived from the data
@@ -211,26 +212,27 @@ export default function PageHelp() {
               <p style={{ margin:'4px 0 0', fontSize:12.5, color:C.t3 }}>Try a different search, or email us at <a href="mailto:team@dizko.ai" style={{ color:C.coral }}>team@dizko.ai</a>.</p>
             </div>
           ) : (
-            <div style={{ display:'flex', flexDirection:'column' }}>
+            // shadcn Accordion — animated open/close, keyboard navigation,
+            // proper ARIA. Controlled by the existing `open` state (single
+            // article expanded at a time, exactly as before).
+            <Accordion type="single" collapsible value={open || ''} onValueChange={v => setOpen(v || null)}>
               {results.map(a => {
-                const k = articleKey(a); const isOpen = open === k
+                const k = articleKey(a)
                 return (
-                  <div key={k} style={{ borderBottom:`1px solid var(--border-2)` }}>
-                    <button onClick={() => setOpen(isOpen ? null : k)}
-                      style={{ display:'flex', alignItems:'center', gap:12, width:'100%', padding:'14px 6px',
-                        background:'none', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit' }}>
-                      <span style={{ flex:1, fontSize:13.5, fontWeight:600, color:C.t1 }}>{a.q}</span>
-                      {q && <span style={{ fontSize:10.5, fontWeight:700, color:C.t3, background:'rgba(var(--fg),.06)', padding:'2px 7px', borderRadius:20, flexShrink:0 }}>{a.cat}</span>}
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-                        style={{ flexShrink:0, transform: isOpen ? 'rotate(180deg)' : 'none', transition:'transform .15s' }}><polyline points="6 9 12 15 18 9"/></svg>
-                    </button>
-                    {isOpen && (
-                      <p style={{ margin:'0 6px 16px', fontSize:13, lineHeight:1.65, color:C.t2 }}>{a.a}</p>
-                    )}
-                  </div>
+                  <AccordionItem key={k} value={k} className="border-[color:var(--border-2)]">
+                    <AccordionTrigger className="py-3.5 px-1.5 text-[13.5px] font-semibold text-[color:var(--t1)] hover:no-underline">
+                      <span style={{ display:'flex', alignItems:'center', gap:12, flex:1, textAlign:'left' }}>
+                        <span style={{ flex:1 }}>{a.q}</span>
+                        {q && <span style={{ fontSize:10.5, fontWeight:500, color:C.t3, background:'rgba(var(--fg),.06)', padding:'2px 7px', borderRadius:20, flexShrink:0 }}>{a.cat}</span>}
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-1.5 text-[13px] leading-relaxed text-[color:var(--t2)]">
+                      {a.a}
+                    </AccordionContent>
+                  </AccordionItem>
                 )
               })}
-            </div>
+            </Accordion>
           )}
         </div>
       )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi, invitations as invitationsApi, accessRequests } from '../lib/api.js'
 import { Btn, Spinner, C, Avatar, EmptyState } from '../components/ui/index.jsx'
@@ -173,6 +174,7 @@ function CollabRow({ c, index, isOnline, onMessage, onWork, onRemove }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PageCollaborators({ openModal, user, onlineIds = new Set() }) {
+  const navigate = useNavigate()
   const isMobile   = React.useContext(MobileCtx)
   const [search,      setSearch]      = useState('')
   const [collabs,     setCollabs]     = useState([])
@@ -393,7 +395,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
             <CollabRow key={c.id} c={c} index={i}
               isOnline={onlineIds.has(c.user_id)}
               onMessage={c => openModal('message', c)}
-              onWork={c => openModal('view-work', c)}
+              // Open = go to the project you share with them ("view work"
+              // modal was a dead end — often empty; reported live as "crew
+              // should open"). Falls back to the modal if a row somehow has
+              // no project.
+              onWork={c => c.project_id ? navigate(`/projects/${c.project_id}`) : openModal('view-work', c)}
               onRemove={removeCollab}/>
           ))}
         </div>

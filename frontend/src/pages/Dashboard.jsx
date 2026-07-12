@@ -165,7 +165,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   )
 
   const railList = (
-    <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'6px 8px 10px', display:'flex', flexDirection:'column', gap:1 }}>
+    <div className="scroll-fade-b scrollbar-none" style={{ flex:1, minHeight:0, overflowY:'auto', padding:'6px 8px 10px', display:'flex', flexDirection:'column', gap:1 }}>
       {tab === 'upnext' && (railProjects.length ? railProjects.map(p => listRow({
         key:p.id,
         onClick:() => { setSelId(p.id); setTab('upnext') },

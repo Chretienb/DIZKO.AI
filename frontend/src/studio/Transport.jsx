@@ -114,7 +114,7 @@ export default function Transport({
       {/* Label — tells the user this plays every stem together (a bounce) */}
       <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
         <IconLayers size={13} color={playing ? C.coral : C.t3}/>
-        <span style={{ fontSize:13, fontWeight:600, color:C.t1, letterSpacing:'-.2px' }}>
+        <span className={notReady ? 'shimmer' : undefined} style={{ fontSize:13, fontWeight:600, color:C.t1, letterSpacing:'-.2px' }}>
           {notReady ? 'Preparing…' : playing ? 'Playing' : 'Play all'}
         </span>
         {trackCount > 0 && !notReady && (
