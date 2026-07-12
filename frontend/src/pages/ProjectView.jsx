@@ -10,7 +10,7 @@ import { Upload, Share2, Play, MoreHorizontal } from 'lucide-react'
 import { timeAgo, getToken } from '../lib/utils.js'
 import { InlineRename, MessageModal, RemoveModal, BottomSheet } from './project/dialogs.jsx'
 import { InstrPicker } from '../components/modals/upload.jsx'
-import StemComments from './project/StemComments.jsx'
+import StemExpanded from './project/StemExpanded.jsx'
 import InlineStemPlayer from './project/InlineStemPlayer.jsx'
 import ShareCardModal from '../components/ShareCard/ShareCardModal.jsx'
 import ProjectSettings from '../components/ProjectSettings.jsx'
@@ -18,7 +18,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { getUploadPreview, clearAllUploadPreviews } from './project/uploadPreview.js'
 import { warmPreviewBytes } from '../lib/audioCache.js'
 import { cachedUrlFor } from '../lib/uploadStore.js'
-import { fmtDur, fmtSize, parseNotes, parseVersionNum, stripVersion, stemTitle,
+import { fmtDur, parseNotes, parseVersionNum, stripVersion, stemTitle,
          STATUSES, ltDot, GROUPS, getGroupKey, getLtBadge, getDetectedLabels, GROUP_DROP_INSTR } from './project/meta.js'
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -37,11 +37,11 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [loading,      setLoading]      = useState(true)
   const [selectedFile, setSelectedFile] = useState(null)
   const [renamingId,   setRenamingId]   = useState(null)
-  const [bpmEditing,   setBpmEditing]   = useState(false)
   const [renamingProject, setRenamingProject] = useState(false)
   const [shareOpen,    setShareOpen]    = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [projMenu,     setProjMenu]     = useState(false)
+  const [crewOpen,     setCrewOpen]     = useState(false)
   const [playerFile,   setPlayerFile]   = useState(null)
   const [playerAutoplay, setPlayerAutoplay] = useState(false)  // featured mix loads paused; user clicks autoplay
   const [playerStartAt,  setPlayerStartAt]  = useState(null)   // open-at-a-comment: seek here once loaded
@@ -52,7 +52,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [newSongInput,       setNewSongInput]       = useState(false)
   const [newSongName,        setNewSongName]        = useState('')
   const [mobileProjectsOpen, setMobileProjectsOpen] = useState(false)
-  const [mobileDetailOpen,   setMobileDetailOpen]   = useState(false)
   const [statusOpen,         setStatusOpen]         = useState(false)
   const [aiDetailsOpen, setAiDetailsOpen] = useState(false)
   const [msgCollab, setMsgCollab] = useState(null)
@@ -359,7 +358,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     // too, or the detail panel (which reads selectedFile directly) keeps
     // showing the old BPM even though the row/header already updated.
     setSelectedFile(prev => prev && prev.id === stemId ? { ...prev, notes: newNotes } : prev)
-    setBpmEditing(false)
     try {
       await filesApi.update(stemId, { bpm })
     } catch (e) {
@@ -512,7 +510,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   })() : []
 
   const selVNum = selectedFile ? parseVersionNum(selectedFile.original_name || selectedFile.suggested_name) : null
-  const versionLabel = (n) => n === 4 ? 'Final take' : n === 3 ? 'Pre-mix' : n === 2 ? 'Studio' : n === 1 ? 'Early draft' : 'Version'
 
   // Cover upload hooks — declared before any early return (Rules of Hooks)
   const coverInput = useRef(null)
@@ -867,6 +864,89 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 squeezed illegibly next to a long project name. */}
             <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, flexShrink:0, paddingTop:4,
               width: isMobile ? '100%' : undefined, justifyContent: isMobile ? 'flex-start' : undefined }}>
+              {/* Crew — avatar stack; the full list (approve/message/remove)
+                  lives in the popover now that the right rail is gone. */}
+              {!isMobile && (collabs.length > 0 || isOwner) && (
+                <div style={{ position:'relative', marginRight:6 }}>
+                  <button onClick={() => setCrewOpen(o => !o)} aria-label={`Collaborators (${collabs.length})`} title="Crew"
+                    style={{ display:'flex', alignItems:'center', border:'none', background:'transparent', cursor:'pointer', padding:2 }}>
+                    {collabs.slice(0, 4).map((c, i) => {
+                      const nm = c.user?.full_name || (c.user?.email ? c.user.email.split('@')[0] : 'User')
+                      return (
+                        <div key={c.id} style={{ marginLeft: i ? -9 : 0, borderRadius:'50%', boxShadow:'0 0 0 2px var(--surface)', lineHeight:0 }}>
+                          <Avatar name={nm} url={c.user?.avatar_url} size={28} border="none"/>
+                        </div>
+                      )
+                    })}
+                    {collabs.length > 4 && (
+                      <span style={{ marginLeft:-9, width:28, height:28, borderRadius:'50%', background:'var(--surface-2)', boxShadow:'0 0 0 2px var(--surface)',
+                        display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--t2)' }}>
+                        +{collabs.length - 4}
+                      </span>
+                    )}
+                  </button>
+                  {crewOpen && (
+                    <>
+                      <div onClick={() => setCrewOpen(false)} style={{ position:'fixed', inset:0, zIndex:30 }}/>
+                      <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:31, width:280, maxHeight:420, overflowY:'auto',
+                        background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'var(--shadow-3, 0 12px 32px rgba(0,0,0,.18))' }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--surface)' }}>
+                          <span style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)' }}>Crew · {collabs.length}</span>
+                          {isOwner && (
+                            <button onClick={() => { setCrewOpen(false); openModal?.('invite', { project }) }}
+                              style={{ height:24, padding:'0 9px', borderRadius:20, border:'none', background:'var(--brand-tint)', color:'var(--brand)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                              + Invite
+                            </button>
+                          )}
+                        </div>
+                        {collabs.length === 0 && (
+                          <div style={{ padding:'20px 14px', fontSize:12, color:'var(--t3)', textAlign:'center', lineHeight:1.5 }}>Just you so far — invite your crew.</div>
+                        )}
+                        {collabs.map((collab, ci) => {
+                          const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
+                          const isSelf = collab.user_id === user?.id
+                          const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
+                          const isPending = collab.status === 'pending'
+                          const isRequest = isPending && !collab.invited_by
+                          const isInvited = isPending && !!collab.invited_by
+                          const showApproval = isOwner && isRequest
+                          const showCancel   = isOwner && isInvited
+                          const showMessage  = !isSelf && !isPending
+                          const showRemove   = isOwner && !isOwnerEntry && !isSelf && !isPending
+                          const hasActions   = showApproval || showCancel || showMessage || showRemove
+                          const aBtn = { flex:1, height:26, borderRadius:7, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }
+                          return (
+                            <div key={collab.id} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'11px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
+                              <Avatar name={nm} url={collab.user?.avatar_url} size={30} border="none"/>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
+                                <div style={{ marginTop:3 }}>
+                                  {isRequest
+                                    ? <span style={{ fontSize:9.5, fontWeight:500, color:'#EA9F1E', background:'rgba(234,159,30,.1)', padding:'2px 8px', borderRadius:20 }}>Wants to join</span>
+                                    : isInvited
+                                      ? <span style={{ fontSize:9.5, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 8px', borderRadius:20 }}>Invited · pending</span>
+                                      : <span style={{ fontSize:9.5, fontWeight:500, color:'var(--t3)' }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
+                                </div>
+                                {hasActions && (
+                                  <div style={{ display:'flex', gap:6, marginTop:8 }}>
+                                    {showApproval && <>
+                                      <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
+                                      <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Decline</button>
+                                    </>}
+                                    {showCancel  && <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t3)' }}>Cancel invite</button>}
+                                    {showMessage && <button onClick={() => { setCrewOpen(false); setMsgCollab(collab) }} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t2)' }}>Message</button>}
+                                    {showRemove  && <button onClick={() => { setCrewOpen(false); setRemCollab(collab) }} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Remove</button>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               <Button variant="ghost" size="sm" title="Upload"
                 onClick={() => openModal?.('upload', { project, folderId: selectedFolderId })}
                 className="text-[13px]" style={{ color:'var(--t2)' }}>
@@ -964,6 +1044,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </div>
         </div>
 
+        {/* Reading column — with the right rail gone, cap the width so rows
+            don't sprawl on wide screens. */}
+        <div style={{ width:'100%', maxWidth:1060, margin:'0 auto' }}>
         {/* Inline player — playing a stem on this page loads it HERE (the player
             you're looking at), not the docked bottom MiniPlayer. */}
         {playerFile && (
@@ -1117,12 +1200,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                         draggable={!isRen}
                         onDragStart={e => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(f.id) }}
                         onDragEnd={() => { setDraggingId(null); setDragOverGroup(null); setDragOverFolder(null) }}
-                        onClick={() => { if (!isRen) { const ns = isSel ? null : f; setSelectedFile(ns); setBpmEditing(false); if (isMobile && ns) setMobileDetailOpen(true) } }}
+                        onClick={() => { if (!isRen) setSelectedFile(isSel ? null : f) }}
                         style={{
                           background: isActive ? 'rgba(109,90,230,.045)' : 'var(--surface)',
                           border: isSel ? '1.5px solid var(--brand-strong)' : (isFinals ? '1px solid rgba(60,218,111,.25)' : S.border),
                           borderRadius:10, padding: isMobile ? '11px 10px' : '13px 16px', position:'relative', overflow:'hidden',
-                          display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, cursor:'pointer',
+                          display:'flex', alignItems:'center', flexWrap:'wrap', gap: isMobile ? 8 : 14, cursor:'pointer',
                           opacity: draggingId === f.id ? .4 : 1,
                           transition:'border-color .12s, background .12s, box-shadow .12s, opacity .12s',
                           boxShadow: isSel ? '0 0 0 3px rgba(109,90,230,.08)' : 'none',
@@ -1160,8 +1243,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             </div>
                           )}
                           {sub && <div style={{ fontFamily:'var(--font-mono)', fontSize: isMobile ? 10 : 10.5, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{sub}</div>}
-                          {/* Noisy source filename only when the row is selected */}
-                          {isSel && f.original_name && <div style={{ fontSize:11, color:'var(--t4)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Source: {f.original_name}</div>}
                         </div>
                         {(isOwner || f.uploaded_by === user?.id) && (
                           <button onClick={e=>{ e.stopPropagation(); toggleArchive(f.id) }} aria-label="Archive stem" title="Archive — hides it but keeps it stored"
@@ -1203,6 +1284,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           <div aria-label="Uploading" title="Uploading…" style={{ width:32, height:32, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px solid var(--border)' }}>
                             <Spinner size={13} />
                           </div>
+                        )}
+                        {isSel && (
+                          <StemExpanded
+                            file={f} notes={selNotes} user={user} collabs={collabs}
+                            owner={{ id: project?.owner_id, name: project?.owner?.full_name?.split(' ')[0] || 'Owner' }}
+                            fmt={selExt} labels={selLabels} aiFlag={selAiFlag} onAiInfo={() => setAiDetailsOpen(true)}
+                            versions={selVersions} currentVNum={selVNum} onOpenVersion={v => setSelectedFile(v)}
+                            onSeek={sec => seekToComment(preview ? { ...f, file_url: preview } : f, sec)}
+                            onSaveBpm={v => saveBpm(f.id, v)}
+                          />
                         )}
                       </div>
                     )
@@ -1305,194 +1396,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
           </div>
         )}
+        </div>{/* /reading column */}
       </div>
-
-      {/* ══ RIGHT PANEL ══════════════════════════════════════════════════════ */}
-      {!isMobile && (
-        <div style={{ width:256, background:'var(--surface)', borderLeft:S.border, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
-
-          {/* Selected Stem */}
-          <div style={{ borderBottom:S.border }}>
-            <div style={{ padding:'14px 14px 12px', borderBottom:'1px solid var(--border)' }}>
-              <span style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)' }}>Selected Stem</span>
-            </div>
-            {!selectedFile ? (
-              <div style={{ padding:'22px 14px', textAlign:'center' }}>
-                <div style={{ width:38, height:38, borderRadius:10, background:'var(--surface-2)', border:S.border, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 10px' }}>
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={1.8} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                </div>
-                <div style={{ fontSize:12, color:'var(--t3)', lineHeight:1.5 }}>Click any stem<br/>to see its details</div>
-              </div>
-            ) : (
-              <div style={{ padding:'14px' }}>
-                <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
-                  <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:8 }}>
-                    {project?.title} — {selectedFile.suggested_name || selectedFile.original_name || 'Untitled'}
-                  </div>
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'var(--brand-tint)', border:'1px solid rgba(124,108,240,.25)', fontSize:10.5, fontWeight:500, color:'var(--brand)' }}>
-                    <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
-                    Auto-analyzed
-                  </span>
-                  {selAiFlag && (
-                    <button onClick={() => setAiDetailsOpen(true)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:10.5, fontWeight:600,
-                        border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
-                        color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
-                        background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
-                      <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
-                      {selAiFlag.label}
-                    </button>
-                  )}
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
-                  {[
-                    { label:'Format',      val: selExt },
-                    ...(selNotes.duration ? [{ label:'Duration', val: fmtDur(selNotes.duration) }] : []),
-                    ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
-                    ...(selectedFile.original_name ? [{ label:'Source file', val: selectedFile.original_name, stack:true }] : []),
-                  ].map(row => row.stack ? (
-                    // Long values (file paths) get their own line so they don't squish.
-                    <div key={row.label} style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                      <span style={{ fontSize:11, color:'var(--t3)' }}>{row.label}</span>
-                      <span title={row.val} style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', wordBreak:'break-word' }}>{row.val}</span>
-                    </div>
-                  ) : (
-                    <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
-                      <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>{row.label}</span>
-                      <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', textAlign:'right' }}>{row.val}</span>
-                    </div>
-                  ))}
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
-                    <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>BPM{selNotes.bpmManual ? ' (manual)' : ''}</span>
-                    {bpmEditing ? (
-                      <input type="number" autoFocus defaultValue={selNotes.bpm ? Math.round(selNotes.bpm) : ''}
-                        placeholder="—" min={20} max={400}
-                        onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
-                        onBlur={e => saveBpm(selectedFile.id, e.target.value)}
-                        style={{ width:64, fontSize:11.5, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
-                          border:'1.5px solid var(--brand-strong)', borderRadius:6, outline:'none', padding:'2px 6px', fontFamily:'inherit' }}/>
-                    ) : (
-                      <span onClick={() => setBpmEditing(true)} title="Click to edit"
-                        style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, color:'var(--t1)', textAlign:'right', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
-                        {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {selLabels.length > 0 && (
-                  <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid var(--border)' }}>
-                    <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:8 }}>Detected Labels</div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                      {selLabels.map(([lbl, clr], i) => (
-                        <div key={i} style={{ padding:'6px 12px', borderRadius:7, background:`${clr}12`, border:`1px solid ${clr}25`, textAlign:'center', fontSize:11.5, fontWeight:500, color:clr }}>{lbl}</div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(selVNum !== null || selVersions.length > 0) && (
-                  <div style={{ marginBottom:14 }}>
-                    <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:8 }}>Versions</div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                      {selVNum !== null && (
-                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:7, background:'rgba(109,90,230,.07)', border:'1px solid rgba(109,90,230,.2)' }}>
-                          <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', minWidth:20 }}>v{selVNum}</span>
-                          <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t1)', flex:1 }}>{versionLabel(selVNum)}</span>
-                          <span style={{ fontFamily:'var(--font-mono)', fontSize:9, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 6px', borderRadius:4 }}>Current</span>
-                        </div>
-                      )}
-                      {selVersions.map(f => (
-                        <button key={f.id} onClick={() => setSelectedFile(f)}
-                          style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:7, background:'var(--bg)', border:S.border, cursor:'pointer', textAlign:'left', width:'100%', fontFamily:'inherit', transition:'all .1s' }}
-                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(var(--fg),.06)';e.currentTarget.style.borderColor='var(--t4)'}}
-                          onMouseLeave={e=>{e.currentTarget.style.background='var(--bg)';e.currentTarget.style.borderColor='var(--border)'}}>
-                          <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--t3)', minWidth:20 }}>{f.vNum !== null ? `v${f.vNum}` : '—'}</span>
-                          <span style={{ fontSize:11.5, fontWeight:500, color:'var(--t2)', flex:1 }}>{f.vNum !== null ? versionLabel(f.vNum) : (f.suggested_name || f.original_name)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true) }}
-                    style={{ height:34, borderRadius:99, border:'none', cursor:'pointer', background:'var(--grad)', color:'#fff', fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'inherit', transition:'opacity .1s' }}
-                    onMouseEnter={e=>e.currentTarget.style.opacity='.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
-                    <svg width={8} height={8} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:1 }}><polygon points="5,3 19,12 5,21"/></svg>
-                    Play Stem
-                  </button>
-                  <button onClick={() => setSelectedFile(null)}
-                    style={{ height:32, borderRadius:8, border:S.border, cursor:'pointer', background:'transparent', color:'var(--t3)', fontSize:12, fontFamily:'inherit', transition:'all .1s' }}
-                    onMouseEnter={e=>{e.currentTarget.style.background='var(--bg)';e.currentTarget.style.color='var(--t2)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--t3)'}}>
-                    Deselect
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Comments for the selected stem — the same thread the Studio shows
-              on its timeline, so feedback lives in one place. */}
-          <StemComments stemId={selectedFile?.id} collabs={collabs} user={user}
-            owner={{ id: project?.owner_id, name: project?.owner?.full_name?.split(' ')[0] || 'Owner' }}
-            onSeekTo={sec => seekToComment(selectedFile, sec)} />
-
-          {/* Collaborators */}
-          {collabs.length > 0 && (
-            <div style={{ borderTop:'1px solid var(--border)' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px', borderBottom:'1px solid var(--border)' }}>
-                <span style={{ fontSize:12, fontWeight:600, color:'var(--t1)' }}>Collaborators · {collabs.length}</span>
-                {isOwner && (
-                  <button onClick={() => openModal?.('invite', { project })}
-                    style={{ height:24, padding:'0 8px', borderRadius:6, border:'1px solid rgba(109,90,230,.3)', background:'rgba(109,90,230,.08)', color:'var(--brand-strong)', fontSize:10.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-                    + Invite
-                  </button>
-                )}
-              </div>
-              {collabs.map((collab, ci) => {
-                const nm = collab.user?.full_name || (collab.user?.email ? collab.user.email.split('@')[0] : 'User')
-                const isSelf = collab.user_id === user?.id
-                const isOwnerEntry = collab._isOwner || collab.user_id === project?.owner_id
-                const isPending = collab.status === 'pending'
-                const isRequest = isPending && !collab.invited_by   // they asked to join → owner approves
-                const isInvited = isPending && !!collab.invited_by  // owner invited → awaiting their acceptance
-                const showApproval = isOwner && isRequest
-                const showCancel   = isOwner && isInvited
-                const showMessage  = !isSelf && !isPending
-                const showRemove   = isOwner && !isOwnerEntry && !isSelf && !isPending
-                const hasActions   = showApproval || showCancel || showMessage || showRemove
-                const aBtn = { flex:1, height:26, borderRadius:7, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }
-                return (
-                  <div key={collab.id} style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'11px 14px', borderTop: ci>0?'1px solid var(--surface-2)':'none' }}>
-                    <Avatar name={nm} url={collab.user?.avatar_url} size={30} border="none"/>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nm}{isSelf?' (you)':''}</div>
-                      <div style={{ marginTop:4 }}>
-                        {isRequest
-                          ? <span style={{ fontSize:9.5, fontWeight:500, color:'#EA9F1E', background:'rgba(234,159,30,.1)', padding:'2px 8px', borderRadius:20 }}>Wants to join</span>
-                          : isInvited
-                            ? <span style={{ fontSize:9.5, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 8px', borderRadius:20 }}>Invited · pending</span>
-                            : <span style={{ fontSize:9.5, fontWeight:500, color:'var(--t3)' }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
-                      </div>
-                      {hasActions && (
-                        <div style={{ display:'flex', gap:6, marginTop:9 }}>
-                          {showApproval && <>
-                            <button onClick={() => reviewJoin(collab, true)}  disabled={reviewingId === collab.id} style={{ ...aBtn, border:'none', background:'#3CDA6F', color:'#06310f', fontWeight:600, opacity: reviewingId===collab.id?.6:1 }}>Approve</button>
-                            <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Decline</button>
-                          </>}
-                          {showCancel  && <button onClick={() => reviewJoin(collab, false)} disabled={reviewingId === collab.id} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t3)' }}>Cancel invite</button>}
-                          {showMessage && <button onClick={() => setMsgCollab(collab)} style={{ ...aBtn, border:S.border, background:'transparent', color:'var(--t2)' }}>Message</button>}
-                          {showRemove  && <button onClick={() => setRemCollab(collab)} style={{ ...aBtn, border:'1px solid rgba(239,68,68,.25)', background:'rgba(239,68,68,.06)', color:'#ef4444' }}>Remove</button>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-        </div>
-      )}
 
       {/* ══ MOBILE BOTTOM SHEETS ════════════════════════════════════════════ */}
       {isMobile && (
@@ -1520,81 +1425,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'14px 20px', border:'none', borderTop:'1px solid var(--border)', background:'none', color:'var(--t3)', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>
               + New Song
             </button>
-          </div>
-        </BottomSheet>
-      )}
-
-      {isMobile && selectedFile && (
-        <BottomSheet open={mobileDetailOpen} onClose={() => { setMobileDetailOpen(false); setSelectedFile(null) }} title="Stem Details">
-          <div style={{ padding:'16px 20px 24px' }}>
-            <div style={{ marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
-              <div style={{ fontSize:15, fontWeight:650, color:'var(--t1)', lineHeight:1.35, wordBreak:'break-word', marginBottom:9 }}>
-                {project?.title} — {selectedFile.suggested_name || selectedFile.original_name || 'Untitled'}
-              </div>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:20, background:'var(--brand-tint)', border:'1px solid rgba(124,108,240,.25)', fontSize:11, fontWeight:500, color:'var(--brand)' }}>
-                <svg width={7} height={7} viewBox="0 0 12 12"><polygon points="6,0 7.5,4.5 12,4.5 8.5,7 9.8,12 6,9 2.2,12 3.5,7 0,4.5 4.5,4.5" fill="currentColor"/></svg>
-                Auto-analyzed
-              </span>
-              {selAiFlag && (
-                <button onClick={() => setAiDetailsOpen(true)}
-                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:6, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:600,
-                    border: `1px solid ${selAiFlag.tone==='red' ? 'rgba(255,107,107,.3)' : 'rgba(224,168,58,.3)'}`, cursor:'pointer', fontFamily:'inherit',
-                    color: selAiFlag.tone==='red' ? '#ff6b6b' : '#e0a83a',
-                    background: selAiFlag.tone==='red' ? 'rgba(255,107,107,.14)' : 'rgba(224,168,58,.14)' }}>
-                  <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', flexShrink:0 }}/>
-                  {selAiFlag.label}
-                </button>
-              )}
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
-              {[
-                { label:'Format',      val: selExt },
-                ...(selNotes.duration ? [{ label:'Duration', val: fmtDur(selNotes.duration) }] : []),
-                ...(selectedFile.file_size ? [{ label:'File size', val: fmtSize(selectedFile.file_size) }] : []),
-              ].map(row => (
-                <div key={row.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontSize:13, color:'var(--t3)' }}>{row.label}</span>
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:12.5, fontWeight:500, color:'var(--t1)' }}>{row.val}</span>
-                </div>
-              ))}
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontSize:13, color:'var(--t3)' }}>BPM{selNotes.bpmManual ? ' (manual)' : ''}</span>
-                {bpmEditing ? (
-                  <input type="number" autoFocus defaultValue={selNotes.bpm ? Math.round(selNotes.bpm) : ''}
-                    placeholder="—" min={20} max={400}
-                    onKeyDown={e => { if (e.key === 'Enter') saveBpm(selectedFile.id, e.target.value); if (e.key === 'Escape') setBpmEditing(false) }}
-                    onBlur={e => saveBpm(selectedFile.id, e.target.value)}
-                    style={{ width:70, fontSize:13, fontWeight:600, color:'var(--t1)', textAlign:'right', background:'var(--surface)',
-                      border:'1.5px solid var(--brand-strong)', borderRadius:6, outline:'none', padding:'3px 8px', fontFamily:'inherit' }}/>
-                ) : (
-                  <span onClick={() => setBpmEditing(true)}
-                    style={{ fontFamily:'var(--font-mono)', fontSize:12.5, fontWeight:500, color:'var(--t1)', cursor:'pointer', borderBottom:'1px dashed var(--t3)' }}>
-                    {selNotes.bpm ? `${Math.round(selNotes.bpm)} BPM` : 'Set BPM'}
-                  </span>
-                )}
-              </div>
-            </div>
-            {selLabels.length > 0 && (
-              <div style={{ marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border)' }}>
-                <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.14em', marginBottom:10 }}>Detected Labels</div>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                  {selLabels.map(([lbl, clr], i) => (
-                    <span key={i} style={{ padding:'6px 14px', borderRadius:8, background:`${clr}12`, border:`1px solid ${clr}25`, fontSize:12.5, fontWeight:500, color:clr }}>{lbl}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            <button onClick={() => { openPlayer(selectedFile); setIsPlaying(true); setMobileDetailOpen(false) }}
-              style={{ width:'100%', height:46, borderRadius:11, border:'none', cursor:'pointer', background:'var(--grad)', color:'#fff', fontSize:15, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'inherit', boxShadow:'0 4px 16px rgba(109,90,230,.3)' }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
-              Play Stem
-            </button>
-            {/* Same Studio-linked comment thread as the desktop rail. */}
-            <div style={{ margin:'18px -20px -24px' }}>
-              <StemComments stemId={selectedFile?.id} collabs={collabs} user={user}
-                owner={{ id: project?.owner_id, name: project?.owner?.full_name?.split(' ')[0] || 'Owner' }}
-                onSeekTo={sec => { seekToComment(selectedFile, sec); setMobileDetailOpen(false) }} />
-            </div>
           </div>
         </BottomSheet>
       )}

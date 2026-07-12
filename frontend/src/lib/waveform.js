@@ -2,6 +2,7 @@
 // to N bars, cache by stem id. Falls back gracefully (caller catches) if the
 // file can't be fetched (CORS) or is too large to decode in the browser.
 const cache = new Map()          // id -> number[] (0..1)
+const durCache = new Map()       // id -> seconds (byproduct of the decode)
 const inflight = new Map()       // id -> Promise
 let _ctx
 const ctx = () => (_ctx ||= new (window.AudioContext || window.webkitAudioContext)())
@@ -9,6 +10,10 @@ const ctx = () => (_ctx ||= new (window.AudioContext || window.webkitAudioContex
 const MAX_BYTES = 80 * 1024 * 1024  // skip decode for very large files (keeps UI snappy)
 
 export function cachedPeaks(id) { return cache.get(id) || null }
+
+// Duration learned from the decode — a fallback for stems whose analysis
+// notes never recorded one (older uploads).
+export function cachedDuration(id) { return durCache.get(id) || 0 }
 
 // Deterministic per-stem waveform from the id — used until real audio can be
 // decoded (R2 needs CORS for fetch()). Same stem always renders the same shape;
@@ -40,6 +45,7 @@ export async function getPeaks(id, url, bars = 160) {
     const arr = await res.arrayBuffer()
     if (arr.byteLength > MAX_BYTES) throw new Error('too large')
     const audio = await ctx().decodeAudioData(arr)
+    durCache.set(id, audio.duration)
     const ch = audio.getChannelData(0)
     const block = Math.max(1, Math.floor(ch.length / bars))
     const peaks = new Array(bars)

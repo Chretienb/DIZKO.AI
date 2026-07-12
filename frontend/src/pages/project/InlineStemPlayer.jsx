@@ -41,10 +41,12 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
 
   const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`
 
-  // Open-at-a-comment: seek once, as soon as the track's metadata is in.
-  // Consumed via ref so re-renders don't re-seek.
+  // Open-at-a-comment: seek as soon as the track's metadata is in. The load
+  // effect captures this per audio instance (NOT consume-once on the ref —
+  // StrictMode's throwaway first mount would eat the seek before the real
+  // audio element exists).
   const startAtRef = useRef(null)
-  useEffect(() => { if (typeof startAt === 'number') startAtRef.current = startAt }, [startAt, track?.id])
+  useEffect(() => { startAtRef.current = typeof startAt === 'number' ? startAt : null }, [startAt, track?.id])
 
   useEffect(() => {
     if (!track) return
@@ -69,11 +71,12 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
     audioRef.current = a
     warmPreviewBytes(track.preview_url)   // fill the cache so replays/reloads are instant
     a.ontimeupdate     = () => { setCurrent(a.currentTime); setProgress(a.duration ? a.currentTime/a.duration*100 : 0) }
+    let pendingSeek = startAtRef.current
     a.onloadedmetadata = () => {
       setDuration(a.duration)
-      if (startAtRef.current != null) {
-        a.currentTime = Math.max(0, Math.min(a.duration || startAtRef.current, startAtRef.current))
-        startAtRef.current = null
+      if (pendingSeek != null) {
+        a.currentTime = Math.max(0, Math.min(a.duration || pendingSeek, pendingSeek))
+        pendingSeek = null
       }
     }
     a.oncanplay        = () => { setLoading(false); setUnsupported(false) }
@@ -132,7 +135,7 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
       if (action==='pause')    { a.pause(); setPlaying(false) }
       if (action==='seekBack') a.currentTime = Math.max(0, a.currentTime-5)
       if (action==='seekFwd')  a.currentTime = Math.min(a.duration||0, a.currentTime+5)
-      // Jump to a comment's moment (StemComments timestamp chips) and play.
+      // Jump to a comment's moment (timestamp chips / wave clicks) and play.
       if (action==='seekTo' && typeof e.detail?.sec === 'number') {
         a.currentTime = Math.max(0, Math.min(a.duration || e.detail.sec, e.detail.sec))
         a.play().catch(()=>{}); setPlaying(true)
