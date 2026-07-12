@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/badge.jsx'
 import { Button } from '../components/ui/button.jsx'
 import { Input } from '../components/ui/input.jsx'
 import { Spinner } from '../components/ui/spinner.jsx'
+import { Skeleton } from '../components/ui/skeleton.jsx'
 import { Bubble, BubbleContent } from '../components/ui/bubble.jsx'
 import { Message, MessageGroup } from '../components/ui/message.jsx'
 import {
@@ -168,9 +169,35 @@ export default function PageInbox({ openModal, user }) {
   const filtered = q.trim() ? threads.filter(t => t.name.toLowerCase().includes(q.trim().toLowerCase())) : threads
   const totalUnread = threads.reduce((n, t) => n + (t.unread || 0), 0)
 
+  // Skeleton mirrors the real layout (header → search → thread rows | thread
+  // pane) — same loading language as the Dashboard/Notifications pages.
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'100px 0' }}>
-      <Spinner className="size-6 text-[color:var(--brand)]"/>
+    <div>
+      <div style={{ display:'flex', alignItems:'center', gap:10, margin:'0 0 6px' }}>
+        <h1 style={{ margin:0, fontSize:26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Inbox</h1>
+      </div>
+      <div style={{ fontSize:13, color:'var(--t3)', marginBottom:18 }}>Messages from collaborators and your public profile.</div>
+      <div className="ib-grid" style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '380px 1fr', gap:20, alignItems:'start' }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <Skeleton className="h-10 w-full rounded-lg"/>
+          <div style={{ background:'var(--surface)', borderRadius:'var(--r-3)', border:'1px solid var(--border)', padding:'6px 0' }}>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:13, padding:'12px 14px' }}>
+                <Skeleton className="size-[46px] rounded-full shrink-0"/>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                  <Skeleton className="h-3.5 w-2/5"/>
+                  <Skeleton className="h-3 w-3/5"/>
+                </div>
+                <Skeleton className="h-3 w-10 shrink-0"/>
+              </div>
+            ))}
+          </div>
+        </div>
+        {!isMobile && (
+          <div style={{ height:'calc(100vh - 150px)', minHeight:420, background:'var(--surface)',
+            border:'1px solid var(--border)', borderRadius:'var(--r-3)', boxShadow:'var(--shadow-1)' }}/>
+        )}
+      </div>
     </div>
   )
 

@@ -131,9 +131,14 @@ function CollabCard({ c, index, isOnline, onWork, onRemove, onProfile }) {
             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {name}
           </div>
-          <div style={{ fontSize:11.5, color:'var(--brand)', textTransform:'capitalize', marginTop:2 }}>
-            {c.role || 'Collaborator'}
-          </div>
+          {/* Role only when it says something real — "Owner" on every card
+              read as noise, not pro. Musical roles (Producer, Vocalist…)
+              still show. */}
+          {c.role && !/^(owner|collaborator)$/i.test(c.role) && (
+            <div style={{ fontSize:11.5, color:'var(--brand)', textTransform:'capitalize', marginTop:2 }}>
+              {c.role}
+            </div>
+          )}
           <div style={{ fontSize:11.5, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:4 }}>
             {[c.projectTitle, c.status === 'pending' ? 'Invited · pending' : (isOnline ? 'Online' : 'Away')].filter(Boolean).join(' · ')}
           </div>
