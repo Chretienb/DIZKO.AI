@@ -1157,9 +1157,21 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             </div>
 
             {grouped.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'30px 16px', fontSize:13, color:'var(--t3)' }}>
-                No stems match “<span style={{ color:'var(--t1)', fontWeight:600 }}>{search}</span>”.
-              </div>
+              q ? (
+                <div style={{ textAlign:'center', padding:'30px 16px', fontSize:13, color:'var(--t3)' }}>
+                  No stems match “<span style={{ color:'var(--t1)', fontWeight:600 }}>{search}</span>”.
+                </div>
+              ) : (
+                // The selected SONG has no stems (the project itself does).
+                <div style={{ background:'var(--surface)', borderRadius:14, border:S.border, padding:'40px 24px', textAlign:'center' }}>
+                  <p style={{ margin:'0 0 10px', fontSize:13, fontWeight:500, color:'var(--t2)' }}>
+                    No stems in <span style={{ color:'var(--t1)' }}>{currentFolder?.name || 'this song'}</span> yet
+                  </p>
+                  <p style={{ margin:0, fontSize:12, color:'var(--t3)', lineHeight:1.5 }}>
+                    Upload here, or drag a stem from another song onto it in the sidebar.
+                  </p>
+                </div>
+              )
             ) : grouped.map(group => {
             const isFinals = group.key === 'finals'
             const canDrop  = !isFinals && !!GROUP_DROP_INSTR[group.key]
@@ -1207,7 +1219,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     return (
                       <div key={f.id} className="stem-row"
                         draggable={!isRen}
-                        onDragStart={e => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(f.id) }}
+                        onDragStart={e => {
+                          e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'
+                          // Defer the state flip out of the dragstart tick: the synchronous
+                          // re-render it triggers (empty drop-target groups mounting) makes
+                          // Chromium abort the native drag right after it starts — dragstart
+                          // fired, then instant dragend, nothing draggable (reported live).
+                          requestAnimationFrame(() => setDraggingId(f.id))
+                        }}
                         onDragEnd={() => { setDraggingId(null); setDragOverGroup(null); setDragOverFolder(null) }}
                         onClick={() => { if (!isRen) setSelectedFile(isSel ? null : f) }}
                         style={{
