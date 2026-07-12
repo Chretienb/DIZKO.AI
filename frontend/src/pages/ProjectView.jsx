@@ -528,13 +528,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         </div>
       )}
       <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
-        <div style={{ background:'var(--surface)', margin:'38px 0 0', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding: isMobile ? '18px 16px' : '18px 24px', display:'flex', alignItems:'center', gap:16 }}>
+        <div style={{ width:'100%', maxWidth:1060, boxSizing:'border-box', margin:'38px auto 0', padding: isMobile ? '12px 16px 0' : '14px 24px 0' }}>
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:18, padding: isMobile ? '16px' : '18px 22px', display:'flex', alignItems:'center', gap:16 }}>
           <Skeleton style={{ width:78, height:78, borderRadius:14, flexShrink:0 }}/>
           <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
             <Skeleton style={{ width:72, height:9 }}/>
             <Skeleton style={{ width:'34%', height:20 }}/>
             <Skeleton style={{ width:'26%', height:10 }}/>
           </div>
+        </div>
         </div>
         <div style={{ width:'100%', maxWidth:1060, margin:'0 auto', padding: isMobile ? 16 : '16px 24px', boxSizing:'border-box', display:'flex', flexDirection:'column', gap:10 }}>
           <Skeleton style={{ width:'100%', height:52, borderRadius:13 }}/>
@@ -788,8 +790,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           </Breadcrumb>
         )}
 
-        {/* Song Header */}
-        <div style={{ background:'var(--surface)', margin: isMobile ? '12px 0 0' : '14px 0 0', borderTop:S.border, borderBottom:S.border, padding: isMobile ? '18px 16px' : '18px 24px' }}>
+        {/* Song Header — floating rounded card, aligned with the reading column */}
+        <div style={{ width:'100%', maxWidth:1060, margin:'0 auto', padding: isMobile ? '12px 16px 0' : '14px 24px 0', boxSizing:'border-box' }}>
+        <div style={{ background:'var(--surface)', border:S.border, borderRadius:18, boxShadow:'var(--shadow-1, 0 1px 2px rgba(0,0,0,.08))', padding: isMobile ? '16px' : '18px 22px' }}>
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:8, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             {/* Cover + Title + status dot */}
             <div style={{ display:'flex', alignItems:'center', gap:14, minWidth:0, flex:1 }}>
@@ -1019,6 +1022,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )}
             </div>
           </div>
+        </div>
         </div>
 
         {/* Reading column — with the right rail gone, cap the width so rows
