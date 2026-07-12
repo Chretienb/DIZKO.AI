@@ -244,18 +244,30 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
 
       {/* Format the browser can't decode (e.g. AIFF in Chrome/Firefox). It still
           uploaded + analyzed fine — just can't preview here. */}
+      {/* Quiet, Apple-style note — no alarm colors: nothing is wrong with the
+          file, this browser just can't decode the format. One calm line and
+          the one useful action. */}
       {unsupported && (() => {
-        const fmt = ((track.original_name || '').split('.').pop() || '').toUpperCase() || 'This format'
-        const tip = (fmt === 'AIFF' || fmt === 'AIF') ? ' Open this page in Safari to preview it,'
-          : fmt === 'OGG' ? ' Open this page in Chrome or Firefox to preview it,'
-          : ''
+        const fmt = ((track.original_name || '').split('.').pop() || '').toUpperCase() || 'This file'
+        const tip = (fmt === 'AIFF' || fmt === 'AIF') ? 'Listen in Safari, or download the file.'
+          : fmt === 'OGG' ? 'Listen in Chrome or Firefox, or download the file.'
+          : 'Download the file to listen.'
         return (
-          <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 13px', borderRadius:12,
-            background:'rgba(234,159,30,.10)', border:'1px solid rgba(234,159,30,.28)' }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#EA9F1E" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div style={{ fontSize:12.5, color:'var(--t2)', lineHeight:1.5 }}>
-              <strong style={{ color:'var(--t1)' }}>{fmt} can’t play in this browser.</strong>{tip} or download the file to listen. Your upload and its analysis worked fine.
+          <div style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', borderRadius:12, background:'rgba(var(--fg),.04)' }}>
+            <div style={{ flex:1, minWidth:0, fontSize:12.5, color:'var(--t3)', lineHeight:1.5 }}>
+              <span style={{ color:'var(--t1)', fontWeight:500 }}>{fmt} preview isn’t supported in this browser.</span>
+              {' '}{tip} Your upload is fine.
             </div>
+            {track.file_url && (
+              <a href={track.file_url} download={track.original_name || true}
+                style={{ display:'inline-flex', alignItems:'center', height:30, padding:'0 14px', borderRadius:99, flexShrink:0,
+                  border:'1px solid var(--border)', color:'var(--t1)', fontSize:12, fontWeight:500, textDecoration:'none',
+                  whiteSpace:'nowrap', transition:'border-color .12s, background .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--t4)'; e.currentTarget.style.background = 'rgba(var(--fg),.04)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' }}>
+                Download
+              </a>
+            )}
           </div>
         )
       })()}
