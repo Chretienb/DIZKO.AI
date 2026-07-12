@@ -267,12 +267,13 @@ export default function InlineStemPlayer({ track, playlist = [], user, projectTi
         style={{ position:'relative', height:128, cursor:(!loading && duration) ? 'pointer' : 'default',
           opacity: (loading || !peaksReady) ? .4 : 1, transition:'opacity .25s' }}>
         {/* Each bar's height is the audio peak; played bars fill coral. */}
-        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', gap:2, pointerEvents:'none' }}>
-          {peaks.map((p, i) => {
-            const played = (i / peaks.length) * 100 <= progress
+        {/* Chunky rounded pill bars — soft curves, not thin spikes */}
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', gap:3, pointerEvents:'none' }}>
+          {peaks.filter((_, i) => i % 2 === 0).map((p, i, arr) => {
+            const played = (i / arr.length) * 100 <= progress
             // Neutral, uniform baseline while loading the real peaks.
-            const h = peaksReady ? Math.max(3, p * 100) : 14
-            return <div key={i} style={{ flex:1, height:`${h}%`, borderRadius:2,
+            const h = peaksReady ? Math.max(7, p * 100) : 14
+            return <div key={i} style={{ flex:1, height:`${h}%`, borderRadius:99,
               background: peaksReady && played ? CORAL : 'rgba(var(--fg),.4)', transition:'height .25s, background .12s' }}/>
           })}
         </div>

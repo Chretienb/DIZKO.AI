@@ -461,15 +461,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     // While dragging, keep the droppable groups visible (even empty) as targets.
   })).filter(g => g.items.length > 0 || (draggingId && GROUP_DROP_INSTR[g.key]))
 
-  // Shared minimal chip style for the meta row.
-  // Flat, unboxed text on mobile — "simple modern," not a row of pill chips.
-  const chip = isMobile
-    ? { display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, fontWeight:500, color:'var(--t2)', whiteSpace:'nowrap' }
-    : { display:'inline-flex', alignItems:'center', gap:6, height:28, padding:'0 11px',
-        borderRadius:8, background:'rgba(var(--fg),.05)', border:'1px solid var(--border)',
-        fontSize:12.5, fontWeight:500, color:'var(--t1)', whiteSpace:'nowrap' }
-  const chipSep = isMobile ? <span style={{ color:'var(--t4)' }}>·</span> : null
-
   // Header BPM/key describe the SELECTED SONG, not the whole album. Prefer the
   // song's master (its canonical tempo/key); fall back to any analyzed stem.
   const infoFile   = stemsForView.find(f => f.instrument === 'master' && parseNotes(f).bpm)
@@ -537,14 +528,15 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         </div>
       )}
       <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
-        <div style={{ background:'var(--surface)', margin:'38px 0 0', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding: isMobile ? '18px 16px' : '18px 24px', display:'flex', alignItems:'center', gap:14 }}>
-          <Skeleton style={{ width:68, height:68, borderRadius:12, flexShrink:0 }}/>
-          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
-            <Skeleton style={{ width:'38%', height:22 }}/>
-            <Skeleton style={{ width:'22%', height:11 }}/>
+        <div style={{ background:'var(--surface)', margin:'38px 0 0', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding: isMobile ? '18px 16px' : '18px 24px', display:'flex', alignItems:'center', gap:16 }}>
+          <Skeleton style={{ width:78, height:78, borderRadius:14, flexShrink:0 }}/>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
+            <Skeleton style={{ width:72, height:9 }}/>
+            <Skeleton style={{ width:'34%', height:20 }}/>
+            <Skeleton style={{ width:'26%', height:10 }}/>
           </div>
         </div>
-        <div style={{ padding: isMobile ? 16 : '16px 24px', display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ width:'100%', maxWidth:1060, margin:'0 auto', padding: isMobile ? 16 : '16px 24px', boxSizing:'border-box', display:'flex', flexDirection:'column', gap:10 }}>
           <Skeleton style={{ width:'100%', height:52, borderRadius:13 }}/>
           {[0,1,2,3].map(i => (
             <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', borderRadius:10, background:'var(--surface)', border:'1px solid var(--border)' }}>
@@ -557,19 +549,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           ))}
         </div>
       </div>
-      {!isMobile && (
-        <div style={{ width:256, background:'var(--surface)', borderLeft:'1px solid var(--border)', padding:14, display:'flex', flexDirection:'column', gap:12, flexShrink:0 }}>
-          <Skeleton style={{ width:90, height:10 }}/>
-          <Skeleton style={{ width:'100%', height:110, borderRadius:10 }}/>
-          <Skeleton style={{ width:110, height:10, marginTop:8 }}/>
-          {[0,1].map(i => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:9 }}>
-              <Skeleton className="rounded-full" style={{ width:30, height:30, flexShrink:0 }}/>
-              <Skeleton style={{ width:'60%', height:11 }}/>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 
@@ -817,7 +796,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               <input ref={coverInput} type="file" accept="image/*" onChange={pickCover} style={{ display:'none' }} />
               <button onClick={() => isOwner && coverInput.current?.click()} type="button"
                 title={isOwner ? 'Change cover' : undefined}
-                style={{ position:'relative', width: isMobile ? 56 : 68, height: isMobile ? 56 : 68, borderRadius:12, flexShrink:0,
+                style={{ position:'relative', width: isMobile ? 58 : 78, height: isMobile ? 58 : 78, borderRadius:14, flexShrink:0,
                   overflow:'hidden', padding:0, border:'1px solid var(--border)', cursor: isOwner ? 'pointer' : 'default',
                   background: project?.cover_url
                     ? `center/cover url(${project.cover_url})`
@@ -843,21 +822,65 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                   </div>
                 ))}
               </button>
-              {renamingProject ? (
-                <input autoFocus defaultValue={headerTitle}
-                  onBlur={e => renameHeader(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') renameHeader(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
-                  style={{ margin:0, fontSize: isMobile ? 24 : 30, fontWeight:650, color:'var(--t1)', letterSpacing:'-1px',
-                    textTransform:'uppercase', lineHeight:1.05, fontFamily:'inherit', minWidth:0, flex:1,
-                    background:'var(--surface)', border:'1.5px solid var(--brand-strong)', borderRadius:8, padding:'2px 8px', outline:'none' }}/>
-              ) : (
-                <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
-                  title={isOwner ? 'Double-click to rename' : headerTitle}
-                  style={{ margin:0, fontSize: isMobile ? 20 : 30, fontWeight:650, color:'var(--t1)', letterSpacing:'-1px', textTransform:'uppercase', lineHeight:1.05,
-                    minWidth:0, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: isOwner ? 'text' : 'default' }}>
-                  {headerTitle}
-                </h1>
-              )}
+              <div style={{ minWidth:0, flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+                {/* Eyebrow — what this is */}
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)' }}>
+                  {(project?.type || 'Single')}{folders.length > 1 ? ` · ${folders.length} songs` : ''}
+                </div>
+                {renamingProject ? (
+                  <input autoFocus defaultValue={headerTitle}
+                    onBlur={e => renameHeader(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') renameHeader(e.target.value); if (e.key === 'Escape') setRenamingProject(false) }}
+                    style={{ margin:0, fontSize: isMobile ? 20 : 26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.6px',
+                      textTransform:'uppercase', lineHeight:1.1, fontFamily:'inherit', minWidth:0,
+                      background:'var(--surface)', border:'1.5px solid var(--brand-strong)', borderRadius:8, padding:'1px 8px', outline:'none' }}/>
+                ) : (
+                  <h1 onDoubleClick={() => isOwner && setRenamingProject(true)}
+                    title={isOwner ? 'Double-click to rename' : headerTitle}
+                    style={{ margin:0, fontSize: isMobile ? 20 : 26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.6px', textTransform:'uppercase', lineHeight:1.1,
+                      minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor: isOwner ? 'text' : 'default' }}>
+                    {headerTitle}
+                  </h1>
+                )}
+                {/* One flat metadata line — no boxes, color only on the status dot */}
+                <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap', fontSize:12, color:'var(--t3)', minHeight:20 }}>
+                  <div style={{ position:'relative' }}>
+                    <button onClick={() => isOwner && setStatusOpen(o => !o)}
+                      style={{ display:'inline-flex', alignItems:'center', gap:6, padding:0, border:'none', background:'none',
+                        fontSize:12, fontWeight:500, color:'var(--t2)', cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit', transition:'color .12s' }}
+                      onMouseEnter={e=>{ if (isOwner) e.currentTarget.style.color='var(--t1)' }}
+                      onMouseLeave={e=>{ e.currentTarget.style.color='var(--t2)' }}>
+                      <span style={{ width:7, height:7, borderRadius:'50%', background:ltDot(status), flexShrink:0 }}/>
+                      {status}
+                      {isOwner && <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="var(--t4)" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
+                    </button>
+                    {statusOpen && isOwner && (
+                      <>
+                        <div onClick={() => setStatusOpen(false)} style={{ position:'fixed', inset:0, zIndex:9 }}/>
+                        <div style={{ position:'absolute', top:'calc(100% + 8px)', left:0, zIndex:10, background:'var(--surface)', border:S.border, borderRadius:12, padding:6, minWidth:150, boxShadow:'0 8px 24px rgba(0,0,0,.18)' }}>
+                          {STATUSES.map(st => {
+                            const on = st === status
+                            return (
+                              <button key={st} onClick={() => updateStatus(st)}
+                                style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:8,
+                                  background: on ? 'var(--surface-2)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit' }}>
+                                <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(st), flexShrink:0 }}/>
+                                <span style={{ fontSize:12.5, fontWeight: on ? 600 : 500, color: on ? 'var(--t1)' : 'var(--t2)' }}>{st}</span>
+                                {on && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#3CDA6F" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:'auto' }}><polyline points="20,6 9,17 4,12"/></svg>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {projBpm && <><span style={{ color:'var(--t4)' }}>·</span><span style={{ fontFamily:'var(--font-mono)', fontSize:11.5 }}>{Math.round(projBpm)} BPM</span></>}
+                  {projKey?.trim() && <><span style={{ color:'var(--t4)' }}>·</span><span style={{ fontFamily:'var(--font-mono)', fontSize:11.5 }}>{projKey}</span></>}
+                  <span style={{ color:'var(--t4)' }}>·</span>
+                  <span>{stemsForView.length} stem{stemsForView.length!==1?'s':''}</span>
+                  {project?.updated_at && !isMobile && <><span style={{ color:'var(--t4)' }}>·</span><span>Updated {timeAgo(project.updated_at)}</span></>}
+                </div>
+              </div>
             </div>
             {/* Action buttons — full width row of their own on mobile, wrapping
                 below the title, so labels have real room instead of being
@@ -995,52 +1018,6 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Meta chips — minimal & modern */}
-          <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 6 : 9, flexWrap:'wrap' }}>
-            {/* Clickable status */}
-            <div style={{ position:'relative' }}>
-              <button onClick={() => isOwner && setStatusOpen(o => !o)}
-                style={{ ...chip, border: isMobile ? 'none' : chip.border, background: isMobile ? 'none' : chip.background,
-                  padding: isMobile ? 0 : chip.padding, cursor: isOwner ? 'pointer' : 'default', fontFamily:'inherit', transition:'background .1s' }}
-                onMouseEnter={e=>{ if(isOwner && !isMobile) e.currentTarget.style.background='rgba(var(--fg),.09)' }}
-                onMouseLeave={e=>{ if(!isMobile) e.currentTarget.style.background='rgba(var(--fg),.05)' }}>
-                <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(status) }}/>
-                <span>{status}</span>
-                {isOwner && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="var(--t3)" strokeWidth={2.5} strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
-              </button>
-              {statusOpen && isOwner && (
-                <>
-                  <div onClick={() => setStatusOpen(false)} style={{ position:'fixed', inset:0, zIndex:9 }}/>
-                  <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:10, background:'var(--surface)', border:S.border, borderRadius:12, padding:6, minWidth:150, boxShadow:'0 8px 24px rgba(0,0,0,.1)' }}>
-                    {STATUSES.map(s => {
-                      const on = s === status
-                      return (
-                        <button key={s} onClick={() => updateStatus(s)}
-                          style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:8,
-                            background: on ? 'var(--surface-2)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit' }}>
-                          <div style={{ width:7, height:7, borderRadius:'50%', background:ltDot(s), flexShrink:0 }}/>
-                          <span style={{ fontSize:12.5, fontWeight: on ? 600 : 500, color: on ? 'var(--t1)' : 'var(--t2)' }}>{s}</span>
-                          {on && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#3CDA6F" strokeWidth={2.5} strokeLinecap="round" style={{ marginLeft:'auto' }}><polyline points="20,6 9,17 4,12"/></svg>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {projBpm && <>{chipSep}<span style={{ ...chip, fontFamily:'var(--font-mono)' }}>{Math.round(projBpm)}<span style={{ color:'var(--t3)', fontWeight:500, marginLeft:3 }}>BPM</span></span></>}
-            {projKey?.trim() && <>{chipSep}<span style={{ ...chip, fontFamily:'var(--font-mono)' }}>{projKey}</span></>}
-            {chipSep}<span style={chip}>{project?.type || 'Single'}</span>
-            {/* "Auto-labeled" badge removed per Angel — visual bloat. */}
-          </div>
-
-          {/* Metadata row — scoped to the selected song's stems. */}
-          <div style={{ fontSize: isMobile ? 11 : 12, color:'var(--t3)' }}>
-            {stemsForView.length} stem{stemsForView.length!==1?'s':''}
-            {project?.updated_at && <><span style={{ color:'var(--t4)', margin:'0 4px' }}>·</span>Updated {timeAgo(project.updated_at)}</>}
           </div>
         </div>
 

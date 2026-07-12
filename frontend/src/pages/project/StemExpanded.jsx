@@ -132,10 +132,11 @@ export default function StemExpanded({
       <div onMouseDown={seekFrac} role="slider" aria-label="Seek"
         aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}
         style={{ position:'relative', height:76, cursor: duration ? 'pointer' : 'default', padding:'4px 0 14px' }}>
-        <div style={{ position:'absolute', inset:'4px 0 14px', display:'flex', alignItems:'center', gap:1.5, pointerEvents:'none', opacity: peaksReady ? 1 : .45, transition:'opacity .25s' }}>
-          {peaks.map((p, i) => {
-            const played = peaksReady && progress > 0 && i / peaks.length <= progress
-            return <div key={i} style={{ flex:1, height:`${peaksReady ? Math.max(4, p * 100) : 16}%`, borderRadius:1.5,
+        {/* Chunky rounded pill bars — soft SoundCloud curves, not thin spikes */}
+        <div style={{ position:'absolute', inset:'4px 0 14px', display:'flex', alignItems:'center', gap:2.5, pointerEvents:'none', opacity: peaksReady ? 1 : .45, transition:'opacity .25s' }}>
+          {peaks.filter((_, i) => i % 2 === 0).map((p, i, arr) => {
+            const played = peaksReady && progress > 0 && i / arr.length <= progress
+            return <div key={i} style={{ flex:1, height:`${peaksReady ? Math.max(9, p * 100) : 18}%`, borderRadius:99,
               background: played ? 'var(--brand-strong)' : 'rgba(var(--fg),.28)', transition:'height .25s' }}/>
           })}
         </div>
