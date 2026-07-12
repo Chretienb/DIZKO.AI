@@ -169,7 +169,9 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
           {crew === null ? (
             <div style={{ padding:'10px 0', display:'flex', justifyContent:'center' }}><Spinner size={18} /></div>
           ) : crew.length === 0 ? (
-            <div style={{ fontSize:12.5, color:C.t3, padding:'4px 2px' }}>No collaborators yet — invite someone below.</div>
+            <div style={{ fontSize:12.5, color:C.t3, padding:'4px 2px', lineHeight:1.5 }}>
+              No collaborators yet — invite someone below. Once they join, you’ll set their role and choose which songs they can access right here on their card.
+            </div>
           ) : crew.map(c => {
             const pending = isPending(c)
             const scoped = Array.isArray(c.folder_ids) && c.folder_ids.length > 0
