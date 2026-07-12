@@ -149,21 +149,19 @@ export default function Waveform({
     const light = document.documentElement.getAttribute('data-theme') === 'light'
     const dimColor = light ? 'rgba(110,110,110,.55)' : 'rgba(150,150,150,.3)'
 
-    // barWidth 1 reproduces the PRODUCTION canvas painter's geometry (the
-    // pre-WaveSurfer Waveform.jsx at HEAD: one thin vertical bar per peak,
-    // ~1 device px gap, mirrored around the midline) — the look the user
-    // asked to keep ("restore the waveform we have on the live app"). Each
-    // 1px bar takes the honest local max of its data slice, so the same
-    // 1000-point stored peaks that read as dense crisp texture on the live
-    // app render identically here. WaveSurfer's default continuous polygon
-    // instead interpolates smoothly BETWEEN points, which smears the exact
-    // same data into rounded blobs (reported live, twice). barGap is left
-    // unset: it defaults to barWidth/2, matching the painter's sub-pixel gap.
+    // Chunky rounded pill bars — the same curvy geometry as the project
+    // page's stem waveforms (StemExpanded/InlineStemPlayer), which replaced
+    // the earlier 1px production-painter look at the user's request ("use
+    // the same on studio"). Bars take the honest local max of their data
+    // slice, so stored peaks still render crisp — never WaveSurfer's default
+    // continuous polygon, which smears the data into blobs (reported live).
     const ws = WaveSurfer.create({
       container: containerRef.current,
       media,
       height,
-      barWidth: 1,
+      barWidth: 3,
+      barGap: 3,
+      barRadius: 99,
       // ~80% alpha keeps the wave present but visually light — the clip's
       // color stays the primary surface, the wave is detail on top of it
       // (per the DAW-reference styling pass: thin, low visual weight; 70%
