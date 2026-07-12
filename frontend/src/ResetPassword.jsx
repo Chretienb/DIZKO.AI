@@ -4,7 +4,7 @@ import logo                             from './assets/logo.png'
 import { supabase }                     from './lib/supabase'
 import { setToken }                     from './lib/api'
 
-const C = { coral:'#F4937A', grad:'linear-gradient(135deg,#F4937A,#F28FB8)' }
+const C = { coral:'#7C6CF0', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 
 export default function ResetPassword() {
   const navigate   = useNavigate()
@@ -104,7 +104,7 @@ export default function ResetPassword() {
       background:'linear-gradient(135deg,#fff5f3,#fdf0f8)', padding:24,
       fontFamily:'var(--font-ui)' }}>
       <div style={{ width:'100%', maxWidth:420, background:'#fff', borderRadius:24,
-        padding:'40px 36px', boxShadow:'0 24px 80px rgba(244,147,122,.15),0 4px 20px rgba(0,0,0,.06)' }}>
+        padding:'40px 36px', boxShadow:'0 24px 80px rgba(124,108,240,.15),0 4px 20px rgba(0,0,0,.06)' }}>
 
         {/* Logo */}
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:32 }}>

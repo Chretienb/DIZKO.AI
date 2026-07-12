@@ -7,8 +7,8 @@ import { useIsMobile } from './lib/mobile'
 import posthog from './lib/posthog.js'
 
 const C = {
-  coral: '#F4937A', rose: '#E8709A', amber: '#F5C97A', pink: '#F28FB8',
-  grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
+  coral: '#7C6CF0', rose: '#C084FC', amber: '#F5C97A', pink: '#A78BFA',
+  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
 }
 
 const SOCIALS = [
@@ -58,7 +58,7 @@ function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass,
   const br = rounded === 'all' ? 14 : rounded === 'top' ? '14px 14px 0 0' : rounded === 'bot' ? '0 0 14px 14px' : 0
   return (
     <div style={{ position:'relative', borderRadius:br, marginBottom: rounded==='bot'||rounded==='all' ? 0 : 2,
-      background: on ? 'rgba(244,147,122,.06)' : 'rgba(255,255,255,.04)',
+      background: on ? 'rgba(124,108,240,.06)' : 'rgba(255,255,255,.04)',
       border:`1px solid ${on ? C.coral+'50' : 'rgba(255,255,255,.07)'}`,
       transition:'all .18s', overflow:'hidden' }}>
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
@@ -420,7 +420,7 @@ export default function Login({ onLogin }) {
 
                 {/* Invite banner — shown when arriving from a project invite link */}
                 {isInvite && tab === 'signup' && (
-                  <div style={{ background:'rgba(244,147,122,.12)', border:'1px solid rgba(244,147,122,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
+                  <div style={{ background:'rgba(124,108,240,.12)', border:'1px solid rgba(124,108,240,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
                     <p style={{ margin:0, fontSize:12.5, color:C.coral, fontWeight:600, lineHeight:1.5 }}>
                       You've been invited to collaborate — create your free account to join the project.
                     </p>

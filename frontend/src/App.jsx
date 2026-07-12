@@ -103,7 +103,7 @@ export class ErrorBoundary extends React.Component {
         background:'var(--bg)', color:'var(--t1)', fontFamily:'var(--font-ui)', textAlign:'center', padding:24 }}>
         <style>{`@keyframes dzspin{to{transform:rotate(360deg)}}`}</style>
         <img src="/logo.png" width={52} height={52} style={{ borderRadius:14 }} alt="" onError={e => { e.currentTarget.style.display='none' }} />
-        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#F4937A" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#7C6CF0" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
         <div style={{ fontSize:16, fontWeight:700 }}>Updating to the latest version</div>
         <div style={{ fontSize:13, color:'var(--t3)' }}>Just a sec — grabbing the newest build.</div>
       </div>
@@ -223,10 +223,12 @@ function collabColor(i) {
   return [C.coral, '#22c55e', C.amber, '#8b5cf6', '#3b82f6', C.pink][i % 6]
 }
 
+// Local shadow of the shared C in components/ui — kept in sync by the
+// rebrand sweep; consolidate into one import during the M2 shell redesign.
 const C = {
-  coral:'#F4937A', peach:'#F4A97C', amber:'#F5C97A',
-  pink:'#F28FB8',  rose:'#E8709A',
-  grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
+  coral:'#7C6CF0', peach:'#9D8DF7', amber:'#F5C97A',
+  pink:'#A78BFA',  rose:'#C084FC',
+  grad:'linear-gradient(135deg,#9D8DF7,#6D5AE6)',
   bg:'var(--bg)', sidebar:'var(--sidebar)', surface:'var(--surface)',
 }
 
@@ -329,8 +331,8 @@ const COLLABS = [
 ]
 
 const ACTIVITY = [
-  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>, color:C.coral, bg:'rgba(244,147,122,.12)', ring:`${C.coral}30`, who:'Christian', what:'uploaded a new guitar take for track 2', t:'2 min ago' },
-  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>, color:C.rose, bg:'rgba(232,112,154,.12)', ring:`${C.rose}30`, who:'Maya', what:'added vocals_take_6 to Ocean Waves', t:'38 min ago' },
+  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>, color:C.coral, bg:'rgba(124,108,240,.12)', ring:`${C.coral}30`, who:'Christian', what:'uploaded a new guitar take for track 2', t:'2 min ago' },
+  { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>, color:C.rose, bg:'rgba(192,132,252,.12)', ring:`${C.rose}30`, who:'Maya', what:'added vocals_take_6 to Ocean Waves', t:'38 min ago' },
   { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>, color:C.amber, bg:'rgba(245,201,122,.15)', ring:`${C.amber}40`, who:'dizko.ai', what:'auto-named 12 files in Golden Hour', t:'1 hr ago' },
   { icon:<svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color:'#3b82f6', bg:'rgba(59,130,246,.1)', ring:'rgba(59,130,246,.25)', who:'Dev K.', what:'exported master_v4 to WAV', t:'3 hrs ago' },
 ]
@@ -352,10 +354,10 @@ const BARS    = [6,12,20,16,26,18,10,28,20,24,14,10,22,18,12,16,8,22,26,14,18,12
 const statusStyle = s => ({
   done:        { bg:'rgba(34,197,94,.1)',    color:'#16a34a', border:'rgba(34,197,94,.2)'   },
   review:      { bg:'rgba(245,201,122,.15)', color:'#b45309', border:'rgba(245,201,122,.4)' },
-  'new takes': { bg:'rgba(232,112,154,.12)', color:C.rose,   border:'rgba(232,112,154,.3)'  },
+  'new takes': { bg:'rgba(192,132,252,.12)', color:C.rose,   border:'rgba(192,132,252,.3)'  },
   'In Progress':{ bg:'rgba(59,130,246,.1)', color:'#2563eb',  border:'rgba(59,130,246,.2)'  },
   'Review':    { bg:'rgba(245,201,122,.15)', color:'#b45309', border:'rgba(245,201,122,.4)' },
-  'New Takes': { bg:'rgba(232,112,154,.12)', color:C.rose,   border:'rgba(232,112,154,.3)'  },
+  'New Takes': { bg:'rgba(192,132,252,.12)', color:C.rose,   border:'rgba(192,132,252,.3)'  },
   'Draft':     { bg:'rgba(var(--fg),.06)', color:'rgba(var(--fg),.5)', border:'rgba(var(--fg),.12)' },
 }[s] || { bg:'rgba(var(--fg),.06)', color:'rgba(var(--fg),.5)', border:'rgba(var(--fg),.12)' })
 
@@ -423,7 +425,7 @@ function ToastContainer({ toasts, remove }) {
         const colors = {
           info:    { bg:'#1a1a1a', border:'rgba(var(--fg),.12)', icon:'#6366f1' },
           success: { bg:'#052e16', border:'rgba(34,197,94,.3)',    icon:'#22c55e' },
-          new:     { bg:'#0c1a2e', border:`rgba(244,147,122,.3)`, icon:C.coral   },
+          new:     { bg:'#0c1a2e', border:`rgba(124,108,240,.3)`, icon:C.coral   },
         }[t.type] || {}
         return (
           <div key={t.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
@@ -926,7 +928,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     <n.Icon size={isMobile ? 19 : 22} weight={on ? 'bold' : 'regular'} />
                     {n.id === 'inbox' && inboxUnread > 0 && (
                       <span style={{ position:'absolute', top:2, right:2, minWidth:16, height:16, padding:'0 4px', borderRadius:8,
-                        background:'#E95A51', color:'#fff', fontSize:9.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                        background:'#6D5AE6', color:'#fff', fontSize:9.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
                         lineHeight:1, border:'2px solid var(--bg)' }}>{inboxUnread > 99 ? '99+' : inboxUnread}</span>
                     )}
                   </span>

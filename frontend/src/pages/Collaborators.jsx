@@ -382,7 +382,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
           subtitle={search ? 'Try a different name or role.' : 'Invite collaborators to start making music together.'}
           action={!search && (
             <Btn variant="outline" onClick={() => openModal('invite', {})}
-              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#6D5AE6" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
               Invite someone
             </Btn>
           )}

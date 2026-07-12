@@ -80,7 +80,7 @@ export default function StemComments({ stemId, collabs = [], owner, user }) {
                 background:'var(--bg)', color:'var(--t1)', fontSize:12, fontFamily:'inherit', outline:'none' }}/>
             <button onClick={post} disabled={!text.trim() || busy}
               style={{ height:32, padding:'0 12px', borderRadius:8, border:'none', cursor: text.trim() ? 'pointer' : 'default',
-                background: text.trim() ? '#E95A51' : 'var(--surface-2)', color: text.trim() ? '#fff' : 'var(--t3)',
+                background: text.trim() ? '#6D5AE6' : 'var(--surface-2)', color: text.trim() ? '#fff' : 'var(--t3)',
                 fontSize:12, fontWeight:700, fontFamily:'inherit' }}>
               Send
             </button>

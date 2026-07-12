@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import logo from './assets/logo.png'
 
 const C = {
-  grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
-  coral: '#F4937A',
-  pink:  '#F28FB8',
+  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
+  coral: '#7C6CF0',
+  pink:  '#A78BFA',
   amber: '#F5C97A',
 }
 
@@ -87,10 +87,10 @@ export default function Welcome({ userName, onEnter }) {
 
       {/* Ambient glows */}
       <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%',
-        background:'radial-gradient(circle,rgba(244,147,122,.09) 0%,transparent 70%)',
+        background:'radial-gradient(circle,rgba(124,108,240,.09) 0%,transparent 70%)',
         top:'30%', left:'50%', transform:'translate(-50%,-50%)', pointerEvents:'none' }} />
       <div style={{ position:'absolute', width:400, height:400, borderRadius:'50%',
-        background:'radial-gradient(circle,rgba(242,143,184,.07) 0%,transparent 70%)',
+        background:'radial-gradient(circle,rgba(167,139,250,.07) 0%,transparent 70%)',
         bottom:'10%', right:'10%', pointerEvents:'none' }} />
 
       <div style={{ width:'100%', maxWidth:480, display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
@@ -102,7 +102,7 @@ export default function Welcome({ userName, onEnter }) {
           transition: 'opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1)',
         }}>
           <img src={logo} alt="" style={{ width: 80, height: 80, borderRadius: 22,
-            objectFit: 'cover', boxShadow: '0 0 0 1px rgba(var(--fg),.07), 0 20px 50px rgba(244,147,122,.2)' }} />
+            objectFit: 'cover', boxShadow: '0 0 0 1px rgba(var(--fg),.07), 0 20px 50px rgba(124,108,240,.2)' }} />
           {/* Green check badge */}
           <div style={{
             position:'absolute', bottom:-6, right:-6,
@@ -174,7 +174,7 @@ export default function Welcome({ userName, onEnter }) {
           background: C.grad,
           color:'#fff', fontSize:15, fontWeight:800,
           cursor:'pointer', letterSpacing:'-.3px',
-          boxShadow:`0 8px 32px rgba(244,147,122,.35)`,
+          boxShadow:`0 8px 32px rgba(124,108,240,.35)`,
           transition:'transform .15s, box-shadow .15s',
           opacity: visible ? 1 : 0,
           transform: visible ? 'translateY(0)' : 'translateY(12px)',

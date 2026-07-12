@@ -83,8 +83,8 @@ function TapTempoButton({ onTap }) {
   return (
     <button onClick={handleClick} aria-label="Tap tempo"
       style={{ width:56, height:38, borderRadius:10, flexShrink:0, cursor:'pointer', fontFamily:'inherit',
-        border:'none', background: pulse ? 'rgba(244,147,122,.18)' : INK.strip2,
-        color: pulse ? '#F4937A' : INK.dim, fontSize:11, fontWeight:500, letterSpacing:'.04em',
+        border:'none', background: pulse ? 'rgba(124,108,240,.18)' : INK.strip2,
+        color: pulse ? '#7C6CF0' : INK.dim, fontSize:11, fontWeight:500, letterSpacing:'.04em',
         transition:'background .08s' }}>
       TAP
     </button>
@@ -147,7 +147,7 @@ export default function RecordPanel({
         {/* Countdown / recording state takes over the whole panel while active */}
         {armCount != null ? (
           <div style={{ textAlign:'center', padding:'28px 18px' }}>
-            <div style={{ fontSize:48, fontWeight:600, color:'#F4937A', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{armCount}</div>
+            <div style={{ fontSize:48, fontWeight:600, color:'#7C6CF0', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{armCount}</div>
             <div style={{ fontSize:12.5, color:INK.dim, marginTop:8 }}>Get ready…</div>
           </div>
         ) : isRecording ? (
@@ -167,7 +167,7 @@ export default function RecordPanel({
           </div>
         ) : recordUploading ? (
           <div style={{ textAlign:'center', padding:'28px 18px', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
-            <Spinner size={22} color="#F4937A"/>
+            <Spinner size={22} color="#7C6CF0"/>
             <div style={{ fontSize:13, color:INK.dim }}>Uploading your take…</div>
           </div>
         ) : (
@@ -189,7 +189,7 @@ export default function RecordPanel({
               <TapTempoButton onTap={onTapTempo}/>
               <button onClick={onToggleMetronome}
                 style={{ flex:1, minWidth:100, height:38, borderRadius:10, border:'none',
-                  background: metronomeOn ? 'rgba(244,147,122,.12)' : INK.strip2, color: metronomeOn ? '#F4937A' : INK.dim,
+                  background: metronomeOn ? 'rgba(124,108,240,.12)' : INK.strip2, color: metronomeOn ? '#7C6CF0' : INK.dim,
                   fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>
                 Metronome {metronomeOn ? 'On' : 'Off'}
               </button>

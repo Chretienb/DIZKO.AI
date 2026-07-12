@@ -76,7 +76,7 @@ export default function ShareCardModal({ project, user, onClose }) {
     background:'var(--surface-2)', color:'var(--t1)', fontSize:13.5, fontFamily:'inherit', outline:'none', boxSizing:'border-box',
     transition:'border-color .12s',
   }
-  const focusOn  = e => e.target.style.borderColor = '#E95A51'
+  const focusOn  = e => e.target.style.borderColor = '#6D5AE6'
   const focusOff = e => e.target.style.borderColor = 'var(--border)'
 
   return (
@@ -130,9 +130,9 @@ export default function ShareCardModal({ project, user, onClose }) {
             {/* Public link toggle — the QR only works while this is on. */}
             <button onClick={togglePublic} disabled={toggling}
               style={{ display:'flex', alignItems:'center', gap:10, textAlign:'left', padding:'10px 12px', borderRadius:10,
-                border:`1.5px solid ${isPublic ? '#E95A51' : 'var(--border)'}`, background:'var(--surface-2)', cursor: toggling?'default':'pointer', fontFamily:'inherit' }}>
+                border:`1.5px solid ${isPublic ? '#6D5AE6' : 'var(--border)'}`, background:'var(--surface-2)', cursor: toggling?'default':'pointer', fontFamily:'inherit' }}>
               <span style={{ width:34, height:20, borderRadius:999, flexShrink:0, position:'relative', transition:'background .15s',
-                background: isPublic ? '#E95A51' : 'var(--border)' }}>
+                background: isPublic ? '#6D5AE6' : 'var(--border)' }}>
                 <span style={{ position:'absolute', top:2, left: isPublic?16:2, width:16, height:16, borderRadius:999, background:'#fff', transition:'left .15s' }} />
               </span>
               <span>
@@ -148,9 +148,9 @@ export default function ShareCardModal({ project, user, onClose }) {
             <div style={{ display:'flex', gap:8, marginTop:'auto' }}>
               <button onClick={share} disabled={busy}
                 style={{ flex:1, height:44, borderRadius:12, border:'none', cursor: busy?'default':'pointer',
-                  background:'linear-gradient(135deg,#f4937a,#f28fb8)', color:'#fff', fontSize:14, fontWeight:800, fontFamily:'inherit',
+                  background:'linear-gradient(135deg,#7C6CF0,#A78BFA)', color:'#fff', fontSize:14, fontWeight:800, fontFamily:'inherit',
                   display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                  boxShadow:'0 6px 20px rgba(233,90,81,.35)', opacity: busy?.6:1 }}>
+                  boxShadow:'0 6px 20px rgba(109,90,230,.35)', opacity: busy?.6:1 }}>
                 {!busy && <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>}
                 {busy ? 'Working…' : 'Share'}
               </button>

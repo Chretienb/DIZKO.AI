@@ -41,7 +41,7 @@ function slicePeaks(full, trimStart, trimEnd) {
  */
 export default function Waveform({
   url,
-  color        = '#F4937A',
+  color        = '#7C6CF0',
   currentTime  = 0,
   duration     = 0,
   // isPlaying isn't needed here anymore — WaveSurfer redraws its own cursor/

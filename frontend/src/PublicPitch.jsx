@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { publicApi } from './lib/api'
 import { getToken } from './lib/utils.js'
 
-const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
+const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 
 // Public collaboration-invite page (#78). No app shell, no login needed to view.
 // Scanned from the share-card QR → see the pitch → request to join.
@@ -38,7 +38,7 @@ export default function PublicPitch() {
 
   const Shell = ({ children }) => (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24,
-      background:'radial-gradient(80% 50% at 50% 0%, rgba(244,147,122,.14), transparent 60%), #0b0b10',
+      background:'radial-gradient(80% 50% at 50% 0%, rgba(124,108,240,.14), transparent 60%), #0b0b10',
       color:'#f1f1f3', fontFamily:'var(--font-ui)' }}>
       <div style={{ width:'100%', maxWidth:420, textAlign:'center' }}>
         <div style={{ fontWeight:800, fontSize:18, letterSpacing:'-.4px', marginBottom:24 }}>dizko<span style={{ color:C.coral }}>.ai</span></div>
@@ -82,7 +82,7 @@ export default function PublicPitch() {
           <button onClick={requestJoin} disabled={state === 'sending'}
             style={{ width:'100%', maxWidth:300, height:50, borderRadius:13, border:'none', cursor:'pointer',
               background:C.grad, color:'#fff', fontSize:15.5, fontWeight:800, fontFamily:'inherit',
-              boxShadow:'0 8px 28px rgba(233,90,81,.4)', opacity: state==='sending'?.6:1 }}>
+              boxShadow:'0 8px 28px rgba(109,90,230,.4)', opacity: state==='sending'?.6:1 }}>
             {state === 'sending' ? 'Sending…' : 'Request to join'}
           </button>
           <div style={{ fontSize:11.5, color:'rgba(255,255,255,.35)', marginTop:14, lineHeight:1.6 }}>

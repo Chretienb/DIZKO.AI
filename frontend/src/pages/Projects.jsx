@@ -7,8 +7,8 @@ import { withMinDelay } from '../lib/utils.js'
 
 // Per-cover gradient palette — seeded by project id so a project keeps its color
 const ART = [
-  ['#F4937A', '#7A1F1A'], ['#7E77D0', '#2E2A66'], ['#3CDA6F', '#125A2C'],
-  ['#EA9F1E', '#7A4E06'], ['#E8709A', '#7A1F46'], ['#4A8DD9', '#163A66'],
+  ['#7C6CF0', '#7A1F1A'], ['#7E77D0', '#2E2A66'], ['#3CDA6F', '#125A2C'],
+  ['#EA9F1E', '#7A4E06'], ['#C084FC', '#7A1F46'], ['#4A8DD9', '#163A66'],
   ['#5B5BD6', '#26267A'], ['#D95A9C', '#6E1E4A'],
 ]
 function hash(s = '') { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h }
@@ -231,7 +231,7 @@ export default function PageProjects({ openModal, refreshKey, user }) {
           subtitle="Create your first project to get started."
           action={
             <Btn variant="outline" onClick={() => openModal('new-project', {})}
-              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#6D5AE6" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
               New Project
             </Btn>
           }

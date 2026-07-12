@@ -4,7 +4,7 @@ import { projects as projectsApi, collaborators as collabsApi } from '../lib/api
 import { STATUSES } from '../pages/project/meta.js'
 import { Spinner } from './ui/index.jsx'
 
-const C = { coral:'#E95A51', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)' }
+const C = { coral:'#6D5AE6', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)' }
 const TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
 const ROLE_NAMES = ['Collaborator', 'Producer', 'Vocalist', 'Guitarist', 'Drummer', 'Engineer', 'Mixer']
 

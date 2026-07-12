@@ -98,7 +98,7 @@ export function fxGroups(v, setInGroup, setPath) {
       { label:'Pan', unit:'', display: v.pan===0?'C':v.pan<0?`${Math.round(-v.pan*100)}L`:`${Math.round(v.pan*100)}R`,
         value:v.pan, min:-1, max:1, step:0.05, onChange:val=>setPath('pan', val) },
     ]},
-    { key:'eq', title:'EQ', color:'#F4937A', channels:[
+    { key:'eq', title:'EQ', color:'#7C6CF0', channels:[
       { label:'Low',  unit:'dB', display:fmtVal(v.eq.low),  value:v.eq.low,  min:-15, max:15, step:0.5, onChange:val=>setInGroup('eq','low', val) },
       { label:'Mid',  unit:'dB', display:fmtVal(v.eq.mid),  value:v.eq.mid,  min:-15, max:15, step:0.5, onChange:val=>setInGroup('eq','mid', val) },
       { label:'High', unit:'dB', display:fmtVal(v.eq.high), value:v.eq.high, min:-15, max:15, step:0.5, onChange:val=>setInGroup('eq','high', val) },

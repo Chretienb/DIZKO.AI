@@ -427,7 +427,7 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
     <Modal title="Account Settings" sub="Profile and preferences" onClose={onClose} accent="#6366f1">
       {/* Avatar */}
       <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', marginBottom:20,
-        background:`linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,147,122,.05))`,
+        background:`linear-gradient(135deg,rgba(99,102,241,.08),rgba(124,108,240,.05))`,
         borderRadius:14, border:`1px solid rgba(99,102,241,.15)` }}>
         <div style={{ position:'relative', cursor:'pointer' }} onClick={() => avatarInput.current?.click()}>
           <Avatar name={name || user?.full_name} url={avatarUrl} size={54} color={C.coral}
@@ -655,7 +655,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
         fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
         {/* ambient glows */}
         <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
-        <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#F28FB8'}14, transparent 65%)`, pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#A78BFA'}14, transparent 65%)`, pointerEvents:'none' }}/>
 
         {/* Top bar */}
         <div style={{ position:'relative', maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px' : '24px 30px',
@@ -1724,10 +1724,10 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
       {/* Song indicator — shows which song files will land in */}
       {folderId && selProj && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', marginBottom:16,
-          borderRadius:9, background:'rgba(233,90,81,.08)', border:'1px solid rgba(233,90,81,.2)' }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          borderRadius:9, background:'rgba(109,90,230,.08)', border:'1px solid rgba(109,90,230,.2)' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#6D5AE6" strokeWidth={2} strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           <span style={{ fontSize:12, color:'rgba(var(--fg),.7)' }}>
-            Files will go to <strong style={{ color:'#E95A51' }}>{songLabel || 'this song'}</strong> in {selProj.title}
+            Files will go to <strong style={{ color:'#6D5AE6' }}>{songLabel || 'this song'}</strong> in {selProj.title}
           </span>
         </div>
       )}

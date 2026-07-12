@@ -11,7 +11,7 @@ import { useIsMobile } from '../../lib/mobile'
 // On mobile every modal in the app that goes through this shell becomes a
 // real full-page view (back button + title bar, content fills the rest) —
 // a centered card with 20px of margin on all sides is not "full page."
-export function Modal({ title, sub, onClose, children, width=520, accent='#E95A51' }) {
+export function Modal({ title, sub, onClose, children, width=520, accent='#6D5AE6' }) {
   const isMobile = useIsMobile()
   const [shown, setShown] = React.useState(false)
   React.useEffect(() => { const r = requestAnimationFrame(() => setShown(true)); return () => cancelAnimationFrame(r) }, [])

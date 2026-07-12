@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 
 const C = {
-  coral: '#F4937A',
-  grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
+  coral: '#7C6CF0',
+  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
 }
 
 const Section = ({ title, children }) => (
@@ -162,7 +162,7 @@ export default function Privacy() {
 
         <Section title="12. Contact Us">
           <P>If you have questions, concerns, or requests regarding this Privacy Policy, please contact us:</P>
-          <div style={{ background:'rgba(244,147,122,.06)', border:'1px solid rgba(244,147,122,.2)',
+          <div style={{ background:'rgba(124,108,240,.06)', border:'1px solid rgba(124,108,240,.2)',
             borderRadius:14, padding:'20px 24px', marginTop:8 }}>
             <div style={{ fontWeight:700, color:'#111', marginBottom:6 }}>dizko.ai</div>
             <div style={{ color:'#555', lineHeight:1.8 }}>

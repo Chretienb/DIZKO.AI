@@ -10,7 +10,7 @@ import ShareCard from './components/ShareCard.jsx'
 import { Spinner, Btn, EmptyState } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
 
-const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
+const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 const BASE = '/api'
 
 // Public producer profile — the social showcase. No app shell, no login to view.
@@ -349,7 +349,7 @@ export default function PublicProfile({ embedded = false }) {
             </div>
             {!p.is_self && (
               <button onClick={toggleFollow}
-                style={following ? { ...ghostBtn, flexShrink:0 } : { ...ghostBtn, flexShrink:0, background:'rgba(233,90,81,.16)', border:'1px solid rgba(233,90,81,.4)', color:'#fff' }}>
+                style={following ? { ...ghostBtn, flexShrink:0 } : { ...ghostBtn, flexShrink:0, background:'rgba(109,90,230,.16)', border:'1px solid rgba(109,90,230,.4)', color:'#fff' }}>
                 {following ? 'Following' : 'Follow'}
               </button>
             )}
@@ -468,7 +468,7 @@ export default function PublicProfile({ embedded = false }) {
         ) : (
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={toggleFollow}
-              style={following ? ghostBtn : { ...ghostBtn, background:'rgba(233,90,81,.16)', border:'1px solid rgba(233,90,81,.4)', color:'#fff' }}>
+              style={following ? ghostBtn : { ...ghostBtn, background:'rgba(109,90,230,.16)', border:'1px solid rgba(109,90,230,.4)', color:'#fff' }}>
               {following ? 'Following' : 'Follow'}
             </button>
             <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
@@ -486,7 +486,7 @@ export default function PublicProfile({ embedded = false }) {
               <path d="M10.75 16.518l-3.75-3.75 1.5-1.5 2.25 2.25 4.75-4.75 1.5 1.5z" fill="#fff"/>
             </svg>
           )}
-          {isDemo && !p.verified && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(244,147,122,.18)', color:C.coral }}>DEMO</span>}
+          {isDemo && !p.verified && <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'.06em', padding:'2px 7px', borderRadius:6, background:'rgba(124,108,240,.18)', color:C.coral }}>DEMO</span>}
         </div>
         <div style={{ fontSize:13, color:'rgba(var(--fg),.45)', marginBottom:p.bio?8:0 }}>@{p.handle}</div>
         {p.bio && <div style={{ fontSize:13.5, lineHeight:1.5, color:'rgba(var(--fg),.78)', whiteSpace:'pre-wrap' }}>{p.bio}</div>}
@@ -852,7 +852,7 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
         .pp-discover > .pp-pcard { flex:0 0 148px; scroll-snap-align:start; }
         .pp-dgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px; }
         .pp-pcard { transition:transform .12s ease, border-color .12s ease, background .12s ease; }
-        .pp-pcard:hover { transform:translateY(-3px); border-color:rgba(244,147,122,.4)!important; background:rgba(var(--fg),.06)!important; }
+        .pp-pcard:hover { transform:translateY(-3px); border-color:rgba(124,108,240,.4)!important; background:rgba(var(--fg),.06)!important; }
       `}</style>
       <div style={{ marginTop: bare ? 0 : 44 }}>
         {!bare && <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:14 }}>Discover</div>}

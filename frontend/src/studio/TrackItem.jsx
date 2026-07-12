@@ -336,9 +336,9 @@ export default function TrackItem({
           </button>
           {!isMobile && (
             <button onClick={toggleLike} aria-label={liked?'Unlike':'Like'} aria-pressed={liked}
-              style={{ width:30, height:30, borderRadius:9, border:`1px solid ${liked?'#f4937a30':C.border}`, background:liked?'#f4937a14':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#f4937a':'#ccc', transition:'all .12s' }}
-              onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#f4937a' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
-              <IconHeart size={15} filled={liked} color={liked?'#f4937a':'currentColor'}/>
+              style={{ width:30, height:30, borderRadius:9, border:`1px solid ${liked?'#7C6CF030':C.border}`, background:liked?'#7C6CF014':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:liked?'#7C6CF0':'#ccc', transition:'all .12s' }}
+              onMouseEnter={e=>{ if(!liked) e.currentTarget.style.color='#7C6CF0' }} onMouseLeave={e=>{ if(!liked) e.currentTarget.style.color='#ccc' }}>
+              <IconHeart size={15} filled={liked} color={liked?'#7C6CF0':'currentColor'}/>
             </button>
           )}
           {onOpenFx && (

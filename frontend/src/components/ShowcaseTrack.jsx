@@ -3,7 +3,7 @@ import { publicApi, showcaseApi } from '../lib/api'
 import { getToken, timeAgo } from '../lib/utils.js'
 import { track } from '../lib/posthog.js'
 
-const C = { coral:'#E95A51', grad:'linear-gradient(135deg,#f4937a,#f28fb8)' }
+const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 const BASE = '/api'
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s||0)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` }
 const fmt = (n) => { n = Number(n)||0; return n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'')+'M' : n>=1e3 ? (n/1e3).toFixed(1).replace(/\.0$/,'')+'k' : String(n) }
@@ -159,7 +159,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
           {c.timestamp_sec > 0 && (
             <button onClick={() => seekTo(c.timestamp_sec, true)} title="Play from here"
               style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:100, border:'none', cursor:'pointer',
-                background:'rgba(244,147,122,.16)', color:C.coral, fontSize:10.5, fontWeight:700, fontFamily:'inherit' }}>
+                background:'rgba(124,108,240,.16)', color:C.coral, fontSize:10.5, fontWeight:700, fontFamily:'inherit' }}>
               ▶ {fmtTime(c.timestamp_sec)}
             </button>
           )}
@@ -183,7 +183,7 @@ export default function ShowcaseTrack({ item, isDemo, ownerIsSelf, requireAccoun
   )
 
   return (
-    <div style={{ borderRadius:14, background:'rgba(var(--fg),.04)', border:`1px solid ${playing?'rgba(244,147,122,.4)':'rgba(var(--fg),.07)'}`, overflow:'hidden' }}>
+    <div style={{ borderRadius:14, background:'rgba(var(--fg),.04)', border:`1px solid ${playing?'rgba(124,108,240,.4)':'rgba(var(--fg),.07)'}`, overflow:'hidden' }}>
       <audio ref={audioRef} preload="none"
         onTimeUpdate={e => {
           const t = e.target.currentTime

@@ -82,7 +82,7 @@ function LoadingBlock() {
 
 // ── Stems library ─────────────────────────────────────────────────────────────
 const LIB_LABELS = { master:'Master', vocals:'Vocals', drums:'Drums', bass:'Bass', other:'Other', recording:'Recording', guitar:'Guitar', keys:'Keys', synth:'Synth', harmony:'Harmony' }
-const LIB_COLORS = { master:'#E8B84B', vocals:'#8b5cf6', drums:'#F4937A', bass:'#22c55e', other:'#F5C97A', guitar:'#EA9F1E', keys:'#7E77D0', synth:'#7E77D0', harmony:'#E8709A' }
+const LIB_COLORS = { master:'#E8B84B', vocals:'#8b5cf6', drums:'#7C6CF0', bass:'#22c55e', other:'#F5C97A', guitar:'#EA9F1E', keys:'#7E77D0', synth:'#7E77D0', harmony:'#C084FC' }
 
 // A single stem in the side library — one compact line: dot · name · sender · +/-.
 // Draggable onto the board.
@@ -2414,7 +2414,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             {!isMobile && (
               <div onMouseDown={startStemsResize} title="Drag to resize" aria-hidden="true"
                 style={{ position:'absolute', top:0, right:0, width:7, height:'100%', cursor:'col-resize', zIndex:6 }}
-                onMouseEnter={e=>e.currentTarget.style.background='rgba(244,147,122,.25)'}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(124,108,240,.25)'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
             )}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { toPng } from 'html-to-image'
 import QRCode from 'qrcode'
 
-const C = { coral:'#E95A51' }
+const C = { coral:'#6D5AE6' }
 const ORIGIN = typeof window !== 'undefined' ? window.location.origin : ''
 
 // Dynamic, shareable "vinyl" card. Stamps the producer's @handle + track onto

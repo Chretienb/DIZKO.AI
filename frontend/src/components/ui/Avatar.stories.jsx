@@ -22,7 +22,7 @@ export const FromImage = {
 export const Row = {
   render: () => (
     <div style={{ display: 'flex', gap: 10 }}>
-      <Avatar name="Oswald Venus" size={44} color="#E95A51" />
+      <Avatar name="Oswald Venus" size={44} color="#6D5AE6" />
       <Avatar name="Chretien Banza" size={44} color="#7E77D0" />
       <Avatar name="Noah Shebib" size={44} color="#3CDA6F" />
       <Avatar name="Boi 1da" size={44} color="#EA9F1E" />

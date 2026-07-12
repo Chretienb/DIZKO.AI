@@ -5,8 +5,8 @@ import { projects as projectsApi, files as filesApi, youtubeApi, venuesApi } fro
 import { Spinner, C } from '../components/ui/index.jsx'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const CHART_PALETTE = ['#F4937A','#E8709A','#6366f1','#a855f7','#22c55e','#06b6d4','#f59e0b','#94a3b8']
-const STEM_COLORS = { vocals:'#E8709A', drums:'#F4937A', bass:'#6366f1', guitar:'#a855f7', keys:'#22c55e', piano:'#22c55e', synth:'#06b6d4', original:'#94a3b8', smart_bounce:'#f59e0b', other:'#cbd5e1' }
+const CHART_PALETTE = ['#7C6CF0','#C084FC','#6366f1','#a855f7','#22c55e','#06b6d4','#f59e0b','#94a3b8']
+const STEM_COLORS = { vocals:'#C084FC', drums:'#7C6CF0', bass:'#6366f1', guitar:'#a855f7', keys:'#22c55e', piano:'#22c55e', synth:'#06b6d4', original:'#94a3b8', smart_bounce:'#f59e0b', other:'#cbd5e1' }
 const stemColor = k => STEM_COLORS[k?.toLowerCase?.()] || '#94a3b8'
 const COUNTRY_NAMES = { US:'United States', GB:'United Kingdom', CA:'Canada', AU:'Australia', FR:'France', DE:'Germany', BR:'Brazil', MX:'Mexico', NG:'Nigeria', JP:'Japan', KR:'South Korea', IN:'India', ZA:'South Africa', ES:'Spain', IT:'Italy', NL:'Netherlands', SE:'Sweden', NO:'Norway', DK:'Denmark', GH:'Ghana' }
 const countryName = code => COUNTRY_NAMES[code] || code

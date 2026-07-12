@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import logo from './assets/logo.png'
 
 const C = {
-  coral: '#F4937A',
-  pink:  '#F28FB8',
+  coral: '#7C6CF0',
+  pink:  '#A78BFA',
   amber: '#F5C97A',
-  grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
+  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
 }
 
 export default function Splash({ onDone }) {

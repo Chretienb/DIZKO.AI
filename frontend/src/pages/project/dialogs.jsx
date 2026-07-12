@@ -15,7 +15,7 @@ export function InlineRename({ value, onSave, onCancel }) {
       onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel() }}
       onBlur={submit} onClick={e => e.stopPropagation()}
       style={{ flex:1, fontSize:13, fontWeight:600, color:'var(--t1)', background:'var(--surface)',
-        border:'1.5px solid #E95A51', borderRadius:6, outline:'none',
+        border:'1.5px solid #6D5AE6', borderRadius:6, outline:'none',
         padding:'3px 8px', fontFamily:'inherit', minWidth:0 }}/>
   )
 }
@@ -48,10 +48,10 @@ export function MessageModal({ collab, onClose, onSend }) {
               onKeyDown={e => { if (e.key==='Enter' && e.metaKey) send(); if (e.key==='Escape') onClose() }}
               placeholder={`Message ${name.split(' ')[0]}…`} rows={4}
               style={{ width:'100%', padding:'11px 13px', borderRadius:12, resize:'none', border:'1.5px solid var(--border)', fontSize:13, fontFamily:'inherit', outline:'none', boxSizing:'border-box', lineHeight:1.6, color:'var(--t1)', background:'var(--bg)' }}
-              onFocus={e=>e.target.style.borderColor='#E95A51'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+              onFocus={e=>e.target.style.borderColor='#6D5AE6'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
             <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:12 }}>
               <button onClick={onClose} style={{ height:36, padding:'0 16px', borderRadius:10, border:'1px solid var(--border)', background:'none', fontSize:13, fontWeight:600, color:'var(--t2)', cursor:'pointer' }}>Cancel</button>
-              <button onClick={send} disabled={!text.trim()||busy} style={{ height:36, padding:'0 18px', borderRadius:10, border:'none', background:text.trim()?'#E95A51':'var(--surface-2)', color:text.trim()?'#fff':'var(--t3)', fontSize:13, fontWeight:700, cursor:text.trim()?'pointer':'default' }}>{busy?'Sending…':'Send'}</button>
+              <button onClick={send} disabled={!text.trim()||busy} style={{ height:36, padding:'0 18px', borderRadius:10, border:'none', background:text.trim()?'#6D5AE6':'var(--surface-2)', color:text.trim()?'#fff':'var(--t3)', fontSize:13, fontWeight:700, cursor:text.trim()?'pointer':'default' }}>{busy?'Sending…':'Send'}</button>
             </div>
           </>
         )}

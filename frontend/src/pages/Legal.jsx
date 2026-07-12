@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 
-const C = { coral:'#F4937A', grad:'linear-gradient(135deg,#F4937A,#F28FB8)' }
+const C = { coral:'#7C6CF0', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 
 const LAST_UPDATED = 'May 22, 2026'
 const COMPANY      = 'dizko.ai'

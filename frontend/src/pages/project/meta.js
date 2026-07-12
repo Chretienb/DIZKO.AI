@@ -42,13 +42,13 @@ export const STATUSES = ['In Progress', 'Review', 'New Takes', 'Draft']
 export const STATUS_META = s => ({
   'In Progress': { color:'#60a5fa', dot:'#60a5fa',  bg:'rgba(96,165,250,.12)',  border:'rgba(96,165,250,.28)'  },
   'Review':      { color:'#f5c97a', dot:'#f5c97a',  bg:'rgba(245,201,122,.12)', border:'rgba(245,201,122,.28)' },
-  'New Takes':   { color:'#E8709A', dot:'#E8709A',  bg:'rgba(232,112,154,.12)', border:'rgba(232,112,154,.28)' },
+  'New Takes':   { color:'#C084FC', dot:'#C084FC',  bg:'rgba(192,132,252,.12)', border:'rgba(192,132,252,.28)' },
   'Draft':       { color:'rgba(var(--fg),.45)', dot:'rgba(var(--fg),.22)', bg:'rgba(var(--fg),.05)', border:'rgba(var(--fg),.12)' },
 }[s] || { color:'rgba(var(--fg),.45)', dot:'rgba(var(--fg),.22)', bg:'rgba(var(--fg),.05)', border:'rgba(var(--fg),.12)' })
 
 // Light-theme status dot
 export function ltDot(status) {
-  return { 'In Progress':'#E95A51', 'Review':'#EA9F1E', 'New Takes':'#E8709A', 'Draft':'var(--t3)' }[status] || 'var(--t3)'
+  return { 'In Progress':'#6D5AE6', 'Review':'#EA9F1E', 'New Takes':'#C084FC', 'Draft':'var(--t3)' }[status] || 'var(--t3)'
 }
 
 // Order + grouping per the dizko stem-naming spec:
@@ -103,7 +103,7 @@ export function getLtBadge(instr, suggestedName) {
 
 export const INSTR_LABELS = {
   vocals:    [['Lead Vocal','#6366f1'], ['Dry','#f59e0b']],
-  drums:     [['Drums','#F4937A'],      ['808 kick','#f59e0b']],
+  drums:     [['Drums','#7C6CF0'],      ['808 kick','#f59e0b']],
   bass:      [['808 Bass','#f59e0b'],   ['Sub Bass','#22c55e']],
   guitar:    [['Melody','#8b5cf6'],     ['Arp synth','#6366f1']],
   keys:      [['Keys','#8b5cf6'],       ['Pad','#6366f1']],
@@ -111,8 +111,8 @@ export const INSTR_LABELS = {
   harmony:   [['Harmony','#8b5cf6'],    ['BG Vocal','#6366f1']],
   finals:    [['Master','#22c55e'],     ['Final Mix','#22c55e']],
   exports:   [['Export','#22c55e'],     ['Rendered','#22c55e']],
-  recording: [['Recording','#F4937A'], ['Raw','#f59e0b']],
-  beats:     [['Beat','#F4937A'],       ['Loop','#f59e0b']],
+  recording: [['Recording','#7C6CF0'], ['Raw','#f59e0b']],
+  beats:     [['Beat','#7C6CF0'],       ['Loop','#f59e0b']],
 }
 export function bpmGenre(bpm) {
   if (!bpm) return null

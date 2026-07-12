@@ -6,10 +6,10 @@ import studio from './assets/studio2.png'
 import posthog from './lib/posthog.js'
 
 const C = {
-  coral: '#F4937A',
-  pink:  '#F28FB8',
+  coral: '#7C6CF0',
+  pink:  '#A78BFA',
   amber: '#F5C97A',
-  grad:  'linear-gradient(135deg,#F4937A,#F28FB8)',
+  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
 }
 
 const PROJECT_TYPES = ['Album', 'EP', 'Single', 'Mixtape', 'Demo']
@@ -49,7 +49,7 @@ function LaneInput({ label, value, onChange, onKeyDown, placeholder }) {
   const [focused, setFocused] = useState(false)
   return (
     <div style={{ position:'relative', borderRadius:16, overflow:'hidden',
-      background: focused ? 'rgba(244,147,122,.07)' : 'rgba(255,255,255,.04)',
+      background: focused ? 'rgba(124,108,240,.07)' : 'rgba(255,255,255,.04)',
       border:`1px solid ${focused ? C.coral+'55' : 'rgba(255,255,255,.09)'}`, transition:'all .18s' }}>
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
         background: focused ? C.grad : 'transparent', transition:'background .2s' }}/>

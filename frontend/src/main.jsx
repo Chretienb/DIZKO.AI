@@ -27,7 +27,7 @@ function showUpdatingOverlay() {
   el.innerHTML = `
     <style>@keyframes dzspin{to{transform:rotate(360deg)}}</style>
     <img src="/logo.png" width="52" height="52" style="border-radius:14px" alt="" onerror="this.style.display='none'"/>
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F4937A" stroke-width="2.4" stroke-linecap="round" style="animation:dzspin .9s linear infinite"><path d="M12 3a9 9 0 019 9"/></svg>
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7C6CF0" stroke-width="2.4" stroke-linecap="round" style="animation:dzspin .9s linear infinite"><path d="M12 3a9 9 0 019 9"/></svg>
     <div style="font-size:16px;font-weight:700">Updating to the latest version</div>
     <div style="font-size:13px;color:rgba(255,255,255,.55)">Just a sec — grabbing the newest build.</div>`
   document.body.appendChild(el)
@@ -175,7 +175,7 @@ function OAuthCallback({ onLogin }) {
       alignItems:'center', justifyContent:'center', gap:16,
       fontFamily:'var(--font-ui)',
       background:'var(--bg)' }}>
-      <svg width={38} height={38} viewBox="0 0 24 24" fill="none" stroke="#F4937A"
+      <svg width={38} height={38} viewBox="0 0 24 24" fill="none" stroke="#7C6CF0"
         strokeWidth={2.4} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
         <path d="M12 3a9 9 0 019 9"/>
       </svg>

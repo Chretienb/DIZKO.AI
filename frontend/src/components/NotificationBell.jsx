@@ -21,8 +21,8 @@ const pingNotifs = () => { try { window.dispatchEvent(new Event(NOTIFS_EVENT)) }
 
 // Per-type presentation: color + icon + a sensible default title
 const TYPE_META = {
-  upload:        { color:'#E95A51', label:'New upload',    icon:'M12 16V4m0 0L7 9m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2' },
-  file_uploaded: { color:'#E95A51', label:'New upload',    icon:'M12 16V4m0 0L7 9m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2' },
+  upload:        { color:'#6D5AE6', label:'New upload',    icon:'M12 16V4m0 0L7 9m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2' },
+  file_uploaded: { color:'#6D5AE6', label:'New upload',    icon:'M12 16V4m0 0L7 9m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2' },
   mix_ready:     { color:'#3CDA6F', label:'Mix ready',     icon:'M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM21 16a3 3 0 11-6 0 3 3 0 016 0z' },
   stems_ready:   { color:'#3CDA6F', label:'Stems ready',   icon:'M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM21 16a3 3 0 11-6 0 3 3 0 016 0z' },
   message:       { color:'#7E77D0', label:'Message',        icon:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' },
@@ -90,16 +90,16 @@ export default function NotificationBell({ user }) {
       </svg>
       {unread > 0 && (
         <div style={{ position:'absolute', top:-4, right:-4, minWidth:16, height:16, padding:'0 4px',
-          borderRadius:8, background:'#E95A51', border:'2px solid var(--bg)', boxSizing:'border-box',
+          borderRadius:8, background:'#EF4444', border:'2px solid var(--bg)', boxSizing:'border-box',
           display:'flex', alignItems:'center', justifyContent:'center',
           fontSize:9.5, fontWeight:800, color:'#fff', lineHeight:1, fontFamily:S.font, letterSpacing:'-.02em',
-          boxShadow:'0 1px 4px rgba(233,90,81,.55)' }}>
+          boxShadow:'0 1px 4px rgba(109,90,230,.55)' }}>
           {unread > 99 ? '99+' : unread}
         </div>
       )}
       <style>{`
         @keyframes notif-blink {
-          0%, 100% { opacity:1; box-shadow:0 0 6px rgba(233,90,81,.7); }
+          0%, 100% { opacity:1; box-shadow:0 0 6px rgba(109,90,230,.7); }
           50%       { opacity:.2; box-shadow:none; }
         }
       `}</style>
@@ -216,7 +216,7 @@ export function NotificationsPage({ user }) {
           {notifs.length > 0 && (
             <button onClick={clearAll}
               style={{ fontSize:12, fontWeight:600, color:S.t4, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:S.font, transition:'color .1s' }}
-              onMouseEnter={e => e.currentTarget.style.color='#E95A51'}
+              onMouseEnter={e => e.currentTarget.style.color='#6D5AE6'}
               onMouseLeave={e => e.currentTarget.style.color=S.t4}>
               Clear all
             </button>
@@ -256,7 +256,7 @@ export function NotificationsPage({ user }) {
 
                   {/* unread marker */}
                   <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0,
-                    background: n.read ? 'transparent' : '#E95A51' }}/>
+                    background: n.read ? 'transparent' : '#EF4444' }}/>
 
                   {/* small type icon, no heavy tile */}
                   <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={meta.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d={meta.icon}/></svg>
@@ -284,7 +284,7 @@ export function NotificationsPage({ user }) {
                       )}
                       <button onClick={e => { e.stopPropagation(); removeOne(n.id) }} title="Delete" aria-label="Delete"
                         style={{ width:24, height:24, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:S.t4, transition:'color .1s' }}
-                        onMouseEnter={e => e.currentTarget.style.color='#E95A51'}
+                        onMouseEnter={e => e.currentTarget.style.color='#6D5AE6'}
                         onMouseLeave={e => e.currentTarget.style.color=S.t4}>
                         <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                       </button>

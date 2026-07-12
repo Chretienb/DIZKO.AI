@@ -5,7 +5,7 @@ import { Spinner } from '../components/ui/index.jsx'
 
 const INVITE_KEY = 'dizko_crew_invite'
 const CREW_EMAIL = 'team@dizko.ai'   // where prospective ambassadors request an invite
-const C = { coral:'#E95A51', stripe:'#635BFF', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)', surface:'var(--surface)', bg:'var(--bg)' }
+const C = { coral:'#6D5AE6', stripe:'#635BFF', t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', border:'var(--border)', surface:'var(--surface)', bg:'var(--bg)' }
 const money = (cents) => `$${((cents || 0) / 100).toFixed(2)}`
 
 const cardS  = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:28 }

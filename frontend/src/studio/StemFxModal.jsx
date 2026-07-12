@@ -55,9 +55,9 @@ export default function StemFxModal({ open, stemLabel, value, isPlaying, onPlay,
 
         {!isPlaying && (
           <div style={{ display:'flex', alignItems:'center', gap:8, margin:'12px 18px 0', flexShrink:0 }}>
-            <span aria-hidden="true" style={{ width:5, height:5, borderRadius:'50%', background:'#F4937A', flexShrink:0 }}/>
+            <span aria-hidden="true" style={{ width:5, height:5, borderRadius:'50%', background:'#7C6CF0', flexShrink:0 }}/>
             <span style={{ fontSize:11, color:INK.dim, flex:1 }}>Nothing's playing — start playback to hear it live.</span>
-            <button onClick={onPlay} style={{ height:22, padding:0, border:'none', background:'none', color:'#F4937A', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+            <button onClick={onPlay} style={{ height:22, padding:0, border:'none', background:'none', color:'#7C6CF0', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
               Play →
             </button>
           </div>

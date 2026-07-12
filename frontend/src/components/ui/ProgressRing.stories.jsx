@@ -4,7 +4,7 @@ export default {
   title: 'Dizko UI/ProgressRing',
   component: ProgressRing,
   parameters: { layout: 'centered' },
-  args: { pct: 65, size: 64, stroke: 4, color: '#E95A51', bg: '#ECECEF' },
+  args: { pct: 65, size: 64, stroke: 4, color: '#6D5AE6', bg: '#ECECEF' },
   argTypes: {
     pct: { control: { type: 'range', min: 0, max: 100, step: 1 } },
     size: { control: { type: 'range', min: 32, max: 120, step: 4 } },
@@ -28,7 +28,7 @@ export const Stages = {
   render: () => (
     <div style={{ display: 'flex', gap: 20 }}>
       {[20, 50, 80, 100].map(p => (
-        <ProgressRing key={p} pct={p} size={56} stroke={4} color="#E95A51" bg="#ECECEF">
+        <ProgressRing key={p} pct={p} size={56} stroke={4} color="#6D5AE6" bg="#ECECEF">
           <span style={{ fontSize: 12, fontWeight: 800, color: '#1C1C1E' }}>{p}%</span>
         </ProgressRing>
       ))}

@@ -10,8 +10,11 @@
  * copy-pasted legacy value fails lint instead of shipping a dark patch.
  *
  * It deliberately does NOT ban all hex colors: white-on-accent (`#fff` on a
- * coral button), brand coral, semantic accents (success/danger/warning) and
- * file-type chips are intentional and identical in both themes.
+ * brand button), the brand purple, semantic accents (success/danger/warning)
+ * and file-type chips are intentional and identical in both themes.
+ *
+ * It ALSO denylists the retired coral brand palette (2026-07 rebrand:
+ * coral → purple) so the old brand can never leak back in via copy-paste.
  */
 
 // Pre-tokenization neutral palette — these must never appear again.
@@ -23,6 +26,8 @@ const LEGACY_NEUTRALS = [
   '#f9f9fa', '#f9f9f9', '#fafafa', '#f5f5f7', '#f0f0f4', '#f1f1f3',
   // gray text ramp → now var(--t1) / var(--t2) / var(--t3) (or C.t1/t2/t3)
   '#e3e3e8', '#a5a5ad', '#8a8a96',
+  // retired coral brand (pre-2026-07 rebrand) → now C.brand / var(--brand)
+  '#f4937a', '#e95a51', '#f28fb8', '#e8709a', '#f4a97c',
 ]
 
 const SET = new Set(LEGACY_NEUTRALS.map(c => c.toLowerCase()))

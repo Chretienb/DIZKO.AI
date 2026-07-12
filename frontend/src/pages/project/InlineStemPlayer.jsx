@@ -10,8 +10,8 @@ import { cachedPreviewBlobUrl, warmPreviewBytes } from '../../lib/audioCache.js'
 // and doubles as the scrub bar: it's an alpha mask, so unplayed waves render in
 // a muted theme tone and the played portion fills a coral→pink gradient (clipped
 // by clip-path so the waves stay perfectly aligned). Mirrors the MiniPlayer engine.
-const CORAL = '#E95A51'
-const GRAD  = 'linear-gradient(90deg, #E95A51 0%, #F0739A 55%, #F28FB8 100%)'
+const CORAL = '#6D5AE6'
+const GRAD  = 'linear-gradient(90deg, #6D5AE6 0%, #F0739A 55%, #A78BFA 100%)'
 
 export default function InlineStemPlayer({ track, playlist = [], user, projectTitle = '', onPlay, onClose, autoPlay = true }) {
   const audioRef                = useRef(null)

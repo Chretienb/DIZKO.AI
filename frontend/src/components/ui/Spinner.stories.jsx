@@ -12,16 +12,16 @@ export default {
 }
 
 // On-brand animated equalizer bars
-export const Coral = { args: { size: 32, color: '#E95A51' } }
+export const Coral = { args: { size: 32, color: '#6D5AE6' } }
 export const Purple = { args: { size: 32, color: '#7E77D0' } }
 export const Green = { args: { size: 32, color: '#3CDA6F' } }
 
 export const Sizes = {
   render: () => (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24 }}>
-      <Spinner size={16} color="#E95A51" />
-      <Spinner size={28} color="#E95A51" />
-      <Spinner size={44} color="#E95A51" />
+      <Spinner size={16} color="#6D5AE6" />
+      <Spinner size={28} color="#6D5AE6" />
+      <Spinner size={44} color="#6D5AE6" />
     </div>
   ),
 }

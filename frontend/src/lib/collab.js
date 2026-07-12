@@ -2,7 +2,7 @@
 // Used by App.jsx and components/modals.jsx.
 import { initials } from './utils.js'
 
-const COLLAB_COLORS = ['#F4937A', '#22c55e', '#F5C97A', '#8b5cf6', '#3b82f6', '#F28FB8']
+const COLLAB_COLORS = ['#7C6CF0', '#22c55e', '#F5C97A', '#8b5cf6', '#3b82f6', '#A78BFA']
 
 export function collabName(c) {
   const raw = c?.user?.full_name || c?.full_name

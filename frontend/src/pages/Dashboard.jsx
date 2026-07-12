@@ -16,20 +16,20 @@ function hash(s = '') { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 3
 const DK = {
   panel:'var(--bg)', card:'var(--surface)', row:'var(--surface-2)',
   t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', t4:'var(--t4)',
-  red:'#E95A51', green:'#3CDA6F',
+  red:'#EF4444', green:'#3CDA6F',
   border:'1px solid var(--border-2)',
   font:'var(--font-ui)',
 }
 
 const ART = [
-  ['#E95A51','#7A1F1A'], ['#7E77D0','#2E2A66'], ['#3CDA6F','#125A2C'],
-  ['#EA9F1E','#7A4E06'], ['#E8709A','#7A1F46'], ['#4A8DD9','#163A66'],
+  ['#6D5AE6','#7A1F1A'], ['#7E77D0','#2E2A66'], ['#3CDA6F','#125A2C'],
+  ['#EA9F1E','#7A4E06'], ['#C084FC','#7A1F46'], ['#4A8DD9','#163A66'],
   ['#5B5BD6','#26267A'], ['#D95A9C','#6E1E4A'],
 ]
 
 const STEM_COLORS = {
-  vocals:'#7E77D0', drums:'#E95A51', bass:'#3CDA6F', guitar:'#EA9F1E',
-  keys:'#7E77D0', synth:'#7E77D0', harmony:'#E8709A', recording:'#E95A51',
+  vocals:'#7E77D0', drums:'#EF4444', bass:'#3CDA6F', guitar:'#EA9F1E',
+  keys:'#7E77D0', synth:'#7E77D0', harmony:'#C084FC', recording:'#EF4444',
   other:'var(--t3)', smart_bounce:'#3CDA6F',
 }
 
@@ -286,7 +286,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
               {/* Open project */}
               <button onClick={() => selProject && navigate(`/projects/${selProject.id}`)}
                 aria-label="Open project"
-                style={{ position:'absolute', top:16, right:16, width:48, height:48, borderRadius:'50%', border:'none', background:DK.red, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 20px rgba(233,90,81,.5)' }}>
+                style={{ position:'absolute', top:16, right:16, width:48, height:48, borderRadius:'50%', border:'none', background:DK.red, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 20px rgba(109,90,230,.5)' }}>
                 <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff" style={{ marginLeft:2 }}><polygon points="5,3 19,12 5,21"/></svg>
               </button>
               {/* Gradient overlay */}

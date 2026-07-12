@@ -19,7 +19,7 @@ function timeAgo(iso) {
 const STATUS_DOT = s => ({
   'In Progress': '#60a5fa',
   'Review':      '#f5c97a',
-  'New Takes':   '#E8709A',
+  'New Takes':   '#C084FC',
   'Draft':       'rgba(var(--fg),.25)',
 }[s] || 'rgba(var(--fg),.25)')
 
@@ -112,7 +112,7 @@ export default function PageLibrary({ openModal, user, onProfileUpdate }) {
         subtitle="Create your first project to get started."
         action={
           <Btn variant="outline" onClick={() => openModal('new-project', {})}
-            icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E95A51" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+            icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#6D5AE6" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
             New Project
           </Btn>
         }
