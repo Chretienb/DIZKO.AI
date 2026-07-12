@@ -8,7 +8,10 @@ import React from 'react'
 // API preserved from the original Dashboard-local component:
 //   { seed, size (px | 'full'), radius, coverUrl }
 
-const DEFAULT_COVER = '/default-cover.jpg'
+// Default artwork — vintage vinyl-sleeve set (brand asset, 2×2 source art
+// sliced into four square covers). Seed-picked so projects without an
+// uploaded cover each get a consistent sleeve, with variety across a grid.
+const VINYL_COVERS = ['/covers/vinyl-1.jpg', '/covers/vinyl-2.jpg', '/covers/vinyl-3.jpg', '/covers/vinyl-4.jpg']
 
 // Curated identities — brand-family first, then complements so a wall of
 // covers reads as a collection, not a single purple blur.
@@ -48,9 +51,10 @@ export default function Cover({ seed = '', size = 44, radius = 8, coverUrl = nul
     )
   }
   if (full) {
+    const sleeve = VINYL_COVERS[hashSeed(seed) % VINYL_COVERS.length]
     return (
       <div style={{ ...box, flexShrink: 0, position: 'relative', overflow: 'hidden',
-        backgroundImage: `url(${DEFAULT_COVER})`, backgroundSize: 'cover', backgroundPosition: 'center',
+        backgroundImage: `url(${sleeve})`, backgroundSize: 'cover', backgroundPosition: 'center',
         backgroundColor: 'var(--surface-2)' }}/>
     )
   }
