@@ -701,14 +701,14 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <div style={{ flex:1, overflowY:'auto', padding:'6px 8px' }}>
             {folders.length === 0 ? (
               <div style={{ padding:'24px 10px', textAlign:'center', fontSize:12, color:'var(--t4)', lineHeight:1.6 }}>
-                No songs yet.<br/>Press + NEW SONG below.
+                {isOwner ? <>No songs yet.<br/>Press + New Song below.</> : 'No songs yet.'}
               </div>
             ) : folders.map((folder, i) => {
               const on = folder.id === selectedFolderId
               const dropHere = draggingId && dragOverFolder === folder.id
               return (
                 <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)}
-                  draggable title="Drag to reorder"
+                  draggable={isOwner} title={isOwner ? 'Drag to reorder' : undefined}
                   onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', folder.id); e.dataTransfer.setData('application/x-dizko-folder', folder.id); setFolderDrag(folder.id) }}
                   onDragEnd={() => { setFolderDrag(null); setFolderDragOver(null) }}
                   onDragOver={e => {
@@ -758,7 +758,9 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             })}
           </div>
 
-          {/* + New Song — quiet ghost row; flips to a single clean input */}
+          {/* + New Song — quiet ghost row; flips to a single clean input.
+              Owner-only: songs are album structure (Angel's permissions note). */}
+          {isOwner && (
           <div style={{ padding:'8px 10px 10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
             {newSongInput ? (
               <div>
@@ -793,6 +795,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               </button>
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -1240,9 +1243,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     const isPlayingThis = isActive && playback.playing
                     const isLoading     = isActive && playback.loading
                     const isRen   = renamingId === f.id
+                    // Collaborators upload + comment; only the owner or the
+                    // stem's uploader edits its details (rename/tag/move).
+                    const canEdit = isOwner || f.uploaded_by === user?.id
                     return (
                       <div key={f.id} className="stem-row"
-                        draggable={!isRen}
+                        draggable={canEdit && !isRen}
                         onDragStart={e => {
                           e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'
                           // Defer the state flip out of the dragstart tick: the synchronous
@@ -1290,7 +1296,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                                 ? { fontSize:12.5, fontWeight:600, color:'var(--t1)', letterSpacing:'-.1px', marginBottom:3,
                                     display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word', lineHeight:1.25 }
                                 : { fontSize:14, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-.2px', marginBottom:3 } }
-                              onDoubleClick={e=>{ e.stopPropagation(); setRenamingId(f.id) }}>
+                              onDoubleClick={e=>{ if (canEdit) { e.stopPropagation(); setRenamingId(f.id) } }}>
                               {name}
                             </div>
                           )}
@@ -1323,10 +1329,16 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                           </button>
                         )}
                         <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0 }}>
-                          {/* Always editable — pick or change the instrument on any stem. */}
-                          <InstrPicker
-                            value={(f.instrument && !['recording','other','demo'].includes(f.instrument)) ? f.instrument : ''}
-                            onChange={instr => setInstrument(f.id, instr)} />
+                          {canEdit ? (
+                            <InstrPicker
+                              value={(f.instrument && !['recording','other','demo'].includes(f.instrument)) ? f.instrument : ''}
+                              onChange={instr => setInstrument(f.id, instr)} />
+                          ) : f.instrument && !['recording','other','demo'].includes(f.instrument) ? (
+                            <span style={{ height:24, padding:'0 10px', borderRadius:100, display:'inline-flex', alignItems:'center',
+                              background:'rgba(var(--fg),.05)', color:'var(--t3)', fontSize:11, fontWeight:500, whiteSpace:'nowrap' }}>
+                              {f.instrument.charAt(0).toUpperCase() + f.instrument.slice(1)}
+                            </span>
+                          ) : null}
                         </div>
                         {canPlay ? (
                         <button aria-label={isPlayingThis ? 'Pause' : 'Play'}
@@ -1360,7 +1372,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                             fmt={selExt} labels={selLabels} aiFlag={selAiFlag} onAiInfo={() => setAiDetailsOpen(true)}
                             versions={selVersions} currentVNum={selVNum} onOpenVersion={v => setSelectedFile(v)}
                             onSeek={sec => seekToComment(preview ? { ...f, file_url: preview } : f, sec)}
-                            onSaveBpm={v => saveBpm(f.id, v)} isOwner={isOwner} onThreadChange={onThreadChange}
+                            onSaveBpm={canEdit ? (v => saveBpm(f.id, v)) : null} isOwner={isOwner} onThreadChange={onThreadChange}
                           />
                         )}
                       </div>
@@ -1489,10 +1501,12 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 </button>
               )
             })}
-            <button onClick={() => { setNewSongInput(true); setMobileProjectsOpen(false) }}
-              style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'14px 20px', border:'none', borderTop:'1px solid var(--border)', background:'none', color:'var(--t3)', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>
-              + New Song
-            </button>
+            {isOwner && (
+              <button onClick={() => { setNewSongInput(true); setMobileProjectsOpen(false) }}
+                style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'14px 20px', border:'none', borderTop:'1px solid var(--border)', background:'none', color:'var(--t3)', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>
+                + New Song
+              </button>
+            )}
           </div>
         </BottomSheet>
       )}

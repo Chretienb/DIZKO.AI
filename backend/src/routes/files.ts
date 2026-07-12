@@ -1314,10 +1314,16 @@ files.patch('/:id', sanitize, async (c) => {
   if (Object.keys(updates).length === 0)
     return c.json({ data: null, error: 'No updatable fields provided', status: 400 }, 400)
 
-  // Only members of the stem's project may edit it
+  // Only the project owner or the stem's uploader may edit its details —
+  // collaborators can upload and comment, not rename/re-tag others' stems
+  // (Angel's permissions note).
   const projectId = await projectIdForStem(c.req.param('id'))
   if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  const { data: stemRow } = await supabase.from('stems').select('uploaded_by').eq('id', c.req.param('id')).single()
+  const canEdit = (stemRow as any)?.uploaded_by === c.var.user.id || (await isProjectOwner(projectId, c.var.user.id))
+  if (!canEdit)
+    return c.json({ data: null, error: 'Only the owner or the uploader can edit this stem', status: 403 }, 403)
 
   // Don't set updated_at — the stems table may not have that column (a DB
   // trigger handles it where present). Setting it unconditionally made every

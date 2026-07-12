@@ -61,8 +61,9 @@ folders.post('/', sanitize, async (c) => {
 
   if (!projectId) return c.json({ data: null, error: 'project_id required', status: 400 }, 400)
 
-  const ok = await assertProjectAccess(projectId, userId)
-  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  // Songs are album structure — owner-only to create (Angel's permissions note).
+  const ok = await isProjectOwner(projectId, userId)
+  if (!ok) return c.json({ data: null, error: 'Only the project owner can add songs', status: 403 }, 403)
 
   const { data, error } = await supabase
     .from('folders').insert({ project_id: projectId, name, created_by: userId })
@@ -91,6 +92,11 @@ folders.patch('/move-file', sanitize, async (c) => {
 
   const ok = await assertProjectAccess((track as any).project_id, userId)
   if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  // Moving a stem between songs changes the album structure — owner, or the
+  // uploader rehoming their own stem.
+  const { data: stemRow } = await supabase.from('stems').select('uploaded_by').eq('id', stem_id).single()
+  const canMove = (stemRow as any)?.uploaded_by === userId || (await isProjectOwner((track as any).project_id, userId))
+  if (!canMove) return c.json({ data: null, error: 'Only the owner or the uploader can move this stem', status: 403 }, 403)
 
   const { data, error } = await supabase
     .from('stems').update({ folder_id: folder_id || null }).eq('id', stem_id).select().single()
@@ -101,7 +107,6 @@ folders.patch('/move-file', sanitize, async (c) => {
 
 // ── PATCH /folders/reorder — drag-to-reorder songs ────────────────────────────
 // MUST be before /:id so Hono doesn't match "reorder" as an id param.
-// Any active member may rearrange (it's presentation, not structure).
 folders.patch('/reorder', sanitize, async (c) => {
   const userId = c.var.user.id
   const body   = c.var.body as { project_id?: string; order?: unknown }
@@ -111,8 +116,9 @@ folders.patch('/reorder', sanitize, async (c) => {
   if (!projectId || order.length === 0)
     return c.json({ data: null, error: 'project_id and order[] required', status: 400 }, 400)
 
-  const ok = await assertProjectAccess(projectId, userId)
-  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  // Song order is album structure — owner-only, like create/rename/delete.
+  const ok = await isProjectOwner(projectId, userId)
+  if (!ok) return c.json({ data: null, error: 'Only the project owner can reorder songs', status: 403 }, 403)
 
   // Only touch folders that actually belong to this project — ids for other
   // projects (or garbage) are silently dropped.
@@ -140,8 +146,9 @@ folders.patch('/:id', sanitize, async (c) => {
     .from('folders').select('project_id').eq('id', folderId).single()
   if (!folder) return c.json({ data: null, error: 'Not found', status: 404 }, 404)
 
-  const ok = await assertProjectAccess((folder as any).project_id, userId)
-  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  // Song titles are album structure — owner-only (Angel's permissions note).
+  const ok = await isProjectOwner((folder as any).project_id, userId)
+  if (!ok) return c.json({ data: null, error: 'Only the project owner can rename songs', status: 403 }, 403)
 
   const { data, error } = await supabase
     .from('folders').update({ name }).eq('id', folderId).select().single()
