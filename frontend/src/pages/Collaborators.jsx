@@ -63,104 +63,97 @@ function RemoveModal({ name, color, init, onConfirm, onClose }) {
   )
 }
 
-// ── Collaborator row ───────────────────────────────────────────────────────────
-function CollabRow({ c, index, isOnline, onMessage, onWork, onRemove }) {
-  const [hovered,    setHovered]    = useState(false)
+// ── Crew member card ──────────────────────────────────────────────────────────
+// Profile-card presentation: big avatar (face when they have one, initials
+// otherwise), name/role/project, and Open → the shared project. Clicking the
+// card opens their public dizko profile when they have one.
+function CollabCard({ c, index, isOnline, onWork, onRemove, onProfile }) {
   const [showRemove, setShowRemove] = useState(false)
   const [menuOpen,   setMenuOpen]   = useState(false)
   const color = COLORS[index % COLORS.length]
   const name  = displayName(c)
   const init  = initials(name)
+  const handle = c.user?.handle || null
 
   return (
     <>
       <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => { setHovered(false); setMenuOpen(false) }}
+        role={handle ? 'button' : undefined} tabIndex={handle ? 0 : undefined}
+        onClick={() => handle && onProfile(handle)}
+        onKeyDown={e => { if (handle && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onProfile(handle) } }}
+        title={handle ? `@${handle} — view public profile` : `${name} hasn't set up a public profile yet`}
         style={{
-          display:'flex', alignItems:'center', gap:13,
-          padding:'10px 12px', borderRadius:12,
-          background: hovered ? 'rgba(var(--fg),.04)' : 'transparent',
-          transition:'background .15s', cursor:'default',
-        }}>
+          position:'relative', display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center',
+          gap:10, padding:'26px 16px 16px',
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'var(--r-3)', boxShadow:'var(--shadow-1)',
+          cursor: handle ? 'pointer' : 'default', transition:'box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease)',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--shadow-2)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--shadow-1)'; e.currentTarget.style.transform = 'none'; setMenuOpen(false) }}>
 
-        {/* Avatar */}
-        <div style={{ position:'relative', flexShrink:0 }}>
-          <Avatar name={name} url={c.user?.avatar_url} size={38} color={color} border="none" />
-          <div style={{ position:'absolute', bottom:-1, right:-1,
-            width:11, height:11, borderRadius:'50%',
-            background: c.status === 'pending' ? '#f59e0b' : isOnline ? '#22c55e' : 'rgba(var(--fg),.2)',
-            border:`2px solid ${C.bg}` }}/>
+        {/* ⋯ menu (remove) */}
+        <button
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+          aria-label={`Options for ${name}`}
+          style={{ position:'absolute', top:10, right:10, width:28, height:28, borderRadius:8, border:'none',
+            background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)' }}
+          onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.08)'}
+          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+          </svg>
+        </button>
+        {menuOpen && (
+          <>
+            <div onClick={e => { e.stopPropagation(); setMenuOpen(false) }} style={{ position:'fixed', inset:0, zIndex:20 }}/>
+            <div onClick={e => e.stopPropagation()}
+              style={{ position:'absolute', top:40, right:10, zIndex:21, background:'var(--surface-2)',
+                borderRadius:'var(--r-2)', boxShadow:'var(--shadow-2)', border:'1px solid var(--border)', overflow:'hidden', minWidth:140 }}>
+              <button onClick={() => { setMenuOpen(false); setShowRemove(true) }}
+                style={{ width:'100%', padding:'10px 14px', background:'none', border:'none',
+                  cursor:'pointer', textAlign:'left', fontSize:13, color:'var(--danger)', fontFamily:'inherit' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.12)'}
+                onMouseLeave={e => e.currentTarget.style.background='none'}>
+                Remove
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Avatar + presence */}
+        <div style={{ position:'relative' }}>
+          <Avatar name={name} url={c.user?.avatar_url} size={64} color={color} border="none" />
+          <div style={{ position:'absolute', bottom:1, right:1,
+            width:13, height:13, borderRadius:'50%',
+            background: c.status === 'pending' ? 'var(--warning)' : isOnline ? 'var(--success)' : 'rgba(var(--fg),.2)',
+            border:'2.5px solid var(--surface)' }}/>
         </div>
 
-        {/* Name + meta */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-            <span style={{ fontSize:13.5, fontWeight:600, color:C.t1,
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-              {name}
-            </span>
-            <span style={{ fontSize:10, fontWeight:500, color:C.t3, textTransform:'capitalize', flexShrink:0 }}>
-              {c.role || 'Collaborator'}
-            </span>
+        {/* Identity */}
+        <div style={{ minWidth:0, width:'100%' }}>
+          <div style={{ fontSize:14.5, fontWeight:600, color:'var(--t1)',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {name}
           </div>
-          <div style={{ fontSize:11.5, fontWeight:400, color:C.t3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:1 }}>
+          <div style={{ fontSize:11.5, color:'var(--brand)', textTransform:'capitalize', marginTop:2 }}>
+            {c.role || 'Collaborator'}
+          </div>
+          <div style={{ fontSize:11.5, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:4 }}>
             {[c.projectTitle, c.status === 'pending' ? 'Invited · pending' : (isOnline ? 'Online' : 'Away')].filter(Boolean).join(' · ')}
           </div>
         </div>
 
-        {/* Actions — always visible, flat */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-          <button onClick={() => onMessage(c)}
-            style={{ height:30, padding:'0 12px', borderRadius:8,
-              border:'none', background:'rgba(var(--fg),.06)',
-              fontSize:12, fontWeight:500, color:C.t2, cursor:'pointer',
-              transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.1)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(var(--fg),.06)'}>
-            Message
-          </button>
-          <button onClick={() => onWork(c)}
-            style={{ height:30, padding:'0 12px', borderRadius:8,
-              border:'none', background:`${C.coral}1a`, color:C.coral,
-              fontSize:12, fontWeight:500, cursor:'pointer', transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background=`${C.coral}29`}
-            onMouseLeave={e => e.currentTarget.style.background=`${C.coral}1a`}>
-            Open
-          </button>
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            style={{ width:30, height:30, borderRadius:8, border:'none',
-              background:'transparent', cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              color:C.t3, position:'relative', transition:'background .12s' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.08)'}
-            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-            </svg>
-            {menuOpen && (
-              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:100,
-                background:C.surface, borderRadius:12, boxShadow:'0 12px 40px rgba(0,0,0,.5)',
-                border:`1px solid ${C.border}`, overflow:'hidden', minWidth:140 }}
-                onClick={e => e.stopPropagation()}>
-                <button onClick={() => { setMenuOpen(false); setShowRemove(true) }}
-                  style={{ width:'100%', padding:'10px 14px', background:'none', border:'none',
-                    cursor:'pointer', textAlign:'left', fontSize:13, color:'#ef4444',
-                    display:'flex', alignItems:'center', gap:8 }}
-                  onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,.12)'}
-                  onMouseLeave={e => e.currentTarget.style.background='none'}>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <line x1="23" y1="11" x2="17" y2="11"/>
-                  </svg>
-                  Remove
-                </button>
-              </div>
-            )}
-          </button>
-        </div>
+        {/* Open the shared project */}
+        <button onClick={e => { e.stopPropagation(); onWork(c) }}
+          style={{ width:'100%', height:34, borderRadius:'var(--r-pill)',
+            border:'none', background:'var(--brand-tint)', color:'var(--brand)',
+            fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+            transition:'background var(--dur-1) var(--ease)', marginTop:2 }}
+          onMouseEnter={e => e.currentTarget.style.background='color-mix(in srgb, var(--brand) 24%, transparent)'}
+          onMouseLeave={e => e.currentTarget.style.background='var(--brand-tint)'}>
+          Open
+        </button>
       </div>
 
       {showRemove && (
@@ -390,15 +383,11 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
           )}
         />
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:8 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14, marginTop:12 }}>
           {visible.map((c, i) => (
-            <CollabRow key={c.id} c={c} index={i}
+            <CollabCard key={c.id} c={c} index={i}
               isOnline={onlineIds.has(c.user_id)}
-              onMessage={c => openModal('message', c)}
-              // Open = go to the project you share with them ("view work"
-              // modal was a dead end — often empty; reported live as "crew
-              // should open"). Falls back to the modal if a row somehow has
-              // no project.
+              onProfile={handle => navigate(`/u/${handle}`)}
               onWork={c => c.project_id ? navigate(`/projects/${c.project_id}`) : openModal('view-work', c)}
               onRemove={removeCollab}/>
           ))}

@@ -121,6 +121,19 @@ collaborators.get('/all', async (c) => {
   // Resolve every distinct user once, in a single batched call.
   const profiles = await getUsersByIds(combined.map(r => r.user_id as string | null))
 
+  // Also pull their PUBLIC dizko profiles — auth-level users often have no
+  // avatar (e.g. email signups) while their public profile does, and the
+  // handle is what lets the Crew page link to /u/:handle.
+  const publicByUser = new Map<string, any>()
+  {
+    const ids = [...new Set(combined.map(r => r.user_id).filter(Boolean))] as string[]
+    if (ids.length) {
+      const { data: pubs } = await supabase
+        .from('profiles').select('id, handle, display_name, avatar_url, profile_public').in('id', ids)
+      ;(pubs ?? []).forEach(p => publicByUser.set(p.id as string, p))
+    }
+  }
+
   // Rank: owners & accepted first, pending last — so a person isn't shown by a
   // still-pending row when they're also accepted/owner elsewhere.
   const rank = (s: string) => s === 'pending' ? 1 : 0
@@ -135,14 +148,16 @@ collaborators.get('/all', async (c) => {
     if (seen.has(key)) continue
     seen.add(key)
     const p = row.user_id ? profiles.get(row.user_id as string) : null
+    const pub = row.user_id ? publicByUser.get(row.user_id as string) : null
     out.push({
       ...row,
       projectTitle: titleMap.get(row.project_id as string) ?? null,
       user: {
         id:         p?.id ?? null,
         email:      p?.email ?? row.email ?? '',
-        full_name:  p?.full_name  ?? null,
-        avatar_url: p?.avatar_url ?? null,
+        full_name:  p?.full_name ?? pub?.display_name ?? null,
+        avatar_url: p?.avatar_url ?? pub?.avatar_url ?? null,
+        handle:     pub?.profile_public ? (pub?.handle ?? null) : null,
       },
     })
   }
