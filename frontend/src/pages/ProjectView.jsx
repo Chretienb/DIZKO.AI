@@ -364,7 +364,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     try {
       await projectsApi.update(projectId, { status: 'Archived' })
       addToast?.('Project archived', { type: 'success' })
-      navigate('/projects')
+      navigate('/')
     } catch (e) {
       addToast?.(`Couldn't archive: ${e.message || 'try again'}`, { type: 'error' })
     }
@@ -382,7 +382,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
     try {
       await projectsApi.delete(projectId)
       addToast?.('Project deleted', { type: 'success' })
-      navigate('/projects')
+      navigate('/')
     } catch (e) {
       // Backend also guards (defense in depth) — surface its message verbatim.
       addToast?.(e.message || 'Could not delete project', { type: 'error' })
@@ -588,7 +588,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         <div style={{ width:210, background:'var(--surface)', borderRight:S.border, display:'flex', flexDirection:'column', flexShrink:0, overflow:'hidden' }}>
           {/* Header */}
           <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-            <button onClick={() => navigate('/projects')}
+            <button onClick={() => navigate('/')}
               style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--t3)', background:'none', border:'none', cursor:'pointer', padding:0, marginBottom:12, fontFamily:'inherit' }}>
               <svg width={13} height={13} viewBox="0 0 14 14" fill="none"><path d="M9 2.5L4.5 7 9 11.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
               Projects
@@ -715,7 +715,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
         {/* Breadcrumb */}
         {!isMobile && (
           <div style={{ display:'flex', alignItems:'center', gap:5, padding:'14px 24px 0', fontSize:12, color:'var(--t3)' }}>
-            <button onClick={() => navigate('/projects')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:12, padding:0, fontFamily:'inherit' }}>Projects</button>
+            <button onClick={() => navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:12, padding:0, fontFamily:'inherit' }}>Dashboard</button>
             <span style={{ color:'var(--t4)' }}>›</span>
             {selectedFolderId ? (
               <>

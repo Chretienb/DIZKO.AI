@@ -147,7 +147,7 @@ export default function PageAbout() {
         <h2 style={{ margin:0, fontSize:24, fontWeight:800, color:C.t1, letterSpacing:'-.4px' }}>Make music now.</h2>
         <p style={{ margin:'8px 0 20px', fontSize:14, color:C.t2 }}>Start a project, bring your crew, and bounce your first track.</p>
         <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-          <button onClick={() => navigate('/projects')}
+          <button onClick={() => navigate('/')}
             style={{ height:42, padding:'0 22px', borderRadius:11, border:'none', cursor:'pointer', fontFamily:'inherit',
               fontSize:13.5, fontWeight:700, color:'#fff', background:C.grad, boxShadow:`0 6px 18px ${C.coral}40` }}>
             Open dizko

@@ -906,9 +906,7 @@ export function ModalKeyboardShortcuts({ onClose }) {
       title: 'Navigation',
       shortcuts: [
         { keys:['G', 'D'], desc:'Go to Dashboard' },
-        { keys:['G', 'P'], desc:'Go to Projects' },
         { keys:['G', 'C'], desc:'Go to Collaborators' },
-        { keys:['G', 'L'], desc:'Go to Library' },
         { keys:['G', 'A'], desc:'Go to Analytics' },
       ],
     },

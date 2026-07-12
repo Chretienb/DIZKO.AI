@@ -15,19 +15,15 @@ import folderIcon from './assets/open-folder.png'
 // (import() dedupes by specifier, so a prefetch warms the exact chunk lazy() uses.)
 const ROUTE_LOADERS = {
   dashboard:     () => import('./pages/Dashboard.jsx'),
-  projects:      () => import('./pages/Projects.jsx'),
   studio:        () => import('./pages/Studio.jsx'),
   collaborators: () => import('./pages/Collaborators.jsx'),
-  library:       () => import('./pages/Library.jsx'),
   analytics:     () => import('./pages/Analytics.jsx'),
   inbox:         () => import('./pages/Inbox.jsx'),
   projectView:   () => import('./pages/ProjectView.jsx'),
 }
 const PageDashboardNew     = lazy(ROUTE_LOADERS.dashboard)
-const PageProjectsNew      = lazy(ROUTE_LOADERS.projects)
 const PageStudioNew        = lazy(ROUTE_LOADERS.studio)
 const PageCollaboratorsNew = lazy(ROUTE_LOADERS.collaborators)
-const PageLibraryNew       = lazy(ROUTE_LOADERS.library)
 const PageAnalyticsNew     = lazy(ROUTE_LOADERS.analytics)
 const PageInbox            = lazy(ROUTE_LOADERS.inbox)
 const ProjectView          = lazy(ROUTE_LOADERS.projectView)
@@ -38,8 +34,8 @@ const PageCrewJoin         = lazy(() => import('./pages/Crew.jsx').then(m => ({ 
 
 // nav path → page-chunk key, for hover/idle prefetch.
 const PATH_TO_CHUNK = {
-  '/': 'dashboard', '/projects': 'projects', '/studio': 'studio',
-  '/collaborators': 'collaborators', '/library': 'library', '/analytics': 'analytics',
+  '/': 'dashboard', '/studio': 'studio',
+  '/collaborators': 'collaborators', '/analytics': 'analytics',
 }
 function prefetchRouteChunk(path) {
   const k = PATH_TO_CHUNK[path]
@@ -57,7 +53,7 @@ const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default:
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
-import { House, UsersThree, BookOpen, ChartBar, ChatCircle, UserCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
+import { House, UsersThree, ChartBar, ChatCircle, UserCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
@@ -289,16 +285,12 @@ function ThemeToggle({ size = 30 }) {
 const NAV = [
   // Home — clean house
   { id:'dashboard',     path:'/',               label:'Dashboard',    icon:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10' },
-  // Sessions — folder with music note inside
-  { id:'projects',      path:'/projects',       label:'Projects',     icon:'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4' },
   // Studio — mixer fader sliders (unique, unmistakably audio)
   { id:'studio',        path:'/studio',         label:'Studio',       icon:'M4 21V14M4 10V3M12 21V12M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' },
   // Crew — headphones (music-specific, not generic people icon)
   { id:'collaborators', path:'/collaborators',  label:'Crew',         icon:'M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z' },
   // Inbox — message bubble (DMs, incl. from public profiles)
   { id:'inbox',         path:'/inbox',          label:'Inbox',        icon:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' },
-  // Vault — stacked layers (library of stems)
-  { id:'library',       path:'/library',        label:'Vault',        icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
   // Stats — heartbeat/pulse waveform
   { id:'analytics',     path:'/analytics',      label:'Stats',        icon:'M22 12h-4l-3 9L9 3l-3 9H2' },
 ]
@@ -306,10 +298,8 @@ const NAV = [
 // Paths to pre-warm when hovering each nav item
 const NAV_PREFETCH = {
   '/':               ['/projects', '/analytics/overview'],
-  '/projects':       ['/projects'],
   '/studio':         ['/projects'],
   '/collaborators':  ['/collaborators/all', '/projects', '/invitations'],
-  '/library':        ['/projects'],
   '/analytics':      ['/projects'],
 }
 
@@ -527,16 +517,6 @@ function StudioMic({ size = 24, weight = 'regular' }) {
       <path d="M5 10.5a7 7 0 0 0 14 0"/>
       <line x1="12" y1="17.5" x2="12" y2="21.5"/>
       <line x1="8.5" y1="21.5" x2="15.5" y2="21.5"/>
-    </svg>
-  )
-}
-
-// Masonry / dashboard-layout grid icon (drop-in: accepts size + weight)
-function MasonryIcon({ size = 24 }) {
-  // Projects = an album of songs → library-music icon.
-  return (
-    <svg width={size} height={size} viewBox="0 0 182 182" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M95.55 118.3C101.92 118.3 107.304 116.101 111.703 111.703C116.101 107.304 118.3 101.92 118.3 95.55V45.5H136.5C139.078 45.5 141.24 44.6279 142.984 42.8838C144.728 41.1396 145.6 38.9783 145.6 36.4C145.6 33.8217 144.728 31.6604 142.984 29.9163C141.24 28.1721 139.078 27.3 136.5 27.3H118.3C115.722 27.3 113.56 28.1721 111.816 29.9163C110.072 31.6604 109.2 33.8217 109.2 36.4V77.35C107.228 75.8333 105.105 74.6958 102.83 73.9375C100.555 73.1792 98.1283 72.8 95.55 72.8C89.18 72.8 83.7958 74.9992 79.3975 79.3975C74.9992 83.7958 72.8 89.18 72.8 95.55C72.8 101.92 74.9992 107.304 79.3975 111.703C83.7958 116.101 89.18 118.3 95.55 118.3ZM54.6 145.6C49.595 145.6 45.3104 143.818 41.7463 140.254C38.1821 136.69 36.4 132.405 36.4 127.4V18.2C36.4 13.195 38.1821 8.91042 41.7463 5.34625C45.3104 1.78208 49.595 0 54.6 0H163.8C168.805 0 173.09 1.78208 176.654 5.34625C180.218 8.91042 182 13.195 182 18.2V127.4C182 132.405 180.218 136.69 176.654 140.254C173.09 143.818 168.805 145.6 163.8 145.6H54.6ZM54.6 127.4H163.8V18.2H54.6V127.4ZM18.2 182C13.195 182 8.91042 180.218 5.34625 176.654C1.78208 173.09 0 168.805 0 163.8V45.5C0 42.9217 0.872083 40.7604 2.61625 39.0163C4.36042 37.2721 6.52167 36.4 9.1 36.4C11.6783 36.4 13.8396 37.2721 15.5838 39.0163C17.3279 40.7604 18.2 42.9217 18.2 45.5V163.8H136.5C139.078 163.8 141.24 164.672 142.984 166.416C144.728 168.16 145.6 170.322 145.6 172.9C145.6 175.478 144.728 177.64 142.984 179.384C141.24 181.128 139.078 182 136.5 182H18.2Z"/>
     </svg>
   )
 }
@@ -819,9 +799,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       if (gHeld && !cmd) {
         gHeld = false; clearTimeout(gTimer)
         if (key === 'd') { e.preventDefault(); navigate('/') }
-        if (key === 'p') { e.preventDefault(); navigate('/projects') }
         if (key === 'c') { e.preventDefault(); navigate('/collaborators') }
-        if (key === 'l') { e.preventDefault(); navigate('/library') }
         if (key === 'a') { e.preventDefault(); navigate('/analytics') }
         return
       }
@@ -897,11 +875,9 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: isMobile ? '12px 0 0' : (expanded ? '8px 10px 0' : '8px 14px 0'), flexShrink:0 }}>
             {[
               { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
-              { id:'projects',      path:'/projects',      label:'Projects', Icon: MasonryIcon },
               { id:'studio',        path:'/studio',        label:'Studio',   Icon: StudioMic },
               { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
               { id:'inbox',         path:'/inbox',         label:'Inbox',    Icon: ChatCircle },
-              { id:'library',       path:'/library',       label:'Library',  Icon: BookOpen },
               { id:'profile',                              label:'Profile',  Icon: UserCircle, onClick: goProfile },
               // Stats hidden from the rail for MVP — route + page kept, bring it back later.
               // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
@@ -1077,11 +1053,13 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                 paywall below — everything else here is a free baseline action,
                 with the real caps enforced server-side (project/stem limits,
                 Smart Mix, export). */}
-            <Route path="/projects"      element={<PageProjectsNew openModal={openModal} refreshKey={refreshKey} user={user} />} />
+            {/* Projects & Library pages retired — the Dashboard IS the library
+                now (incl. Archive). Old URLs redirect for bookmarks. */}
+            <Route path="/projects"      element={<Navigate to="/" replace />} />
             <Route path="/projects/:id"  element={<ProjectView openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/studio"        element={<PageStudioNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} />} />
             <Route path="/collaborators" element={<PageCollaboratorsNew openModal={openModal} user={user} onlineIds={onlineIds} />} />
-            <Route path="/library"       element={<PageLibraryNew openModal={openModal} playTrack={playTrack} addToast={addToast} user={user} onProfileUpdate={onProfileUpdate} />} />
+            <Route path="/library"       element={<Navigate to="/" replace />} />
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
             <Route path="/inbox"         element={<PageInbox openModal={openModal} user={user} />} />
             <Route path="/crew"          element={<PageCrew />} />

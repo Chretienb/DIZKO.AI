@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MotionConfig, motion } from 'motion/react'
-import { Plus, Search, X, Heart } from 'lucide-react'
+import { Plus, Search, X, Heart, Archive } from 'lucide-react'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, collaborators as collabsApi } from '../lib/api.js'
 import { Spinner } from '../components/ui/index.jsx'
@@ -45,6 +45,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   const [uploaders,  setUploaders]= useState({})
   const [tab,        setTab]      = useState('upnext')
   const [search,     setSearch]   = useState('')
+  const [showArchive, setShowArchive] = useState(false)
   const [favs,       setFavs]     = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('dizko_favs') || '[]')) } catch { return new Set() } })
 
   const toggleFav = id => setFavs(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); localStorage.setItem('dizko_favs', JSON.stringify([...n])); return n })
@@ -60,9 +61,14 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
   useEffect(() => {
     projectsApi.list().then(r => {
-      const list = (r.data || []).filter(p => p.status !== 'Archived')   // archived projects stay out of the dashboard
+      // Keep ALL projects — the Dashboard is the only projects surface now
+      // (the standalone Projects/Library pages were retired), so the archive
+      // lives here too, behind a toggle in the grid header. Hero/rail still
+      // work off active projects only.
+      const list = r.data || []
       setProjects(list)
-      if (list[0]) setSelId(list[0].id)
+      const firstActive = list.find(p => p.status !== 'Archived')
+      if (firstActive) setSelId(firstActive.id)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -95,7 +101,11 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   }))
 
   const q = search.toLowerCase()
-  const projList = projects.filter(p => !q || p.title.toLowerCase().includes(q))
+  const activeProjects   = projects.filter(p => p.status !== 'Archived')
+  const archivedProjects = projects.filter(p => p.status === 'Archived')
+  const gridSource = showArchive ? archivedProjects : activeProjects
+  const projList = gridSource.filter(p => !q || p.title.toLowerCase().includes(q))
+  const railProjects = activeProjects.filter(p => !q || p.title.toLowerCase().includes(q))
   const stemList = parentStems.filter(f => !q || (f.suggested_name||f.original_name||'').toLowerCase().includes(q))
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'50vh' }}><Spinner size={24}/></div>
@@ -127,7 +137,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
   const railList = (
     <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'6px 8px 10px', display:'flex', flexDirection:'column', gap:1 }}>
-      {tab === 'upnext' && (projList.length ? projList.map(p => listRow({
+      {tab === 'upnext' && (railProjects.length ? railProjects.map(p => listRow({
         key:p.id,
         onClick:() => { setSelId(p.id); setTab('upnext') },
         cover:<Cover seed={p.id} size={36} radius={7} coverUrl={p.cover_url}/>,
@@ -170,7 +180,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
     </div>
   )
 
-  const hasProjects = projects.length > 0
+  const hasProjects = activeProjects.length > 0
 
   return (
     <MotionConfig reducedMotion="user">
@@ -237,29 +247,49 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) 330px',
           gap:20, alignItems:'start', marginTop:24 }}>
 
-          {/* Projects grid */}
-          <motion.section {...rise(0.1)} aria-label="Your projects">
-            <SectionHeader eyebrow="Library" title="Your Projects" style={{ marginBottom:14 }}/>
+          {/* Projects grid — doubles as the Archive (the standalone Projects/
+              Library pages were retired; this is the one projects surface). */}
+          <motion.section {...rise(0.1)} aria-label={showArchive ? 'Archived projects' : 'Your projects'}>
+            <SectionHeader
+              eyebrow={showArchive ? 'Archive' : 'Library'}
+              title={showArchive ? 'Archived Projects' : 'Your Projects'}
+              style={{ marginBottom:14 }}
+              action={(archivedProjects.length > 0 || showArchive) && (
+                <button onClick={() => setShowArchive(v => !v)} aria-pressed={showArchive}
+                  style={{ display:'flex', alignItems:'center', gap:7, height:30, padding:'0 13px',
+                    borderRadius:'var(--r-pill)', border:'none', cursor:'pointer', fontFamily:'inherit',
+                    background: showArchive ? 'var(--brand-tint)' : 'var(--surface-2)',
+                    color: showArchive ? 'var(--brand)' : 'var(--t3)', fontSize:12, fontWeight:500,
+                    transition:'background var(--dur-1) var(--ease)' }}>
+                  <Archive size={13}/>
+                  {showArchive ? 'Back to projects' : `Archive`}
+                  {!showArchive && (
+                    <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--t4)' }}>{archivedProjects.length}</span>
+                  )}
+                </button>
+              )}/>
             {projList.length ? (
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14 }}>
                 {projList.map(p => (
-                  <ProjectCard key={p.id} project={p}
-                    active={p.id === selId}
-                    fav={favs.has(p.id)} onToggleFav={toggleFav}
-                    onSelect={proj => setSelId(proj.id)}
-                    onOpen={proj => navigate(`/projects/${proj.id}`)}/>
+                  <div key={p.id} style={showArchive ? { opacity:.75 } : undefined}>
+                    <ProjectCard project={p}
+                      active={p.id === selId}
+                      fav={favs.has(p.id)} onToggleFav={toggleFav}
+                      onSelect={proj => setSelId(proj.id)}
+                      onOpen={proj => navigate(`/projects/${proj.id}`)}/>
+                  </div>
                 ))}
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center',
                 padding:'30px 20px', background:'var(--surface)', border:'1px solid var(--border)',
                 borderRadius:'var(--r-3)' }}>
-                <img src={ufoImg} alt="" style={{ width:'100%', maxWidth:340, borderRadius:'var(--r-2)', display:'block', marginBottom:18 }}/>
-                <div style={{ fontSize:17, fontWeight:600, color:'var(--t1)', letterSpacing:'-.4px', marginBottom:6 }}>
-                  {q ? 'Nothing matches your search' : 'No projects in sight'}
+                {!showArchive && <img src={ufoImg} alt="" style={{ width:'100%', maxWidth:340, borderRadius:'var(--r-2)', display:'block', marginBottom:18 }}/>}
+                <div style={{ fontSize:17, fontWeight:600, color:'var(--t1)', letterSpacing:'-.4px', marginBottom:6, paddingTop: showArchive ? 10 : 0 }}>
+                  {q ? 'Nothing matches your search' : showArchive ? 'Nothing in the archive' : 'No projects in sight'}
                 </div>
-                <div style={{ fontSize:13, color:'var(--t3)', lineHeight:1.6 }}>
-                  {q ? 'Try a different name.' : 'Create a project to see it here.'}
+                <div style={{ fontSize:13, color:'var(--t3)', lineHeight:1.6, paddingBottom: showArchive ? 10 : 0 }}>
+                  {q ? 'Try a different name.' : showArchive ? 'Archived projects will show up here.' : 'Create a project to see it here.'}
                 </div>
               </div>
             )}
