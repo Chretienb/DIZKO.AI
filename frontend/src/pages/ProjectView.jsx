@@ -666,10 +666,10 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
             <div style={{ fontSize:15, fontWeight:650, color:'var(--t1)', letterSpacing:'-.3px', marginBottom:2 }}>
               {(project?.title || '').toUpperCase()}
             </div>
-            <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--t4)' }}>
               {folders.length > 0
                 ? `${folders.length} song${folders.length !== 1 ? 's' : ''}`
-                : 'Add your first song ↓'}
+                : 'No songs yet'}
             </div>
           </div>
 
@@ -712,42 +712,32 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s, box-shadow .1s, opacity .12s' }}
                   onMouseEnter={e => { if (!on && !dropHere) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
                   onMouseLeave={e => { if (!on && !dropHere) e.currentTarget.style.background='transparent' }}>
-                  <span style={{ fontSize:11.5, color: on ? 'var(--brand-strong)' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 600 : 400 }}>{i + 1}</span>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, color: on ? 'var(--brand)' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontVariantNumeric:'tabular-nums' }}>{i + 1}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight: on ? 600 : 500, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
-                    <div style={{ fontSize:11, color: dropHere ? 'var(--brand-strong)' : 'var(--t3)', marginTop:1, fontWeight: dropHere ? 600 : 400 }}>
+                    <div style={{ fontSize:13, fontWeight: on ? 600 : 500, color: on ? 'var(--t1)' : 'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color: dropHere ? 'var(--brand)' : 'var(--t4)', marginTop:2 }}>
                       {dropHere ? 'Drop to move here' : `${parentFiles.filter(f => f.folder_id === folder.id).length} stems`}
                     </div>
                   </div>
-                  {isOwner ? (
-                    <span role="button" tabIndex={0} title="Delete song" aria-label="Delete song"
+                  {isOwner && (
+                    <span role="button" tabIndex={0} title="Delete song" aria-label="Delete song" className="song-del"
                       onClick={e => { e.stopPropagation(); deleteSong(folder) }}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSong(folder) } }}
-                      style={{ flexShrink:0, width:26, height:26, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t4)', cursor:'pointer', transition:'color .12s, background .12s' }}
-                      onMouseEnter={e => { e.currentTarget.style.color='#ef4444'; e.currentTarget.style.background='rgba(239,68,68,.1)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color='var(--t4)'; e.currentTarget.style.background='transparent' }}>
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                      style={{ flexShrink:0, width:26, height:26, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t4)', cursor:'pointer', transition:'color .12s, opacity .12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color='var(--danger, #ef4444)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color='var(--t4)' }}>
+                      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                     </span>
-                  ) : (
-                    <div style={{ width:8, height:8, borderRadius:'50%', background: on ? 'var(--brand-strong)' : 'var(--t4)', flexShrink:0 }}/>
                   )}
                 </button>
               )
             })}
           </div>
 
-          {/* + NEW SONG */}
-          <div style={{ padding:'8px 10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+          {/* + New Song — quiet ghost row; flips to a single clean input */}
+          <div style={{ padding:'8px 10px 10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
             {newSongInput ? (
-              <div style={{ background:'var(--bg)', borderRadius:10, padding:'10px 10px 8px', border:'1.5px solid var(--brand-strong)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                  <div style={{ width:20, height:20, borderRadius:5, background:'var(--brand-strong)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <svg width={9} height={9} viewBox="0 0 10 10" fill="none">
-                      <path d="M5 1v8M1 5h8" stroke="#fff" strokeWidth={1.8} strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, color:'var(--brand)', letterSpacing:'.14em', textTransform:'uppercase' }}>New Song</span>
-                </div>
+              <div>
                 <input
                   autoFocus
                   value={newSongName}
@@ -757,29 +747,25 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                     if (e.key === 'Escape') { setNewSongInput(false); setNewSongName('') }
                   }}
                   onBlur={() => { if (newSongName.trim()) addSong(newSongName); else { setNewSongInput(false); setNewSongName('') } }}
-                  placeholder="Song name…"
-                  style={{ width:'100%', border:'none', borderRadius:6, padding:'6px 8px', fontSize:13, fontWeight:500, fontFamily:'inherit', outline:'none', background:'var(--surface)', color:'var(--t1)', boxSizing:'border-box', boxShadow:'0 1px 3px rgba(0,0,0,.06)' }}
+                  placeholder="Song name"
+                  style={{ width:'100%', height:34, border:'1px solid var(--brand)', borderRadius:9, padding:'0 10px', fontSize:13,
+                    fontFamily:'inherit', outline:'none', background:'var(--bg)', color:'var(--t1)', boxSizing:'border-box' }}
                 />
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:6 }}>
-                  <span style={{ fontSize:10, color:'var(--t4)' }}>Enter to save</span>
-                  <button onClick={() => { setNewSongInput(false); setNewSongName('') }}
-                    style={{ fontSize:10, color:'var(--t4)', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>
-                    Cancel
-                  </button>
+                <div style={{ fontSize:10, color:'var(--t4)', marginTop:5, paddingLeft:2 }}>
+                  Enter to add · Esc to cancel
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => { setNewSongInput(true); setNewSongName('') }}
-                style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 8px', borderRadius:9, border:'1.5px dashed var(--border)', background:'transparent', cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor='var(--brand-strong)'; e.currentTarget.style.background='rgba(109,90,230,.04)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='transparent' }}>
-                <div style={{ width:22, height:22, borderRadius:6, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
-                  <svg width={10} height={10} viewBox="0 0 10 10" fill="none">
-                    <path d="M5 1v8M1 5h8" stroke="var(--t3)" strokeWidth={1.8} strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <span style={{ fontSize:12.5, fontWeight:600, color:'var(--t3)', transition:'color .15s' }}>New Song</span>
+                style={{ display:'flex', alignItems:'center', gap:8, width:'100%', height:34, padding:'0 10px', borderRadius:9,
+                  border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit', color:'var(--t3)', transition:'background .12s, color .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(var(--fg),.05)'; e.currentTarget.style.color='var(--t1)' }}
+                onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)' }}>
+                <svg width={12} height={12} viewBox="0 0 10 10" fill="none" style={{ flexShrink:0 }}>
+                  <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize:12.5, fontWeight:500 }}>New Song</span>
               </button>
             )}
           </div>
@@ -1453,6 +1439,8 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
       )}
 
       <style>{`
+        .song-del { opacity: 0; }
+        button:hover > .song-del, .song-del:focus-visible { opacity: 1; }
         .lt-play-btn { opacity: 0 !important; }
         *:hover > .lt-play-btn, div:hover .lt-play-btn { opacity: 1 !important; }
         @media (max-width: 767px) { .lt-play-btn { opacity: 1 !important; } }
