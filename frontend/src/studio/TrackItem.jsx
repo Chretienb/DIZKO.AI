@@ -201,8 +201,8 @@ export default function TrackItem({
           )}
           <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 9, minWidth:0, overflow:'hidden' }}>
             {/* Instrument chip — text label, not just color (★ for the Master) */}
-            <span style={{ fontSize: isMobile ? 10 : 10.5, fontWeight:700, color:'#fff', background:color, flexShrink:0,
-              padding: isMobile ? '2px 8px' : '3px 9px', borderRadius:7, textTransform:'capitalize', letterSpacing:'.02em', display:'inline-flex', alignItems:'center', gap:3 }}>
+            <span style={{ fontSize: isMobile ? 10 : 10.5, fontWeight:500, color, background:`${color}1c`, flexShrink:0,
+              padding: isMobile ? '2px 8px' : '3px 9px', borderRadius:100, textTransform:'capitalize', letterSpacing:'.02em', display:'inline-flex', alignItems:'center', gap:3 }}>
               {s.instrument === 'master' && <span aria-hidden="true">★</span>}
               {stemLabel}
             </span>
@@ -212,7 +212,7 @@ export default function TrackItem({
                 narrow, and a wrapped multi-line meta row collided with the
                 Transpose stepper below it. */}
             {(stemBpm || stemKey) && (
-              <span style={{ fontSize: isMobile ? 10 : 11.5, fontWeight:600, color:C.t3, fontVariantNumeric:'tabular-nums',
+              <span style={{ fontFamily:'var(--font-mono)', fontSize: isMobile ? 10 : 11, fontWeight:500, color:C.t3,
                 whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0 }}>
                 {[stemBpm && `${stemBpm} BPM`, stemKey].filter(Boolean).join(' · ')}
               </span>

@@ -149,7 +149,7 @@ export default function Transport({
       </div>
 
       {/* Elapsed / total time */}
-      <span style={{ fontSize:11.5, fontFamily:'monospace', fontWeight:500, color:C.t3, flexShrink:0, fontVariantNumeric:'tabular-nums' }}>
+      <span style={{ fontSize:11.5, fontFamily:'var(--font-mono)', fontWeight:500, color:C.t3, flexShrink:0, fontVariantNumeric:'tabular-nums' }}>
         {fmt(currentTime)}{duration > 0 ? ` / ${fmt(duration)}` : ''}
       </span>
 

@@ -3,8 +3,10 @@ import React from 'react'
 // Shared dark mixing-console primitives — used by both the per-stem FX modal
 // and the Record panel's input-monitoring section, so both read as the same
 // instrument rather than two different UIs that happen to both have sliders.
-export const INK = { bg:'#0d0d10', panel:'#18181c', strip:'#202024', strip2:'#26262b',
-  border:'#2e2e34', text:'#e8e8ec', dim:'#8b8b93', dimmer:'#57575f' }
+// Mixing-console ink — deliberately dark in BOTH themes (pro-audio plugin
+// convention), aligned to the rebrand's near-black surface family.
+export const INK = { bg:'#0D0D0F', panel:'#151518', strip:'#1C1C20', strip2:'#232329',
+  border:'rgba(255,255,255,.08)', text:'#EDEDEF', dim:'#A1A1AA', dimmer:'#5D5D66' }
 
 export function fmtVal(n, digits = 1) {
   const r = Math.round(n * 10 ** digits) / 10 ** digits

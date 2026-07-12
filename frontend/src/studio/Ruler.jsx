@@ -31,7 +31,7 @@ const Ruler = React.memo(function Ruler({ bpm, pixelsPerMs, widthPx, height = 28
       const labeled = barNum % labelStep === 0
       if (!labeled && barPx < 4) continue
       lines.push(<div key={`bar-${ms}`} aria-hidden="true" style={{ position:'absolute', left:x, top: labeled ? 0 : height*0.55, bottom:0, width:1, background: labeled ? C.border2 : C.border }}/>)
-      if (labeled) lines.push(<span key={`barlabel-${ms}`} style={{ position:'absolute', left:x + 4, top:2, fontSize:10, fontWeight:700, color:C.t2, fontVariantNumeric:'tabular-nums' }}>{barNum + 1}</span>)
+      if (labeled) lines.push(<span key={`barlabel-${ms}`} style={{ position:'absolute', left:x + 4, top:2, fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:C.t3 }}>{barNum + 1}</span>)
       if (showBeats) {
         // Beat subdivisions within this bar (skip the one that coincides with the bar line itself)
         for (let b = 1; b < 4; b++) {
@@ -48,7 +48,7 @@ const Ruler = React.memo(function Ruler({ bpm, pixelsPerMs, widthPx, height = 28
       const x = ms * pixelsPerMs
       const strong = ms % 5000 === 0
       lines.push(<div key={`s-${ms}`} aria-hidden="true" style={{ position:'absolute', left:x, top: strong?0:height*0.55, bottom:0, width:1, background: strong?C.border2:C.border }}/>)
-      if (strong) lines.push(<span key={`slabel-${ms}`} style={{ position:'absolute', left:x + 4, top:2, fontSize:10, fontWeight:700, color:C.t2, fontVariantNumeric:'tabular-nums' }}>{Math.round(ms/1000)}s</span>)
+      if (strong) lines.push(<span key={`slabel-${ms}`} style={{ position:'absolute', left:x + 4, top:2, fontFamily:'var(--font-mono)', fontSize:9.5, fontWeight:500, color:C.t3 }}>{Math.round(ms/1000)}s</span>)
     }
   }
 

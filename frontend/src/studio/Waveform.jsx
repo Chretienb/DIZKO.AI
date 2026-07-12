@@ -176,7 +176,7 @@ export default function Waveform({
       ...(slicedPeaks ? { peaks: [slicedPeaks], duration: durationRef.current || undefined } : {}),
       plugins: showTimeline ? [TimelinePlugin.create({
         height: TIMELINE_HEIGHT,
-        style: { color: 'var(--t3)', fontSize: '10px', fontFamily: 'inherit' },
+        style: { color: 'var(--t3)', fontSize: '10px', fontFamily: 'var(--font-mono)' },
         formatTimeCallback: fmtTime,   // m:ss everywhere, matching the transport clock
       })] : [],
     })
