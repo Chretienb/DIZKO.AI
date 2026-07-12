@@ -234,12 +234,12 @@ export default function PublicProfile({ embedded = false }) {
   const Shell = embedded
     ? ({ children }) => (
         <div style={{ width:'100%', padding:'0 clamp(12px,2.5vw,28px) 60px', minWidth:0,
-          color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{children}</div>
+          color:'var(--t1)', fontFamily:'var(--font-ui)' }}>{children}</div>
       )
     : ({ children }) => (
     <div className="pp-shell" style={{ minHeight:'100vh', overflowX:'hidden', boxSizing:'border-box',
       background:'var(--bg)',
-      color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      color:'var(--t1)', fontFamily:'var(--font-ui)' }}>
       <style>{`
         .pp-rail { display:none; }
         .pp-topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 0 10px; }
@@ -649,7 +649,7 @@ export default function PublicProfile({ embedded = false }) {
           it covers the sidebar instead of rendering inside the padded content) */}
       {discoverOpen && createPortal(
         <div style={{ position:'fixed', inset:0, zIndex:1100, background:'var(--bg)', color:'var(--t1)', display:'flex', flexDirection:'column',
-          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:'var(--font-ui)' }}>
           <style>{`@keyframes ppDiscover{from{transform:scale(.4) translate(45%,45%);opacity:0}to{transform:scale(1) translate(0,0);opacity:1}}`}</style>
           <div style={{ display:'flex', justifyContent:'flex-end', padding:'16px 22px 0' }}>
             <button onClick={() => setDiscoverOpen(false)} aria-label="Close"

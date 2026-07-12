@@ -22,7 +22,7 @@ export default function Privacy() {
   const updated = 'May 18, 2026'
 
   return (
-    <div style={{ fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    <div style={{ fontFamily:'var(--font-ui)',
       WebkitFontSmoothing:'antialiased', background:'#fafafa', minHeight:'100vh',
       overflowY:'auto', height:'auto' }}>
 

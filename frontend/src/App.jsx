@@ -100,7 +100,7 @@ export class ErrorBoundary extends React.Component {
     // Don't flash the error screen for a stale-chunk reload — show a quiet notice.
     if (this.state.reloading) return (
       <div style={{ height:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:18,
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", textAlign:'center', padding:24 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:'var(--font-ui)', textAlign:'center', padding:24 }}>
         <style>{`@keyframes dzspin{to{transform:rotate(360deg)}}`}</style>
         <img src="/logo.png" width={52} height={52} style={{ borderRadius:14 }} alt="" onError={e => { e.currentTarget.style.display='none' }} />
         <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#F4937A" strokeWidth={2.4} strokeLinecap="round" style={{ animation:'dzspin .9s linear infinite' }}><path d="M12 3a9 9 0 019 9"/></svg>
@@ -111,7 +111,7 @@ export class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children
     return (
       <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-        background:'var(--bg)', color:'var(--t1)', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", flexDirection:'column', gap:16 }}>
+        background:'var(--bg)', color:'var(--t1)', fontFamily:'var(--font-ui)', flexDirection:'column', gap:16 }}>
         <div style={{ fontSize:32 }}>
           <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth={1.5} strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -1017,7 +1017,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   return (
     <MobileCtx.Provider value={isMobile}>
     <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
-      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily:'var(--font-ui)',
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
       {/* Keyboard skip link — first focusable element, jumps past the nav rail */}

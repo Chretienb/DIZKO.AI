@@ -97,7 +97,7 @@ export default function Onboarding({ onComplete, user }) {
 
   return (
     <div style={{ position:'fixed', inset:0, zIndex:9999, background:'#000', display:'flex',
-      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily:'var(--font-ui)',
       WebkitFontSmoothing:'antialiased', overflow:'hidden' }}>
 
       {/* ══ LEFT — big studio photo + welcome (desktop) ══ */}

@@ -18,7 +18,7 @@ const DK = {
   t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', t4:'var(--t4)',
   red:'#E95A51', green:'#3CDA6F',
   border:'1px solid var(--border-2)',
-  font:'"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  font:'var(--font-ui)',
 }
 
 const ART = [

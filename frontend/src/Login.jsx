@@ -178,7 +178,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div style={{ height:'100vh', display:'flex', overflow:'hidden',
-      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily:'var(--font-ui)',
       WebkitFontSmoothing:'antialiased' }}>
 
       {/* ══ LEFT — studio photo ══ */}

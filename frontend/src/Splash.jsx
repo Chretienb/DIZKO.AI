@@ -27,7 +27,7 @@ export default function Splash({ onDone }) {
       background: '#000000',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: 'var(--font-ui)',
       WebkitFontSmoothing: 'antialiased',
       overflow: 'hidden',
       position: 'relative',

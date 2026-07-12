@@ -652,7 +652,7 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
     ]
     return (
       <div style={{ position:'fixed', inset:0, zIndex:1000, background:'var(--bg)', overflowY:'auto', color:'var(--t1)',
-        fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", WebkitFontSmoothing:'antialiased' }}>
+        fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
         {/* ambient glows */}
         <div style={{ position:'absolute', top:'-8%', right:'-6%', width:520, height:520, borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}1c, transparent 65%)`, pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:'2%', left:'-8%', width:460, height:460, borderRadius:'50%', background:`radial-gradient(circle, ${C.pink ? C.pink : '#F28FB8'}14, transparent 65%)`, pointerEvents:'none' }}/>

@@ -79,6 +79,12 @@
   /* Glass panels (Smart Mix drawer et al.) — theme-correct translucency */
   --glass: color-mix(in srgb, var(--bg) 45%, transparent);
   --glass-blur: 26px;
+
+  /* Typography — Geist for UI, IBM Plex Mono ONLY for technical metadata
+     (timestamps, BPM, key, filenames). Inter stays as a metric-compatible
+     fallback while Geist loads. */
+  --font-ui:   'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 :root[data-theme="light"] {
@@ -169,7 +175,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; padding: 0;
   background: var(--outer); color: var(--t1);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  font-family: var(--font-ui); }
 body { background-color: var(--outer) !important;
   transition: background-color .2s ease, color .2s ease; }
 
