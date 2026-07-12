@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
 import { C, Spinner } from '../components/ui/index.jsx'
 import posthog from '../lib/posthog.js'
+import InviteeInput from '../components/InviteeInput.jsx'
 
 const ROLES = [
   { name:'Vocalist',     can:'vocals, harmonies',  color:'#8b5cf6' },
@@ -14,8 +15,6 @@ const ROLES = [
   { name:'Collaborator', can:'anything',           color:'#6366f1' },
 ]
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export default function PageInvite() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -23,7 +22,8 @@ export default function PageInvite() {
 
   const [projects, setProjects] = React.useState([])
   const [selId,    setSelId]    = React.useState(preId || '')
-  const [rows,     setRows]     = React.useState([''])  // one email per row
+  const [rows,     setRows]     = React.useState([null])  // one invitee per row: {email} | {handle,...} | null
+  const [rowsKey,  setRowsKey]  = React.useState(0)        // remount inputs to clear after send
   const [role,     setRole]     = React.useState('Collaborator')
   const [sending,  setSending]  = React.useState(false)
   const [sentList, setSentList] = React.useState(null)
@@ -40,24 +40,26 @@ export default function PageInvite() {
   const selProj = projects.find(p => p.id === selId)
 
   const setRow    = (i, val) => setRows(prev => prev.map((r, idx) => idx === i ? val : r))
-  const addRow    = () => setRows(prev => [...prev, ''])
+  const addRow    = () => setRows(prev => [...prev, null])
   const removeRow = (i) => setRows(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev)
 
-  // De-duped, validated list of emails across all rows.
-  const validEmails = [...new Set(rows.map(r => r.trim().toLowerCase()).filter(e => EMAIL_RE.test(e)))]
+  // De-duped list of invitees (email or @handle) across all rows.
+  const label = v => v.email || `@${v.handle}`
+  const invitees = [...new Map(rows.filter(Boolean).map(v => [label(v), v])).values()]
 
   const send = async () => {
-    if (!validEmails.length || !selId) return
+    if (!invitees.length || !selId) return
     setSending(true); setErr(null)
-    const results = await Promise.allSettled(validEmails.map(em => collabsApi.addToProject(selId, { email: em, role })))
+    const results = await Promise.allSettled(invitees.map(v =>
+      collabsApi.addToProject(selId, { role, ...(v.email ? { email: v.email } : { handle: v.handle }) })))
     setSending(false)
-    const ok   = validEmails.filter((_, i) => results[i].status === 'fulfilled')
-    const fail = validEmails.filter((_, i) => results[i].status === 'rejected')
+    const ok   = invitees.filter((_, i) => results[i].status === 'fulfilled').map(label)
+    const fail = invitees.filter((_, i) => results[i].status === 'rejected').map(label)
     if (ok.length) {
       posthog.capture('collaborator_invited', { count: ok.length, role, project_id: selId })
       window.dispatchEvent(new CustomEvent('dizko:checklist', { detail: { item: 2 } }))
       if (fail.length === 0) { setSentList(ok); return }
-      setSentList(null); setRows(fail)
+      setSentList(null)
       setErr(`Sent ${ok.length}. Couldn’t invite: ${fail.join(', ')}`)
     } else {
       setErr(results[0]?.reason?.message || 'Failed to send invites')
@@ -65,7 +67,7 @@ export default function PageInvite() {
   }
 
   const labelStyle = { fontSize:11, fontWeight:700, letterSpacing:'.06em', textTransform:'uppercase', color:'var(--t4)', display:'block', marginBottom:8 }
-  const total = validEmails.length
+  const total = invitees.length
 
   // ── Sent state ──
   if (sentList) return (
@@ -86,7 +88,7 @@ export default function PageInvite() {
         ))}
       </div>
       <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
-        <button onClick={() => { setRows(['']); setSentList(null); setErr(null) }}
+        <button onClick={() => { setRows([null]); setRowsKey(k => k + 1); setSentList(null); setErr(null) }}
           style={{ height:42, padding:'0 20px', borderRadius:11, cursor:'pointer', fontFamily:'inherit', fontSize:13.5, fontWeight:700,
             color:C.t1, background:'var(--surface)', border:`1px solid ${C.border}` }}>Invite more</button>
         <button onClick={() => navigate(-1)}
@@ -125,19 +127,12 @@ export default function PageInvite() {
         </div>
       </div>
 
-      {/* Emails — one row per collaborator, add more with + */}
+      {/* Invitees — one row per collaborator (email or @username), add more with + */}
       <div style={{ marginBottom:22 }}>
-        <label style={labelStyle}>Email addresses</label>
+        <label style={labelStyle}>Email or @username</label>
         {rows.map((val, i) => (
-          <div key={i} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
-            <input type="email" value={val} autoFocus={i === rows.length - 1 && rows.length > 1}
-              onChange={e => setRow(i, e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRow() } }}
-              placeholder="collaborator@email.com"
-              style={{ flex:1, height:46, padding:'0 14px', borderRadius:12, border:`1px solid ${C.border}`,
-                background:'var(--surface)', color:C.t1, fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }}
-              onFocus={e => e.currentTarget.style.borderColor = C.coral}
-              onBlur={e => e.currentTarget.style.borderColor = C.border} />
+          <div key={`${rowsKey}-${i}`} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
+            <InviteeInput onPick={v => setRow(i, v)} autoFocus={i === rows.length - 1 && rows.length > 1}/>
             {rows.length > 1 && (
               <button onClick={() => removeRow(i)} aria-label="Remove"
                 style={{ width:40, height:46, flexShrink:0, borderRadius:12, border:`1px solid ${C.border}`, background:'var(--surface)',
