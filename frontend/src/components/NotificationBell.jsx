@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { notificationsApi } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
+import { Skeleton } from './ui/skeleton.jsx'
 
 function timeAgo(iso) {
   if (!iso) return ''
@@ -188,14 +189,15 @@ export function NotificationsPage({ user }) {
       <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:14 }}>
         <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
           <h1 style={{ margin:0, fontSize:19, fontWeight:700, letterSpacing:'-.3px', color:S.t1 }}>Notifications</h1>
-          {unread > 0 && <span style={{ fontSize:12.5, color:S.t4 }}>{unread} unread</span>}
+          {unread > 0 && <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--brand)',
+            background:'var(--brand-tint)', padding:'2px 8px', borderRadius:100 }}>{unread} unread</span>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
           {['all','unread'].map(id => (
             <button key={id} onClick={() => setTab(id)}
               style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:S.font,
-                fontSize:12.5, fontWeight:600, color: tab===id ? S.t1 : S.t4,
-                borderBottom: tab===id ? '1.5px solid var(--t1)' : '1.5px solid transparent', paddingBottom:2, transition:'color .12s' }}>
+                fontSize:12.5, fontWeight: tab===id ? 600 : 400, color: tab===id ? S.t1 : S.t4,
+                borderBottom: tab===id ? '1.5px solid var(--brand)' : '1.5px solid transparent', paddingBottom:2, transition:'color .12s' }}>
               {id === 'all' ? 'All' : 'Unread'}
             </button>
           ))}
@@ -216,7 +218,7 @@ export function NotificationsPage({ user }) {
           {notifs.length > 0 && (
             <button onClick={clearAll}
               style={{ fontSize:12, fontWeight:600, color:S.t4, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:S.font, transition:'color .1s' }}
-              onMouseEnter={e => e.currentTarget.style.color='#6D5AE6'}
+              onMouseEnter={e => e.currentTarget.style.color='var(--danger)'}
               onMouseLeave={e => e.currentTarget.style.color=S.t4}>
               Clear all
             </button>
@@ -226,7 +228,15 @@ export function NotificationsPage({ user }) {
 
       {/* List */}
       {loading ? (
-        <div style={{ padding:'60px 0', textAlign:'center', color:S.t4, fontSize:13 }}>Loading…</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:10, paddingTop:16 }}>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:11 }}>
+              <Skeleton className="size-4 rounded-full shrink-0"/>
+              <Skeleton className="h-4 flex-1"/>
+              <Skeleton className="h-3 w-12 shrink-0"/>
+            </div>
+          ))}
+        </div>
       ) : shown.length === 0 ? (
         <div style={{ padding:'64px 20px', textAlign:'center' }}>
           <p style={{ margin:0, fontSize:13.5, fontWeight:600, color:S.t2 }}>{tab === 'unread' ? 'No unread notifications' : 'All caught up'}</p>
@@ -235,8 +245,8 @@ export function NotificationsPage({ user }) {
       ) : (
         sections.map(sec => (
           <div key={sec.label} style={{ marginTop:14 }}>
-            <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.06em', textTransform:'uppercase',
-              color:S.t4, margin:'0 0 2px' }}>{sec.label}</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase',
+              color:'var(--brand)', margin:'0 0 4px' }}>{sec.label}</div>
             {sec.items.map(n => {
               const meta  = TYPE_META[n.type] || DEFAULT_META
               const title = n.title || meta.label
@@ -256,7 +266,7 @@ export function NotificationsPage({ user }) {
 
                   {/* unread marker */}
                   <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0,
-                    background: n.read ? 'transparent' : '#EF4444' }}/>
+                    background: n.read ? 'transparent' : 'var(--brand)' }}/>
 
                   {/* small type icon, no heavy tile */}
                   <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={meta.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d={meta.icon}/></svg>
@@ -268,7 +278,7 @@ export function NotificationsPage({ user }) {
                   </div>
 
                   {/* time, hidden on hover to make room for actions */}
-                  <span style={{ fontSize:11, color:S.t4, flexShrink:0, whiteSpace:'nowrap',
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:S.t4, flexShrink:0, whiteSpace:'nowrap',
                     opacity: isH ? 0 : 1, transition:'opacity .1s' }}>{timeAgo(n.created_at)}</span>
 
                   {/* row actions — only on hover */}
