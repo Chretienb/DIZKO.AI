@@ -109,13 +109,39 @@ export const Btn = React.memo(function Btn({ children, onClick, style={}, varian
   </button>
 })
 
+// Session-wide avatar byte cache. Supabase serves avatar objects with
+// `cache-control: no-cache`, so every fresh <img> mount revalidates over the
+// network and the initials fallback flashes in while it waits — avatars
+// "disappearing" on row expands / popovers / re-renders (reported live).
+// Fetch each URL once per session into a blob: URL; every Avatar after that
+// paints instantly with zero network. URLs whose host blocks CORS (e.g.
+// googleusercontent) fall back to the direct <img> path, which those hosts
+// serve with long max-age anyway.
+const avatarBlobCache = new Map()   // url -> { url: blobUrl } | {} (direct fallback)
+const avatarInflight  = new Set()
+function useAvatarSrc(url) {
+  const [, force] = React.useReducer(x => x + 1, 0)
+  React.useEffect(() => {
+    if (!url || avatarBlobCache.has(url) || avatarInflight.has(url)) return
+    avatarInflight.add(url)
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.blob() })
+      .then(b => avatarBlobCache.set(url, { url: URL.createObjectURL(b) }))
+      .catch(() => avatarBlobCache.set(url, {}))
+      .finally(() => { avatarInflight.delete(url); force() })
+  }, [url])
+  if (!url) return url
+  return avatarBlobCache.get(url)?.url || url
+}
+
 // Backed by shadcn's radix Avatar (proper image load-state handling: the
 // initials fallback shows until the image actually loads, and on error) —
 // this wrapper keeps the app-wide { name, url, size, color, border } API.
 // `presence` (optional): 'online' | 'away' | 'pending' renders an AvatarBadge
 // presence dot pinned to the avatar's corner.
 const PRESENCE_COLOR = { online:'var(--success)', away:'rgba(var(--fg),.25)', pending:'var(--warning)' }
-export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.brand, border, presence, style: extra }) {
+export const Avatar = React.memo(function Avatar({ name, url: rawUrl, size = 36, color = C.brand, border, presence, style: extra }) {
+  const url = useAvatarSrc(rawUrl)
   const s  = typeof size === 'number' ? size : 36
   const fs = Math.round(s * 0.36)
   return (

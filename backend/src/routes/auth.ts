@@ -270,19 +270,25 @@ auth.post('/avatar', requireAuth, async (c) => {
   }
 
   const storagePath = `avatars/${user.id}.jpg`
+  // Long-lived cache header: without it storage serves `no-cache`, so every
+  // avatar <img> in the app revalidates over the network on each mount (the
+  // "profile pictures disappear sometimes" flicker). The path is stable per
+  // user, so the stored URL is versioned below — a new upload mints a new
+  // URL and old caches can never show a stale picture.
   const { error: upErr } = await supabase.storage
     .from('stems')
-    .upload(storagePath, buf, { contentType: 'image/jpeg', upsert: true })
+    .upload(storagePath, buf, { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' })
   if (upErr) return c.json({ data: null, error: upErr.message, status: 500 }, 500)
 
   const { data: { publicUrl } } = supabase.storage.from('stems').getPublicUrl(storagePath)
+  const versionedUrl = `${publicUrl}?v=${Date.now()}`
 
   const { data, error } = await supabase.auth.admin.updateUserById(user.id, {
-    user_metadata: { avatar_url: publicUrl },
+    user_metadata: { avatar_url: versionedUrl },
   })
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
-  return c.json({ data: { avatar_url: publicUrl }, error: null, status: 200 })
+  return c.json({ data: { avatar_url: versionedUrl }, error: null, status: 200 })
 })
 
 // ── POST /auth/invite ─────────────────────────────────────────────────────────
