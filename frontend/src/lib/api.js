@@ -510,6 +510,8 @@ export const foldersApi = {
   rename:   (folderId, name)     => patch(`/folders/${folderId}`, { name }),
   remove:   (folderId)           => del(`/folders/${folderId}`),
   moveFile: (stemId, folderId)   => patch('/folders/move-file', { stem_id: stemId, folder_id: folderId }),
+  /** Persist a drag-reorder: ids in their new display order. */
+  reorder:  (projectId, ids)     => patch('/folders/reorder', { project_id: projectId, order: ids }),
 }
 
 // ── Studio timeline clips ────────────────────────────────────────────────────

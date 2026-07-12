@@ -30,10 +30,22 @@ folders.get('/', async (c) => {
   const ok = await assertProjectAccess(projectId, userId)
   if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
-  const { data, error } = await supabase
+  // Drag-reordered position first; folders never dragged (position null)
+  // keep their historical created_at order after them.
+  let { data, error } = await supabase
     .from('folders').select('*')
     .eq('project_id', projectId)
+    .order('position',   { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true })
+
+  // Migration 037 not applied yet — fall back to the historical order so the
+  // page keeps working; reordering just won't persist until it lands.
+  if (error && /position/i.test(error.message)) {
+    ;({ data, error } = await supabase
+      .from('folders').select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true }))
+  }
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data, error: null, status: 200 })
@@ -85,6 +97,35 @@ folders.patch('/move-file', sanitize, async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data, error: null, status: 200 })
+})
+
+// ── PATCH /folders/reorder — drag-to-reorder songs ────────────────────────────
+// MUST be before /:id so Hono doesn't match "reorder" as an id param.
+// Any active member may rearrange (it's presentation, not structure).
+folders.patch('/reorder', sanitize, async (c) => {
+  const userId = c.var.user.id
+  const body   = c.var.body as { project_id?: string; order?: unknown }
+
+  const projectId = body.project_id
+  const order = Array.isArray(body.order) ? body.order.filter((x): x is string => typeof x === 'string') : []
+  if (!projectId || order.length === 0)
+    return c.json({ data: null, error: 'project_id and order[] required', status: 400 }, 400)
+
+  const ok = await assertProjectAccess(projectId, userId)
+  if (!ok) return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  // Only touch folders that actually belong to this project — ids for other
+  // projects (or garbage) are silently dropped.
+  const { data: own } = await supabase.from('folders').select('id').eq('project_id', projectId)
+  const valid = new Set((own ?? []).map(f => (f as any).id))
+  const results = await Promise.all(order.filter(id => valid.has(id)).map((id, i) =>
+    supabase.from('folders').update({ position: i }).eq('id', id)))
+  // Surface failures (e.g. migration 037 not applied yet) so the client
+  // reverts its optimistic order instead of showing a lie.
+  const failed = results.find(r => r.error)
+  if (failed?.error) return c.json({ data: null, error: failed.error.message, status: 500 }, 500)
+
+  return c.json({ data: { ok: true }, error: null, status: 200 })
 })
 
 // ── PATCH /folders/:id — rename ───────────────────────────────────────────────

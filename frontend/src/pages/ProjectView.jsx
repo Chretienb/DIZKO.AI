@@ -301,6 +301,29 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [draggingId,   setDraggingId]   = useState(null)
   const [dragOverGroup, setDragOverGroup] = useState(null)
   const [dragOverFolder, setDragOverFolder] = useState(null)
+  // Drag a SONG row itself to rearrange the list (Angel's note) — separate
+  // state from stem-drags so a folder row can be both a stem drop target and
+  // a reorder handle.
+  const [folderDrag,     setFolderDrag]     = useState(null)
+  const [folderDragOver, setFolderDragOver] = useState(null)
+  const reorderSongs = async (fromId, toId) => {
+    setFolderDrag(null); setFolderDragOver(null)
+    if (!fromId || fromId === toId) return
+    const cur = folders
+    const fi = cur.findIndex(f => f.id === fromId), ti = cur.findIndex(f => f.id === toId)
+    if (fi < 0 || ti < 0) return
+    const next = [...cur]
+    const [moved] = next.splice(fi, 1)
+    next.splice(ti, 0, moved)
+    setFolders(next)                                          // optimistic
+    try {
+      await foldersApi.reorder(projectId, next.map(f => f.id))
+      cacheBust(`/folders?project_id=${projectId}`)
+    } catch (e) {
+      setFolders(cur)                                         // revert
+      addToast?.(e?.message || 'Could not reorder songs', 'error')
+    }
+  }
   const dropToGroup = (stemId, groupKey) => {
     setDragOverGroup(null); setDraggingId(null)
     const f = files.find(x => x.id === stemId)
@@ -661,13 +684,32 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               const dropHere = draggingId && dragOverFolder === folder.id
               return (
                 <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)}
-                  onDragOver={draggingId ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverFolder !== folder.id) setDragOverFolder(folder.id) }) : undefined}
-                  onDragLeave={draggingId ? (e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolder(f => (f === folder.id ? null : f)) }) : undefined}
-                  onDrop={draggingId ? (e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) dropToSong(id, folder.id) }) : undefined}
+                  draggable title="Drag to reorder"
+                  onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', folder.id); e.dataTransfer.setData('application/x-dizko-folder', folder.id); setFolderDrag(folder.id) }}
+                  onDragEnd={() => { setFolderDrag(null); setFolderDragOver(null) }}
+                  onDragOver={e => {
+                    const isFolder = e.dataTransfer.types.includes('application/x-dizko-folder') || !!folderDrag
+                    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+                    if (isFolder) { if (folderDragOver !== folder.id) setFolderDragOver(folder.id) }
+                    else if (dragOverFolder !== folder.id) setDragOverFolder(folder.id)
+                  }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) {
+                    setFolderDragOver(f => (f === folder.id ? null : f))
+                    setDragOverFolder(f => (f === folder.id ? null : f))
+                  } }}
+                  onDrop={e => {
+                    e.preventDefault()
+                    const fid = e.dataTransfer.getData('application/x-dizko-folder')
+                    const id  = e.dataTransfer.getData('text/plain')
+                    if (fid) reorderSongs(fid, folder.id)
+                    else if (id) dropToSong(id, folder.id)
+                  }}
                   style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 10px', borderRadius:8,
                     background: dropHere ? 'rgba(109,90,230,.10)' : on ? 'var(--surface-2)' : 'transparent',
-                    boxShadow: dropHere ? 'inset 0 0 0 2px rgba(109,90,230,.5)' : 'none',
-                    border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s, box-shadow .1s' }}
+                    boxShadow: dropHere ? 'inset 0 0 0 2px rgba(109,90,230,.5)'
+                      : (folderDrag && folderDragOver === folder.id && folderDrag !== folder.id) ? 'inset 0 2px 0 var(--brand)' : 'none',
+                    opacity: folderDrag === folder.id ? .45 : 1,
+                    border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s, box-shadow .1s, opacity .12s' }}
                   onMouseEnter={e => { if (!on && !dropHere) e.currentTarget.style.background='rgba(var(--fg),.05)' }}
                   onMouseLeave={e => { if (!on && !dropHere) e.currentTarget.style.background='transparent' }}>
                   <span style={{ fontSize:11.5, color: on ? 'var(--brand-strong)' : 'var(--t4)', width:16, textAlign:'center', flexShrink:0, fontWeight: on ? 600 : 400 }}>{i + 1}</span>
