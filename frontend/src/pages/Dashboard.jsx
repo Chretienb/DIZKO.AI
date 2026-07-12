@@ -4,7 +4,11 @@ import { MotionConfig, motion } from 'motion/react'
 import { Plus, Search, X, Heart, Archive } from 'lucide-react'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, collaborators as collabsApi } from '../lib/api.js'
-import { Spinner } from '../components/ui/index.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { Badge } from '../components/ui/badge.jsx'
+import { Input } from '../components/ui/input.jsx'
+import { Skeleton } from '../components/ui/skeleton.jsx'
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs.jsx'
 import { timeAgo } from '../lib/utils.js'
 import Cover from '../components/Cover.jsx'
 import ProjectCard from '../components/ProjectCard.jsx'
@@ -108,7 +112,32 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   const railProjects = activeProjects.filter(p => !q || p.title.toLowerCase().includes(q))
   const stemList = parentStems.filter(f => !q || (f.suggested_name||f.original_name||'').toLowerCase().includes(q))
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'50vh' }}><Spinner size={24}/></div>
+  // Skeleton mirrors the real layout (header → hero → grid+rail) so the page
+  // doesn't jump when data lands — reads far more premium than a spinner.
+  if (loading) return (
+    <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:22 }}>
+        <Skeleton className="h-8 w-44"/>
+        <Skeleton className="h-9 w-32 rounded-full"/>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap:32, padding:28,
+        background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)' }}>
+        <Skeleton className="aspect-square w-full rounded-xl"/>
+        <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:14 }}>
+          <Skeleton className="h-3 w-36"/>
+          <Skeleton className="h-9 w-3/5"/>
+          <Skeleton className="h-4 w-44"/>
+          <div style={{ display:'flex', gap:10, marginTop:8 }}>
+            <Skeleton className="h-10 w-32 rounded-full"/>
+            <Skeleton className="h-10 w-40 rounded-full"/>
+          </div>
+        </div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14, marginTop:24 }}>
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="aspect-[5/6] w-full rounded-xl"/>)}
+      </div>
+    </div>
+  )
 
   // ── Rail row renderers (Up Next / Stems / People / Activity) ──
   const listRow = ({ key, onClick, cover, title, sub, right, favId }) => (
@@ -142,7 +171,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         onClick:() => { setSelId(p.id); setTab('upnext') },
         cover:<Cover seed={p.id} size={36} radius={7} coverUrl={p.cover_url}/>,
         title:p.title, sub:p.type || 'Single',
-        right:<span style={{ fontSize:10.5, color:'var(--t4)', justifySelf:'end' }}>{p.status || 'Draft'}</span>,
+        right:<Badge variant="outline" className="justify-self-end text-[10px] px-1.5 py-0 text-[color:var(--t3)]">{p.status || 'Draft'}</Badge>,
         favId:p.id,
       })) : (
         <div style={{ padding:'28px 16px', textAlign:'center', color:'var(--t3)', fontSize:12.5 }}>No projects yet.</div>
@@ -194,16 +223,10 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         {/* ── Page header ── */}
         <motion.div {...rise(0)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, margin:'0 0 22px' }}>
           <h1 style={{ margin:0, fontSize:isMobile ? 22 : 26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Dashboard</h1>
-          <button onClick={() => openModal('new-project', {})}
-            style={{ display:'flex', alignItems:'center', gap:7, height:38, padding:'0 16px',
-              borderRadius:'var(--r-pill)', border:'none', cursor:'pointer', fontFamily:'inherit',
-              background:'var(--grad)', color:'#fff', fontSize:13, fontWeight:600,
-              transition:'filter var(--dur-1) var(--ease)' }}
-            onMouseEnter={e => e.currentTarget.style.filter='brightness(1.08)'}
-            onMouseLeave={e => e.currentTarget.style.filter='none'}>
-            <Plus size={15}/>
+          <Button variant="brand" onClick={() => openModal('new-project', {})}>
+            <Plus/>
             New Project
-          </button>
+          </Button>
         </motion.div>
 
         {/* ── Hero: Continue Creating (or premium empty state) ── */}
@@ -232,13 +255,10 @@ export default function PageDashboard({ openModal, user, playTrack }) {
               <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.75)', lineHeight:1.55, maxWidth:440 }}>
                 Create your first project and bring your ideas to life. Collaborate, record, and make music together.
               </p>
-              <button onClick={() => openModal('new-project', {})}
-                style={{ display:'flex', alignItems:'center', gap:8, height:42, padding:'0 22px',
-                  borderRadius:'var(--r-pill)', border:'none', cursor:'pointer', fontFamily:'inherit',
-                  background:'var(--grad)', color:'#fff', fontSize:13.5, fontWeight:600 }}>
-                <Plus size={15}/>
+              <Button variant="brand" size="lg" onClick={() => openModal('new-project', {})}>
+                <Plus/>
                 Create your first project
-              </button>
+              </Button>
             </div>
           </motion.section>
         )}
@@ -255,18 +275,17 @@ export default function PageDashboard({ openModal, user, playTrack }) {
               title={showArchive ? 'Archived Projects' : 'Your Projects'}
               style={{ marginBottom:14 }}
               action={(archivedProjects.length > 0 || showArchive) && (
-                <button onClick={() => setShowArchive(v => !v)} aria-pressed={showArchive}
-                  style={{ display:'flex', alignItems:'center', gap:7, height:30, padding:'0 13px',
-                    borderRadius:'var(--r-pill)', border:'none', cursor:'pointer', fontFamily:'inherit',
-                    background: showArchive ? 'var(--brand-tint)' : 'var(--surface-2)',
-                    color: showArchive ? 'var(--brand)' : 'var(--t3)', fontSize:12, fontWeight:500,
-                    transition:'background var(--dur-1) var(--ease)' }}>
-                  <Archive size={13}/>
-                  {showArchive ? 'Back to projects' : `Archive`}
+                <Button variant="secondary" size="sm" className="rounded-full"
+                  onClick={() => setShowArchive(v => !v)} aria-pressed={showArchive}
+                  style={showArchive ? { background:'var(--brand-tint)', color:'var(--brand)' } : { color:'var(--t3)' }}>
+                  <Archive/>
+                  {showArchive ? 'Back to projects' : 'Archive'}
                   {!showArchive && (
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--t4)' }}>{archivedProjects.length}</span>
+                    <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 text-[color:var(--t4)]">
+                      {archivedProjects.length}
+                    </Badge>
                   )}
-                </button>
+                </Button>
               )}/>
             {projList.length ? (
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14 }}>
@@ -300,40 +319,30 @@ export default function PageDashboard({ openModal, user, playTrack }) {
             style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
               boxShadow:'var(--shadow-1)', display:'flex', flexDirection:'column', overflow:'hidden',
               maxHeight: isMobile ? 'none' : 'calc(100vh - 140px)', position: isMobile ? 'static' : 'sticky', top:0 }}>
-            {/* Search */}
-            <div style={{ padding:'12px 12px 0' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:9, height:36, padding:'0 12px',
-                borderRadius:'var(--r-1)', background:'var(--surface-2)',
-                border:'1px solid transparent', transition:'border-color var(--dur-2) var(--ease)' }}
-                onFocusCapture={e => { e.currentTarget.style.borderColor='var(--brand)' }}
-                onBlurCapture={e => { e.currentTarget.style.borderColor='transparent' }}>
-                <Search size={14} style={{ color:'var(--t3)', flexShrink:0 }}/>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects, stems"
-                  style={{ flex:1, minWidth:0, border:'none', outline:'none', background:'transparent', fontSize:12.5, color:'var(--t1)', fontFamily:'inherit' }}/>
-                {search && (
-                  <button onClick={() => setSearch('')} aria-label="Clear search"
-                    style={{ border:'none', background:'none', cursor:'pointer', color:'var(--t3)', display:'flex', padding:2 }}>
-                    <X size={12}/>
-                  </button>
-                )}
-              </div>
+            {/* Search — shadcn Input with icon adornments */}
+            <div style={{ padding:'12px 12px 0', position:'relative' }}>
+              <Search size={14} style={{ position:'absolute', left:24, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)', pointerEvents:'none' }}/>
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects, stems"
+                className="h-9 pl-9 pr-8 text-[12.5px] bg-[color:var(--surface-2)] border-transparent"/>
+              {search && (
+                <Button variant="ghost" size="icon-xs" aria-label="Clear search" onClick={() => setSearch('')}
+                  style={{ position:'absolute', right:20, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)' }}>
+                  <X/>
+                </Button>
+              )}
             </div>
 
-            {/* Tabs */}
-            <div role="tablist" style={{ display:'flex', gap:16, padding:'12px 16px 0', borderBottom:'1px solid var(--border)' }}>
-              {TABS.map(([id, label]) => {
-                const on = tab === id
-                return (
-                  <button key={id} role="tab" aria-selected={on} onClick={() => setTab(id)}
-                    style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:12.5,
-                      fontWeight: on ? 600 : 400, color: on ? 'var(--t1)' : 'var(--t3)',
-                      padding:'0 0 10px', borderBottom:`2px solid ${on ? 'var(--brand)' : 'transparent'}`, marginBottom:-1,
-                      transition:'color var(--dur-1) var(--ease)' }}>
+            {/* Tabs — shadcn (radix) line variant, controlled by the same state */}
+            <Tabs value={tab} onValueChange={setTab} style={{ padding:'10px 12px 0', borderBottom:'1px solid var(--border)' }}>
+              <TabsList variant="line" className="w-full justify-start gap-4">
+                {TABS.map(([id, label]) => (
+                  <TabsTrigger key={id} value={id}
+                    className="flex-none px-0 text-[12.5px] data-[state=active]:after:bg-[color:var(--brand)]">
                     {label}
-                  </button>
-                )
-              })}
-            </div>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
             {railList}
           </motion.aside>

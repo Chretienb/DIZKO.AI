@@ -10,6 +10,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Dizko brand CTA — the purple gradient, pill-shaped. The hero/header
+        // primary actions use this so every "do the thing" button matches.
+        brand:
+          "rounded-full text-white [background:var(--grad)] hover:brightness-110 transition-[filter]",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:

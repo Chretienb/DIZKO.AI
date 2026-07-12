@@ -1,6 +1,7 @@
 import React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowUpRight, Mic2, Users, AudioLines } from 'lucide-react'
+import { Button } from '../ui/button.jsx'
 import Cover from '../Cover.jsx'
 import { timeAgo } from '../../lib/utils.js'
 
@@ -73,26 +74,14 @@ export default function Hero({ project, stemCount = 0, contributorCount = 0, onR
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 24, flexWrap: 'wrap' }}>
-          <button onClick={onResume}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 22px',
-              borderRadius: 'var(--r-pill)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              background: 'var(--grad)', color: '#fff', fontSize: 13.5, fontWeight: 600,
-              transition: 'filter var(--dur-1) var(--ease)' }}
-            onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.08)'}
-            onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
+          <Button variant="brand" size="lg" onClick={onResume}>
             Resume
-            <ArrowUpRight size={15}/>
-          </button>
-          <button onClick={onOpenStudio}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 20px',
-              borderRadius: 'var(--r-pill)', border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
-              background: 'transparent', color: 'var(--t1)', fontSize: 13.5, fontWeight: 500,
-              transition: 'background var(--dur-1) var(--ease)' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--hover)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <Mic2 size={14} style={{ color: 'var(--brand)' }}/>
+            <ArrowUpRight/>
+          </Button>
+          <Button variant="outline" size="lg" className="rounded-full bg-transparent" onClick={onOpenStudio}>
+            <Mic2 style={{ color: 'var(--brand)' }}/>
             Open in Studio
-          </button>
+          </Button>
         </div>
       </div>
     </section>
