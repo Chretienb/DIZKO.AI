@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Modal, Field, PillSelect, MLabel } from './modals/shared.jsx'
-import { projects as projectsApi, collaborators as collabsApi } from '../lib/api.js'
+import { projects as projectsApi, collaborators as collabsApi, foldersApi } from '../lib/api.js'
 import { STATUSES } from '../pages/project/meta.js'
 import { Spinner } from './ui/index.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.jsx'
@@ -28,11 +28,28 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
   const [crew, setCrew]          = useState(null)   // null = loading
   const [inviteEmail, setInvite] = useState('')
   const [inviting, setInviting]  = useState(false)
+  const [folders, setFolders]    = useState([])
+  const [scopeOpenFor, setScopeOpenFor] = useState(null)
 
   const refreshCrew = () => collabsApi.listByProject(project.id)
-    .then(r => setCrew((r?.data || []).filter(c => c.role !== 'owner')))
+    .then(r => setCrew((r?.data || []).filter(c => c.role !== 'owner' && !c._isOwner)))
     .catch(() => setCrew([]))
   useEffect(() => { refreshCrew() }, [project.id])
+  useEffect(() => { foldersApi.list(project.id).then(r => setFolders(r?.data || [])).catch(() => {}) }, [project.id])
+
+  // Song access (Angel's note): limit a collaborator to specific songs. All
+  // checked = full access (stored as null); they must keep at least one.
+  const toggleCollabSong = async (c, folderId) => {
+    const all = folders.map(f => f.id)
+    const cur = Array.isArray(c.folder_ids) && c.folder_ids.length ? c.folder_ids.filter(id => all.includes(id)) : all
+    const next = cur.includes(folderId) ? cur.filter(id => id !== folderId) : [...cur, folderId]
+    if (next.length === 0) { addToast?.('They need access to at least one song', { type: 'error' }); return }
+    const payload = next.length === all.length ? null : next
+    const prev = crew
+    setCrew(list => list.map(x => x.id === c.id ? { ...x, folder_ids: payload } : x))
+    try { await collabsApi.update(c.id, { folder_ids: payload }) }
+    catch (e) { setCrew(prev); addToast?.(e?.message || 'Could not update access', { type: 'error' }) }
+  }
 
   const pickCover = (e) => {
     const f = e.target.files?.[0]
@@ -155,31 +172,70 @@ export default function ProjectSettings({ project, onClose, onSaved, addToast, o
             <div style={{ fontSize:12.5, color:C.t3, padding:'4px 2px' }}>No collaborators yet — invite someone below.</div>
           ) : crew.map(c => {
             const pending = isPending(c)
+            const scoped = Array.isArray(c.folder_ids) && c.folder_ids.length > 0
             return (
-              <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 10px', borderRadius:10, background:'var(--bg)', border:`1px solid ${C.border}` }}>
-                <div style={{ width:30, height:30, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
-                  background:`${C.coral}18`, color:C.coral, fontSize:12, fontWeight:800 }}>{initials(c)}</div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:C.t1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.user?.full_name || c.user?.email || c.email || 'Collaborator'}</div>
-                  <div style={{ fontSize:11, color: pending ? '#EA9F1E' : C.t3 }}>{pending ? 'Invite pending' : (c.role || 'Collaborator')}</div>
+              <div key={c.id} style={{ padding:'7px 10px', borderRadius:10, background:'var(--bg)', border:`1px solid ${C.border}` }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ width:30, height:30, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                    background:`${C.coral}18`, color:C.coral, fontSize:12, fontWeight:800 }}>{initials(c)}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:C.t1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.user?.full_name || c.user?.email || c.email || 'Collaborator'}</div>
+                    <div style={{ fontSize:11, color: pending ? '#EA9F1E' : C.t3 }}>{pending ? 'Invite pending' : (c.role || 'Collaborator')}</div>
+                  </div>
+                  {pending ? (
+                    <>
+                      <button onClick={() => resendInvite(c)} style={smallBtn}>Resend</button>
+                      <button onClick={() => removeCollaborator(c)} style={{ ...smallBtn, color:'#ef4444', borderColor:'rgba(239,68,68,.3)' }}>Revoke</button>
+                    </>
+                  ) : (
+                    <>
+                      <Select value={ROLE_NAMES.includes(c.role) ? c.role : 'Collaborator'} onValueChange={v => changeRole(c, v)}>
+                        <SelectTrigger size="sm" className="w-[130px] text-xs">
+                          <SelectValue/>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLE_NAMES.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <button onClick={() => removeCollaborator(c)} style={smallBtn}>Remove</button>
+                    </>
+                  )}
                 </div>
-                {pending ? (
-                  <>
-                    <button onClick={() => resendInvite(c)} style={smallBtn}>Resend</button>
-                    <button onClick={() => removeCollaborator(c)} style={{ ...smallBtn, color:'#ef4444', borderColor:'rgba(239,68,68,.3)' }}>Revoke</button>
-                  </>
-                ) : (
-                  <>
-                    <Select value={ROLE_NAMES.includes(c.role) ? c.role : 'Collaborator'} onValueChange={v => changeRole(c, v)}>
-                      <SelectTrigger size="sm" className="w-[130px] text-xs">
-                        <SelectValue/>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLE_NAMES.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <button onClick={() => removeCollaborator(c)} style={smallBtn}>Remove</button>
-                  </>
+                {/* Song access — which songs this collaborator can see and work in */}
+                {!pending && folders.length > 1 && (
+                  <div style={{ marginTop:7, paddingLeft:40 }}>
+                    <button onClick={() => setScopeOpenFor(v => v === c.id ? null : c.id)}
+                      style={{ display:'inline-flex', alignItems:'center', gap:5, padding:0, border:'none', background:'none',
+                        fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase',
+                        color: scoped ? 'var(--brand)' : 'var(--t4)', cursor:'pointer', transition:'color .12s' }}>
+                      {scoped ? `${c.folder_ids.length} of ${folders.length} songs` : 'All songs'}
+                      <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
+                        style={{ transform: scopeOpenFor === c.id ? 'rotate(180deg)' : 'none', transition:'transform .12s' }}>
+                        <polyline points="6,9 12,15 18,9"/>
+                      </svg>
+                    </button>
+                    {scopeOpenFor === c.id && (
+                      <div style={{ marginTop:5, display:'flex', flexDirection:'column', gap:1 }}>
+                        {folders.map(fl => {
+                          const on = !scoped || c.folder_ids.includes(fl.id)
+                          return (
+                            <button key={fl.id} onClick={() => toggleCollabSong(c, fl.id)} type="button"
+                              style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 7px', borderRadius:7, border:'none',
+                                background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s' }}
+                              onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.05)'}
+                              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                              <span style={{ width:14, height:14, borderRadius:4, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                                border: on ? 'none' : '1.5px solid var(--border)',
+                                background: on ? 'var(--brand-strong)' : 'transparent', transition:'background .1s' }}>
+                                {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>}
+                              </span>
+                              <span style={{ fontSize:12, color: on ? C.t1 : C.t3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fl.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )
