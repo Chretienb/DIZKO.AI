@@ -1,10 +1,14 @@
 import React from 'react'
 
 export const C = {
-  // Brand colors — fixed across themes
-  coral:'#F4937A', peach:'#F4A97C', amber:'#F5C97A',
-  pink:'#F28FB8',  rose:'#E8709A',
-  grad:'linear-gradient(135deg,#F4937A,#F28FB8)',
+  // Brand colors — fixed across themes. Rebrand 2026-07: coral → purple.
+  // Values are literal hexes (NOT var()) because ~109 call sites concatenate
+  // alpha suffixes: `${C.coral}40`. Legacy keys (coral/peach/pink/rose) are
+  // kept so no call site breaks — prefer C.brand/C.brandStrong in new code.
+  coral:'#7C6CF0', peach:'#9D8DF7', amber:'#F5C97A',
+  pink:'#A78BFA',  rose:'#6D5AE6',
+  grad:'linear-gradient(135deg,#9D8DF7,#6D5AE6)',
+  brand:'#7C6CF0', brandStrong:'#6D5AE6', tint:'var(--brand-tint)',
 
   // Neutral tokens — resolved from CSS variables so they flip with the theme
   bg:       'var(--bg)',         // main content background

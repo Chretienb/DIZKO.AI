@@ -15,22 +15,23 @@
      (border / text / icon) flips polarity with the theme. */
   --fg: 255,255,255;
 
-  /* Surfaces */
-  --bg:        #000000;   /* main content canvas */
-  --surface:   #141416;   /* cards / panels */
-  --surface-2: #1c1c1f;   /* hover / elevated */
-  --surface-3: #232327;   /* doubly elevated / inputs */
-  --sidebar:   #000000;
-  --outer:     #000000;   /* body / outermost wrapper */
+  /* Surfaces — rebrand palette: near-black with a whisper of blue, never
+     pure #000 (pure black reads as "off", this reads as "premium"). */
+  --bg:        #0D0D0F;   /* main content canvas */
+  --surface:   #151518;   /* cards / panels */
+  --surface-2: #1C1C20;   /* hover / elevated */
+  --surface-3: #232329;   /* doubly elevated / inputs */
+  --sidebar:   #0D0D0F;
+  --outer:     #0A0A0C;   /* body / outermost wrapper — slightly darker frame */
 
   /* Text */
-  --t1: #f1f1f3;                  /* primary */
-  --t2: rgba(255,255,255,.75);    /* secondary */
-  --t3: rgba(255,255,255,.48);    /* muted */
-  --t4: rgba(255,255,255,.30);    /* faint */
+  --t1: #FAFAFA;                  /* primary */
+  --t2: #A1A1AA;                  /* secondary — 7.2:1 on --surface */
+  --t3: rgba(250,250,250,.48);    /* muted */
+  --t4: rgba(250,250,250,.30);    /* faint */
 
   /* Named borders */
-  --border:   rgba(255,255,255,.08);
+  --border:   rgba(255,255,255,.06);
   --border-2: rgba(255,255,255,.04);
 
   /* Hairline / overlay scale (flips polarity in light) */
@@ -48,15 +49,19 @@
   /* Backdrops / scrims */
   --scrim: rgba(0,0,0,.60);
 
-  /* Brand + semantic accents (theme-independent) */
-  --brand:        #f4937a;
-  --brand-strong: #e95a51;
-  --grad:         linear-gradient(135deg,#f4937a,#f28fb8);
+  /* Brand + semantic accents. Rebrand 2026-07: coral → modern purple.
+     --brand for accents/text on dark, --brand-strong for filled CTAs
+     (white text passes AA on it), --brand-tint for subtle chip/hover fills
+     (derives per-theme automatically via color-mix). */
+  --brand:        #7C6CF0;
+  --brand-strong: #6D5AE6;
+  --brand-tint:   color-mix(in srgb, var(--brand) 14%, transparent);
+  --grad:         linear-gradient(135deg,#9D8DF7,#6D5AE6);
   --success: #22c55e;
   --danger:  #ef4444;
   --warning: #f59e0b;
   --warn-text: #fcd34d;   /* readable warning text on tinted box (dark) */
-  --accent:  #6366f1;
+  --accent:  var(--brand);
 
   /* ── Brand geometry / depth / motion (theme-independent) ─────────────────
      The house style in one place, so new surfaces stop hand-rolling their
@@ -93,21 +98,21 @@
   --fg: 0,0,0;
 
   /* Surfaces */
-  --bg:        #f6f6f8;
+  --bg:        #F7F7F8;
   --surface:   #ffffff;
-  --surface-2: #f0f0f3;
-  --surface-3: #e7e7ec;
+  --surface-2: #F1F1F4;
+  --surface-3: #E9E9EE;
   --sidebar:   #ffffff;
-  --outer:     #ececef;
+  --outer:     #EDEDF0;
 
   /* Text */
-  --t1: #18181b;
-  --t2: rgba(0,0,0,.72);
+  --t1: #17171A;
+  --t2: #52525B;
   --t3: rgba(0,0,0,.50);
   --t4: rgba(0,0,0,.34);
 
   /* Named borders */
-  --border:   rgba(0,0,0,.10);
+  --border:   rgba(0,0,0,.09);
   --border-2: rgba(0,0,0,.06);
 
   /* Hairline / overlay scale */
@@ -126,6 +131,9 @@
   --scrim: rgba(0,0,0,.40);
 
   /* Light-mode accent tuning for contrast on white */
+  --brand:        #6D5AE6;   /* 4.97:1 on white */
+  --brand-strong: #5B48D6;   /* 6.2:1 — filled CTAs */
+  --grad:         linear-gradient(135deg,#8B7CF6,#5B48D6);
   --success: #16a34a;
   --warning: #d97706;
   --warn-text: #92591a;   /* dark amber — readable on the light tinted box */
