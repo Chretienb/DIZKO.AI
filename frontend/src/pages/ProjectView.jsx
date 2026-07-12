@@ -42,6 +42,21 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [projMenu,     setProjMenu]     = useState(false)
   const [crewOpen,     setCrewOpen]     = useState(false)
+  const [scopeOpenFor, setScopeOpenFor] = useState(null)   // collab id with the song-scope checklist open
+  // Toggle one song in a collaborator's scope. All songs checked = full
+  // access (stored as null); can't uncheck the last song.
+  const toggleCollabSong = async (collab, folderId) => {
+    const all = folders.map(f => f.id)
+    const cur = Array.isArray(collab.folder_ids) && collab.folder_ids.length
+      ? collab.folder_ids.filter(id => all.includes(id)) : all
+    const next = cur.includes(folderId) ? cur.filter(id => id !== folderId) : [...cur, folderId]
+    if (next.length === 0) { addToast?.('They need access to at least one song', 'error'); return }
+    const payload = next.length === all.length ? null : next
+    const prev = collabs
+    setCollabs(cs => cs.map(x => x.id === collab.id ? { ...x, folder_ids: payload } : x))
+    try { await collabsApi.update(collab.id, { folder_ids: payload }) }
+    catch (e) { setCollabs(prev); addToast?.(e?.message || 'Could not update access', 'error') }
+  }
   // Per-stem comment summary ({count,last_at,last_user_id}) + what the user
   // has already seen (localStorage) — powers the unread badge on closed rows.
   const [commentSummary, setCommentSummary] = useState({})
@@ -1008,6 +1023,46 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                                       ? <span style={{ fontSize:9.5, fontWeight:500, color:'var(--brand)', background:'var(--brand-tint)', padding:'2px 8px', borderRadius:20 }}>Invited · pending</span>
                                       : <span style={{ fontSize:9.5, fontWeight:500, color:'var(--t3)' }}>{isOwnerEntry?'Owner':(collab.role||'Collaborator')}</span>}
                                 </div>
+                                {/* Song scope — limit this collaborator to specific songs */}
+                                {isOwner && !isSelf && !isOwnerEntry && !isPending && folders.length > 1 && (
+                                  <div style={{ marginTop:7 }}>
+                                    <button onClick={() => setScopeOpenFor(v => v === collab.id ? null : collab.id)}
+                                      style={{ display:'inline-flex', alignItems:'center', gap:5, padding:0, border:'none', background:'none',
+                                        fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase',
+                                        color: Array.isArray(collab.folder_ids) && collab.folder_ids.length ? 'var(--brand)' : 'var(--t4)',
+                                        cursor:'pointer', transition:'color .12s' }}>
+                                      {Array.isArray(collab.folder_ids) && collab.folder_ids.length
+                                        ? `${collab.folder_ids.length} of ${folders.length} songs`
+                                        : 'All songs'}
+                                      <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
+                                        style={{ transform: scopeOpenFor === collab.id ? 'rotate(180deg)' : 'none', transition:'transform .12s' }}>
+                                        <polyline points="6,9 12,15 18,9"/>
+                                      </svg>
+                                    </button>
+                                    {scopeOpenFor === collab.id && (
+                                      <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:2 }}>
+                                        {folders.map(fl => {
+                                          const scoped = Array.isArray(collab.folder_ids) && collab.folder_ids.length
+                                          const on = !scoped || collab.folder_ids.includes(fl.id)
+                                          return (
+                                            <button key={fl.id} onClick={() => toggleCollabSong(collab, fl.id)}
+                                              style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 7px', borderRadius:7, border:'none',
+                                                background:'transparent', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'background .1s' }}
+                                              onMouseEnter={e => e.currentTarget.style.background='rgba(var(--fg),.05)'}
+                                              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                                              <span style={{ width:14, height:14, borderRadius:4, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                                                border: on ? 'none' : '1.5px solid var(--border-2, var(--border))',
+                                                background: on ? 'var(--brand-strong)' : 'transparent', transition:'background .1s' }}>
+                                                {on && <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>}
+                                              </span>
+                                              <span style={{ fontSize:12, color: on ? 'var(--t1)' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fl.name}</span>
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                                 {hasActions && (
                                   <div style={{ display:'flex', gap:6, marginTop:8 }}>
                                     {showApproval && <>

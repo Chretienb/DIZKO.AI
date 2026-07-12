@@ -33,6 +33,25 @@ export async function isProjectOwner(projectId: string, userId: string): Promise
   return (project as any)?.owner_id === userId
 }
 
+/**
+ * Song scope for a user in a project: null = unrestricted (the owner, or a
+ * collaborator with full access); an array = only these folder (song) ids.
+ * Tolerates the folder_ids column not existing yet (migration 038) — scoping
+ * simply stays off until it lands.
+ */
+export async function songScopeFor(projectId: string, userId: string): Promise<string[] | null> {
+  if (!projectId || !userId) return null
+  const { data: project } = await supabase
+    .from('projects').select('owner_id').eq('id', projectId).single()
+  if ((project as any)?.owner_id === userId) return null
+  const { data: collab, error } = await supabase
+    .from('collaborators').select('folder_ids')
+    .eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
+  if (error) return null
+  const ids = (collab as any)?.folder_ids
+  return Array.isArray(ids) && ids.length > 0 ? ids : null
+}
+
 /** Resolve the project id that owns a given stem, or null. */
 export async function projectIdForStem(stemId: string): Promise<string | null> {
   const { data: stem } = await supabase

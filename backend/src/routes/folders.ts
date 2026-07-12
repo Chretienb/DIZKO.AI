@@ -2,7 +2,7 @@ import { Hono }        from 'hono'
 import { supabase }    from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize }    from '../middleware/sanitize'
-import { isProjectOwner } from '../lib/rbac'
+import { isProjectOwner, songScopeFor } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const folders = new Hono<{ Variables: HonoVariables }>()
@@ -48,7 +48,12 @@ folders.get('/', async (c) => {
   }
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
-  return c.json({ data, error: null, status: 200 })
+
+  // Song-scoped collaborators only see their songs.
+  const scope = await songScopeFor(projectId, userId)
+  const visible = scope ? (data ?? []).filter((f: any) => scope.includes(f.id)) : data
+
+  return c.json({ data: visible, error: null, status: 200 })
 })
 
 // ── POST /folders ─────────────────────────────────────────────────────────────

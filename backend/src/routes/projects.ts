@@ -13,7 +13,7 @@ import type { ExportStem, ExportOptions } from '../lib/dawExport'
 import { getLatestAnalysis } from '../lib/aiAnalysis'
 import { uploadToR2, getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { getCreatorEntitlement, subscriptionRequired, canCreateProject, freeTierLimitReached, computeEntitlement } from '../lib/entitlement'
-import { assertProjectAccess } from '../lib/rbac'
+import { assertProjectAccess, songScopeFor } from '../lib/rbac'
 import { notify } from '../lib/notificationService'
 import { inviteEmail, inviteNewUserEmail } from '../lib/emailTemplates'
 import { execSync } from 'child_process'
@@ -599,11 +599,18 @@ projects.get('/:id/files', async (c) => {
 
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
+  // Song-scoped collaborators only see stems inside their songs (unassigned
+  // stems included with none — assign stems to songs to share them).
+  const scope = await songScopeFor(projectId, c.var.user.id)
+  const scoped = scope
+    ? (files ?? []).filter((f: any) => f.folder_id && scope.includes(f.folder_id))
+    : (files ?? [])
+
   // Regenerate a fresh signed URL per stem. The stored file_url is signed at
   // upload time and R2 signed URLs expire (7 days), so older stems would
   // otherwise 403 on playback ("Could not load … skipped"). Prefer storage_path;
   // fall back to deriving the key from the stale URL for legacy rows without it.
-  const refreshed = await Promise.all((files ?? []).map(async (stem: Record<string, unknown>) => {
+  const refreshed = await Promise.all(scoped.map(async (stem: Record<string, unknown>) => {
     const key = (stem.storage_path as string | null) || r2KeyFromUrl(stem.file_url as string | null)
     if (key) {
       try { stem.file_url = await getR2SignedUrl(key) } catch { /* keep stored url */ }

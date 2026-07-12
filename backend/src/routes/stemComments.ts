@@ -2,11 +2,20 @@ import { Hono } from 'hono'
 import { supabase } from '../lib/supabase'
 import { requireAuth } from '../middleware/auth'
 import { sanitize } from '../middleware/sanitize'
-import { assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
+import { assertProjectAccess, projectIdForStem, isProjectOwner, songScopeFor } from '../lib/rbac'
 import type { HonoVariables } from '../types'
 
 const stemComments = new Hono<{ Variables: HonoVariables }>()
 stemComments.use('*', requireAuth)
+
+// Song-scoped collaborators can only touch threads on stems inside their songs.
+async function stemInScope(stemId: string, projectId: string, userId: string): Promise<boolean> {
+  const scope = await songScopeFor(projectId, userId)
+  if (!scope) return true
+  const { data: stem } = await supabase.from('stems').select('folder_id').eq('id', stemId).single()
+  const fid = (stem as any)?.folder_id
+  return !!fid && scope.includes(fid)
+}
 
 // Per-stem comment summary for a whole project — one call so the stem list
 // can show comment counts / unread dots without opening each thread.
@@ -23,8 +32,18 @@ stemComments.get('/summary/:projectId', async (c) => {
     .order('created_at', { ascending: true })
   if (error) return c.json({ error: error.message }, 500)
 
+  // Song-scoped collaborators: drop threads on stems outside their songs.
+  const scope = await songScopeFor(projectId, userId)
+  let rows = (data ?? []) as any[]
+  if (scope) {
+    const { data: stems } = await supabase
+      .from('stems').select('id, folder_id').in('id', [...new Set(rows.map(r => r.stem_id))])
+    const allowed = new Set((stems ?? []).filter((s: any) => s.folder_id && scope.includes(s.folder_id)).map((s: any) => s.id))
+    rows = rows.filter(r => allowed.has(r.stem_id))
+  }
+
   const summary: Record<string, { count: number; last_at: string; last_user_id: string }> = {}
-  for (const r of (data ?? []) as any[]) {
+  for (const r of rows) {
     const s = summary[r.stem_id] ?? { count: 0, last_at: r.created_at, last_user_id: r.user_id }
     s.count += 1
     s.last_at = r.created_at
@@ -40,6 +59,8 @@ stemComments.get('/:stemId', async (c) => {
   // Only project members may read a stem's comments
   const projectId = await projectIdForStem(c.req.param('stemId'))
   if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  if (!(await stemInScope(c.req.param('stemId'), projectId, userId)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   const { data: comments, error } = await supabase
@@ -83,6 +104,8 @@ stemComments.post('/:stemId', sanitize, async (c) => {
   // Only project members may comment on a stem
   const projectId = await projectIdForStem(c.req.param('stemId'))
   if (!projectId || !(await assertProjectAccess(projectId, userId)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+  if (!(await stemInScope(c.req.param('stemId'), projectId, userId)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   let userName = 'Unknown', avatarUrl: string | null = null

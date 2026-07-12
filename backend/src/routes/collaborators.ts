@@ -169,7 +169,7 @@ collaborators.get('/all', async (c) => {
 collaborators.patch('/:id', sanitize, async (c) => {
   const requesterId = c.var.user.id
   const collabId    = c.req.param('id')
-  const { role, status } = c.var.body as { role?: string; status?: string }
+  const { role, status, folder_ids } = c.var.body as { role?: string; status?: string; folder_ids?: unknown }
 
   // Validate the status transition — never let a caller invent arbitrary states
   // (e.g. self-approving to a privileged value).
@@ -192,6 +192,21 @@ collaborators.patch('/:id', sanitize, async (c) => {
   const updates: Record<string, unknown> = {}
   if (role   !== undefined) updates.role   = role
   if (status !== undefined) updates.status = status
+  // Song scope (Angel's note): null clears it (full access); an array limits
+  // the collaborator to those songs. Only ids of THIS project's folders count.
+  if (folder_ids !== undefined) {
+    if (folder_ids === null) updates.folder_ids = null
+    else if (Array.isArray(folder_ids)) {
+      const wanted = folder_ids.filter((x): x is string => typeof x === 'string')
+      const { data: own } = await supabase
+        .from('folders').select('id').eq('project_id', (collab as any).project_id)
+      const valid = new Set((own ?? []).map((f: any) => f.id))
+      const cleaned = wanted.filter(id => valid.has(id))
+      updates.folder_ids = cleaned.length > 0 ? cleaned : null
+    } else {
+      return c.json({ data: null, error: 'folder_ids must be an array or null', status: 400 }, 400)
+    }
+  }
 
   const { data, error } = await supabase
     .from('collaborators')
