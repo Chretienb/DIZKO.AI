@@ -121,14 +121,9 @@ function CollabCard({ c, index, isOnline, onWork, onRemove, onProfile }) {
           </>
         )}
 
-        {/* Avatar + presence */}
-        <div style={{ position:'relative' }}>
-          <Avatar name={name} url={c.user?.avatar_url} size={64} color={color} border="none" />
-          <div style={{ position:'absolute', bottom:1, right:1,
-            width:13, height:13, borderRadius:'50%',
-            background: c.status === 'pending' ? 'var(--warning)' : isOnline ? 'var(--success)' : 'rgba(var(--fg),.2)',
-            border:'2.5px solid var(--surface)' }}/>
-        </div>
+        {/* Avatar + presence (AvatarBadge) */}
+        <Avatar name={name} url={c.user?.avatar_url} size={64} color={color} border="none"
+          presence={c.status === 'pending' ? 'pending' : isOnline ? 'online' : 'away'} />
 
         {/* Identity */}
         <div style={{ minWidth:0, width:'100%' }}>

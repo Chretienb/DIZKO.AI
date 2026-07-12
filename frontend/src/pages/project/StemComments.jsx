@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { stemCommentsApi } from '../../lib/api.js'
 import { timeAgo } from '../../lib/utils.js'
+import { Avatar } from '../../components/ui/index.jsx'
 
 /**
  * Comments for the selected stem, shown in the ProjectView sidebar (under
@@ -58,9 +59,7 @@ export default function StemComments({ stemId, collabs = [], owner, user }) {
               <div style={{ fontSize:11.5, color:'var(--t3)' }}>No comments yet — start the conversation.</div>
             ) : comments.map(cm => (
               <div key={cm.id} style={{ display:'flex', gap:8 }}>
-                <div style={{ width:24, height:24, borderRadius:'50%', flexShrink:0, background:'rgba(var(--fg),.08)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color:'var(--t2)' }}>
-                  {nameFor(cm.user_id).charAt(0).toUpperCase()}
-                </div>
+                <Avatar name={nameFor(cm.user_id)} size={24} border="none"/>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
                     <span style={{ fontSize:11.5, fontWeight:700, color:'var(--t1)' }}>{nameFor(cm.user_id)}</span>

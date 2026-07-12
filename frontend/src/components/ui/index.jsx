@@ -1,5 +1,5 @@
 import React from 'react'
-import { Avatar as ShadAvatar, AvatarImage, AvatarFallback } from './avatar.jsx'
+import { Avatar as ShadAvatar, AvatarImage, AvatarFallback, AvatarBadge } from './avatar.jsx'
 
 export const C = {
   // Brand colors — fixed across themes. Rebrand 2026-07: coral → purple.
@@ -112,17 +112,26 @@ export const Btn = React.memo(function Btn({ children, onClick, style={}, varian
 // Backed by shadcn's radix Avatar (proper image load-state handling: the
 // initials fallback shows until the image actually loads, and on error) —
 // this wrapper keeps the app-wide { name, url, size, color, border } API.
-export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.brand, border, style: extra }) {
+// `presence` (optional): 'online' | 'away' | 'pending' renders an AvatarBadge
+// presence dot pinned to the avatar's corner.
+const PRESENCE_COLOR = { online:'var(--success)', away:'rgba(var(--fg),.25)', pending:'var(--warning)' }
+export const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.brand, border, presence, style: extra }) {
   const s  = typeof size === 'number' ? size : 36
   const fs = Math.round(s * 0.36)
   return (
-    <ShadAvatar style={{ width:s, height:s, flexShrink:0,
+    <ShadAvatar style={{ width:s, height:s, flexShrink:0, overflow: presence ? 'visible' : undefined,
       border: border === 'none' ? 'none' : (border || `2px solid ${color}44`), ...(extra || {}) }}>
-      {url && <AvatarImage src={url} alt="" style={{ objectFit:'cover' }}/>}
-      <AvatarFallback style={{ background:`linear-gradient(135deg,${color},${color}bb)`,
-        fontSize:fs, fontWeight:700, color:'#fff', letterSpacing:'-.5px' }}>
+      {url && <AvatarImage src={url} alt="" className={presence ? 'rounded-full' : undefined} style={{ objectFit:'cover' }}/>}
+      <AvatarFallback className={presence ? 'rounded-full' : undefined}
+        style={{ background:`linear-gradient(135deg,${color},${color}bb)`,
+          fontSize:fs, fontWeight:700, color:'#fff', letterSpacing:'-.5px' }}>
         {initials(name || '')}
       </AvatarFallback>
+      {presence && (
+        <AvatarBadge style={{ background: PRESENCE_COLOR[presence] || PRESENCE_COLOR.away,
+          width: Math.max(10, Math.round(s * 0.22)), height: Math.max(10, Math.round(s * 0.22)),
+          boxShadow: '0 0 0 2px var(--surface)' }}/>
+      )}
     </ShadAvatar>
   )
 })

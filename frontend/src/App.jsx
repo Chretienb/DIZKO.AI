@@ -56,6 +56,7 @@ import NotificationBell, { NotificationsPage } from './components/NotificationBe
 import { House, UsersThree, ChartBar, ChatCircle, UserCircle, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
 import { toast as sonnerToast } from 'sonner'
 import { Toaster } from './components/ui/sonner.jsx'
+import { Avatar as SharedAvatar } from './components/ui/index.jsx'
 import { useTheme } from './lib/theme.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
 import {
@@ -355,27 +356,11 @@ const statusStyle = s => ({
 
 const typeColor = t => ({ WAV:'#3b82f6', MP3:'#22c55e', AIF:'#f59e0b', ZIP:'#8b5cf6', FLAC:'#ec4899' }[t] || '#aaa')
 
-// Avatar — shows profile picture when set, falls back to coloured initials
-const Avatar = React.memo(function Avatar({ name, url, size = 36, color = C.coral, border, style: extra }) {
-  const s   = typeof size === 'number' ? size : 36
-  const fs  = Math.round(s * 0.36)
-  const base = {
-    width:s, height:s, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-    border: border || `2px solid ${color}44`,
-    ...(extra || {}),
-  }
-  if (url) {
-    return <img src={url} alt={name || ''} style={{ ...base, objectFit:'cover', background:`${color}22` }}
-      onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
-  }
-  return (
-    <div style={{ ...base, background:`linear-gradient(135deg,${color},${color}bb)`,
-      display:'flex', alignItems:'center', justifyContent:'center',
-      fontSize:fs, fontWeight:900, color:'#fff', letterSpacing:'-.5px' }}>
-      {initials(name || '')}
-    </div>
-  )
-})
+// Avatar — the shared shadcn-backed one (components/ui). The local copy this
+// replaced had a real bug: with a url set it rendered ONLY the <img>, whose
+// onError pointed at a fallback sibling that was never rendered — so a broken
+// or slow avatar image showed nothing at all.
+const Avatar = SharedAvatar
 
 // Toast notification — stacks at top-right, auto-dismisses
 // Toasts — rendered by shadcn's Sonner (see components/ui/sonner.jsx); this

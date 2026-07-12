@@ -2,6 +2,7 @@
 // Extracted from pages/ProjectView.jsx (M2 #10). Each is a leaf component —
 // only React hooks + theme tokens, no app imports.
 import React, { useState, useEffect, useRef } from 'react'
+import { Avatar } from '../../components/ui/index.jsx'
 
 // ── Inline rename ─────────────────────────────────────────────────────────────
 export function InlineRename({ value, onSave, onCancel }) {
@@ -38,7 +39,7 @@ export function MessageModal({ collab, onClose, onSend }) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ background:'var(--surface)', borderRadius:20, padding:28, width:400, maxWidth:'calc(100vw - 32px)', boxShadow:'0 24px 64px rgba(0,0,0,.15)', border:'1px solid var(--border)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
-          <div style={{ width:42, height:42, borderRadius:'50%', background:'#E8E3FB', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:800, color:'#4532A0' }}>{name[0]?.toUpperCase()}</div>
+          <Avatar name={name} url={collab.user?.avatar_url} size={42} border="none"/>
           <div style={{ flex:1 }}><p style={{ margin:0, fontSize:15, fontWeight:800, color:'var(--t1)' }}>{name}</p><p style={{ margin:0, fontSize:12, color:'var(--t3)' }}>{collab.role || 'Collaborator'}</p></div>
           <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:20, padding:0 }}>×</button>
         </div>

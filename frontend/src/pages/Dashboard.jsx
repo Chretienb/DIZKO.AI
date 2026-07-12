@@ -186,12 +186,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
       })) : <div style={{ padding:'28px 16px', textAlign:'center', color:'var(--t3)', fontSize:12.5 }}>No stems in this project.</div>)}
       {tab === 'people' && (people.length ? people.map((p, i) => listRow({
         key:i,
-        cover:(
-          <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--brand-tint)', color:'var(--brand)',
-            display:'flex', alignItems:'center', justifyContent:'center', fontSize:13.5, fontWeight:600, flexShrink:0 }}>
-            {p.name[0]?.toUpperCase()}
-          </div>
-        ),
+        cover:<Avatar name={p.name} size={36} border="none"/>,
         title:p.name, sub:p.role,
       })) : <div style={{ padding:'28px 16px', textAlign:'center', color:'var(--t3)', fontSize:12.5 }}>No people yet.</div>)}
       {tab === 'activity' && (activity.length ? activity.map((a, i) => (
