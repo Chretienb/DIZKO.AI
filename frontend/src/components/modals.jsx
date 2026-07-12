@@ -444,15 +444,15 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
           <input ref={avatarInput} type="file" accept="image/*" aria-label="Upload profile photo" style={{ display:'none' }} onChange={pickAvatar}/>
         </div>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:14, fontWeight:800, color:C.t1 }}>{name || user?.full_name || 'Your Name'}</div>
+          <div style={{ fontSize:14, fontWeight:600, color:C.t1 }}>{name || user?.full_name || 'Your Name'}</div>
           <div style={{ fontSize:11.5, color:C.t3, marginTop:2 }}>{email || user?.email}</div>
-          <div style={{ fontSize:11, color:'#818cf8', marginTop:4, cursor:'pointer', fontWeight:600 }}
+          <div style={{ fontSize:11, color:'var(--t2)', marginTop:4, cursor:'pointer', fontWeight:500, borderBottom:'1px dashed var(--t4)', display:'inline-block' }}
             onClick={() => avatarInput.current?.click()}>
             {uploading ? 'Uploading…' : 'Change photo'}
           </div>
         </div>
-        <span style={{ fontSize:10.5, fontWeight:700, padding:'4px 12px', borderRadius:100, whiteSpace:'nowrap',
-          background:`${planBadge.color}18`, color:planBadge.color, border:`1px solid ${planBadge.color}30` }}>{planBadge.label}</span>
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase',
+          color:'var(--t3)', whiteSpace:'nowrap' }}>{planBadge.label}</span>
       </div>
 
       <Field label="Full Name" placeholder="Your name" value={name}
@@ -461,23 +461,24 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
         onChange={e => { setEmail(e.target.value); setSaved(false) }} />
 
       <div style={{ background:C.surface2, borderRadius:10,
-        border:`1px solid ${pwOpen ? 'rgba(99,102,241,.3)' : C.border}`,
-        marginBottom:18, overflow:'hidden', transition:'border-color .15s' }}>
+        border:`1px solid ${C.border}`,
+        marginBottom:18, overflow:'hidden' }}>
 
         {/* Header row */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px' }}>
           <div>
-            <div style={{ fontSize:13, fontWeight:700, color:C.t1 }}>Password</div>
+            <div style={{ fontSize:13, fontWeight:600, color:C.t1 }}>Password</div>
             <div style={{ fontSize:11.5, color: pwSaved ? '#22c55e' : C.t3, marginTop:1 }}>
               {pwSaved ? 'Password updated successfully' : 'Click Change to set a new password'}
             </div>
           </div>
           <button onClick={() => { setPwOpen(v => !v); setPwError(''); setNewPw(''); setConfirmPw('') }}
-            style={{ fontSize:12, fontWeight:700,
-              color: pwOpen ? C.t3 : '#818cf8',
-              background: pwOpen ? 'rgba(var(--fg),.08)' : 'rgba(99,102,241,.15)',
-              border:'none', borderRadius:8, padding:'5px 12px', cursor:'pointer', transition:'all .15s' }}>
-            {pwOpen ? 'Cancel' : 'Change →'}
+            style={{ fontSize:12, fontWeight:500, fontFamily:'inherit',
+              color:'var(--t2)', background:'transparent',
+              border:'1px solid var(--border)', borderRadius:99, padding:'5px 13px', cursor:'pointer', transition:'border-color .12s, color .12s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor='var(--t4)'; e.currentTarget.style.color='var(--t1)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)' }}>
+            {pwOpen ? 'Cancel' : 'Change'}
           </button>
         </div>
 
@@ -554,11 +555,10 @@ export function ModalAccountSettings({ user, billingStatus, onClose, onProfileUp
 
             <button onClick={changePassword} disabled={pwLoading || !newPw || !confirmPw}
               style={{ width:'100%', padding:'11px', borderRadius:10, border:'none',
-                background: pwLoading || !newPw || !confirmPw ? 'rgba(var(--fg),.06)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                background: pwLoading || !newPw || !confirmPw ? 'rgba(var(--fg),.06)' : 'var(--grad)',
                 color: pwLoading || !newPw || !confirmPw ? C.t3 : '#fff',
-                fontSize:13.5, fontWeight:700, cursor: pwLoading || !newPw || !confirmPw ? 'default' : 'pointer',
+                fontSize:13.5, fontWeight:600, cursor: pwLoading || !newPw || !confirmPw ? 'default' : 'pointer',
                 display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                boxShadow: pwLoading || !newPw || !confirmPw ? 'none' : '0 4px 14px rgba(99,102,241,.35)',
                 transition:'all .15s' }}>
               {pwLoading ? <><Spinner size={13} color={C.t3}/> Updating…</> : 'Update Password'}
             </button>
