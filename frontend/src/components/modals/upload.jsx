@@ -1,6 +1,7 @@
 // Upload-specific helpers — role/instrument metadata + the instrument picker.
 // Extracted from components/modals.jsx (M2 #9). modals.jsx re-exports these.
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { C } from '../ui/index.jsx'
 import { useIsMobile } from '../../lib/mobile'
 
@@ -211,10 +212,13 @@ export function InstrPicker({ value, onChange }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef()
+  const ddRef = useRef()
   useEffect(() => {
     if (!open) return
     setQuery('')
-    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    // The dropdown lives in a portal (see below), so "outside" means outside
+    // BOTH the chip and the portaled panel.
+    const close = e => { if (!ref.current?.contains(e.target) && !ddRef.current?.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
@@ -242,11 +246,17 @@ export function InstrPicker({ value, onChange }) {
         </span>
         <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" style={{ flexShrink:0 }}><polyline points="6,9 12,15 18,9"/></svg>
       </button>
-      {open && (
+      {open && createPortal(
         <div style={{ position:'fixed', zIndex:9999,
           background:C.surface2, border:`1px solid ${C.border}`, borderRadius:12,
           boxShadow:'0 12px 32px rgba(0,0,0,.35)', padding:4, width:190, display:'flex', flexDirection:'column' }}
           ref={el => {
+            // Portaled to <body>: position:fixed inside a transformed ancestor
+            // (the Modal shell's scale-pop keeps a transform) is positioned
+            // relative to THAT ancestor and clipped by its overflow:hidden —
+            // the dropdown rendered invisible inside the Upload modal
+            // (Angel: "it just auto selects and I can't change it").
+            ddRef.current = el
             if (!el || !ref.current) return
             const btn = ref.current.querySelector('button')
             if (!btn) return
@@ -301,7 +311,8 @@ export function InstrPicker({ value, onChange }) {
               <div style={{ padding:'10px', fontSize:11.5, color:C.t3, textAlign:'center' }}>No match</div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
