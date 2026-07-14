@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi, foldersApi, clipsApi, cacheBust } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
@@ -348,6 +349,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     }
   }, [])
 
+  // ?project=<id> — set when arriving via a specific project's "Open in
+  // Studio" button (ProjectView / Dashboard Hero); takes priority over
+  // whatever project session storage last had active, so Studio opens the
+  // project the user actually asked for instead of whichever one was last
+  // touched here. Read once at mount, matching the cache-read effect below.
+  const [searchParams] = useSearchParams()
+  const requestedProjectIdRef = useRef(searchParams.get('project'))
   const [projects,      setProjects]     = useState([])
   const [activeId,      setActiveId]     = useState(null)
   const [songs,         setSongs]        = useState([])        // folders = songs within the album
@@ -365,7 +373,33 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   // would close over a stale snapshot from whenever it last ran, not the
   // live value at event time.
   const clipsRef = useRef([])
-  useEffect(() => { clipsRef.current = clips }, [clips])
+  // Next free track_index per song (folder_id ?? null), for auto-placement.
+  // Reserving a row here is synchronous (read+write, no await between), so
+  // two stems auto-placed close together (a batch upload landing as several
+  // near-simultaneous realtime INSERTs) can never both read the same "next
+  // row" and land stacked on top of each other — confirmed live as the
+  // reported bug ("stems load up on top of each other, they should be on
+  // their own track line"). clipsRef alone couldn't prevent this: it only
+  // updates after the effect below commits, well after createClip's async
+  // round-trip, leaving a real window for two INSERTs to compute the same
+  // "next row" from the same stale snapshot.
+  const nextRowByFolderRef = useRef(new Map())
+  useEffect(() => {
+    clipsRef.current = clips
+    const next = new Map()
+    for (const c of clips) {
+      const key = c.folder_id ?? null
+      next.set(key, Math.max(next.get(key) ?? -1, c.track_index))
+    }
+    nextRowByFolderRef.current = next
+  }, [clips])
+  // Reserve and return the next free row for a song, synchronously.
+  const reserveNextRow = (folderId) => {
+    const key = folderId ?? null
+    const row = (nextRowByFolderRef.current.get(key) ?? -1) + 1
+    nextRowByFolderRef.current.set(key, row)
+    return row
+  }
   const [selectedClipId, setSelectedClipId] = useState(null)      // drives which stem's mixer controls (mute/solo/volume/FX/comments) show below the Timeline
   const [snapOn,        setSnapOn]        = useState(true)        // Timeline grid-snap toggle — local UI state, not persisted (see snap.js)
   const [loading,       setLoading]      = useState(true)
@@ -539,9 +573,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const trackColor = (s, i) => stemColors[s.instrument] || stemColors[parsedNotes(s).stem_type] || defaultColors[i % 6]
 
   useEffect(() => {
-    // Use cached project ID so stems load immediately instead of waiting
-    // for the project list to return first (removes one sequential API round-trip).
-    const cached = sessionStorage.getItem('dizko_active_project')
+    // An explicit ?project= wins over the session cache (see the ref above);
+    // otherwise use the cached project ID so stems load immediately instead
+    // of waiting for the project list to return first (removes one
+    // sequential API round-trip).
+    const cached = requestedProjectIdRef.current || sessionStorage.getItem('dizko_active_project')
     if (cached) { setActiveId(cached); setLoading(false) }
 
     projectsApi.list().then(r => {
@@ -755,8 +791,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
           const sn = (() => { try { return JSON.parse(s.notes||'{}') } catch { return {} } })()
           if (!sn.parent_stem_id) {
             autoPlacedStemIdsRef.current.add(s.id)
-            const songClips = clipsRef.current.filter(c => (c.folder_id ?? null) === (s.folder_id ?? null))
-            const nextRow = songClips.length ? Math.max(...songClips.map(c => c.track_index)) + 1 : 0
+            const nextRow = reserveNextRow(s.folder_id)
             const offsetMs = typeof sn.record_offset_ms === 'number' ? sn.record_offset_ms : 0
             createClip(s.id, nextRow, offsetMs)
           }
@@ -1840,6 +1875,50 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const boardIds = useMemo(() => new Set(visibleClips.map(c => c.stem_id)), [visibleClips])
   const stemsById = useMemo(() => new Map(stems.map(s => [s.id, s])), [stems])
 
+  // Self-healing: repair clips that already collide (same track_index AND
+  // overlapping time) — leftover from before the auto-placement race above
+  // was fixed, or from a mix-version restore before THAT was fixed. This is
+  // what actually made the board look broken on open ("stems load up on top
+  // of each other") — the collision was baked into already-saved data, not
+  // something that happened during the session. Each offending clip is
+  // bumped to its own free row via the same persisted moveClip a manual drag
+  // uses, so the fix sticks for every collaborator, not just this visit.
+  // Scoped to a single song (never 'all', which merges every song's clips
+  // onto one shared row space — not a real collision to "fix" there).
+  const reflowedSongsRef = useRef(new Set())
+  useEffect(() => {
+    if (loadingClips || !activeId || songId === 'all') return
+    const key = `${activeId}:${songId}`
+    if (reflowedSongsRef.current.has(key)) return
+    reflowedSongsRef.current.add(key)
+
+    const durMs = (stemId) => {
+      const stem = stemsById.get(stemId)
+      const sec = stem ? getStemDurationSec(stem) : 0
+      return sec > 0 ? sec * 1000 : 4000   // matches Timeline.jsx's own rendering stub
+    }
+
+    const byRow = new Map()
+    for (const c of visibleClips) {
+      if (!byRow.has(c.track_index)) byRow.set(c.track_index, [])
+      byRow.get(c.track_index).push(c)
+    }
+    const colliding = []
+    for (const rowClips of byRow.values()) {
+      rowClips.sort((a, b) => (a.start_offset_ms || 0) - (b.start_offset_ms || 0))
+      let occupiedUntilMs = -Infinity
+      for (const c of rowClips) {
+        const startMs = c.start_offset_ms || 0
+        if (startMs < occupiedUntilMs) colliding.push(c)
+        else occupiedUntilMs = startMs + durMs(c.stem_id)
+      }
+    }
+    if (!colliding.length) return
+    colliding.forEach(c => moveClip(c.id, reserveNextRow(c.folder_id), c.start_offset_ms || 0))
+    addToast?.(`Fixed ${colliding.length} overlapping stem${colliding.length > 1 ? 's' : ''} — moved to their own tracks`, { type:'success' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingClips, activeId, songId, visibleClips])
+
   // Quick add/remove toggle from the stems library list (LibraryRow's +/−).
   // Coarser than the Timeline's precise per-clip delete: removing here drops
   // every clip of this stem, not just one instance.
@@ -2049,7 +2128,11 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const restoreSnapshot = (snap) => {
     if (!snap) { addToast?.('This mix has no saved board to restore', 'info'); return }
     const desired = new Set(snap.board || [])
-    for (const id of desired) if (!boardIds.has(id)) createClip(id)
+    // Each restored stem gets its own row via the same synchronous
+    // reservation the realtime auto-placer uses — createClip(id) alone
+    // defaults to row 0 for every call, which stacked every restored stem
+    // on top of each other (same root cause as the auto-placement race).
+    for (const id of desired) if (!boardIds.has(id)) createClip(id, reserveNextRow(stemsById.get(id)?.folder_id))
     for (const id of boardIds) if (!desired.has(id)) removeFromBoard(id)
     setMutedIds(new Set(snap.muted || []))
     setSoloId(snap.solo ?? null)

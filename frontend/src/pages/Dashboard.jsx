@@ -229,7 +229,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
           <motion.div {...rise(0.05)}>
             <Hero project={selProject} stemCount={parentStems.length} contributorCount={contributors}
               onResume={() => navigate(`/projects/${selProject.id}`)}
-              onOpenStudio={() => navigate('/studio')}
+              onOpenStudio={() => navigate(`/studio?project=${selProject.id}`)}
               isMobile={isMobile}/>
           </motion.div>
         ) : (

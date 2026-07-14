@@ -1039,7 +1039,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
                 <Share2 aria-hidden="true"/> Share
               </Button>
               <Button variant="brand" size="sm" title="Open in Studio"
-                onClick={() => navigate('/studio')} className="text-[13px]">
+                onClick={() => navigate(`/studio?project=${projectId}`)} className="text-[13px]">
                 <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-3"/>
                 {isMobile ? 'Studio' : 'Open in Studio'}
               </Button>
