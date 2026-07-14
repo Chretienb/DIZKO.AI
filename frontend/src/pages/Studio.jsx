@@ -479,6 +479,13 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   const [recordOpen,     setRecordOpen]     = useState(false)
   const [inputDevices,   setInputDevices]   = useState([])
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  // What's being recorded (Vocals/Guitar/Bass/...) — asked BEFORE the take
+  // starts, not guessed after ("why do we have weird names after recording?
+  // should we ask to tag it before recording?"). Sticky across takes in the
+  // same panel session (laying down several vocal takes in a row shouldn't
+  // require re-picking each time); null = skipped, falls back to a generic
+  // 'recording' tag same as before this existed.
+  const [recordInstrument, setRecordInstrument] = useState(null)
   const [countdownBars,  setCountdownBars]  = useState(1)
   const [armCount,       setArmCount]       = useState(null)   // null = not counting in
   const [isRecording,    setIsRecording]    = useState(false)
@@ -1362,7 +1369,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       const blob = audioBufferToWavBlob(buffer)
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       const file = new File([blob], `Recording_${stamp}.wav`, { type: 'audio/wav' })
-      await filesApi.upload(file, activeId, { instrument: 'recording', recordOffsetMs: recordStartOffsetMsRef.current })
+      await filesApi.upload(file, activeId, { instrument: recordInstrument || 'recording', recordOffsetMs: recordStartOffsetMsRef.current })
       // No manual refresh needed — the realtime INSERT listener already
       // wired into this page picks the new stem up on its own.
       stopMonitor()
@@ -2436,6 +2443,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
       <RecordPanel
         open={recordOpen} onClose={closeRecordPanel}
         devices={inputDevices} selectedDeviceId={selectedDeviceId} onSelectDevice={setSelectedDeviceId}
+        recordInstrument={recordInstrument} onRecordInstrumentChange={setRecordInstrument}
         countdownBars={countdownBars} onCountdownChange={setCountdownBars}
         metronomeOn={metronomeOn} onToggleMetronome={() => setMetronomeOn(v => { metronomeRef.current = !v; return !v })}
         bpm={bpm} onBpmChange={handleBpmChange} onTapTempo={handleTapTempo}

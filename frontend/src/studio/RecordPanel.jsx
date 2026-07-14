@@ -57,6 +57,47 @@ function LiveMicWave({ stream, color = '#ef4444', height = 56 }) {
   return <canvas ref={canvasRef} style={{ width:'100%', height, display:'block' }}/>
 }
 
+// What you're about to record — asked BEFORE the take starts so the stem
+// gets a real name (e.g. "in_Vocals_D#_165") instead of a generic one, no
+// after-the-fact renaming needed. Ids match the app's shared instrument
+// taxonomy (STEM_TYPE_LABEL server-side, INSTR_LIST client-side) so a pick
+// here behaves identically to tagging any other stem. Skippable — "Other"
+// clears the pick and falls back to the same generic tag recording always
+// used, so this never blocks a quick take.
+const QUICK_INSTRUMENTS = [
+  { id:'vocals', label:'Vocals' }, { id:'guitar', label:'Guitar' },
+  { id:'bass',   label:'Bass'   }, { id:'keys',   label:'Keys'   },
+  { id:'drums',  label:'Drums'  }, { id:'synth',  label:'Synth'  },
+]
+function InstrumentQuickPick({ value, onChange }) {
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:6 }}>
+        What are you recording?
+      </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+        {QUICK_INSTRUMENTS.map(o => {
+          const on = value === o.id
+          return (
+            <button key={o.id} onClick={() => onChange(on ? null : o.id)}
+              style={{ height:32, padding:'0 13px', borderRadius:99, cursor:'pointer', fontFamily:'inherit',
+                border:'none', background: on ? 'rgba(124,108,240,.18)' : INK.strip2, color: on ? '#7C6CF0' : INK.dim,
+                fontSize:12, fontWeight:500, transition:'background .1s, color .1s' }}>
+              {o.label}
+            </button>
+          )
+        })}
+        <button onClick={() => onChange(null)}
+          style={{ height:32, padding:'0 13px', borderRadius:99, cursor:'pointer', fontFamily:'inherit',
+            border:'none', background: value ? INK.strip2 : 'rgba(124,108,240,.18)', color: value ? INK.dim : '#7C6CF0',
+            fontSize:12, fontWeight:500, transition:'background .1s, color .1s' }}>
+          Other / skip
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function BpmStepper({ bpm, onChange }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:2, background:INK.strip2, border:`1px solid ${INK.border}`,
@@ -100,6 +141,7 @@ function TapTempoButton({ onTap }) {
 // instrument, not a separate light-themed dialog bolted on.
 export default function RecordPanel({
   open, onClose, devices, selectedDeviceId, onSelectDevice,
+  recordInstrument, onRecordInstrumentChange,
   countdownBars, onCountdownChange, metronomeOn, onToggleMetronome,
   bpm, onBpmChange, onTapTempo, monitorOn, onToggleMonitor, inputFx, onInputFxChange,
   armCount, isRecording, recordUploading, recordError, onStart, onStop,
@@ -174,6 +216,8 @@ export default function RecordPanel({
           </div>
         ) : (
           <div style={{ overflowY:'auto', padding:18 }}>
+            <InstrumentQuickPick value={recordInstrument} onChange={onRecordInstrumentChange}/>
+
             {/* Input device */}
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:10, fontWeight:500, letterSpacing:'.08em', textTransform:'uppercase', color:INK.dimmer, marginBottom:6 }}>Input</div>

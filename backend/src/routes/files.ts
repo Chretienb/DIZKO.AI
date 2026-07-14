@@ -1143,16 +1143,29 @@ export function buildSuggestedName(
   const fmtKey = (k?: string | null) =>
     (k ?? '').replace(/\bmajor\b/i, 'maj').replace(/\bminor\b/i, 'min').replace(/[^A-Za-z0-9#]+/g, '')
 
+  // Studio.jsx's own in-app recordings are always named "Recording_<ISO
+  // timestamp>.wav" — pure machine-generated text, never anything
+  // descriptive. Fed through meaningfulWordFromFilename anyway, its last
+  // surviving "word" ended up being a shredded fragment of the timestamp
+  // (millisecond digits + the trailing "Z" utc marker, e.g. "927z") because
+  // that filter only requires ONE letter in a token, not MOSTLY letters —
+  // reported live as stems named things like "in_927z_D#_165". A real
+  // instrument tag (picked before recording, or set later) already skips
+  // this branch entirely via the instrument check below; this only guards
+  // the "skipped tagging" fallback path.
+  const isAutoRecordingFilename = /^Recording_\d{4}-\d{2}-\d{2}T/i.test(base)
+
   // Stem type, in priority order:
   //   1. a specific instrument word/abbreviation found in the filename
   //   2. the detected instrument's label — but ONLY if it actually carries detail
   //      (a generic "recording"/"other" is skipped so we don't print "Recording")
-  //   3. the most descriptive word pulled from the filename
+  //   3. the most descriptive word pulled from the filename (skipped for the
+  //      Studio's own auto-named recordings — see isAutoRecordingFilename)
   //   4. last resort: "Recording"
   const instr = (instrument || '').toLowerCase()
   const stemType = stemTypeFromFilename(base)
     || (GENERIC_INSTR.has(instr) ? null : (STEM_TYPE_LABEL[instr] || (instrument.charAt(0).toUpperCase() + instrument.slice(1))))
-    || meaningfulWordFromFilename(base)
+    || (isAutoRecordingFilename ? null : meaningfulWordFromFilename(base))
     || 'Recording'
 
   const parts = [
