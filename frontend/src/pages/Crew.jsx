@@ -9,11 +9,13 @@ import { Progress } from '../components/ui/progress.jsx'
 import { Separator } from '../components/ui/separator.jsx'
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter } from '../components/ui/card.jsx'
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert.jsx'
-import { ShieldCheck, Check, Copy, CreditCard, AlertCircle, RefreshCw } from 'lucide-react'
+import { ShieldCheck, Check, Copy, CreditCard, AlertCircle, RefreshCw, Wifi, Users, TrendingUp } from 'lucide-react'
+import crewHeroImg from '../assets/crew-mixer.jpg'
 
 const INVITE_KEY = 'dizko_crew_invite'
 const CREW_EMAIL = 'team@dizko.ai'
 const money = (cents) => `$${((cents || 0) / 100).toFixed(2)}`
+const groupCode = (code) => code ? code.replace(/(.{4})/g, '$1 ').trim() : '—'
 
 const eyebrow = 'font-mono text-[10px] font-medium tracking-[.14em] uppercase text-[var(--brand)]'
 const mono    = { fontFamily: 'var(--font-mono)' }
@@ -28,38 +30,92 @@ const INCLUDED = [
   'Referral analytics', 'Monthly payouts', 'Performance tracking', 'Exclusive dizko Crew badge',
 ]
 
-// The signature visual — a bank-card metaphor for the referral code + payout,
-// modernized: quiet weights (650 max), mono digits, shadcn Card as the base
-// so it still gets the app's standard border/shadow/radius under the
-// gradient skin.
+// The signature visual — a real credit-card metaphor for the referral code +
+// payout: correct card aspect ratio, EMV-style chip, contactless mark, a
+// grouped/embossed code instead of raw text, brushed-metal sheen done in
+// pure CSS (no photo — texture without the legibility hit a photo caused).
 function PayoutCard({ code, pendingCents, tierPct }) {
   return (
-    <Card className="relative overflow-hidden justify-between gap-0 border-none p-7 text-white shadow-[0_24px_44px_-22px_rgba(107,63,160,.55)]"
-      style={{ background:'linear-gradient(115deg, #ED6A5E 0%, #C6455F 32%, #6A3FA0 68%, #3E2F8F 100%)' }}>
-      <div className="pointer-events-none absolute inset-0" style={{ background:'linear-gradient(115deg, rgba(255,255,255,.22) 0%, transparent 30%)' }}/>
-      <div className="pointer-events-none absolute -top-[70px] -right-10 h-[220px] w-[220px] rounded-full" style={{ background:'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)' }}/>
+    <Card className="relative aspect-[1.6/1] w-full max-w-[380px] flex-shrink-0 justify-between gap-0 overflow-hidden border-none p-6 text-white shadow-[0_28px_50px_-20px_rgba(107,63,160,.6)] sm:p-7"
+      style={{ background: 'linear-gradient(120deg, #ED6A5E 0%, #C6455F 30%, #7C5AA8 62%, #3E2F8F 100%)' }}>
+      {/* metallic sheen + brushed texture — CSS only, no image */}
+      <div className="pointer-events-none absolute inset-0" style={{ background:'linear-gradient(115deg, rgba(255,255,255,.26) 0%, transparent 24%, transparent 76%, rgba(255,255,255,.08) 100%)' }}/>
+      <div className="pointer-events-none absolute inset-0 opacity-[.06]" style={{ backgroundImage:'repeating-linear-gradient(115deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)' }}/>
+      <div className="pointer-events-none absolute -top-[70px] -right-10 h-[220px] w-[220px] rounded-full" style={{ background:'radial-gradient(circle, rgba(255,255,255,.14), transparent 70%)' }}/>
 
       <div className="relative flex items-start justify-between">
         <span className="font-mono text-[11px] font-medium tracking-[.14em] uppercase">dizko Crew</span>
-        <div className="flex h-7 w-9 items-center justify-center rounded-md border border-black/15" style={{ background:'linear-gradient(135deg, #f3d089, #cfa055)' }}>
-          <div className="h-4 w-6 rounded-sm border border-black/25"/>
+        <Wifi className="size-4 rotate-90 opacity-70"/>
+      </div>
+
+      <div className="relative mt-4 flex items-center gap-4 sm:mt-5">
+        <div className="relative h-8 w-11 flex-shrink-0 rounded-[6px]" style={{ background:'linear-gradient(135deg, #f6dfa8 0%, #d9b56c 45%, #b8934a 100%)' }}>
+          <div className="absolute inset-[2px] rounded-[4px] border border-black/15"/>
+          <div className="absolute inset-x-0 top-1/2 h-px bg-black/20"/>
+          <div className="absolute inset-y-0 left-1/3 w-px bg-black/15"/>
+          <div className="absolute inset-y-0 left-2/3 w-px bg-black/15"/>
         </div>
       </div>
 
-      <div className="relative mt-6 text-2xl font-semibold tracking-[.08em]" style={{ ...mono, textShadow:'0 1px 2px rgba(0,0,0,.15)' }}>
-        {code || '—'}
+      <div className="relative mt-3 text-[19px] font-semibold tracking-[.1em] sm:text-[21px]" style={{ ...mono, textShadow:'0 1px 3px rgba(0,0,0,.2)' }}>
+        {groupCode(code)}
       </div>
 
-      <div className="relative mt-7 flex items-end justify-between">
+      <div className="relative mt-5 flex items-end justify-between sm:mt-6">
         <div>
-          <div className="text-[11px] tracking-[.03em] opacity-80">PENDING PAYOUT</div>
-          <div className="mt-1 text-[28px] font-semibold tracking-tight" style={mono}>{money(pendingCents)}</div>
+          <div className="text-[10.5px] tracking-[.08em] opacity-75">PENDING PAYOUT</div>
+          <div className="mt-1 text-[25px] font-semibold tracking-tight sm:text-[27px]" style={mono}>{money(pendingCents)}</div>
         </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-white/15 text-[13px] font-semibold" style={mono}>
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-[13px] font-semibold sm:h-12 sm:w-12"
+          style={{ ...mono, background:'linear-gradient(145deg, rgba(255,255,255,.32), rgba(255,255,255,.08))', border:'1px solid rgba(255,255,255,.35)' }}>
           {tierPct}%
         </div>
       </div>
     </Card>
+  )
+}
+
+function StatTile({ icon: Icon, label, value }) {
+  return (
+    <Card className="min-w-0 flex-1 justify-center gap-1.5 p-4 sm:p-5">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="size-3.5 flex-shrink-0"/>
+        <span className={eyebrow}>{label}</span>
+      </div>
+      <div className="text-[22px] font-semibold tracking-tight sm:text-[24px]" style={mono}>{value}</div>
+    </Card>
+  )
+}
+
+// Full-bleed photo banner — a real mixing-console close-up under a brand
+// gradient scrim, so the page reads as a premium payout dashboard (fintech)
+// built for music people, not a generic settings panel. Doubles as the
+// pitch: a welcome greeting + the actual earning number, plus a one-click
+// CTA right where the eye lands, instead of making people scroll to act.
+function CrewHero({ shareUrl, onCopy, copied }) {
+  return (
+    <div className="relative mb-6 overflow-hidden rounded-2xl"
+      style={{ backgroundImage:`url(${crewHeroImg})`, backgroundSize:'cover', backgroundPosition:'center 65%' }}>
+      <div className="absolute inset-0" style={{ background:'linear-gradient(100deg, rgba(8,6,16,.96) 0%, rgba(35,20,55,.92) 40%, rgba(90,58,150,.55) 74%, rgba(130,100,220,.2) 100%)' }}/>
+      <div className="relative flex flex-col gap-4 px-6 py-8 sm:px-8 sm:py-10">
+        <div>
+          <span className="font-mono text-[10px] font-medium tracking-[.14em] uppercase text-white/65">Welcome to</span>
+          <div className="mt-1.5 flex items-center gap-2.5">
+            <h1 className="m-0 text-[26px] font-semibold tracking-tight text-white sm:text-[32px]">dizko Crew</h1>
+            <Badge variant="secondary" className="border-white/15 bg-white/10 text-[11px] font-normal text-white">Ambassador</Badge>
+          </div>
+          <p className="mt-2 max-w-[480px] text-[14px] leading-relaxed text-white/75 sm:text-[15px]">
+            Every paying producer you bring to dizko earns you <span className="font-medium text-white">up to 25% commission</span>, paid out for a full <span className="font-medium text-white">12 months</span>. Your link is live — share it and start getting paid.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={onCopy} className="h-10 rounded-full bg-white px-5 text-[13.5px] font-medium text-[#241a3d] hover:bg-white/90">
+            {copied ? <><Check/>Copied</> : <><Copy/>Copy your link</>}
+          </Button>
+          <span className="truncate font-mono text-[12.5px] text-white/55">{shareUrl || ''}</span>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -208,30 +264,36 @@ export default function PageCrew() {
   const progress = nextAt ? Math.min(100, Math.round((paying / nextAt) * 100)) : 100
 
   const dashboard = (
-    <div className="flex min-w-0 flex-col gap-3.5">
-      {/* Hero row: payout card + share link, side by side on wide screens */}
-      <div className="grid items-stretch gap-3.5 md:grid-cols-[360px_1fr]">
+    <div className="flex min-w-0 flex-col gap-6">
+      {/* Hero row: the card is the star, stat tiles give it room to breathe */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
         <PayoutCard code={me.code} pendingCents={me.pending_cents} tierPct={tierPct}/>
-        <Card className="min-w-0 justify-center gap-4">
-          <CardHeader>
-            <CardTitle className={eyebrow}>Share your link</CardTitle>
-            <CardAction>
-              <Button variant="ghost" size="sm" onClick={copyCode} className="text-[13px] text-muted-foreground">
-                {codeCopied ? <><Check/>Code copied</> : 'Copy code only'}
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <p className="text-[13px] text-muted-foreground">
-              Customers get <span className="font-medium text-foreground">1 month free + 20% off for 6 months</span>
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} className="h-11 min-w-0 flex-1 text-[13px]" style={mono}/>
-              <Button variant="brand" onClick={copy} className="h-11 flex-shrink-0">{copied ? <><Check/>Copied</> : <><Copy/>Copy link</>}</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex flex-1 flex-col gap-3.5 sm:flex-row lg:flex-col">
+          <StatTile icon={Users} label="Referred" value={me.referred_count ?? 0}/>
+          <StatTile icon={TrendingUp} label="Paying customers" value={paying}/>
+        </div>
       </div>
+
+      {/* Share link — own full-width row */}
+      <Card className="gap-4">
+        <CardHeader>
+          <CardTitle className={eyebrow}>Share your link</CardTitle>
+          <CardAction>
+            <Button variant="ghost" size="sm" onClick={copyCode} className="text-[13px] text-muted-foreground">
+              {codeCopied ? <><Check/>Code copied</> : 'Copy code only'}
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <p className="text-[13px] text-muted-foreground">
+            Customers get <span className="font-medium text-foreground">1 month free + 20% off for 6 months</span>
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} className="h-11 min-w-0 flex-1 text-[13px]" style={mono}/>
+            <Button variant="brand" onClick={copy} className="h-11 flex-shrink-0">{copied ? <><Check/>Copied</> : <><Copy/>Copy link</>}</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tier progress */}
       <Card className="gap-4">
@@ -306,16 +368,10 @@ export default function PageCrew() {
   )
 
   return (
-    <div className="mx-auto max-w-[1080px] px-5 py-9">
-      <div className="mb-6">
-        <div className="flex items-center gap-2.5">
-          <h1 className="m-0 text-[24px] font-semibold tracking-tight">dizko Crew</h1>
-          <Badge variant="secondary" className="text-[11px] font-normal">Ambassador</Badge>
-        </div>
-        <p className="mt-1.5 text-[13.5px] text-muted-foreground">Share your code, earn commission on every paying producer you bring in.</p>
-      </div>
+    <div className="mx-auto max-w-[1160px] px-5 py-9 sm:py-10">
+      <CrewHero shareUrl={me.share_url} onCopy={copy} copied={copied}/>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
         {dashboard}
         <div className="xl:sticky xl:top-5"><CrewPitch/></div>
       </div>
