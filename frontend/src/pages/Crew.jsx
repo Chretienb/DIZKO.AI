@@ -193,16 +193,18 @@ export default function PageCrew() {
 
   if (me === null) return <div style={{ display:'flex', justifyContent:'center', padding:'80px 0' }}><Spinner size={24} /></div>
 
-  // ── Invite-only landing (non-ambassadors): full marketing pitch ────────────
+  // ── Couldn't load (fallback only — /crew/me now auto-enrolls every signed-in
+  // user, so this branch is only reached on a genuine fetch failure) ─────────
   if (!me.enrolled) return (
     <div style={{ maxWidth:720, margin:'0 auto', padding: narrow ? '26px 16px 56px' : '44px 20px 72px', display:'flex', flexDirection:'column', gap: narrow ? 16 : 24 }}>
       <Hero center />
       <CrewPitch />
       <div style={{ ...cardS, textAlign:'center' }}>
-        <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>dizko Crew is invite-only</div>
-        <div style={{ fontSize:13, color:C.t3, marginTop:8, lineHeight:1.6 }}>Have an invite link? Open it to join and start earning on every producer you bring in.</div>
-        <div style={{ fontSize:13, color:C.t2, marginTop:12, lineHeight:1.6 }}>
-          Want to become a dizko Crew ambassador? Email us at{' '}
+        <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>Couldn't load your dashboard</div>
+        <div style={{ fontSize:13, color:C.t3, marginTop:8, lineHeight:1.6 }}>Something went wrong on our end — your Crew account is still there.</div>
+        <button onClick={load} style={{ ...primaryS, marginTop:14 }}>Try again</button>
+        <div style={{ fontSize:13, color:C.t2, marginTop:14, lineHeight:1.6 }}>
+          Still stuck? Email us at{' '}
           <a href={`mailto:${CREW_EMAIL}`} style={{ color:C.coral, fontWeight:700, textDecoration:'none' }}>{CREW_EMAIL}</a>
         </div>
       </div>

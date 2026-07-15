@@ -12,7 +12,6 @@ const crew = new Hono<{ Variables: HonoVariables }>()
 crew.use('*', requireAuth)
 
 const FRONTEND = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').trim()
-const INVITE_CODE = (process.env.CREW_INVITE_CODE ?? '').trim()
 
 // The one shared discount for every ambassador code: 20% off for 6 months.
 // (The "1 month free" is a trial applied at checkout, not part of this coupon.)
@@ -60,6 +59,30 @@ async function ensurePromoCode(ambassadorId: string, userId: string, code: strin
   }
 }
 
+// Every signed-in user is a dizko Crew ambassador — no invite code needed.
+// Creates the ambassador row (+ referral code + Stripe promo code) on first
+// touch if one doesn't exist yet; idempotent, so calling this on every /me
+// load is cheap once enrolled (one indexed lookup, no writes).
+async function ensureAmbassador(userId: string): Promise<any> {
+  const { data: existing } = await supabase.from('ambassadors').select('*').eq('user_id', userId).maybeSingle()
+  let amb = existing
+  if (!amb) {
+    const code = await makeCode(userId)
+    const ins = await supabase.from('ambassadors')
+      .insert({ user_id: userId, code, enrolled_at: new Date().toISOString() })
+      .select('*').single()
+    if (ins.error) throw new Error(ins.error.message)
+    amb = ins.data
+  }
+  const a = amb as any
+  // Make sure the Stripe promo code exists so the code actually works at checkout.
+  if (!a.promotion_code_id) {
+    const promoId = await ensurePromoCode(a.id, userId, a.code)
+    if (promoId) { await supabase.from('ambassadors').update({ promotion_code_id: promoId }).eq('id', a.id); a.promotion_code_id = promoId }
+  }
+  return a
+}
+
 // Build the dashboard payload for an existing ambassador row.
 async function stats(a: any) {
   const [{ count: referred }, { count: paying }, { data: pending }] = await Promise.all([
@@ -78,40 +101,25 @@ async function stats(a: any) {
   }
 }
 
-// GET /crew/me — dashboard for ambassadors. Does NOT enroll: Crew is invite-only,
-// so non-ambassadors get { enrolled:false } (the page shows an invite-only notice).
+// GET /crew/me — dashboard for the signed-in user, auto-enrolling them as a
+// dizko Crew ambassador on first touch. Used to be invite-only (returned
+// { enrolled:false } for anyone without a secret code); every user now gets
+// their own referral code and dashboard automatically, no invite needed.
 crew.get('/me', async (c) => {
   const me = c.var.user.id
-  const { data: amb } = await supabase.from('ambassadors').select('*').eq('user_id', me).maybeSingle()
-  if (!amb) return c.json({ data: { enrolled: false }, error: null, status: 200 })
+  const amb = await ensureAmbassador(me)
   return c.json({ data: await stats(amb), error: null, status: 200 })
 })
 
-// POST /crew/join — accept the reusable invite. Body: { code }. Idempotent:
-// re-joining just returns the existing dashboard.
+// POST /crew/join — legacy invite-link entry point (old shared links still
+// out there point at /crew/join/:code). Enrollment no longer requires a
+// code — this just enrolls the caller the same way /me now does and ignores
+// whatever code was supplied. Idempotent: re-joining returns the existing
+// dashboard.
 crew.post('/join', async (c) => {
   const me = c.var.user.id
-  const body = await c.req.json().catch(() => ({})) as { code?: string }
-  const supplied = (body.code ?? '').trim()
-  if (!INVITE_CODE || supplied !== INVITE_CODE) {
-    return c.json({ data: null, error: 'This invite link is invalid or expired', status: 403 }, 403)
-  }
-  let { data: amb } = await supabase.from('ambassadors').select('*').eq('user_id', me).maybeSingle()
-  if (!amb) {
-    const code = await makeCode(me)
-    const ins = await supabase.from('ambassadors')
-      .insert({ user_id: me, code, enrolled_at: new Date().toISOString(), invited_via: supplied })
-      .select('*').single()
-    if (ins.error) return c.json({ data: null, error: ins.error.message, status: 500 }, 500)
-    amb = ins.data
-  }
-  const a = amb as any
-  // Make sure the Stripe promo code exists so the code actually works at checkout.
-  if (!a.promotion_code_id) {
-    const promoId = await ensurePromoCode(a.id, me, a.code)
-    if (promoId) { await supabase.from('ambassadors').update({ promotion_code_id: promoId }).eq('id', a.id); a.promotion_code_id = promoId }
-  }
-  return c.json({ data: await stats(a), error: null, status: 200 })
+  const amb = await ensureAmbassador(me)
+  return c.json({ data: await stats(amb), error: null, status: 200 })
 })
 
 // POST /crew/connect — create/reuse an Express account, return an onboarding link.

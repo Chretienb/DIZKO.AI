@@ -152,7 +152,7 @@ function useConfirm() {
   const cancel = () => { clearTimeout(timer.current); setPending(null) }
   return { pending, arm, cancel }
 }
-import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi, foldersApi, cacheBust, showcaseApi, crewApi } from './lib/api'
+import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi, foldersApi, cacheBust, showcaseApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { MobileCtx, useIsMobile } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
@@ -532,23 +532,18 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   }, [user?.id])
   const goProfile = () => navigate('/profile')
 
-  // Am I a dizko Crew ambassador? Gates the (invite-only) Crew menu item. Also
-  // replays a pending invite stashed before login (main.jsx) so the link still
-  // works when the invitee wasn't signed in when they clicked it.
-  const [isAmbassador, setIsAmbassador] = React.useState(false)
+  // Every signed-in user is a dizko Crew ambassador now (the backend
+  // auto-enrolls on first /crew/me — see routes/crew.ts), so the menu item
+  // is unconditional. This effect just replays a pending invite stashed
+  // before login (main.jsx, from an old-style /crew/join/:code link) so it
+  // still lands the user on their dashboard when they weren't signed in yet
+  // when they clicked it — enrollment no longer needs the code itself, but
+  // the redirect is still the smoothest way back to /crew.
   React.useEffect(() => {
     if (!user?.id) return
     const pending = localStorage.getItem('dizko_crew_invite')
-    if (pending) { navigate(`/crew/join/${pending}`); return }
-    crewApi.me().then(r => setIsAmbassador(!!r?.data?.enrolled)).catch(() => {})
+    if (pending) navigate(`/crew/join/${pending}`)
   }, [user?.id])
-  // Live update: the join flow (and the dashboard) fire this once enrolled, so the
-  // sidebar "dizko Crew" item appears immediately — no page refresh needed.
-  React.useEffect(() => {
-    const on = () => setIsAmbassador(true)
-    window.addEventListener('dizko:crew-enrolled', on)
-    return () => window.removeEventListener('dizko:crew-enrolled', on)
-  }, [])
 
   // No more trial on paid plans — checkout charges immediately, so a fresh
   // upgrade should never actually land in Stripe's `trialing` status. This is
@@ -924,7 +919,10 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                     minWidth:190, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12,
                     padding:6, boxShadow:'0 10px 32px rgba(0,0,0,.18)' }}>
                     {[
-                      ...(isAmbassador ? [{ label:'dizko Crew', icon:'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z', onClick:() => navigate('/crew') }] : []),
+                      // Every signed-in user is a dizko Crew ambassador now
+                      // (backend auto-enrolls on first /crew/me) — no more
+                      // gating this behind an invite-only flag.
+                      { label:'dizko Crew', icon:'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z', onClick:() => navigate('/crew') },
                       { label:'Invite friends', icon:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6', onClick:() => openModal('invite', {}) },
                       { label:'Help',           icon:'M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/help') },
                       { label:'About',          icon:'M12 16v-4M12 8h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/about') },
