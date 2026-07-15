@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 
-const C = { coral:'#7C6CF0', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
-
-const LAST_UPDATED = 'May 22, 2026'
+const LAST_UPDATED = 'July 15, 2026'
 const COMPANY      = 'dizko.ai'
 const CONTACT      = 'team@dizko.ai'
 const APP_URL      = 'https://dizko.ai'
 
-// ── Shared layout ─────────────────────────────────────────────────────────────
+const eyebrow = 'font-mono text-[10px] font-medium tracking-[.14em] uppercase text-[var(--t3)]'
+const link    = 'text-[var(--brand)] no-underline hover:underline'
+
+// ── Shared layout — same tokens as the rest of the app, so this page follows
+// the current dark/light theme instead of being a fixed white page. ──────────
 function LegalLayout({ title, children }) {
   const navigate = useNavigate()
   useEffect(() => { window.scrollTo(0, 0) }, [title])
@@ -18,69 +20,71 @@ function LegalLayout({ title, children }) {
   const goBack = () => { try { sessionStorage.removeItem('dizko_pub_return') } catch {} ; navigate(pubReturn) }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#fafafa', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div className="min-h-screen" style={{ background:'var(--bg)', color:'var(--t1)', fontFamily:'var(--font-ui)' }}>
 
       {/* Nav */}
-      <div style={{ borderBottom:'1px solid rgba(0,0,0,.07)', background:'#fff', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ maxWidth:760, margin:'0 auto', padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+      <div className="sticky top-0 z-10" style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)' }}>
+        <div className="mx-auto flex max-w-[760px] items-center justify-between px-6 py-3.5">
+          <div className="flex items-center gap-3">
             {pubReturn && (
               <button onClick={goBack} aria-label="Back" title="Back"
-                style={{ width:32, height:32, borderRadius:9, border:'1px solid rgba(0,0,0,.12)', background:'#fff', color:'#111', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✕</button>
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[15px]"
+                style={{ border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--t1)' }}>✕</button>
             )}
-            <button onClick={()=>navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
-              <img src={logo} alt="dizko.ai" style={{ height:28 }}/>
+            <button onClick={() => navigate('/')} className="flex items-center gap-2 border-none bg-transparent p-0">
+              <img src={logo} alt="dizko.ai" className="h-6"/>
             </button>
           </div>
-          <div style={{ display:'flex', gap:16 }}>
-            {[['Terms','/terms'],['Privacy','/privacy'],['Cookies','/cookies']].map(([label, path])=>(
-              <a key={path} href={path} style={{ fontSize:13, fontWeight:600, color: window.location.pathname===path ? C.coral : '#888', textDecoration:'none' }}>{label}</a>
+          <div className="flex gap-5">
+            {[['Terms','/terms'],['Privacy','/privacy'],['Cookies','/cookies']].map(([label, path]) => (
+              <a key={path} href={path} className="text-[12.5px] font-medium no-underline"
+                style={{ color: window.location.pathname === path ? 'var(--brand)' : 'var(--t3)' }}>{label}</a>
             ))}
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth:760, margin:'0 auto', padding:'48px 24px 96px' }}>
-        <p style={{ fontSize:12, color:'#bbb', marginBottom:8, fontWeight:500 }}>Last updated: {LAST_UPDATED}</p>
-        <h1 style={{ fontSize:32, fontWeight:900, color:'#111', letterSpacing:'-1px', marginBottom:32, marginTop:0 }}>{title}</h1>
-        <div style={{ fontSize:15, color:'#444', lineHeight:1.85 }}>{children}</div>
+      <div className="mx-auto max-w-[760px] px-6 py-12 sm:py-14">
+        <p className={eyebrow}>Last updated {LAST_UPDATED}</p>
+        <h1 className="mb-8 mt-2 text-[28px] font-semibold tracking-tight sm:text-[32px]">{title}</h1>
+        <div className="text-[15px] leading-[1.8]" style={{ color:'var(--t2)' }}>{children}</div>
       </div>
 
-      {/* Footer */}
       <LegalFooter/>
     </div>
   )
 }
 
 function H2({ children }) {
-  return <h2 style={{ fontSize:18, fontWeight:800, color:'#111', letterSpacing:'-.4px', marginTop:40, marginBottom:12 }}>{children}</h2>
+  return <h2 className="mb-3 mt-9 text-[16.5px] font-semibold tracking-tight" style={{ color:'var(--t1)' }}>{children}</h2>
 }
 
 function P({ children }) {
-  return <p style={{ margin:'0 0 16px' }}>{children}</p>
+  return <p className="mb-4 mt-0">{children}</p>
 }
 
 function UL({ items }) {
   return (
-    <ul style={{ margin:'0 0 16px', paddingLeft:20 }}>
-      {items.map((item, i) => <li key={i} style={{ marginBottom:6 }}>{item}</li>)}
+    <ul className="mb-4 mt-0 list-disc pl-5">
+      {items.map((item, i) => <li key={i} className="mb-1.5">{item}</li>)}
     </ul>
   )
+}
+
+function Strong({ children }) {
+  return <strong className="font-medium" style={{ color:'var(--t1)' }}>{children}</strong>
 }
 
 // ── Footer (shared across all legal pages + app) ──────────────────────────────
 export function LegalFooter() {
   return (
-    <div style={{ borderTop:'1px solid rgba(0,0,0,.07)', background:'#fff', padding:'20px 24px' }}>
-      <div style={{ maxWidth:760, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-        <span style={{ fontSize:12, color:'#bbb' }}>© {new Date().getFullYear()} {COMPANY}. All rights reserved.</span>
-        <div style={{ display:'flex', gap:20 }}>
-          {[['Terms of Service','/terms'],['Privacy Policy','/privacy'],['Cookie Policy','/cookies']].map(([label,path])=>(
-            <a key={path} href={path} style={{ fontSize:12, color:'#aaa', textDecoration:'none', fontWeight:500 }}
-              onMouseEnter={e=>e.target.style.color=C.coral} onMouseLeave={e=>e.target.style.color='#aaa'}>
-              {label}
-            </a>
+    <div style={{ borderTop:'1px solid var(--border)', background:'var(--surface)' }}>
+      <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-between gap-3 px-6 py-5">
+        <span className="text-[12px]" style={{ color:'var(--t4)' }}>© {new Date().getFullYear()} {COMPANY}. All rights reserved.</span>
+        <div className="flex gap-5">
+          {[['Terms of Service','/terms'],['Privacy Policy','/privacy'],['Cookie Policy','/cookies']].map(([label, path]) => (
+            <a key={path} href={path} className="text-[12px] font-medium no-underline" style={{ color:'var(--t3)' }}>{label}</a>
           ))}
         </div>
       </div>
@@ -95,10 +99,10 @@ export function TermsPage() {
       <P>These Terms of Service ("Terms") govern your access to and use of {COMPANY} ("dizko", "we", "us"). By creating an account or using our platform, you agree to these Terms.</P>
 
       <H2>1. Who We Are</H2>
-      <P>{COMPANY} is a real-time music collaboration platform that allows producers and artists to upload audio stems, collaborate on projects, and use AI-powered tools to mix and analyze their music.</P>
+      <P>{COMPANY} is a real-time music collaboration platform that lets producers and artists upload audio stems, collaborate on projects, and use Smart Mix, an AI-powered mixing assistant, to get feedback on their music.</P>
 
       <H2>2. Your Account</H2>
-      <P>You must be at least 13 years old to use dizko. You are responsible for maintaining the security of your account and all activity that occurs under it. Notify us immediately at {CONTACT} if you suspect unauthorized access.</P>
+      <P>You must be at least 13 years old to use dizko. You're responsible for maintaining the security of your account and all activity that occurs under it. Notify us immediately at {CONTACT} if you suspect unauthorized access.</P>
 
       <H2>3. Your Music — You Own It</H2>
       <P>You retain full ownership of all audio files, stems, and content you upload to dizko. We do not claim any rights to your music.</P>
@@ -109,16 +113,20 @@ export function TermsPage() {
       <UL items={[
         'Upload content you do not own or have rights to distribute',
         'Upload content that infringes on any third-party copyright, trademark, or intellectual property rights',
-        'Use dizko to distribute, sell, or commercially exploit other users\' content without permission',
+        "Use dizko to distribute, sell, or commercially exploit other users' content without permission",
         'Attempt to reverse engineer, hack, or disrupt the platform',
         'Use automated bots or scripts to access the platform',
         'Upload malicious files or content that violates any applicable law',
       ]}/>
 
       <H2>5. AI Features</H2>
-      <P>dizko uses Claude by Anthropic to power AI file naming and Smart Mix features. By using these features, your audio metadata (not your audio files) may be processed by Anthropic's API in accordance with their privacy policy. Your audio files are stored exclusively on Cloudflare R2 and are never sent to AI providers.</P>
+      <P>Smart Mix, a paid feature, uses Claude by Anthropic to analyze your stems and suggest mix settings, flag BPM/key conflicts, and pick the best take of each instrument. It only receives metadata — stem names, instrument, BPM, key, and derived audio characteristics like loudness and brightness — never your raw audio.</P>
+      <P>Stem separation (splitting a track into isolated instruments) is a different feature, powered by Replicate, and it does send the audio file itself for that specific job — this only happens when you choose to run it. File naming is not AI-powered: dizko matches instrument names and filenames against a fixed set of patterns.</P>
 
-      <H2>6. Subscription and Billing</H2>
+      <H2>6. dizko Crew — Referral Program</H2>
+      <P>Every account is automatically enrolled in dizko Crew, our ambassador/referral program, and gets a referral code and dashboard. Enrollment doesn't cost anything and there's nothing to opt into — you're only paid commission if someone actually subscribes using your link. Connecting a payout account is optional and handled by Stripe Connect (see our Privacy Policy).</P>
+
+      <H2>7. Subscription and Billing</H2>
       <P>dizko offers a free plan with no card required. Paid plans start at $14.99/month and are charged immediately upon subscribing — there is no free trial period on paid plans.</P>
       <UL items={[
         'Subscriptions renew automatically unless cancelled',
@@ -127,23 +135,23 @@ export function TermsPage() {
         'We reserve the right to change pricing with 30 days notice',
       ]}/>
 
-      <H2>7. Refund Policy</H2>
+      <H2>8. Refund Policy</H2>
       <P>We offer a full refund within 7 days of your first charge. Contact us at {CONTACT} within 7 days and we will process your refund. No refunds are issued after 7 days from the billing date.</P>
 
-      <H2>8. Storage and Data Retention</H2>
+      <H2>9. Storage and Data Retention</H2>
       <P>Free plan accounts retain files for as long as the account remains active. Active paid accounts retain files for the duration of the subscription plus 30 days after cancellation. We will notify you by email before any deletion occurs.</P>
 
-      <H2>9. Limitation of Liability</H2>
+      <H2>10. Limitation of Liability</H2>
       <P>To the maximum extent permitted by law, dizko is not liable for any indirect, incidental, special, or consequential damages, including loss of data, revenue, or profits, arising from your use of the platform. Our total liability shall not exceed the amount you paid us in the 3 months preceding the claim.</P>
 
-      <H2>10. Termination</H2>
+      <H2>11. Termination</H2>
       <P>We reserve the right to suspend or terminate accounts that violate these Terms, with or without notice. You may delete your account at any time from settings. Upon deletion, your data will be removed within 30 days.</P>
 
-      <H2>11. Changes to Terms</H2>
+      <H2>12. Changes to Terms</H2>
       <P>We may update these Terms from time to time. We will notify you by email at least 14 days before material changes take effect. Continued use of dizko after changes constitutes acceptance.</P>
 
-      <H2>12. Contact</H2>
-      <P>Questions about these Terms? Email us at <a href={`mailto:${CONTACT}`} style={{ color:C.coral }}>{CONTACT}</a></P>
+      <H2>13. Contact</H2>
+      <P>Questions about these Terms? Email us at <a href={`mailto:${CONTACT}`} className={link}>{CONTACT}</a></P>
     </LegalLayout>
   )
 }
@@ -152,36 +160,41 @@ export function TermsPage() {
 export function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy">
-      <P>This Privacy Policy explains how {COMPANY} collects, uses, and protects your personal information. We take your privacy seriously.</P>
+      <P>This Privacy Policy explains how {COMPANY} collects, uses, and protects your personal information.</P>
 
       <H2>1. Information We Collect</H2>
-      <P><strong>Account information:</strong> Email address, name, and password (hashed) when you register.</P>
-      <P><strong>Audio files:</strong> Stems and audio files you upload, stored encrypted on Cloudflare R2.</P>
-      <P><strong>Usage data:</strong> Pages visited, features used, and session duration to improve the product.</P>
-      <P><strong>Location data:</strong> Approximate city and region derived from your IP address, used only to suggest nearby music venues. We do not store your precise location or full IP address.</P>
-      <P><strong>Payment information:</strong> Processed entirely by Stripe. We never see or store your card details.</P>
-      <P><strong>Communications:</strong> Emails you send to our support team.</P>
+      <P><Strong>Account information:</Strong> Email address, name, and password (hashed) when you register.</P>
+      <P><Strong>Audio files:</Strong> Stems and audio files you upload, stored on Cloudflare R2 and served through short-lived signed links.</P>
+      <P><Strong>Usage data:</Strong> Pages visited, features used, and product events, collected via PostHog — see our Cookie Policy for details.</P>
+      <P><Strong>YouTube data (optional):</Strong> If you connect your YouTube channel, we access view counts and city/country-level audience geography via the YouTube Analytics API, used to power your Analytics dashboard and to suggest venues near your audience via Ticketmaster. We don't access your device's or IP's location.</P>
+      <P><Strong>Referral data:</Strong> Every account gets a dizko Crew referral code automatically. If someone subscribes using your link, we track that referral and the resulting commission.</P>
+      <P><Strong>Payout information (dizko Crew, optional):</Strong> If you choose to connect a payout account, identity verification and bank details are collected directly by Stripe Connect — we never see or store them, only your connection and payout status.</P>
+      <P><Strong>Payment information:</Strong> Subscription payments are processed entirely by Stripe. We never see or store your card details.</P>
+      <P><Strong>Communications:</Strong> Emails you send to our support team.</P>
 
       <H2>2. How We Use Your Information</H2>
       <UL items={[
         'To provide, operate, and improve the dizko platform',
-        'To send transactional emails (account confirmation, billing receipts)',
-        'To suggest music venues near your location',
+        'To send transactional emails (account confirmation, billing receipts, notifications)',
+        'To power your Analytics dashboard and suggest venues near your audience, if you connect YouTube',
+        'To track referrals and pay dizko Crew commission correctly',
         'To detect and prevent fraud or abuse',
         'To respond to support requests',
       ]}/>
-      <P>We do not sell your personal information to third parties. Ever.</P>
+      <P>We do not sell your personal information to third parties.</P>
 
       <H2>3. Third-Party Services</H2>
       <P>We use the following third-party services to operate dizko:</P>
       <UL items={[
         'Supabase — database and authentication',
         'Cloudflare R2 — audio file storage',
-        'Stripe — payment processing',
-        'Anthropic (Claude) — AI file naming and mix analysis (metadata only, not audio)',
-        'Replicate — audio stem separation processing',
+        'Stripe — subscription billing and, for dizko Crew ambassadors, payout accounts (Stripe Connect)',
+        'Anthropic (Claude) — Smart Mix analysis and feedback (stem metadata only, not audio)',
+        'Replicate — audio stem separation (processes the audio file for that job)',
+        'Google / YouTube — channel analytics, only if you connect your account',
         'Resend — transactional email delivery',
         'Ticketmaster — venue discovery data',
+        'PostHog — product analytics',
       ]}/>
 
       <H2>4. Data Storage and Security</H2>
@@ -196,7 +209,7 @@ export function PrivacyPage() {
         'Export your data in a portable format',
         'Withdraw consent at any time',
       ]}/>
-      <P>To exercise these rights, email <a href={`mailto:${CONTACT}`} style={{ color:C.coral }}>{CONTACT}</a></P>
+      <P>To exercise these rights, email <a href={`mailto:${CONTACT}`} className={link}>{CONTACT}</a></P>
 
       <H2>6. GDPR — EU Users</H2>
       <P>If you are located in the European Economic Area, you have additional rights under GDPR. Our legal basis for processing your data is contract performance (to provide the service you signed up for) and legitimate interests. You may lodge a complaint with your local data protection authority.</P>
@@ -214,7 +227,7 @@ export function PrivacyPage() {
       <P>We will notify you by email of any material changes to this policy at least 14 days in advance.</P>
 
       <H2>11. Contact</H2>
-      <P>Privacy questions? Email <a href={`mailto:${CONTACT}`} style={{ color:C.coral }}>{CONTACT}</a></P>
+      <P>Privacy questions? Email <a href={`mailto:${CONTACT}`} className={link}>{CONTACT}</a></P>
     </LegalLayout>
   )
 }
@@ -223,51 +236,43 @@ export function PrivacyPage() {
 export function CookiesPage() {
   return (
     <LegalLayout title="Cookie Policy">
-      <P>This Cookie Policy explains how {COMPANY} uses cookies and similar tracking technologies when you use our platform at <a href={APP_URL} style={{ color:C.coral }}>{APP_URL}</a>.</P>
+      <P>This Cookie Policy explains how {COMPANY} uses cookies and local storage when you use our platform at <a href={APP_URL} className={link}>{APP_URL}</a>. dizko mostly relies on your browser's local storage rather than cookies — this page covers both.</P>
 
-      <H2>1. What Are Cookies</H2>
-      <P>Cookies are small text files stored on your device when you visit a website. They help the site remember your preferences and keep you logged in between sessions.</P>
+      <H2>1. Signed In — Local Storage, Not Cookies</H2>
+      <P>Unlike many sites, dizko doesn't use a cookie to keep you signed in. Your session token is stored in your browser's local storage and sent with each request. It's not shared across sites, but it is readable by scripts running on dizko — which is why we take script injection seriously in how we build the app.</P>
+      <P>We also use local storage for on-device preferences: theme (dark/light), sidebar and panel layout, favorites, onboarding progress, and a pending referral code if you arrived via a dizko Crew link. None of this is sent to third parties.</P>
 
-      <H2>2. Cookies We Use</H2>
+      <H2>2. Analytics — PostHog</H2>
+      <P>We use PostHog to understand how dizko is used (pages visited, features used, errors) so we can improve the product. This sets its own cookies and local storage entries on our domain. You're tracked anonymously until you log in — we don't build a profile tied to your identity for logged-out visitors.</P>
 
-      <P><strong>Essential cookies (required for the app to work):</strong></P>
+      <H2>3. Payments — Stripe</H2>
+      <P>When you subscribe, you're taken to Stripe's own hosted checkout page. Stripe sets cookies on their domain (not ours) for fraud prevention during that flow. We don't set or read Stripe's cookies.</P>
+
+      <H2>4. What We Don't Use</H2>
       <UL items={[
-        'auth_token — keeps you logged in securely. HttpOnly, not readable by JavaScript. Expires after 1 hour and is refreshed automatically.',
-        'refresh_token — used to refresh your session silently. HttpOnly. Expires after 7 days.',
-        'sb-* — Supabase authentication session cookies.',
+        'Advertising or ad-retargeting cookies',
+        'Third-party trackers like Google Analytics or Facebook Pixel',
+        'Cookies or storage that follow you across other websites',
       ]}/>
 
-      <P><strong>Payment cookies (set by Stripe):</strong></P>
-      <UL items={[
-        '__stripe_mid — Stripe fraud prevention. Expires after 1 year.',
-        '__stripe_sid — Stripe session identifier. Expires after 30 minutes.',
-      ]}/>
+      <H2>5. Why We Need This</H2>
+      <P>The session storage is required for dizko to function — without it you can't stay signed in or reach your projects and audio files. It can't be disabled without breaking the app. Analytics can be limited by blocking scripts in your browser, though this may also block features that depend on the same request path.</P>
 
-      <P><strong>We do not use:</strong></P>
+      <H2>6. How to Control This</H2>
+      <P>You can clear local storage and cookies through your browser settings:</P>
       <UL items={[
-        'Advertising or tracking cookies',
-        'Third-party analytics cookies (Google Analytics, Facebook Pixel, etc.)',
-        'Cookies that track you across other websites',
-      ]}/>
-
-      <H2>3. Why We Need Essential Cookies</H2>
-      <P>The auth cookies are required for dizko to function. Without them you cannot stay logged in and cannot access your projects or audio files. These cookies cannot be disabled without breaking the application.</P>
-
-      <H2>4. How to Control Cookies</H2>
-      <P>You can control cookies through your browser settings:</P>
-      <UL items={[
-        'Chrome: Settings → Privacy and Security → Cookies',
+        'Chrome: Settings → Privacy and Security → Site Settings',
         'Safari: Preferences → Privacy → Manage Website Data',
         'Firefox: Options → Privacy & Security → Cookies and Site Data',
         'Edge: Settings → Cookies and Site Permissions',
       ]}/>
-      <P>Note: Blocking essential cookies will prevent you from logging in to dizko.</P>
+      <P>Clearing dizko's storage will sign you out.</P>
 
-      <H2>5. Changes to This Policy</H2>
-      <P>We will update this policy if we add new cookies or change how we use existing ones. Check the "Last updated" date at the top of this page.</P>
+      <H2>7. Changes to This Policy</H2>
+      <P>We will update this policy if we add new tools or change how we use existing ones. Check the "Last updated" date at the top of this page.</P>
 
-      <H2>6. Contact</H2>
-      <P>Cookie questions? Email <a href={`mailto:${CONTACT}`} style={{ color:C.coral }}>{CONTACT}</a></P>
+      <H2>8. Contact</H2>
+      <P>Questions? Email <a href={`mailto:${CONTACT}`} className={link}>{CONTACT}</a></P>
     </LegalLayout>
   )
 }

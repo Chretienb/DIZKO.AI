@@ -1,5 +1,5 @@
-// Cookie-consent persistence. dizko only sets an essential, httpOnly auth
-// cookie (no tracking/analytics cookies), so this records a one-time
+// Cookie/storage-notice persistence. dizko keeps sessions in local storage
+// (not a cookie) and uses PostHog for analytics, so this records a one-time
 // acknowledgement rather than gating non-essential categories.
 
 export const CONSENT_KEY = 'dizko_cookie_consent'

@@ -2,8 +2,9 @@ import React, { useState } from 'react'
 import { hasConsented, setConsent } from '../lib/cookieConsent.js'
 
 /**
- * One-time cookie notice. dizko only uses an essential auth cookie, so this is
- * an acknowledgement (not a category-gating consent manager). Shown until the
+ * One-time cookie/storage notice. dizko keeps you signed in via local storage
+ * (not a cookie) and uses PostHog for product analytics, so this is an
+ * acknowledgement (not a category-gating consent manager). Shown until the
  * user accepts; the choice persists in localStorage.
  */
 export default function CookieConsent() {
@@ -22,7 +23,7 @@ export default function CookieConsent() {
         background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14,
         padding:'14px 18px', boxShadow:'0 8px 30px rgba(0,0,0,.25)' }}>
       <p style={{ margin:0, flex:'1 1 240px', fontSize:13, lineHeight:1.6, color:'var(--t2)' }}>
-        We use a cookie to keep you signed in. No tracking.{' '}
+        We use local storage to keep you signed in, and analytics to improve dizko.{' '}
         <a href="/cookies" style={{ color:'var(--brand)', fontWeight:600, textDecoration:'none' }}>Learn more</a>
       </p>
       <button onClick={accept} aria-label="Accept and dismiss cookie notice"
