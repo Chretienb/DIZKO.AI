@@ -16,6 +16,7 @@ import SectionHeader from '../components/SectionHeader.jsx'
 import Hero from '../components/dashboard/Hero.jsx'
 import astronautImg from '../assets/empty/astronaut-studio.jpg'
 import ufoImg       from '../assets/empty/ufo-no-projects.jpg'
+import crewImg      from '../assets/crew-mixer.jpg'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pn(f) { try { return JSON.parse(f?.notes || '{}') } catch { return {} } }
@@ -28,6 +29,36 @@ const STEM_COLORS = {
 }
 
 const TABS = [['upnext','Up Next'], ['stems','Stems'], ['people','People'], ['activity','Activity']]
+
+// ── dizko Crew teaser — the referral program's home is Account, but almost
+// nobody visits Account on purpose. This is the ambient reminder that lives
+// where people already are every day, so discovery isn't purely passive. ──
+function CrewTeaser({ onOpen }) {
+  return (
+    <div onClick={onOpen} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onOpen()}
+      style={{ position:'relative', borderRadius:'var(--r-3)', overflow:'hidden', cursor:'pointer',
+        border:'1px solid var(--border)', boxShadow:'var(--shadow-1)', flexShrink:0 }}>
+      <div style={{ position:'absolute', inset:0, background:`#000 center/cover no-repeat url(${crewImg})` }}/>
+      <div style={{ position:'absolute', inset:0,
+        background:'linear-gradient(125deg, rgba(8,6,16,.94) 0%, rgba(60,40,120,.75) 55%, rgba(130,100,220,.35) 100%)' }}/>
+      <div style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:6 }}>
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em',
+          textTransform:'uppercase', color:'rgba(255,255,255,.65)' }}>
+          dizko Crew
+        </span>
+        <div style={{ fontSize:15, fontWeight:650, color:'#fff', letterSpacing:'-.3px' }}>
+          Earn 25% inviting friends
+        </div>
+        <p style={{ margin:'0 0 4px', fontSize:12, color:'rgba(255,255,255,.72)', lineHeight:1.5 }}>
+          Share your link, get paid for a full year.
+        </p>
+        <Button variant="brand" size="sm" style={{ alignSelf:'flex-start' }} onClick={e => { e.stopPropagation(); onOpen() }}>
+          Get your link
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 const EASE = [0.25, 0.6, 0.3, 1]
 const rise = (delay = 0) => ({
@@ -309,38 +340,43 @@ export default function PageDashboard({ openModal, user, playTrack }) {
             )}
           </motion.section>
 
-          {/* Rail */}
-          <motion.aside {...rise(0.15)} aria-label="Project details"
-            style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
-              boxShadow:'var(--shadow-1)', display:'flex', flexDirection:'column', overflow:'hidden',
-              maxHeight: isMobile ? 'none' : 'calc(100vh - 140px)', position: isMobile ? 'static' : 'sticky', top:0 }}>
-            {/* Search — shadcn Input with icon adornments */}
-            <div style={{ padding:'12px 12px 0', position:'relative' }}>
-              <Search size={14} style={{ position:'absolute', left:24, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)', pointerEvents:'none' }}/>
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects, stems"
-                className="h-9 pl-9 pr-8 text-[12.5px] bg-[color:var(--surface-2)] border-transparent"/>
-              {search && (
-                <Button variant="ghost" size="icon-xs" aria-label="Clear search" onClick={() => setSearch('')}
-                  style={{ position:'absolute', right:20, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)' }}>
-                  <X/>
-                </Button>
-              )}
-            </div>
+          {/* Rail + Crew teaser — grouped so the rail can stay sticky while the
+              teaser rides along beneath it instead of scrolling out of view. */}
+          <motion.div {...rise(0.15)} style={{ display:'flex', flexDirection:'column', gap:16,
+            maxHeight: isMobile ? 'none' : 'calc(100vh - 140px)', position: isMobile ? 'static' : 'sticky', top:0 }}>
+            <aside aria-label="Project details"
+              style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
+                boxShadow:'var(--shadow-1)', display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0, flex:1 }}>
+              {/* Search — shadcn Input with icon adornments */}
+              <div style={{ padding:'12px 12px 0', position:'relative' }}>
+                <Search size={14} style={{ position:'absolute', left:24, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)', pointerEvents:'none' }}/>
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects, stems"
+                  className="h-9 pl-9 pr-8 text-[12.5px] bg-[color:var(--surface-2)] border-transparent"/>
+                {search && (
+                  <Button variant="ghost" size="icon-xs" aria-label="Clear search" onClick={() => setSearch('')}
+                    style={{ position:'absolute', right:20, top:'50%', marginTop:6, transform:'translateY(-50%)', color:'var(--t3)' }}>
+                    <X/>
+                  </Button>
+                )}
+              </div>
 
-            {/* Tabs — shadcn (radix) line variant, controlled by the same state */}
-            <Tabs value={tab} onValueChange={setTab} style={{ padding:'10px 12px 0', borderBottom:'1px solid var(--border)' }}>
-              <TabsList variant="line" className="w-full justify-start gap-4">
-                {TABS.map(([id, label]) => (
-                  <TabsTrigger key={id} value={id}
-                    className="flex-none px-0 text-[12.5px] data-[state=active]:after:bg-[color:var(--brand)]">
-                    {label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+              {/* Tabs — shadcn (radix) line variant, controlled by the same state */}
+              <Tabs value={tab} onValueChange={setTab} style={{ padding:'10px 12px 0', borderBottom:'1px solid var(--border)' }}>
+                <TabsList variant="line" className="w-full justify-start gap-4">
+                  {TABS.map(([id, label]) => (
+                    <TabsTrigger key={id} value={id}
+                      className="flex-none px-0 text-[12.5px] data-[state=active]:after:bg-[color:var(--brand)]">
+                      {label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
 
-            {railList}
-          </motion.aside>
+              {railList}
+            </aside>
+
+            <CrewTeaser onOpen={() => navigate('/crew')}/>
+          </motion.div>
         </div>
       </div>
     </MotionConfig>
