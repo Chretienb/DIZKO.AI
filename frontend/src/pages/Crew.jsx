@@ -274,23 +274,36 @@ export default function PageCrew() {
         </div>
       </div>
 
-      {/* Share link — own full-width row */}
+      {/* Share link or code — two clearly distinct, equally-first-class ways
+          to invite someone, not one buried as a corner ghost-button. */}
       <Card className="gap-4">
         <CardHeader>
-          <CardTitle className={eyebrow}>Share your link</CardTitle>
-          <CardAction>
-            <Button variant="ghost" size="sm" onClick={copyCode} className="text-[13px] text-muted-foreground">
-              {codeCopied ? <><Check/>Code copied</> : 'Copy code only'}
-            </Button>
-          </CardAction>
+          <CardTitle className={eyebrow}>Invite people two ways</CardTitle>
+          <CardDescription className="text-[13px]">
+            Customers get <span className="font-medium text-foreground">1 month free + 20% off for 6 months</span>, either way.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-[13px] text-muted-foreground">
-            Customers get <span className="font-medium text-foreground">1 month free + 20% off for 6 months</span>
-          </p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} className="h-11 min-w-0 flex-1 text-[13px]" style={mono}/>
-            <Button variant="brand" onClick={copy} className="h-11 flex-shrink-0">{copied ? <><Check/>Copied</> : <><Copy/>Copy link</>}</Button>
+        <CardContent className="flex flex-col gap-5">
+          <div>
+            <div className="text-[13px] font-medium text-foreground">Share your link</div>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">They click it, sign up, and your code is applied automatically.</p>
+            <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+              <Input readOnly value={me.share_url || ''} onFocus={e => e.target.select()} className="h-11 min-w-0 flex-1 text-[13px]" style={mono}/>
+              <Button variant="brand" onClick={copy} className="h-11 flex-shrink-0">{copied ? <><Check/>Copied</> : <><Copy/>Copy link</>}</Button>
+            </div>
+          </div>
+
+          <Separator/>
+
+          <div>
+            <div className="text-[13px] font-medium text-foreground">Or share your code</div>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">For anyone signing up on their own — they enter it manually at checkout.</p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <div className="flex h-11 min-w-0 flex-1 items-center rounded-md border border-input px-3 text-[15px] font-medium tracking-[.08em]" style={mono}>
+                {groupCode(me.code)}
+              </div>
+              <Button variant="outline" onClick={copyCode} className="h-11 flex-shrink-0">{codeCopied ? <><Check/>Copied</> : <><Copy/>Copy code</>}</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
