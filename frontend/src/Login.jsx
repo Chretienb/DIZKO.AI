@@ -7,11 +7,6 @@ import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
 import posthog from './lib/posthog.js'
 
-const C = {
-  coral: '#7C6CF0', rose: '#C084FC', amber: '#F5C97A', pink: '#A78BFA',
-  grad:  'linear-gradient(135deg,#7C6CF0,#A78BFA)',
-}
-
 const SOCIALS = [
   {
     id: 'google', label: 'Google',
@@ -62,33 +57,36 @@ const FIELD_ICON = {
   pw: <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>,
 }
 
-function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass }) {
+// Light-themed field for the white auth card (intentionally NOT using the
+// app's dark-mode tokens — this card is a deliberate light exception,
+// matching the reference layout, sitting on top of the dark page/hero).
+function LightField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass }) {
   const on = focus === id
   return (
-    <div style={{ position:'relative', borderRadius:10, marginBottom:8,
-      background: on ? 'var(--brand-tint)' : 'var(--bg)',
-      border:`1px solid ${on ? 'var(--brand)' : 'var(--border)'}`,
+    <div style={{ position:'relative', borderRadius:10,
+      background: on ? '#F5F3FF' : '#FAFAFA',
+      border:`1px solid ${on ? '#7C6CF0' : '#E4E4E7'}`,
       transition:'all .15s' }}>
-      <div style={{ padding:'8px 14px', display:'flex', alignItems:'center', gap:11 }}>
-        <span style={{ flexShrink:0, display:'flex', color: on ? 'var(--brand)' : 'var(--t3)', transition:'color .15s' }}>
+      <div style={{ padding:'8px 12px', display:'flex', alignItems:'center', gap:10 }}>
+        <span style={{ flexShrink:0, display:'flex', color: on ? '#7C6CF0' : '#A1A1AA', transition:'color .15s' }}>
           {FIELD_ICON[id]}
         </span>
         <div style={{ flex:1, minWidth:0 }}>
-          <label htmlFor={id} style={{ display:'block', fontFamily:'var(--font-mono)', fontSize:9, fontWeight:500, letterSpacing:'.12em', textTransform:'uppercase', marginBottom:3,
-            color: on ? 'var(--brand)' : 'var(--t3)', transition:'color .15s' }}>{label}</label>
+          <label htmlFor={id} style={{ display:'block', fontSize:10.5, fontWeight:700, marginBottom:2,
+            color: on ? '#7C6CF0' : '#71717A', transition:'color .15s' }}>{label}</label>
           <input id={id} name={id} type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
             autoComplete={isPw ? 'current-password' : id === 'name' ? 'name' : type === 'email' ? 'email' : undefined}
             onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
             style={{ width:'100%', background:'transparent', border:'none', outline:'none',
-              color:'var(--t1)', fontSize:14.5, fontFamily:'inherit', padding:0, caretColor:'var(--brand)' }}/>
+              color:'#18181B', fontSize:13.5, fontFamily:'inherit', padding:0, caretColor:'#7C6CF0' }}/>
         </div>
         {isPw && (
           <button type="button" onClick={togglePass}
             style={{ background:'none', border:'none', cursor:'pointer', padding:0,
-              color: showPass ? 'var(--brand)' : 'var(--t4)', flexShrink:0, display:'flex', alignItems:'center' }}>
+              color: showPass ? '#7C6CF0' : '#A1A1AA', flexShrink:0, display:'flex', alignItems:'center' }}>
             {showPass
-              ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             }
           </button>
         )}
@@ -229,38 +227,45 @@ export default function Login({ onLogin }) {
           </div>
         </div>
 
-        {/* ══ Auth form — sits directly on the page, no card/border/shadow
-            around it, so it reads as part of the page rather than a modal.
-            Kept compact (small gaps/margins throughout) so the hero above can
-            be the visually bigger element. flex:1 + its own overflow:auto so
-            on a genuinely short viewport only this section scrolls. ══ */}
-        <div style={{ maxWidth:400, width:'100%', margin:'0 auto', flex:'1 1 auto', minHeight:0,
-          overflowY: isMobile ? 'visible' : 'auto', display:'flex', flexDirection:'column',
-          padding: isMobile ? '14px 0 0' : '12px 0' }}>
+        {/* ══ Auth card — white/light card floating on the dark page, matching
+            the reference: heading + helper link up top, fields+submit in a
+            left column, social login in a right column, help row at the
+            bottom. Deliberately breaks from the app's dark theme for this
+            one card, same way the reference's card sits on a colorful bg. ══ */}
+        <div style={{ background:'#fff', borderRadius:'var(--r-3)', boxShadow:'0 24px 64px rgba(0,0,0,.4)',
+          padding: isMobile ? '20px 18px' : '26px 32px', flex:'1 1 auto', minHeight:0,
+          overflowY:'auto', display:'flex', flexDirection:'column' }}>
 
-          {/* Heading — just the headline, no "Welcome back" eyebrow above it
-              (redundant with the near-identical line, reported live). */}
+          {/* Heading row */}
           {tab !== 'forgot' && tab !== 'forgot-sent' ? (
-            <div style={{ marginBottom:14 }}>
-              <h2 style={{ margin:0, fontSize:22, fontWeight:650, lineHeight:1.1, letterSpacing:'-.6px',
-                color:'var(--t1)' }}>
-                {tab === 'signin' ? 'Your music awaits.' : 'Start your session.'}
+            <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap',
+              gap:6, marginBottom: isMobile ? 16 : 20 }}>
+              <h2 style={{ margin:0, fontSize:21, fontWeight:800, color:'#18181B', letterSpacing:'-.5px' }}>
+                {tab === 'signin' ? 'Log in' : 'Sign up'}
               </h2>
+              <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>
+                {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
+                <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
+                  style={{ background:'none', border:'none', fontSize:12.5, fontWeight:700,
+                    color:'#7C6CF0', cursor:'pointer', padding:0, textDecoration:'underline', textUnderlineOffset:2 }}>
+                  {tab === 'signin' ? 'Create a free account' : 'Sign in'}
+                </button>
+              </p>
             </div>
           ) : (
-            <div style={{ marginBottom:22 }}>
+            <div style={{ marginBottom:18 }}>
               {tab === 'forgot-sent' ? null : (
                 <button onClick={() => { setTab('signin'); setFormError('') }}
                   style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
-                    color:'var(--t3)', fontSize:13, cursor:'pointer', marginBottom:16, padding:0 }}>
+                    color:'#A1A1AA', fontSize:13, cursor:'pointer', marginBottom:14, padding:0 }}>
                   <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
                   Back
                 </button>
               )}
-              <h2 style={{ margin:'0 0 8px', fontSize:22, fontWeight:650, color:'var(--t1)', letterSpacing:'-.5px' }}>
+              <h2 style={{ margin:'0 0 6px', fontSize:20, fontWeight:800, color:'#18181B', letterSpacing:'-.5px' }}>
                 {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
               </h2>
-              <p style={{ margin:0, fontSize:13.5, color:'var(--t3)', lineHeight:1.6 }}>
+              <p style={{ margin:0, fontSize:13, color:'#71717A', lineHeight:1.6 }}>
                 {tab === 'forgot'
                   ? "Enter your email and we'll send a reset link."
                   : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
@@ -268,117 +273,117 @@ export default function Login({ onLogin }) {
             </div>
           )}
 
+          {/* Invite banner — shown when arriving from a project invite link */}
+          {isInvite && tab === 'signup' && (
+            <div style={{ background:'#F5F3FF', border:'1px solid #DDD6FE', borderRadius:10, padding:'10px 14px', marginBottom:14 }}>
+              <p style={{ margin:0, fontSize:12.5, color:'#6D5AE6', fontWeight:600, lineHeight:1.5 }}>
+                You've been invited to collaborate — create your free account to join the project.
+              </p>
+            </div>
+          )}
+
           {/* Forgot sent */}
           {tab === 'forgot-sent' ? (
-            <div style={{ background:'rgba(34,197,94,.08)', border:'1px solid rgba(34,197,94,.2)',
-              borderRadius:14, padding:'20px' }}>
-              <div style={{ fontSize:14, fontWeight:700, color:'#4ade80', marginBottom:6 }}>Link sent ✓</div>
-              <div style={{ fontSize:13, color:'rgba(74,222,128,.7)', lineHeight:1.6 }}>
-                Check your inbox at <strong style={{ color:'#4ade80' }}>{email}</strong>. The link expires in 1 hour.
+            <div style={{ background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:12, padding:'18px' }}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#16A34A', marginBottom:6 }}>Link sent ✓</div>
+              <div style={{ fontSize:13, color:'#15803D', lineHeight:1.6 }}>
+                Check your inbox at <strong>{email}</strong>. The link expires in 1 hour.
               </div>
               <button onClick={() => { setTab('signin'); setFormError('') }}
-                style={{ marginTop:14, background:'none', border:'1px solid rgba(255,255,255,.12)',
-                  borderRadius:9, padding:'8px 16px', color:'rgba(255,255,255,.5)',
+                style={{ marginTop:14, background:'none', border:'1px solid #E4E4E7',
+                  borderRadius:9, padding:'8px 16px', color:'#3F3F46',
                   fontSize:12, fontWeight:600, cursor:'pointer', width:'100%' }}>
                 Back to sign in
               </button>
               <button onClick={() => { setTab('forgot'); setFormError('') }}
-                style={{ marginTop:8, background:'none', border:'none', color:'rgba(255,255,255,.2)',
+                style={{ marginTop:8, background:'none', border:'none', color:'#A1A1AA',
                   fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
                 Resend
               </button>
             </div>
           ) : (
-            <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <form onSubmit={submit} style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 18 : 28 }}>
 
-              {/* Social sign-in — up top, white Google button */}
+              {/* Left column — fields + submit */}
+              <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8, minWidth:0 }}>
+                {tab === 'signup' && <LightField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} />}
+                <LightField id="email" type="email" label="Email address" val={email} set={setEmail} focus={focus} setFocus={setFocus} />
+                {tab !== 'forgot' && <LightField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} />}
+
+                {tab === 'signin' && (
+                  <div style={{ textAlign:'right', marginTop:-2 }}>
+                    <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
+                      style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
+                        color:'#A1A1AA', cursor:'pointer', padding:0, transition:'color .15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.color='#7C6CF0'}
+                      onMouseLeave={e=>e.currentTarget.style.color='#A1A1AA'}>
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+
+                {formError && (
+                  <div style={{ padding:'10px 14px', borderRadius:10,
+                    background:'#FEF2F2', border:'1px solid #FECACA',
+                    fontSize:13, color:'#DC2626', lineHeight:1.45 }}>
+                    {formError}
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading || !!socialLoading}
+                  style={{ marginTop:4, width:'100%', padding:'11px', borderRadius:10, border:'none',
+                    background: loading ? '#F4F4F5' : 'var(--grad)',
+                    color: loading ? '#A1A1AA' : '#fff',
+                    fontSize:13.5, fontWeight:700, cursor: loading ? 'default' : 'pointer',
+                    boxShadow: loading ? 'none' : '0 6px 18px rgba(124,108,240,.3)',
+                    transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
+                  {loading
+                    ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)"
+                        strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
+                        <path d="M12 3a9 9 0 019 9"/>
+                      </svg>
+                      {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating…'}</>
+                    : tab === 'forgot' ? 'Send reset link'
+                    : tab === 'signin' ? 'Sign in'
+                    : 'Create account'}
+                </button>
+              </div>
+
+              {/* Divider + right column — social login */}
               {tab !== 'forgot' && (
                 <>
-                  <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'11px',
-                      borderRadius:10, border:'none', background:'#fff', color:'#333',
-                      fontFamily:'inherit', fontSize:13.5, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
-                    {SOCIALS[0].icon}
-                    {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
-                  </button>
-                  <div style={{ display:'flex', alignItems:'center', gap:12, margin:'8px 0 2px' }}>
-                    <div style={{ flex:1, height:1, background:'var(--border)' }} />
-                    <span style={{ fontSize:11, fontWeight:600, color:'var(--t4)', letterSpacing:'.06em' }}>OR</span>
-                    <div style={{ flex:1, height:1, background:'var(--border)' }} />
+                  {!isMobile && <div style={{ width:1, background:'#EEEEF0', flexShrink:0 }}/>}
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12, minWidth:0 }}>
+                    <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>Or continue with the following options.</p>
+                    <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
+                      style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
+                        borderRadius:10, border:'1px solid #E4E4E7', background:'#fff', color:'#18181B',
+                        fontFamily:'inherit', fontSize:13, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer',
+                        opacity: socialLoading ? .6 : 1, transition:'border-color .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = '#D4D4D8'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = '#E4E4E7'}>
+                      {SOCIALS[0].icon}
+                      {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
+                    </button>
                   </div>
                 </>
               )}
-
-              {/* Invite banner — shown when arriving from a project invite link */}
-              {isInvite && tab === 'signup' && (
-                <div style={{ background:'rgba(124,108,240,.12)', border:'1px solid rgba(124,108,240,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
-                  <p style={{ margin:0, fontSize:12.5, color:C.coral, fontWeight:600, lineHeight:1.5 }}>
-                    You've been invited to collaborate — create your free account to join the project.
-                  </p>
-                </div>
-              )}
-
-              {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
-              {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} />}
-              <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} />
-              {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} />}
-
-              {tab === 'signin' && (
-                <div style={{ textAlign:'right', marginTop:2 }}>
-                  <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
-                    style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
-                      color:'var(--t4)', cursor:'pointer', padding:0, transition:'color .15s' }}
-                    onMouseEnter={e=>e.currentTarget.style.color='var(--brand)'}
-                    onMouseLeave={e=>e.currentTarget.style.color='var(--t4)'}>
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
-              {formError && (
-                <div style={{ padding:'10px 14px', borderRadius:10, marginTop:4,
-                  background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
-                  fontSize:13, color:'#f87171', lineHeight:1.45 }}>
-                  {formError}
-                </div>
-              )}
-
-              <button type="submit" disabled={loading || !!socialLoading}
-                style={{ marginTop:2, width:'100%', padding:'12px', borderRadius:10, border:'none',
-                  background: loading ? 'var(--surface-3)' : 'var(--grad)',
-                  color: loading ? 'var(--t4)' : '#fff',
-                  fontSize:14, fontWeight:700, cursor: loading ? 'default' : 'pointer',
-                  boxShadow: loading ? 'none' : 'var(--shadow-1)',
-                  transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                  opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
-                {loading
-                  ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)"
-                      strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
-                      <path d="M12 3a9 9 0 019 9"/>
-                    </svg>
-                    {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating…'}</>
-                  : tab === 'forgot' ? 'Send reset link'
-                  : tab === 'signin' ? 'Sign in'
-                  : 'Create account'}
-              </button>
             </form>
           )}
 
-          {/* Switch tab link */}
-          {tab !== 'forgot' && tab !== 'forgot-sent' && (
-            <p style={{ margin:'12px 0 0', textAlign:'center', fontSize:13,
-              color:'var(--t4)' }}>
-              {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
-              <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
-                style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
-                  color:'var(--t2)', cursor:'pointer', padding:0,
-                  transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='var(--t1)'}
-                onMouseLeave={e=>e.currentTarget.style.color='var(--t2)'}>
-                {tab === 'signin' ? 'Create a free account →' : 'Sign in →'}
-              </button>
+          {/* Footer help row */}
+          <div style={{ marginTop: isMobile ? 20 : 24, paddingTop:16, borderTop:'1px solid #EEEEF0',
+            display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+            <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>
+              Any questions? <a href="mailto:team@dizko.ai" style={{ color:'#7C6CF0', fontWeight:700, textDecoration:'underline', textUnderlineOffset:2 }}>Email us</a>
             </p>
-          )}
+            <a href="mailto:team@dizko.ai" aria-label="Email dizko support" title="Email dizko support"
+              style={{ width:32, height:32, borderRadius:'50%', border:'1px solid #E4E4E7', flexShrink:0,
+                display:'flex', alignItems:'center', justifyContent:'center', color:'#18181B', textDecoration:'none' }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 7l10 6 10-6"/></svg>
+            </a>
+          </div>
         </div>
 
         {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
@@ -416,8 +421,8 @@ export default function Login({ onLogin }) {
 
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-        input::placeholder { color: var(--t4) !important; }
-        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px var(--bg) inset !important; -webkit-text-fill-color: var(--t1) !important; }
+        input::placeholder { color: #A1A1AA !important; }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #FAFAFA inset !important; -webkit-text-fill-color: #18181B !important; }
       `}</style>
     </div>
   )
