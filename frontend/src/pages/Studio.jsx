@@ -6,6 +6,7 @@ import { projects as projectsApi, files as filesApi, smartBounce as smartBounceA
 import { supabase } from '../lib/supabase.js'
 import { Btn, Spinner, C } from '../components/ui/index.jsx'
 import emptyStudioImg from '../assets/marketing/midi-closeup.jpg'
+import noProjectImg from '../assets/marketing/vinyl-lifestyle.jpg'
 import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
@@ -2585,8 +2586,31 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
               )
             })}
 
+            {/* No project selected at all (typically: zero projects exist yet) —
+                loadingStems never resolves in this case since the stems fetch
+                requires an activeId, so without this guard the skeleton below
+                rendered forever instead of ever reaching an empty state. */}
+            {!loading && !activeId && (
+              <div style={{ position:'relative', overflow:'hidden', borderRadius:20, minHeight:340,
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
+                boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}` }}>
+                <div style={{ position:'absolute', inset:0, background:`#000 center 30%/cover no-repeat url(${noProjectImg})` }}/>
+                <div style={{ position:'absolute', inset:0,
+                  background:'linear-gradient(180deg, rgba(10,10,14,.7) 0%, rgba(10,10,14,.88) 55%, rgba(10,10,14,.96) 100%)' }}/>
+                <div style={{ position:'relative', padding:'32px 28px', maxWidth:400 }}>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.16em',
+                    textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Get started</div>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#fff', marginBottom:8, letterSpacing:'-.3px' }}>No project selected</div>
+                  <div style={{ fontSize:13, color:'rgba(255,255,255,.68)', lineHeight:1.55, marginBottom:22 }}>
+                    Create a project to start dropping in stems — dizko handles the BPM, key, and instrument tagging the moment they land.
+                  </div>
+                  <Btn onClick={() => openModal('new-project', {})}>+ New project</Btn>
+                </div>
+              </div>
+            )}
+
             {/* Skeleton while stems are loading — never show empty state during load */}
-            {loadingStems && [0,1,2].map(i => (
+            {loadingStems && activeId && [0,1,2].map(i => (
               <div key={i} style={{ background:C.surface, borderRadius:20, padding:'14px 18px',
                 boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', gap:10 }}>
@@ -2605,7 +2629,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
             ))}
 
             {/* True empty state — only when not loading and genuinely no stems */}
-            {!loadingStems && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
+            {!loadingStems && activeId && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
               <div style={{ position:'relative', overflow:'hidden', borderRadius:20, minHeight:340,
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
                 boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}` }}>
