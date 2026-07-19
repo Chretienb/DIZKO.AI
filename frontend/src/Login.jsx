@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import logo   from './assets/logo.png'
-import studio from './assets/marketing/midi-closeup.jpg'
+import studioVideo  from './assets/marketing/studio-desk-loop.mp4'
+import studioPoster from './assets/marketing/studio-desk-poster.jpg'
 import { auth, setToken, setRefreshToken, publicApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
@@ -201,7 +202,10 @@ export default function Login({ onLogin }) {
             in a bordered rounded card instead of a full-bleed backdrop ══ */}
         <div style={{ position:'relative', overflow:'hidden', borderRadius:'var(--r-3)',
           border:'1px solid var(--border)', boxShadow:'var(--shadow-1)', minHeight: isMobile ? 220 : 280 }}>
-          <div style={{ position:'absolute', inset:0, background:`#000 center/cover no-repeat url(${studio})` }}/>
+          <video autoPlay loop muted playsInline poster={studioPoster}
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }}>
+            <source src={studioVideo} type="video/mp4"/>
+          </video>
           <div style={{ position:'absolute', inset:0,
             background:'linear-gradient(180deg, rgba(13,13,15,.5) 0%, rgba(13,13,15,.88) 65%, rgba(13,13,15,.97) 100%)' }}/>
           <div style={{ position:'relative', minHeight: isMobile ? 220 : 280, display:'flex', flexDirection:'column',
@@ -217,10 +221,9 @@ export default function Login({ onLogin }) {
           </div>
         </div>
 
-        {/* ══ Auth card ══ */}
-        <div style={{ maxWidth:440, margin: isMobile ? '20px auto 0' : '28px auto 0' }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
-            boxShadow:'var(--shadow-1)', padding: isMobile ? '22px 20px' : '28px 32px' }}>
+        {/* ══ Auth form — sits directly on the page, no card/border/shadow
+            around it, so it reads as part of the page rather than a modal ══ */}
+        <div style={{ maxWidth:400, margin: isMobile ? '28px auto 0' : '36px auto 0' }}>
 
           {/* Heading */}
           {tab !== 'forgot' && tab !== 'forgot-sent' ? (
@@ -366,7 +369,6 @@ export default function Login({ onLogin }) {
               </button>
             </p>
           )}
-          </div>
         </div>
 
         {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
