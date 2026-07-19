@@ -4,6 +4,7 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, collaborators as collabsApi, invitations as invitationsApi, accessRequests } from '../lib/api.js'
 import { Btn, Spinner, C, Avatar, EmptyState } from '../components/ui/index.jsx'
 import { getToken, withMinDelay } from '../lib/utils.js'
+import noCrewImg from '../assets/marketing/vinyl-lifestyle.jpg'
 
 const COLORS = [C.coral, '#8b5cf6', '#22c55e', '#f59e0b', '#6366f1', C.pink]
 
@@ -364,7 +365,7 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
             </div>
           ))}
         </div>
-      ) : visible.length === 0 ? (
+      ) : visible.length === 0 ? search ? (
         <EmptyState
           icon={
             <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
@@ -373,15 +374,27 @@ export default function PageCollaborators({ openModal, user, onlineIds = new Set
               <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
             </svg>
           }
-          title={search ? 'No one found' : 'No crew yet'}
-          subtitle={search ? 'Try a different name or role.' : 'Invite collaborators to start making music together.'}
-          action={!search && (
-            <Btn variant="outline" onClick={() => openModal('invite', {})}
-              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#6D5AE6" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
+          title="No one found"
+          subtitle="Try a different name or role."
+        />
+      ) : (
+        <div style={{ position:'relative', borderRadius:'var(--r-3)', overflow:'hidden', marginTop:12,
+          border:`1px solid ${C.border}`, boxShadow:'0 12px 32px rgba(0,0,0,.18)', minHeight:300,
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', textAlign:'center' }}>
+          <div style={{ position:'absolute', inset:0, background:`#000 center 30%/cover no-repeat url(${noCrewImg})` }}/>
+          <div style={{ position:'absolute', inset:0,
+            background:'linear-gradient(to top, rgba(10,10,14,.94) 0%, rgba(10,10,14,.55) 48%, rgba(109,90,230,.16) 100%)' }}/>
+          <div style={{ position:'relative', padding:'28px 28px 32px', maxWidth:360 }}>
+            <div style={{ fontSize:19, fontWeight:700, color:'#fff', letterSpacing:'-.4px', marginBottom:8 }}>No crew yet</div>
+            <div style={{ fontSize:13.5, color:'rgba(255,255,255,.72)', lineHeight:1.55, marginBottom:20 }}>
+              Invite collaborators to start making music together.
+            </div>
+            <Btn onClick={() => openModal('invite', {})}
+              icon={<svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}>
               Invite someone
             </Btn>
-          )}
-        />
+          </div>
+        </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14, marginTop:12 }}>
           {visible.map((c, i) => (
