@@ -53,20 +53,29 @@ const SOCIALS = [
   },
 ]
 
-function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass, rounded }) {
+// Field icons — inline SVGs (this file has no icon-library import), one per
+// field kind so the input is scannable at a glance instead of reading labels.
+const FIELD_ICON = {
+  name: <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  email: <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 7l10 6 10-6"/></svg>,
+  pw: <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>,
+}
+
+function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass }) {
   const on = focus === id
-  const br = rounded === 'all' ? 14 : rounded === 'top' ? '14px 14px 0 0' : rounded === 'bot' ? '0 0 14px 14px' : 0
   return (
-    <div style={{ position:'relative', borderRadius:br, marginBottom: rounded==='bot'||rounded==='all' ? 0 : 2,
-      background: on ? 'rgba(124,108,240,.06)' : 'rgba(255,255,255,.04)',
-      border:`1px solid ${on ? C.coral+'50' : 'rgba(255,255,255,.07)'}`,
-      transition:'all .18s', overflow:'hidden' }}>
-      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
-        background: on ? C.grad : 'transparent', transition:'background .2s' }}/>
-      <div style={{ padding:'10px 16px 12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div style={{ flex:1 }}>
-          <label htmlFor={id} style={{ display:'block', fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:5,
-            color: on ? C.coral : 'rgba(255,255,255,.28)', transition:'color .18s' }}>{label}</label>
+    <div style={{ position:'relative', borderRadius:14, marginBottom:10,
+      background: on ? 'rgba(124,108,240,.07)' : 'rgba(255,255,255,.035)',
+      border:`1px solid ${on ? C.coral+'60' : 'rgba(255,255,255,.08)'}`,
+      boxShadow: on ? `0 0 0 3px ${C.coral}18` : 'none',
+      transition:'all .18s' }}>
+      <div style={{ padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>
+        <span style={{ flexShrink:0, display:'flex', color: on ? C.coral : 'rgba(255,255,255,.32)', transition:'color .18s' }}>
+          {FIELD_ICON[id]}
+        </span>
+        <div style={{ flex:1, minWidth:0 }}>
+          <label htmlFor={id} style={{ display:'block', fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:4,
+            color: on ? C.coral : 'rgba(255,255,255,.3)', transition:'color .18s' }}>{label}</label>
           <input id={id} name={id} type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
             autoComplete={isPw ? 'current-password' : id === 'name' ? 'name' : type === 'email' ? 'email' : undefined}
             onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
@@ -75,7 +84,7 @@ function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass,
         </div>
         {isPw && (
           <button type="button" onClick={togglePass}
-            style={{ background:'none', border:'none', cursor:'pointer', padding:'0 0 0 12px',
+            style={{ background:'none', border:'none', cursor:'pointer', padding:0,
               color: showPass ? C.coral : 'rgba(255,255,255,.25)', flexShrink:0, display:'flex', alignItems:'center' }}>
             {showPass
               ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -440,9 +449,9 @@ export default function Login({ onLogin }) {
                 )}
 
                 {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
-                {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} top rounded={tab==='signup'&&tab!=='forgot'?'top':'all'} />}
-                <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} top={tab!=='signup'} bot={tab==='forgot'} rounded={tab==='forgot'?'all':tab==='signup'?'none':'top'} />
-                {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} bot rounded="bot" />}
+                {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} />}
+                <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} />
+                {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} />}
 
                 {tab === 'signin' && (
                   <div style={{ textAlign:'right', marginTop:2 }}>
