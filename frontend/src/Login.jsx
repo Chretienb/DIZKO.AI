@@ -320,7 +320,14 @@ export default function Login({ onLogin }) {
           pointerEvents:'none' }}/>
 
         {/* Top bar */}
-        <div style={{ padding: isMobile ? '20px 24px' : '28px 40px', display:'flex', alignItems:'center', justifyContent:'flex-end', flexShrink:0 }}>
+        <div style={{ padding: isMobile ? '20px 24px' : '28px 40px', display:'flex', alignItems:'center',
+          justifyContent: isMobile ? 'space-between' : 'flex-end', flexShrink:0 }}>
+          {isMobile && (
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <img src={logo} alt="" style={{ width:32, height:32, borderRadius:9, objectFit:'cover', boxShadow:'0 2px 10px rgba(0,0,0,.4)' }}/>
+              <span style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>dizko</span>
+            </div>
+          )}
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
             <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.06)', borderRadius:10, padding:3 }}>
               {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
@@ -341,18 +348,23 @@ export default function Login({ onLogin }) {
 
             {/* Heading */}
             {tab !== 'forgot' && tab !== 'forgot-sent' ? (
-              <div style={{ marginBottom:36 }}>
+              <div style={{ marginBottom: isMobile ? 24 : 36 }}>
                 <div style={{ fontSize:11, fontWeight:700, color:C.coral, textTransform:'uppercase',
                   letterSpacing:'.14em', marginBottom:14 }}>
                   {tab === 'signin' ? '— Welcome back' : '— Create account'}
                 </div>
-                <h2 style={{ margin:0, fontSize:52, fontWeight:900, lineHeight:1.02, letterSpacing:'-2.5px',
+                <h2 style={{ margin:0, fontSize: isMobile ? 30 : 52, fontWeight:900, lineHeight:1.05, letterSpacing: isMobile ? '-1.2px' : '-2.5px',
                   color:'#fff' }}>
                   {tab === 'signin'
                     ? <><span style={{ display:'block' }}>Your music</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>awaits.</span></>
                     : <><span style={{ display:'block' }}>Start your</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>session.</span></>
                   }
                 </h2>
+                {isMobile && (
+                  <p style={{ margin:'12px 0 0', fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.55 }}>
+                    Every stem tagged by BPM, key, and instrument. Every upload screened for AI-generated audio, because the music should be yours. Real-time collaboration, full version history, and one-click export to Ableton or Logic keep it all in one place, so nothing gets lost in a group chat again.
+                  </p>
+                )}
               </div>
             ) : (
               <div style={{ marginBottom:32 }}>
