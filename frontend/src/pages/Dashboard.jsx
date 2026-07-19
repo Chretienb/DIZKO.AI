@@ -119,7 +119,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
   // Derived
   const selProject  = projects.find(p => p.id === selId)
-  const parentStems = files.filter(f => !pn(f).parent_stem_id && f.instrument !== 'smart_bounce')
+  const parentStems = files.filter(f => { const n = pn(f); return !n.parent_stem_id && !n.archived && f.instrument !== 'smart_bounce' })
   // Contributors = people you've ADDED, not yourself (the collaborators list
   // includes the owner as a synthetic 'owner' entry).
   const contributors = collabs.filter(c => c.role !== 'owner').length
