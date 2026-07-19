@@ -223,7 +223,7 @@ export default function Login({ onLogin }) {
             </h1>
             <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:360,
               textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
-              Every stem tagged by BPM, key, and instrument. Every upload screened for AI-generated audio, because the music should be yours. Real-time collaboration, full version history, and one-click export to Ableton or Logic keep it all in one place, so nothing gets lost in a group chat again.
+              Auto-tagged stems, AI-screened for authenticity, real-time collaboration, one-click export to your DAW — all in one place, so nothing gets lost in a group chat again.
             </p>
           </div>
 
@@ -362,7 +362,7 @@ export default function Login({ onLogin }) {
                 </h2>
                 {isMobile && (
                   <p style={{ margin:'12px 0 0', fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.55 }}>
-                    Every stem tagged by BPM, key, and instrument. Every upload screened for AI-generated audio, because the music should be yours. Real-time collaboration, full version history, and one-click export to Ableton or Logic keep it all in one place, so nothing gets lost in a group chat again.
+                    Auto-tagged stems, AI-screened for authenticity, real-time collaboration, one-click export to your DAW — all in one place, so nothing gets lost in a group chat again.
                   </p>
                 )}
               </div>
