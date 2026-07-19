@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MotionConfig, motion } from 'motion/react'
 import { Plus, Search, X, Heart, Archive } from 'lucide-react'
@@ -15,6 +15,7 @@ import Cover from '../components/Cover.jsx'
 import ProjectCard from '../components/ProjectCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import Hero from '../components/dashboard/Hero.jsx'
+import CoachMark from '../components/CoachMark.jsx'
 import welcomeImg      from '../assets/marketing/synth-desk.jpg'
 import noProjectsVideo from '../assets/marketing/boombox-loop.mp4'
 import noProjectsPoster from '../assets/marketing/boombox-poster.jpg'
@@ -84,6 +85,12 @@ export default function PageDashboard({ openModal, user, playTrack }) {
   const [search,     setSearch]   = useState('')
   const [showArchive, setShowArchive] = useState(false)
   const [favs,       setFavs]     = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('dizko_favs') || '[]')) } catch { return new Set() } })
+
+  // First-run coach mark — set by main.jsx right after signup, cleared the
+  // moment it's dismissed or a project gets made, so it only ever shows once.
+  const [showProjectHint, setShowProjectHint] = useState(() => { try { return localStorage.getItem('dizko_show_project_hint') === '1' } catch { return false } })
+  const newProjectBtnRef = useRef(null)
+  const dismissProjectHint = () => { try { localStorage.removeItem('dizko_show_project_hint') } catch {}; setShowProjectHint(false) }
 
   const toggleFav = id => setFavs(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); localStorage.setItem('dizko_favs', JSON.stringify([...n])); return n })
 
@@ -251,11 +258,16 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         {/* ── Page header ── */}
         <motion.div {...rise(0)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, margin:'0 0 22px' }}>
           <h1 style={{ margin:0, fontSize:isMobile ? 22 : 26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Dashboard</h1>
-          <Button variant="brand" onClick={() => openModal('new-project', {})}>
+          <Button ref={newProjectBtnRef} variant="brand" onClick={() => openModal('new-project', {})}>
             <Plus/>
             New Project
           </Button>
         </motion.div>
+
+        {showProjectHint && !hasProjects && (
+          <CoachMark targetRef={newProjectBtnRef} onDismiss={dismissProjectHint}
+            message="Start here — create your first project to drop in your stems."/>
+        )}
 
         {/* ── Hero: Continue Creating (or premium empty state) ── */}
         {hasProjects && selProject ? (

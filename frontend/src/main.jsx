@@ -226,10 +226,11 @@ function Root() {
     // Analytics: tie events to this person + record the auth event.
     phIdentify(u)
     track(isNewUser ? 'signed_up' : 'logged_in', { method: u?.provider || 'email' })
-    // Onboarding used to only fire after a paid checkout (/billing/success),
-    // so most people never saw it — they land straight on an empty Dashboard
-    // right after creating an account. Show it the moment the account exists.
-    if (isNewUser) setShowOnboard(true)
+    // New signups skip the full-screen onboarding modal entirely now — they
+    // land straight on the real Dashboard, which shows its own coach mark
+    // pointing at "New Project" (see Dashboard.jsx). The modal still fires
+    // from /billing/success for anyone who checks out without one.
+    if (isNewUser) { try { localStorage.setItem('dizko_show_project_hint', '1') } catch {} }
   }
 
   // Already logged in on load (returning session) → identify so events attach.
