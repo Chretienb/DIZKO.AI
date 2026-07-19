@@ -135,7 +135,12 @@ function OAuthCallback({ onLogin }) {
         || u.user_metadata?.name          // Spotify sends "name"
         || u.email?.split('@')[0]
         || ''
-      onLogin(fullName, false, {
+      // OAuth has no separate "register" call to flag isNewUser from — the
+      // account row is created the instant this callback fires, so a
+      // just-now created_at is the only signal we get that this is a signup,
+      // not a returning sign-in.
+      const isNewUser = Date.now() - new Date(u.created_at).getTime() < 60_000
+      onLogin(fullName, isNewUser, {
         id:         u.id,
         email:      u.email ?? '',
         full_name:  fullName,
@@ -221,6 +226,10 @@ function Root() {
     // Analytics: tie events to this person + record the auth event.
     phIdentify(u)
     track(isNewUser ? 'signed_up' : 'logged_in', { method: u?.provider || 'email' })
+    // Onboarding used to only fire after a paid checkout (/billing/success),
+    // so most people never saw it — they land straight on an empty Dashboard
+    // right after creating an account. Show it the moment the account exists.
+    if (isNewUser) setShowOnboard(true)
   }
 
   // Already logged in on load (returning session) → identify so events attach.
