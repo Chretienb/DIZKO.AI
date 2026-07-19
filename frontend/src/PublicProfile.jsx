@@ -8,7 +8,6 @@ import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
 import { Spinner, Btn, EmptyState, Avatar } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
-import setupProfileImg from './assets/marketing/midi-closeup.jpg'
 
 const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 const BASE = '/api'
@@ -297,25 +296,37 @@ export default function PublicProfile({ embedded = false }) {
   // Embedded on /profile with no handle claimed yet → nudge to Edit profile.
   if (embedded && !paramHandle && myHandleLoaded && !myHandle) return (
     <Shell>
-      <div style={{ paddingTop:36, maxWidth:560, margin:'0 auto' }}>
-        <div style={{ position:'relative', borderRadius:'var(--r-3)', overflow:'hidden',
-          border:'1px solid rgba(var(--fg),.08)', boxShadow:'0 12px 32px rgba(0,0,0,.18)', minHeight:300 }}>
-          <div style={{ position:'absolute', inset:0, background:`#000 center 42%/cover no-repeat url(${setupProfileImg})` }}/>
-          <div style={{ position:'absolute', inset:0,
-            background:'linear-gradient(to top, rgba(10,10,14,.95) 0%, rgba(10,10,14,.6) 48%, rgba(109,90,230,.18) 100%)' }}/>
-          <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column', alignItems:'center',
-            justifyContent:'flex-end', textAlign:'center', padding:'28px 28px 32px' }}>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.16em',
-              textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Your public page</div>
-            <div style={{ fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'-.4px', marginBottom:8 }}>
-              Set up your public profile
+      <div style={{ paddingTop:56, maxWidth:440, margin:'0 auto', textAlign:'center' }}>
+        {/* Browser-chrome mock of the page they're about to claim — concrete
+            and specific instead of another mood photo. */}
+        <div style={{ position:'relative', borderRadius:14, overflow:'hidden', margin:'0 auto 28px', maxWidth:340,
+          border:'1px solid rgba(var(--fg),.08)', boxShadow:'0 16px 40px rgba(0,0,0,.22)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 12px', background:'rgba(var(--fg),.04)',
+            borderBottom:'1px solid rgba(var(--fg),.08)' }}>
+            <span style={{ width:7, height:7, borderRadius:'50%', background:'rgba(var(--fg),.18)' }}/>
+            <span style={{ width:7, height:7, borderRadius:'50%', background:'rgba(var(--fg),.18)' }}/>
+            <span style={{ width:7, height:7, borderRadius:'50%', background:'rgba(var(--fg),.18)' }}/>
+            <span style={{ marginLeft:8, fontFamily:'var(--font-mono, monospace)', fontSize:11, color:'rgba(var(--fg),.45)' }}>
+              dizko.ai/u/<span style={{ color:'var(--brand)' }}>you</span>
+            </span>
+          </div>
+          <div style={{ padding:'26px 20px', background:'var(--surface)' }}>
+            <div style={{ width:52, height:52, borderRadius:'50%', margin:'0 auto 12px', background:C.grad }}/>
+            <div style={{ height:11, width:'55%', borderRadius:4, background:'rgba(var(--fg),.14)', margin:'0 auto 8px' }}/>
+            <div style={{ height:8, width:'35%', borderRadius:4, background:'rgba(var(--fg),.08)', margin:'0 auto 18px' }}/>
+            <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+              {[0,1,2].map(i => <div key={i} style={{ width:44, height:44, borderRadius:9, background:'rgba(var(--fg),.06)' }}/>)}
             </div>
-            <div style={{ fontSize:13.5, color:'rgba(255,255,255,.72)', lineHeight:1.55, maxWidth:340, marginBottom:20 }}>
-              Claim a handle to get your public page at dizko.ai/u/you — share your best tracks and let people find you.
-            </div>
-            <Btn onClick={() => navigate('/profile/edit')}>Edit profile</Btn>
           </div>
         </div>
+
+        <div style={{ fontSize:19, fontWeight:700, color:'var(--t1)', letterSpacing:'-.3px', marginBottom:8 }}>
+          Set up your public profile
+        </div>
+        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.55)', lineHeight:1.55, maxWidth:340, margin:'0 auto 22px' }}>
+          Claim a handle to get your public page at dizko.ai/u/you — share your best tracks and let people find you.
+        </div>
+        <Btn onClick={() => navigate('/profile/edit')}>Edit profile</Btn>
       </div>
     </Shell>
   )
