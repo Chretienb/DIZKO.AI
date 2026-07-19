@@ -344,7 +344,21 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 <label style={label}>Music <span style={{ fontWeight:500, color:C.t3 }}>(Spotify, Apple Music or YouTube — embeds on your page)</span></label>
                 <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…" style={input} />
               </div>
-              <button onClick={async () => { try { await saveProfile(); track('profile_saved', { has_music: !!spotify.trim() }); handleClose() } catch {} }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
+              <button onClick={async () => {
+                // The handle field has its own inline Save button, but people
+                // naturally expect the big "Save profile" button to save
+                // everything on screen — including a handle they just typed.
+                // Without this, the handle silently never gets claimed and
+                // "Set up your public profile" keeps nagging even after
+                // "successfully" saving.
+                if (handle && handle !== liveHandle) {
+                  if (handleState === 'taken')   { flash('That handle is taken'); return }
+                  if (handleState === 'invalid') { flash('Handle must be 3–30 chars: a–z, 0–9, _'); return }
+                  try { await showcaseApi.setHandle(handle); setProfile(p => ({ ...p, handle })); setHandleState(null) }
+                  catch (e) { flash(e.message || 'Could not save handle'); return }
+                }
+                try { await saveProfile(); track('profile_saved', { has_music: !!spotify.trim() }); handleClose() } catch {}
+              }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
                 {saving ? 'Saving…' : 'Save profile'}
               </button>
             </div>
