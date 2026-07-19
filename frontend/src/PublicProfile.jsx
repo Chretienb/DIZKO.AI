@@ -8,6 +8,7 @@ import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
 import { Spinner, Btn, EmptyState, Avatar } from './components/ui/index.jsx'
 import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
+import setupProfileImg from './assets/marketing/midi-closeup.jpg'
 
 const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 const BASE = '/api'
@@ -296,13 +297,25 @@ export default function PublicProfile({ embedded = false }) {
   // Embedded on /profile with no handle claimed yet → nudge to Edit profile.
   if (embedded && !paramHandle && myHandleLoaded && !myHandle) return (
     <Shell>
-      <div style={{ paddingTop:36 }}>
-        <EmptyState
-          icon={<svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg>}
-          title="Set up your public profile"
-          subtitle="Claim a handle to get your public page at dizko.ai/u/you."
-          action={<Btn variant="outline" onClick={() => navigate('/profile/edit')}>Edit profile</Btn>}
-        />
+      <div style={{ paddingTop:36, maxWidth:560, margin:'0 auto' }}>
+        <div style={{ position:'relative', borderRadius:'var(--r-3)', overflow:'hidden',
+          border:'1px solid rgba(var(--fg),.08)', boxShadow:'0 12px 32px rgba(0,0,0,.18)', minHeight:300 }}>
+          <div style={{ position:'absolute', inset:0, background:`#000 center 42%/cover no-repeat url(${setupProfileImg})` }}/>
+          <div style={{ position:'absolute', inset:0,
+            background:'linear-gradient(to top, rgba(10,10,14,.95) 0%, rgba(10,10,14,.6) 48%, rgba(109,90,230,.18) 100%)' }}/>
+          <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column', alignItems:'center',
+            justifyContent:'flex-end', textAlign:'center', padding:'28px 28px 32px' }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.16em',
+              textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Your public page</div>
+            <div style={{ fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'-.4px', marginBottom:8 }}>
+              Set up your public profile
+            </div>
+            <div style={{ fontSize:13.5, color:'rgba(255,255,255,.72)', lineHeight:1.55, maxWidth:340, marginBottom:20 }}>
+              Claim a handle to get your public page at dizko.ai/u/you — share your best tracks and let people find you.
+            </div>
+            <Btn onClick={() => navigate('/profile/edit')}>Edit profile</Btn>
+          </div>
+        </div>
       </div>
     </Shell>
   )
@@ -311,7 +324,7 @@ export default function PublicProfile({ embedded = false }) {
     <Shell>
       <div style={{ textAlign:'center', paddingTop:50 }}>
         <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>Profile not found</div>
-        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>This producer may be private or the handle doesn’t exist.</div>
+        <div style={{ fontSize:13.5, color:'rgba(var(--fg),.5)', marginBottom:22 }}>This creator may be private or the handle doesn’t exist.</div>
         <a href="/" style={{ color:C.coral, fontWeight:600, textDecoration:'none', fontSize:14 }}>Go to dizko →</a>
       </div>
     </Shell>
@@ -654,8 +667,8 @@ export default function PublicProfile({ embedded = false }) {
           like:     { t:'Like this track',                 s:`Save the beats you love and show ${p.display_name} support.` },
           download: { t:'Download this track',             s:`Grab ${p.display_name}’s work in full quality, free.` },
           comment:  { t:'Join the conversation',           s:'Leave a comment and connect with the producer.' },
-          message:  { t:`Message ${p.display_name}`,       s:'DM producers and line up your next collab.' },
-          collab:   { t:`Collab with ${p.display_name}`,   s:'Invite producers to work on something together.' },
+          message:  { t:`Message ${p.display_name}`,       s:'DM creators and line up your next collab.' },
+          collab:   { t:`Collab with ${p.display_name}`,   s:'Invite creators to work on something together.' },
           repost:   { t:'Repost this track',               s:'Share it with your followers — the original stays credited.' },
         }
         const c = COPY[authPrompt.action] || { t:'Join dizko', s:'Create a free account to like, follow, comment and download.' }
@@ -798,7 +811,7 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
 
 // Isolated so typing in the search box only re-renders this block — not the
 // whole profile (which made each keystroke feel laggy / letter-by-letter).
-export function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = false }) {
+export function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = false, hideLabel = false }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
 
@@ -843,10 +856,10 @@ export function DiscoverProducers({ currentHandle, navigate, layout = 'lane', ba
             style={{ width:'100%', padding: bare ? '12px 14px 12px 40px' : '9px 12px 9px 34px', borderRadius: bare ? 100 : 10, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--t1)', fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box', outline:'none' }} />
         </div>
 
-        {bare && <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:14 }}>Producers</div>}
+        {bare && !hideLabel && <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:14 }}>Creators</div>}
 
         {results === null ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? 'Searching…' : 'Loading…'}</div> :
-         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? `No users found for “${q}”.` : 'No public producers yet.'}</div> : (
+         list.length === 0 ? <div style={{ fontSize:12.5, color:'rgba(var(--fg),.4)', padding:'8px 2px' }}>{searching ? `No users found for “${q}”.` : 'No public creators yet.'}</div> : (
           <div className={layout === 'grid' ? 'pp-dgrid' : 'pp-discover'}>
             {list.map(d => {
               const tracks = d.items?.length ?? d.trackCount
@@ -921,7 +934,7 @@ export function ReelsRow({ onOpen }) {
       `}</style>
       <audio ref={audioRef} onEnded={() => setPlayingId(null)} style={{ display:'none' }} />
       <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)', marginBottom:4 }}>Fresh sounds</div>
-      <div style={{ fontSize:12, color:'rgba(var(--fg),.4)', marginBottom:14 }}>Tap to listen · tap the card to open the producer.</div>
+      <div style={{ fontSize:12, color:'rgba(var(--fg),.4)', marginBottom:14 }}>Tap to listen · tap the card to open the creator.</div>
       <div className="pp-reels">
         {reels.map(r => {
           const playing = playingId === r.id

@@ -99,7 +99,7 @@ export function TermsPage() {
       <P>These Terms of Service ("Terms") govern your access to and use of {COMPANY} ("dizko", "we", "us"). By creating an account or using our platform, you agree to these Terms.</P>
 
       <H2>1. Who We Are</H2>
-      <P>{COMPANY} is a real-time music collaboration platform that lets producers and artists upload audio stems, collaborate on projects, and use Smart Mix, an AI-powered mixing assistant, to get feedback on their music.</P>
+      <P>{COMPANY} is a real-time music collaboration platform that lets creators and artists upload audio stems, collaborate on projects, and use Smart Mix, an AI-powered mixing assistant, to get feedback on their music.</P>
 
       <H2>2. Your Account</H2>
       <P>You must be at least 13 years old to use dizko. You're responsible for maintaining the security of your account and all activity that occurs under it. Notify us immediately at {CONTACT} if you suspect unauthorized access.</P>

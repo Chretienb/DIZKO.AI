@@ -105,7 +105,7 @@ function CrewHero({ shareUrl, onCopy, copied }) {
             <Badge variant="secondary" className="border-white/15 bg-white/10 text-[11px] font-normal text-white">Ambassador</Badge>
           </div>
           <p className="mt-2 max-w-[480px] text-[14px] leading-relaxed text-white/75 sm:text-[15px]">
-            Every paying producer you bring to dizko earns you <span className="font-medium text-white">up to 25% commission</span>, paid out for a full <span className="font-medium text-white">12 months</span>. Your link is live — share it and start getting paid.
+            Every paying creator you bring to dizko earns you <span className="font-medium text-white">up to 25% commission</span>, paid out for a full <span className="font-medium text-white">12 months</span>. Your link is live — share it and start getting paid.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

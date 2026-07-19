@@ -51,7 +51,7 @@ export default function PageAbout() {
           Making music with other people should feel as easy as making it alone.
         </p>
         <p style={{ margin:'16px 0 0', fontSize:14.5, lineHeight:1.7, color:C.t2 }}>
-          Artists and producers are more connected than ever, yet the work still lives everywhere — stems in text threads,
+          Artists and creators are more connected than ever, yet the work still lives everywhere — stems in text threads,
           rough mixes in voice notes, versions scattered across hard drives. A great idea dies in a group chat because nobody
           could hear it come together. dizko brings it into one place built for the way musicians actually work: drop your stems,
           hear them play together instantly, mix and bounce, and keep the whole crew in sync.

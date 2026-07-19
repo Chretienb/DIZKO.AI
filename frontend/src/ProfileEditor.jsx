@@ -295,7 +295,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
 
                 <div style={{ flex:1, minWidth:200 }}>
                   <label style={label}>Display name</label>
-                  <input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} placeholder="Your producer name" style={{ ...input, marginBottom:14 }} />
+                  <input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} placeholder="Your creator name" style={{ ...input, marginBottom:14 }} />
 
                   <label style={label}>Handle {handleHint && <span style={{ marginLeft:8, fontWeight:500 }}>{handleHint}</span>}</label>
                   <div style={{ display:'flex', gap:8 }}>

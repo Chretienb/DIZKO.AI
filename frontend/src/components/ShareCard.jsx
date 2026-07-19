@@ -93,7 +93,7 @@ export default function ShareCard({ kind, item, profile, canEditPhoto = true, on
               )}
               <div style={{ position:'absolute', left:0, right:0, bottom:0, padding:'90px 30px 28px',
                 background:'linear-gradient(transparent, rgba(0,0,0,.55) 45%, rgba(0,0,0,.9))', color:'#fff' }}>
-                <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.14em', color:C.coral, marginBottom:8 }}>{isTrack ? 'NEW TRACK' : 'PRODUCER'}</div>
+                <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.14em', color:C.coral, marginBottom:8 }}>{isTrack ? 'NEW TRACK' : 'CREATOR'}</div>
                 <div style={{ fontSize:38, fontWeight:900, letterSpacing:'-1px', lineHeight:1.05, marginBottom:8, textShadow:'0 2px 12px rgba(0,0,0,.5)',
                   display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{title}</div>
                 <div style={{ fontSize:20, fontWeight:600, color:'rgba(255,255,255,.85)', marginBottom:18 }}>@{profile.handle}</div>
