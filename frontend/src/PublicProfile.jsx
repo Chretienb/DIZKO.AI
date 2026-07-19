@@ -40,7 +40,7 @@ export default function PublicProfile({ embedded = false }) {
   const [tab, setTab]               = useState('tracks') // tracks | reposts
   const [reposts, setReposts]       = useState(null)
   const [repostsLoading, setRepostsLoading] = useState(false)
-  const [spotifyExpanded, setSpotifyExpanded] = useState(false)
+  const [expandedEmbeds, setExpandedEmbeds] = useState(() => new Set())   // indices, for multi-embed "show all songs"
   const [railCollapsed, setRailCollapsed] = useState(() => { try { return localStorage.getItem('dizko_pubrail') === '0' } catch { return false } })
   const toggleRail = () => setRailCollapsed(v => { const n = !v; try { localStorage.setItem('dizko_pubrail', n ? '0' : '1') } catch {} ; return n })
   const myId = useMemo(() => { try { return JSON.parse(atob(getToken().split('.')[1])).sub } catch { return null } }, [])
@@ -93,10 +93,17 @@ export default function PublicProfile({ embedded = false }) {
   const shareProfile = () => setShareCard({ kind: 'profile' })
   const shareTrack   = (item) => setShareCard({ kind: 'track', item })
 
-  const removeSpotify = async () => {
-    if (!window.confirm('Remove the music player from your profile?')) return
-    setP(prev => ({ ...prev, music_embed: null, spotify_embed: null }))
-    try { await showcaseApi.updateProfile({ music_url: '' }) }
+  // p.music_embeds is the source of truth; legacy single-embed profiles
+  // (saved before multi-link support, or a stale cache) fall back to a
+  // one-item list built from music_embed/spotify_embed.
+  const musicEmbeds = (list => Array.isArray(list) && list.length ? list
+    : (p?.music_embed ? [p.music_embed] : (p?.spotify_embed ? [`spotify:${p.spotify_embed}`] : [])))(p?.music_embeds)
+
+  const removeMusicEmbed = async (idx) => {
+    if (!window.confirm('Remove this from your profile?')) return
+    const remaining = musicEmbeds.filter((_, i) => i !== idx)
+    setP(prev => ({ ...prev, music_embeds: remaining, music_embed: remaining[0] ?? null, spotify_embed: null }))
+    try { await showcaseApi.updateProfile({ music_urls: remaining.map(embedToUrl).filter(Boolean) }) }
     catch (e) { flashToast(e?.message || 'Could not remove'); setP(prev => ({ ...prev })) }
   }
 
@@ -603,24 +610,27 @@ export default function PublicProfile({ embedded = false }) {
           </button>
         </div>
       )}
-      {/* Music embed — Spotify / Apple Music / YouTube. Compact by default,
-          expandable for albums / playlists. Owner can remove it (with a confirm). */}
-      {p.music_embed && (() => {
-        const e = musicEmbed(p.music_embed)
+      {/* Music embeds — Spotify / Apple Music / YouTube, one card per link.
+          Each is compact by default, independently expandable for albums /
+          playlists. Owner can remove any one (with a confirm). */}
+      {musicEmbeds.map((embed, idx) => {
+        const e = musicEmbed(embed)
         if (!e) return null
+        const expanded = expandedEmbeds.has(idx)
+        const toggleExpanded = () => setExpandedEmbeds(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n })
         return (
-          <div style={{ marginTop:24 }}>
+          <div key={idx} style={{ marginTop:24 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
               <div style={{ fontSize:13, fontWeight:800, letterSpacing:'-.2px', color:'var(--t1)' }}>On {e.label}</div>
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 {e.canExpand && (
-                  <button onClick={() => setSpotifyExpanded(v => !v)}
+                  <button onClick={toggleExpanded}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(var(--fg),.5)', fontSize:12, fontWeight:600, fontFamily:'inherit', padding:'4px 6px' }}>
-                    {spotifyExpanded ? 'Show less ▴' : 'Show all songs ▾'}
+                    {expanded ? 'Show less ▴' : 'Show all songs ▾'}
                   </button>
                 )}
                 {p.is_self && (
-                  <button onClick={removeSpotify} title="Remove" aria-label="Remove music"
+                  <button onClick={() => removeMusicEmbed(idx)} title="Remove" aria-label="Remove music"
                     style={{ width:26, height:26, borderRadius:7, border:'none', cursor:'pointer', background:'rgba(var(--fg),.06)', color:'rgba(var(--fg),.55)', display:'flex', alignItems:'center', justifyContent:'center' }}
                     onMouseEnter={ev => { ev.currentTarget.style.color='#ef4444'; ev.currentTarget.style.background='rgba(239,68,68,.1)' }}
                     onMouseLeave={ev => { ev.currentTarget.style.color='rgba(var(--fg),.55)'; ev.currentTarget.style.background='rgba(var(--fg),.06)' }}>
@@ -630,12 +640,12 @@ export default function PublicProfile({ embedded = false }) {
               </div>
             </div>
             <iframe title={e.label} src={e.src}
-              width="100%" height={e.canExpand && spotifyExpanded ? e.tall : e.short} frameBorder="0" loading="lazy"
+              width="100%" height={e.canExpand && expanded ? e.tall : e.short} frameBorder="0" loading="lazy"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
               style={{ borderRadius:12, border:'none', transition:'height .2s' }} />
           </div>
         )
-      })()}
+      })}
       </div>{/* /pp-right */}
 
       {/* Right action rail (desktop). Simple, no highlight. Owner tools when it's
@@ -1002,6 +1012,20 @@ const shareIcon = (
 const ghostBtn = { padding:'6px 14px', borderRadius:9, border:'1px solid rgba(var(--fg),.18)', background:'transparent',
   color:'rgba(var(--fg),.85)', fontSize:12.5, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
   display:'inline-flex', alignItems:'center', gap:6 }
+
+// Reconstruct a shareable URL from a stored "<provider>:<payload>" embed
+// value — the inverse of the backend's parseMusicEmbed, used to round-trip
+// an embed back through the update-profile API when removing just one of
+// several music links.
+function embedToUrl(embed) {
+  if (!embed) return ''
+  const i = embed.indexOf(':'); if (i < 0) return ''
+  const prov = embed.slice(0, i), payload = embed.slice(i + 1)
+  if (prov === 'spotify') return `https://open.spotify.com/${payload}`
+  if (prov === 'apple')   return `https://music.apple.com/${payload}`
+  if (prov === 'youtube') return payload.startsWith('list/') ? `https://www.youtube.com/playlist?list=${payload.slice(5)}` : `https://youtu.be/${payload}`
+  return ''
+}
 
 // Turn a stored "<provider>:<payload>" into an embed iframe descriptor.
 function musicEmbed(embed) {
