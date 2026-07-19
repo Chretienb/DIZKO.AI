@@ -57,7 +57,7 @@ showcase.get('/me', async (c) => {
   const [{ data: prof }, { data: items }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed, music_embed')
+      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed, music_embed, music_embeds')
       .eq('id', me).maybeSingle(),
     supabase
       .from('showcase_items')
@@ -125,18 +125,35 @@ showcase.patch('/me', sanitize, async (c) => {
       .filter(l => typeof l === 'string' && (l as string).length < 200)
       .slice(0, 8)
   }
-  // Music embed — accept a Spotify / Apple Music / YouTube link; store the
-  // normalized "<provider>:<payload>". Blank clears it. (music_url preferred;
-  // spotify_url kept for backward compatibility.)
-  if ('music_url' in b || 'spotify_url' in b) {
+  // Music embeds — accept an array of Spotify / Apple Music / YouTube links;
+  // store normalized "<provider>:<payload>" strings. Empty array clears them.
+  // (music_urls is the current multi-link editor; music_url/spotify_url kept
+  // for backward compatibility with the old single-link one.)
+  if ('music_urls' in b && Array.isArray(b.music_urls)) {
+    const raws = (b.music_urls as unknown[])
+      .filter(u => typeof u === 'string' && (u as string).trim())
+      .map(u => (u as string).trim())
+      .slice(0, 6)
+    const embeds: string[] = []
+    for (const raw of raws) {
+      const embed = parseMusicEmbed(raw)
+      if (!embed) return c.json({ data: null, error: `Couldn't recognize "${raw}" — paste a Spotify, Apple Music, or YouTube link.`, status: 400 }, 400)
+      embeds.push(embed)
+    }
+    patch.music_embeds = embeds
+    // Keep the legacy singular columns in sync (first embed) for any reader
+    // that hasn't moved to the array yet.
+    patch.music_embed = embeds[0] ?? null
+    patch.spotify_embed = embeds[0]?.startsWith('spotify:') ? embeds[0].slice('spotify:'.length) : null
+  } else if ('music_url' in b || 'spotify_url' in b) {
     const raw = String((b as any).music_url ?? (b as any).spotify_url ?? '').trim()
-    if (!raw) { patch.music_embed = null; patch.spotify_embed = null }
+    if (!raw) { patch.music_embed = null; patch.spotify_embed = null; patch.music_embeds = [] }
     else {
       const embed = parseMusicEmbed(raw)
       if (!embed) return c.json({ data: null, error: 'Paste a Spotify, Apple Music, or YouTube link.', status: 400 }, 400)
       patch.music_embed = embed
-      // Keep the legacy Spotify column in sync when it's a Spotify link.
       patch.spotify_embed = embed.startsWith('spotify:') ? embed.slice('spotify:'.length) : null
+      patch.music_embeds = [embed]
     }
   }
 
@@ -152,7 +169,7 @@ showcase.patch('/me', sanitize, async (c) => {
 
   if (Object.keys(patch).length === 0) return c.json({ data: null, error: 'Nothing to update', status: 400 }, 400)
   const { data, error } = await supabase.from('profiles').update(patch).eq('id', me)
-    .select('handle, display_name, bio, avatar_url, links, profile_public').maybeSingle()
+    .select('handle, display_name, bio, avatar_url, links, profile_public, music_embeds').maybeSingle()
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
   return c.json({ data, error: null, status: 200 })
 })
