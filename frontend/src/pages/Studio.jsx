@@ -5,6 +5,7 @@ import { MobileCtx } from '../lib/mobile.js'
 import { projects as projectsApi, files as filesApi, smartBounce as smartBounceApi, foldersApi, clipsApi, cacheBust } from '../lib/api.js'
 import { supabase } from '../lib/supabase.js'
 import { Btn, Spinner, C } from '../components/ui/index.jsx'
+import emptyStudioImg from '../assets/marketing/midi-closeup.jpg'
 import { getToken } from '../lib/utils.js'
 import { serializeBoard, parseBoard } from '../lib/studioBoard.js'
 import { useStudioPresence, PresenceBar } from '../studio/PresenceBar.jsx'
@@ -2605,13 +2606,21 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
 
             {/* True empty state — only when not loading and genuinely no stems */}
             {!loadingStems && mixerStems.length===0 && stems.filter(s=>s.instrument==='original').length===0 && (
-              <div style={{ background:C.surface, borderRadius:20, padding:'64px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}` }}>
-                <div style={{ width:60, height:60, borderRadius:18, background:`${C.coral}10`, border:`1.5px dashed ${C.coral}40`, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={1.5} strokeLinecap="round"><path d="M9 19V6l12-3v13M6 19a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4z"/></svg>
+              <div style={{ position:'relative', overflow:'hidden', borderRadius:20, minHeight:340,
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
+                boxShadow:'0 1px 4px rgba(var(--fg),.06)', border:`1px solid ${C.border}` }}>
+                <div style={{ position:'absolute', inset:0, background:`#000 center 38%/cover no-repeat url(${emptyStudioImg})` }}/>
+                <div style={{ position:'absolute', inset:0,
+                  background:'linear-gradient(180deg, rgba(10,10,14,.7) 0%, rgba(10,10,14,.88) 55%, rgba(10,10,14,.96) 100%)' }}/>
+                <div style={{ position:'relative', padding:'32px 28px', maxWidth:400 }}>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.16em',
+                    textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Drop your first stem</div>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#fff', marginBottom:8, letterSpacing:'-.3px' }}>No tracks yet</div>
+                  <div style={{ fontSize:13, color:'rgba(255,255,255,.68)', lineHeight:1.55, marginBottom:22 }}>
+                    Upload audio and dizko's AI takes over — BPM, key, and instrument detected automatically, and it'll flag a stem that clashes with what your collaborators already uploaded.
+                  </div>
+                  <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
                 </div>
-                <div style={{ fontSize:16, fontWeight:700, color:C.t1, marginBottom:6 }}>No tracks yet</div>
-                <div style={{ fontSize:13, color:C.t3, marginBottom:22 }}>Upload audio to start your project</div>
-                <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
               </div>
             )}
 
