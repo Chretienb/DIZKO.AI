@@ -1,14 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback } from 'react'
 
-// Theme system — light / dark with system-preference following.
-// Persists the user's explicit choice to localStorage; otherwise follows the OS.
+// Theme system — light / dark. Default is always dark for anyone without an
+// explicit choice saved yet — we don't follow the OS preference.
+// Persists the user's explicit choice to localStorage.
 // The actual `data-theme` attribute is set BEFORE React mounts by the inline
 // bootstrap script in index.html (see applyTheme below for the matching logic),
 // so this provider only needs to keep state in sync and react to changes.
 
-const STORAGE_KEY = 'dizko_theme'   // 'light' | 'dark' | 'system'
-
-const mql = () => window.matchMedia('(prefers-color-scheme: dark)')
+const STORAGE_KEY = 'dizko_theme'   // 'light' | 'dark' | 'system' ('system' = no explicit choice yet, resolves to dark)
 
 export function getStoredTheme() {
   try {
@@ -19,7 +18,7 @@ export function getStoredTheme() {
 
 export function resolveTheme(theme) {
   if (theme === 'light' || theme === 'dark') return theme
-  return mql().matches ? 'dark' : 'light'
+  return 'dark'
 }
 
 export function applyTheme(theme) {
@@ -45,15 +44,6 @@ export function ThemeProvider({ children }) {
   const toggle = useCallback(() => {
     setTheme(resolveTheme(theme) === 'dark' ? 'light' : 'dark')
   }, [theme, setTheme])
-
-  // While following the system, react to OS appearance changes live.
-  useEffect(() => {
-    if (theme !== 'system') return
-    const m = mql()
-    const onChange = () => { applyTheme('system'); setResolvedTheme(resolveTheme('system')) }
-    m.addEventListener('change', onChange)
-    return () => m.removeEventListener('change', onChange)
-  }, [theme])
 
   return (
     <ThemeCtx.Provider value={{ theme, resolvedTheme, setTheme, toggle }}>

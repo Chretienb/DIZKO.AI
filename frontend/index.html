@@ -18,13 +18,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Geist:wght@400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <script>
       // Set theme before first paint to avoid a flash of the wrong theme.
+      // Default is always dark unless the person explicitly picked light —
+      // we don't follow the OS preference anymore.
       (function () {
         try {
           var t = localStorage.getItem('dizko_theme');
-          if (t !== 'light' && t !== 'dark') {
-            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          document.documentElement.dataset.theme = t;
+          document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
         } catch (e) {
           document.documentElement.dataset.theme = 'dark';
         }
