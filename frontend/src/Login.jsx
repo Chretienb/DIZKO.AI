@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import logo   from './assets/logo.png'
-import studio from './assets/marketing/daw-controller.jpg'
+import studio from './assets/marketing/midi-closeup.jpg'
 import { auth, setToken, setRefreshToken, publicApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
@@ -173,359 +173,232 @@ export default function Login({ onLogin }) {
     }
   }
 
-  const field = (id, type, placeholder, val, set) => (
-    <input type={type} placeholder={placeholder} value={val}
-      onChange={e => set(e.target.value)}
-      onFocus={() => setFocus(id)} onBlur={() => setFocus('')}
-      required style={{
-        width:'100%', padding:'13px 16px', fontSize:14, borderRadius:12,
-        border:`1.5px solid ${focus===id ? C.coral : 'rgba(0,0,0,.1)'}`,
-        outline:'none', background: focus===id ? `${C.coral}06` : '#f9f9f9',
-        color:'#111', fontFamily:'inherit', boxSizing:'border-box', transition:'all .18s',
-      }} />
-  )
-
   return (
-    <div style={{ height:'100vh', display:'flex', overflow:'hidden',
-      fontFamily:'var(--font-ui)',
-      WebkitFontSmoothing:'antialiased' }}>
+    <div style={{ minHeight:'100vh', position:'relative', overflowX:'hidden', overflowY:'auto',
+      fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
 
-      {/* ══ LEFT — studio photo ══ */}
-      <div style={{ width: isMobile ? 0 : '52%', flexShrink:0, position:'relative', overflow:'hidden', display: isMobile ? 'none' : 'flex', flexDirection:'column' }}>
+      {/* ══ Full-bleed photo backdrop ══ */}
+      <img src={studio} alt="" style={{ position:'fixed', inset:0,
+        width:'100%', height:'100%', objectFit:'cover', objectPosition:'center', zIndex:0 }}/>
+      <div style={{ position:'fixed', inset:0, zIndex:0,
+        background:'radial-gradient(120% 90% at 50% 100%, rgba(6,6,10,.97) 0%, rgba(6,6,10,.86) 45%, rgba(6,6,10,.6) 100%)' }}/>
+      <div style={{ position:'fixed', bottom:'-15%', left:'50%', transform:'translateX(-50%)', width:600, height:600,
+        borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}22 0%, transparent 65%)`,
+        pointerEvents:'none', zIndex:0 }}/>
 
-        {/* Photo + layered overlays */}
-        <img src={studio} alt="" style={{ position:'absolute', inset:0,
-          width:'100%', height:'100%', objectFit:'cover', objectPosition:'center' }}/>
-        <div style={{ position:'absolute', inset:0,
-          background:'linear-gradient(160deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.55) 40%, rgba(0,0,0,.92) 100%)' }}/>
-        {/* Coral glow */}
-        <div style={{ position:'absolute', bottom:'-10%', right:'-5%', width:360, height:360,
-          borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}20 0%, transparent 65%)`,
-          pointerEvents:'none' }}/>
-
-        {/* Top bar */}
-        <div style={{ position:'relative', zIndex:2, padding:'30px 36px',
-          display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <img src={logo} alt="" style={{ width:56, height:56, borderRadius:16, objectFit:'cover', boxShadow:'0 4px 18px rgba(0,0,0,.4)' }}/>
-            <span style={{ fontSize:24, fontWeight:900, color:'#fff', letterSpacing:'-.7px' }}>
-              dizko
-            </span>
-          </div>
+      {/* ══ Top bar — logo + tab toggle, same on every breakpoint ══ */}
+      <div style={{ position:'relative', zIndex:2, padding: isMobile ? '20px 20px 0' : '28px 40px 0',
+        display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+          <img src={logo} alt="" style={{ width: isMobile ? 30 : 36, height: isMobile ? 30 : 36, borderRadius:10, objectFit:'cover', boxShadow:'0 3px 12px rgba(0,0,0,.4)' }}/>
+          <span style={{ fontSize: isMobile ? 16 : 18, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>dizko</span>
         </div>
-
-        {/* Main content — fills remaining space */}
-        <div style={{ position:'relative', zIndex:2, flex:1, display:'flex', flexDirection:'column',
-          justifyContent:'flex-end', padding:'0 36px 36px' }}>
-
-          {/* Headline */}
-          <div style={{ marginBottom:28 }}>
-            <h1 style={{ margin:'0 0 14px', fontSize:44, fontWeight:900, color:'#fff',
-              letterSpacing:'-2px', lineHeight:1.08 }}>
-              You create.
-              <br/>
-              <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                dizko keeps
-              </span>
-              <br/>
-              <span style={{ color:'rgba(255,255,255,.9)' }}>it together.</span>
-            </h1>
-            <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:360,
-              textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
-              Auto-tagged stems, uploads screened for AI-generated audio, real-time collaboration, one-click export to your DAW — all in one place, so nothing gets lost in a group chat again.
-            </p>
+        {tab !== 'forgot' && tab !== 'forgot-sent' && (
+          <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.07)', backdropFilter:'blur(10px)', borderRadius:10, padding:3 }}>
+            {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
+              <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
+                padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:600, transition:'all .18s',
+                background: tab===t ? 'rgba(255,255,255,.14)' : 'transparent',
+                color: tab===t ? '#fff' : 'rgba(255,255,255,.4)',
+              }}>{label}</button>
+            ))}
           </div>
-
-
-          {/* DAW logos */}
-          <div style={{ background:'rgba(0,0,0,.5)', backdropFilter:'blur(20px)',
-            WebkitBackdropFilter:'blur(20px)', borderRadius:16,
-            border:'1px solid rgba(255,255,255,.08)', padding:'14px 18px' }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em',
-              textTransform:'uppercase', color:'rgba(255,255,255,.25)', marginBottom:14 }}>
-              Works with your DAW
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:18, flexWrap:'wrap' }}>
-
-              {/* Ableton — session-view grid mark */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-                  {/* Ableton's iconic session/clip-launcher grid */}
-                  {[0,7,14].map(x =>
-                    [0,7,14].map(y => (
-                      <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1}
-                        fill={x===14&&y===14 ? 'rgba(255,255,255,.25)' : '#fff'}
-                        opacity={x===14&&y===14 ? 1 : x===14||y===14 ? 0.45 : 0.85}/>
-                    ))
-                  )}
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Ableton</span>
-              </div>
-
-              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
-
-              {/* Logic Pro — Apple (verified ✓) */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/apple/ffffff" width={18} height={18} alt="" style={{ opacity:.8 }}/>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Logic Pro</span>
-              </div>
-
-              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
-
-              {/* FL Studio — fruity orange diamond */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-                  {/* FL Studio's diamond/rhombus shape */}
-                  <path d="M10 1L19 10L10 19L1 10Z" fill="#FF8C00"/>
-                  <path d="M10 4L16 10L10 16L4 10Z" fill="#FFA500"/>
-                  {/* F letter */}
-                  <rect x="7" y="7" width="6" height="1.5" rx=".5" fill="#fff"/>
-                  <rect x="7" y="9.5" width="4" height="1.5" rx=".5" fill="#fff"/>
-                  <rect x="7" y="12" width="6" height="1.5" rx=".5" fill="#fff"/>
-                  <rect x="7" y="7" width="1.5" height="6.5" rx=".5" fill="#fff"/>
-                </svg>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>FL Studio</span>
-              </div>
-
-              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
-
-              {/* Pro Tools — verified ✓ SimpleIcons */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/protools/ffffff" width={20} height={20} alt="" style={{ opacity:.8 }}/>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Pro Tools</span>
-              </div>
-
-              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
-
-              {/* GarageBand — Apple (verified ✓) */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/apple/F7931E" width={18} height={18} alt="" style={{ opacity:.8 }}/>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>GarageBand</span>
-              </div>
-
-              <div style={{ width:1, height:16, background:'rgba(255,255,255,.1)' }}/>
-
-              {/* Cubase — Steinberg (verified ✓) */}
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <img src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={20} height={20} alt="" style={{ opacity:.85 }}/>
-                <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,.65)' }}>Cubase</span>
-              </div>
-
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ══ RIGHT — dark auth panel ══ */}
-      <div style={{ flex:1, width: isMobile ? '100%' : undefined, background:'#0a0a0f', display:'flex', flexDirection:'column',
-        position:'relative', overflow:'hidden' }}>
+      {/* ══ Centered glass card ══ */}
+      <div style={{ position:'relative', zIndex:2, minHeight: isMobile ? undefined : 'calc(100vh - 90px)',
+        display:'flex', alignItems:'center', justifyContent:'center', padding: isMobile ? '28px 16px 24px' : '40px 24px' }}>
+        <div style={{ width:'100%', maxWidth:440, background:'rgba(14,13,18,.6)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+          border:'1px solid rgba(255,255,255,.1)', borderRadius:20, boxShadow:'0 24px 64px rgba(0,0,0,.5)',
+          padding: isMobile ? '26px 22px' : '38px 40px' }}>
 
-        {/* Ambient glow blobs */}
-        <div style={{ position:'absolute', top:'-10%', right:'-5%', width:400, height:400,
-          borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}18 0%, transparent 65%)`,
-          pointerEvents:'none' }}/>
-        <div style={{ position:'absolute', bottom:'-5%', left:'10%', width:320, height:320,
-          borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,.12) 0%, transparent 65%)',
-          pointerEvents:'none' }}/>
-
-        {/* Top bar */}
-        <div style={{ padding: isMobile ? '20px 24px' : '28px 40px', display:'flex', alignItems:'center',
-          justifyContent: isMobile ? 'space-between' : 'flex-end', flexShrink:0 }}>
-          {isMobile && (
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <img src={logo} alt="" style={{ width:32, height:32, borderRadius:9, objectFit:'cover', boxShadow:'0 2px 10px rgba(0,0,0,.4)' }}/>
-              <span style={{ fontSize:16, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>dizko</span>
-            </div>
-          )}
-          {tab !== 'forgot' && tab !== 'forgot-sent' && (
-            <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.06)', borderRadius:10, padding:3 }}>
-              {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
-                <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
-                  padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
-                  fontSize:12, fontWeight:600, transition:'all .18s',
-                  background: tab===t ? 'rgba(255,255,255,.12)' : 'transparent',
-                  color: tab===t ? '#fff' : 'rgba(255,255,255,.35)',
-                }}>{label}</button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Main content — vertically centered */}
-        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding: isMobile ? '0 24px 32px' : '0 40px 40px' }}>
-          <div style={{ width:'100%', maxWidth:400 }}>
-
-            {/* Heading */}
-            {tab !== 'forgot' && tab !== 'forgot-sent' ? (
-              <div style={{ marginBottom: isMobile ? 24 : 36 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:C.coral, textTransform:'uppercase',
-                  letterSpacing:'.14em', marginBottom:14 }}>
-                  {tab === 'signin' ? '— Welcome back' : '— Create account'}
-                </div>
-                <h2 style={{ margin:0, fontSize: isMobile ? 30 : 52, fontWeight:900, lineHeight:1.05, letterSpacing: isMobile ? '-1.2px' : '-2.5px',
-                  color:'#fff' }}>
-                  {tab === 'signin'
-                    ? <><span style={{ display:'block' }}>Your music</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>awaits.</span></>
-                    : <><span style={{ display:'block' }}>Start your</span><span style={{ display:'block', background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>session.</span></>
-                  }
-                </h2>
-                {isMobile && (
-                  <p style={{ margin:'12px 0 0', fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.55 }}>
-                    Auto-tagged stems, uploads screened for AI-generated audio, real-time collaboration, one-click export to your DAW — all in one place, so nothing gets lost in a group chat again.
-                  </p>
-                )}
+          {/* Heading */}
+          {tab !== 'forgot' && tab !== 'forgot-sent' ? (
+            <div style={{ marginBottom: isMobile ? 22 : 28 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.coral, textTransform:'uppercase',
+                letterSpacing:'.14em', marginBottom:12 }}>
+                {tab === 'signin' ? '— Welcome back' : '— Create account'}
               </div>
-            ) : (
-              <div style={{ marginBottom:32 }}>
-                {tab === 'forgot-sent' ? null : (
-                  <button onClick={() => { setTab('signin'); setFormError('') }}
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
-                      color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', marginBottom:20, padding:0 }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
-                    Back
-                  </button>
-                )}
-                <h2 style={{ margin:'0 0 8px', fontSize:36, fontWeight:900, color:'#fff', letterSpacing:'-1.5px' }}>
-                  {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
-                </h2>
-                <p style={{ margin:0, fontSize:14, color:'rgba(255,255,255,.35)', lineHeight:1.6 }}>
-                  {tab === 'forgot'
-                    ? "Enter your email and we'll send a reset link."
-                    : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
-                </p>
-              </div>
-            )}
-
-            {/* Spotify login removed — email/password is the auth path. */}
-
-            {/* Forgot sent */}
-            {tab === 'forgot-sent' ? (
-              <div style={{ background:'rgba(34,197,94,.08)', border:'1px solid rgba(34,197,94,.2)',
-                borderRadius:14, padding:'20px', marginBottom:20 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:'#4ade80', marginBottom:6 }}>Link sent ✓</div>
-                <div style={{ fontSize:13, color:'rgba(74,222,128,.7)', lineHeight:1.6 }}>
-                  Check your inbox at <strong style={{ color:'#4ade80' }}>{email}</strong>. The link expires in 1 hour.
-                </div>
-                <button onClick={() => { setTab('signin'); setFormError('') }}
-                  style={{ marginTop:14, background:'none', border:'1px solid rgba(255,255,255,.12)',
-                    borderRadius:9, padding:'8px 16px', color:'rgba(255,255,255,.5)',
-                    fontSize:12, fontWeight:600, cursor:'pointer', width:'100%' }}>
-                  Back to sign in
-                </button>
-                <button onClick={() => { setTab('forgot'); setFormError('') }}
-                  style={{ marginTop:8, background:'none', border:'none', color:'rgba(255,255,255,.2)',
-                    fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
-                  Resend
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
-
-                {/* Social sign-in — up top, white Google button */}
-                {tab !== 'forgot' && (
-                  <>
-                    <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
-                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'13px',
-                        borderRadius:14, border:'none', background:'#fff', color:'#333',
-                        fontFamily:'inherit', fontSize:14, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
-                      {SOCIALS[0].icon}
-                      {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
-                    </button>
-                    <div style={{ display:'flex', alignItems:'center', gap:12, margin:'14px 0 6px' }}>
-                      <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
-                      <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.28)', letterSpacing:'.06em' }}>OR</span>
-                      <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
-                    </div>
-                  </>
-                )}
-
-                {/* Invite banner — shown when arriving from a project invite link */}
-                {isInvite && tab === 'signup' && (
-                  <div style={{ background:'rgba(124,108,240,.12)', border:'1px solid rgba(124,108,240,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
-                    <p style={{ margin:0, fontSize:12.5, color:C.coral, fontWeight:600, lineHeight:1.5 }}>
-                      You've been invited to collaborate — create your free account to join the project.
-                    </p>
-                  </div>
-                )}
-
-                {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
-                {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} />}
-                <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} />
-                {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} />}
-
-                {tab === 'signin' && (
-                  <div style={{ textAlign:'right', marginTop:2 }}>
-                    <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
-                      style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
-                        color:'rgba(255,255,255,.28)', cursor:'pointer', padding:0, transition:'color .15s' }}
-                      onMouseEnter={e=>e.currentTarget.style.color=C.coral}
-                      onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.28)'}>
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
-
-                {formError && (
-                  <div style={{ padding:'10px 14px', borderRadius:10, marginTop:4,
-                    background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
-                    fontSize:13, color:'#f87171', lineHeight:1.45 }}>
-                    {formError}
-                  </div>
-                )}
-
-                <button type="submit" disabled={loading || !!socialLoading}
-                  style={{ marginTop:6, width:'100%', padding:'15px', borderRadius:14, border:'none',
-                    background: loading ? 'rgba(255,255,255,.06)' : C.grad,
-                    color: loading ? 'rgba(255,255,255,.3)' : '#fff',
-                    fontSize:14, fontWeight:800, cursor: loading ? 'default' : 'pointer',
-                    boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
-                    transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                    opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
-                  {loading
-                    ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)"
-                        strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
-                        <path d="M12 3a9 9 0 019 9"/>
-                      </svg>
-                      {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating…'}</>
-                    : tab === 'forgot' ? 'Send reset link'
-                    : tab === 'signin' ? 'Sign in'
-                    : 'Create account'}
-                </button>
-              </form>
-            )}
-
-            {/* Switch tab link */}
-            {tab !== 'forgot' && tab !== 'forgot-sent' && (
-              <p style={{ margin:'22px 0 0', textAlign:'center', fontSize:13,
-                color:'rgba(255,255,255,.25)' }}>
-                {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
-                <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
-                  style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
-                    color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,
-                    transition:'color .15s' }}
-                  onMouseEnter={e=>e.currentTarget.style.color='#fff'}
-                  onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.6)'}>
-                  {tab === 'signin' ? 'Create a free account →' : 'Sign in →'}
-                </button>
+              <h2 style={{ margin:0, fontSize: isMobile ? 28 : 36, fontWeight:900, lineHeight:1.08, letterSpacing:'-1.4px',
+                color:'#fff' }}>
+                {tab === 'signin'
+                  ? <>Your music <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>awaits.</span></>
+                  : <>Start your <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>session.</span></>
+                }
+              </h2>
+              <p style={{ margin:'10px 0 0', fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.55 }}>
+                Auto-tagged stems, AI-screened uploads, one-click export to your DAW — everything in one place.
               </p>
-            )}
+            </div>
+          ) : (
+            <div style={{ marginBottom:26 }}>
+              {tab === 'forgot-sent' ? null : (
+                <button onClick={() => { setTab('signin'); setFormError('') }}
+                  style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
+                    color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', marginBottom:18, padding:0 }}>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                  Back
+                </button>
+              )}
+              <h2 style={{ margin:'0 0 8px', fontSize:28, fontWeight:900, color:'#fff', letterSpacing:'-1.2px' }}>
+                {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
+              </h2>
+              <p style={{ margin:0, fontSize:14, color:'rgba(255,255,255,.4)', lineHeight:1.6 }}>
+                {tab === 'forgot'
+                  ? "Enter your email and we'll send a reset link."
+                  : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
+              </p>
+            </div>
+          )}
 
-            {/* Footer */}
-            <p style={{ margin:'32px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
-              {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
-                <span key={label}>
-                  <a href={href} style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
-                    onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
-                    onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>{label}</a>
-                  {i < arr.length-1 && <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>}
-                </span>
-              ))}
+          {/* Forgot sent */}
+          {tab === 'forgot-sent' ? (
+            <div style={{ background:'rgba(34,197,94,.08)', border:'1px solid rgba(34,197,94,.2)',
+              borderRadius:14, padding:'20px' }}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#4ade80', marginBottom:6 }}>Link sent ✓</div>
+              <div style={{ fontSize:13, color:'rgba(74,222,128,.7)', lineHeight:1.6 }}>
+                Check your inbox at <strong style={{ color:'#4ade80' }}>{email}</strong>. The link expires in 1 hour.
+              </div>
+              <button onClick={() => { setTab('signin'); setFormError('') }}
+                style={{ marginTop:14, background:'none', border:'1px solid rgba(255,255,255,.12)',
+                  borderRadius:9, padding:'8px 16px', color:'rgba(255,255,255,.5)',
+                  fontSize:12, fontWeight:600, cursor:'pointer', width:'100%' }}>
+                Back to sign in
+              </button>
+              <button onClick={() => { setTab('forgot'); setFormError('') }}
+                style={{ marginTop:8, background:'none', border:'none', color:'rgba(255,255,255,.2)',
+                  fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
+                Resend
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+              {/* Social sign-in — up top, white Google button */}
+              {tab !== 'forgot' && (
+                <>
+                  <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'13px',
+                      borderRadius:14, border:'none', background:'#fff', color:'#333',
+                      fontFamily:'inherit', fontSize:14, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
+                    {SOCIALS[0].icon}
+                    {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
+                  </button>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, margin:'14px 0 6px' }}>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
+                    <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.28)', letterSpacing:'.06em' }}>OR</span>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
+                  </div>
+                </>
+              )}
+
+              {/* Invite banner — shown when arriving from a project invite link */}
+              {isInvite && tab === 'signup' && (
+                <div style={{ background:'rgba(124,108,240,.12)', border:'1px solid rgba(124,108,240,.3)', borderRadius:10, padding:'10px 14px', marginBottom:4 }}>
+                  <p style={{ margin:0, fontSize:12.5, color:C.coral, fontWeight:600, lineHeight:1.5 }}>
+                    You've been invited to collaborate — create your free account to join the project.
+                  </p>
+                </div>
+              )}
+
+              {/* ── Lane inputs — rendered directly, no map/array to avoid bundler TDZ ── */}
+              {tab === 'signup' && <LaneField id="name" type="text" label="Full Name" val={name} set={setName} focus={focus} setFocus={setFocus} />}
+              <LaneField id="email" type="email" label="Email Address" val={email} set={setEmail} focus={focus} setFocus={setFocus} />
+              {tab !== 'forgot' && <LaneField id="pw" type="password" label="Password" val={password} set={setPass} focus={focus} setFocus={setFocus} isPw showPass={showPass} togglePass={()=>setShowPass(v=>!v)} />}
+
+              {tab === 'signin' && (
+                <div style={{ textAlign:'right', marginTop:2 }}>
+                  <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
+                    style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
+                      color:'rgba(255,255,255,.28)', cursor:'pointer', padding:0, transition:'color .15s' }}
+                    onMouseEnter={e=>e.currentTarget.style.color=C.coral}
+                    onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.28)'}>
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {formError && (
+                <div style={{ padding:'10px 14px', borderRadius:10, marginTop:4,
+                  background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)',
+                  fontSize:13, color:'#f87171', lineHeight:1.45 }}>
+                  {formError}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading || !!socialLoading}
+                style={{ marginTop:6, width:'100%', padding:'15px', borderRadius:14, border:'none',
+                  background: loading ? 'rgba(255,255,255,.06)' : C.grad,
+                  color: loading ? 'rgba(255,255,255,.3)' : '#fff',
+                  fontSize:14, fontWeight:800, cursor: loading ? 'default' : 'pointer',
+                  boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
+                  transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
+                {loading
+                  ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)"
+                      strokeWidth={2.5} strokeLinecap="round" style={{ animation:'spin .9s linear infinite' }}>
+                      <path d="M12 3a9 9 0 019 9"/>
+                    </svg>
+                    {tab === 'forgot' ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating…'}</>
+                  : tab === 'forgot' ? 'Send reset link'
+                  : tab === 'signin' ? 'Sign in'
+                  : 'Create account'}
+              </button>
+            </form>
+          )}
+
+          {/* Switch tab link */}
+          {tab !== 'forgot' && tab !== 'forgot-sent' && (
+            <p style={{ margin:'20px 0 0', textAlign:'center', fontSize:13,
+              color:'rgba(255,255,255,.25)' }}>
+              {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
+              <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
+                style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
+                  color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,
+                  transition:'color .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.color='#fff'}
+                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.6)'}>
+                {tab === 'signin' ? 'Create a free account →' : 'Sign in →'}
+              </button>
             </p>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Legal footer */}
+      {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
+      <div style={{ position:'relative', zIndex:2, padding: isMobile ? '0 16px 24px' : '0 40px 32px',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 12 : 18, flexWrap:'wrap', justifyContent:'center', maxWidth:560 }}>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,.25)' }}>Works with</span>
+          {[
+            ['Ableton', <svg key="a" width={15} height={15} viewBox="0 0 20 20" fill="none">{[0,7,14].map(x => [0,7,14].map(y => <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1} fill={x===14&&y===14?'rgba(255,255,255,.25)':'#fff'} opacity={x===14&&y===14?1:x===14||y===14?0.45:0.85}/>))}</svg>],
+            ['Logic Pro', <img key="l" src="https://cdn.simpleicons.org/apple/ffffff" width={14} height={14} alt="" style={{ opacity:.8 }}/>],
+            ['FL Studio', <svg key="f" width={15} height={15} viewBox="0 0 20 20" fill="none"><path d="M10 1L19 10L10 19L1 10Z" fill="#FF8C00"/><path d="M10 4L16 10L10 16L4 10Z" fill="#FFA500"/></svg>],
+            ['Pro Tools', <img key="p" src="https://cdn.simpleicons.org/protools/ffffff" width={15} height={15} alt="" style={{ opacity:.8 }}/>],
+            ['GarageBand', <img key="g" src="https://cdn.simpleicons.org/apple/F7931E" width={14} height={14} alt="" style={{ opacity:.8 }}/>],
+            ['Cubase', <img key="c" src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={15} height={15} alt="" style={{ opacity:.85 }}/>],
+          ].map(([label, icon]) => (
+            <div key={label} style={{ display:'flex', alignItems:'center', gap:6 }}>
+              {icon}
+              <span style={{ fontSize:11.5, fontWeight:600, color:'rgba(255,255,255,.5)' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ margin:0, textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
+          {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
+            <span key={label}>
+              <a href={href} style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
+                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>{label}</a>
+              {i < arr.length-1 && <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>}
+            </span>
+          ))}
+        </p>
+      </div>
+
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         input::placeholder { color: rgba(255,255,255,.25) !important; }
