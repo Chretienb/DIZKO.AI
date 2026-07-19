@@ -68,12 +68,12 @@ function LightField({ id, type, label, val, set, focus, setFocus, isPw, showPass
       border:`1px solid ${on ? '#7C6CF0' : '#E4E4E7'}`,
       transition:'all .15s' }}>
       <div style={{ padding:'8px 12px', display:'flex', alignItems:'center', gap:10 }}>
-        <span style={{ flexShrink:0, display:'flex', color: on ? '#7C6CF0' : '#A1A1AA', transition:'color .15s' }}>
+        <span style={{ flexShrink:0, display:'flex', color: on ? '#7C6CF0' : '#71717A', transition:'color .15s' }}>
           {FIELD_ICON[id]}
         </span>
         <div style={{ flex:1, minWidth:0 }}>
           <label htmlFor={id} style={{ display:'block', fontSize:10.5, fontWeight:700, marginBottom:2,
-            color: on ? '#7C6CF0' : '#71717A', transition:'color .15s' }}>{label}</label>
+            color: on ? '#7C6CF0' : '#52525B', transition:'color .15s' }}>{label}</label>
           <input id={id} name={id} type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
             autoComplete={isPw ? 'current-password' : id === 'name' ? 'name' : type === 'email' ? 'email' : undefined}
             onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
@@ -83,7 +83,7 @@ function LightField({ id, type, label, val, set, focus, setFocus, isPw, showPass
         {isPw && (
           <button type="button" onClick={togglePass}
             style={{ background:'none', border:'none', cursor:'pointer', padding:0,
-              color: showPass ? '#7C6CF0' : '#A1A1AA', flexShrink:0, display:'flex', alignItems:'center' }}>
+              color: showPass ? '#7C6CF0' : '#71717A', flexShrink:0, display:'flex', alignItems:'center' }}>
             {showPass
               ? <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -243,7 +243,7 @@ export default function Login({ onLogin }) {
               <h2 style={{ margin:0, fontSize:21, fontWeight:800, color:'#18181B', letterSpacing:'-.5px' }}>
                 {tab === 'signin' ? 'Log in' : 'Sign up'}
               </h2>
-              <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>
+              <p style={{ margin:0, fontSize:12.5, color:'#52525B' }}>
                 {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
                 <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
                   style={{ background:'none', border:'none', fontSize:12.5, fontWeight:700,
@@ -257,7 +257,7 @@ export default function Login({ onLogin }) {
               {tab === 'forgot-sent' ? null : (
                 <button onClick={() => { setTab('signin'); setFormError('') }}
                   style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
-                    color:'#A1A1AA', fontSize:13, cursor:'pointer', marginBottom:14, padding:0 }}>
+                    color:'#71717A', fontSize:13, cursor:'pointer', marginBottom:14, padding:0 }}>
                   <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
                   Back
                 </button>
@@ -265,7 +265,7 @@ export default function Login({ onLogin }) {
               <h2 style={{ margin:'0 0 6px', fontSize:20, fontWeight:800, color:'#18181B', letterSpacing:'-.5px' }}>
                 {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
               </h2>
-              <p style={{ margin:0, fontSize:13, color:'#71717A', lineHeight:1.6 }}>
+              <p style={{ margin:0, fontSize:13, color:'#52525B', lineHeight:1.6 }}>
                 {tab === 'forgot'
                   ? "Enter your email and we'll send a reset link."
                   : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
@@ -296,7 +296,7 @@ export default function Login({ onLogin }) {
                 Back to sign in
               </button>
               <button onClick={() => { setTab('forgot'); setFormError('') }}
-                style={{ marginTop:8, background:'none', border:'none', color:'#A1A1AA',
+                style={{ marginTop:8, background:'none', border:'none', color:'#71717A',
                   fontSize:12, cursor:'pointer', width:'100%', padding:'4px 0' }}>
                 Resend
               </button>
@@ -314,9 +314,9 @@ export default function Login({ onLogin }) {
                   <div style={{ textAlign:'right', marginTop:-2 }}>
                     <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
                       style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
-                        color:'#A1A1AA', cursor:'pointer', padding:0, transition:'color .15s' }}
+                        color:'#71717A', cursor:'pointer', padding:0, transition:'color .15s' }}
                       onMouseEnter={e=>e.currentTarget.style.color='#7C6CF0'}
-                      onMouseLeave={e=>e.currentTarget.style.color='#A1A1AA'}>
+                      onMouseLeave={e=>e.currentTarget.style.color='#71717A'}>
                       Forgot password?
                     </button>
                   </div>
@@ -333,7 +333,7 @@ export default function Login({ onLogin }) {
                 <button type="submit" disabled={loading || !!socialLoading}
                   style={{ marginTop:4, width:'100%', padding:'11px', borderRadius:10, border:'none',
                     background: loading ? '#F4F4F5' : 'var(--grad)',
-                    color: loading ? '#A1A1AA' : '#fff',
+                    color: loading ? '#71717A' : '#fff',
                     fontSize:13.5, fontWeight:700, cursor: loading ? 'default' : 'pointer',
                     boxShadow: loading ? 'none' : '0 6px 18px rgba(124,108,240,.3)',
                     transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
@@ -355,16 +355,17 @@ export default function Login({ onLogin }) {
                 <>
                   {!isMobile && <div style={{ width:1, background:'#EEEEF0', flexShrink:0 }}/>}
                   <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12, minWidth:0 }}>
-                    <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>Or continue with the following options.</p>
+                    <p style={{ margin:0, fontSize:12.5, color:'#52525B' }}>Or continue with the following options.</p>
                     <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
-                      style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 14px',
-                        borderRadius:10, border:'1px solid #E4E4E7', background:'#fff', color:'#18181B',
-                        fontFamily:'inherit', fontSize:13, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer',
+                      aria-label={socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
+                      title={socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', width:44, height:44,
+                        borderRadius:10, border:'1px solid #E4E4E7', background:'#fff',
+                        cursor: socialLoading ? 'default' : 'pointer',
                         opacity: socialLoading ? .6 : 1, transition:'border-color .15s' }}
                       onMouseEnter={e => e.currentTarget.style.borderColor = '#D4D4D8'}
                       onMouseLeave={e => e.currentTarget.style.borderColor = '#E4E4E7'}>
                       {SOCIALS[0].icon}
-                      {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
                     </button>
                   </div>
                 </>
@@ -375,7 +376,7 @@ export default function Login({ onLogin }) {
           {/* Footer help row */}
           <div style={{ marginTop: isMobile ? 20 : 24, paddingTop:16, borderTop:'1px solid #EEEEF0',
             display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
-            <p style={{ margin:0, fontSize:12.5, color:'#71717A' }}>
+            <p style={{ margin:0, fontSize:12.5, color:'#52525B' }}>
               Any questions? <a href="mailto:team@dizko.ai" style={{ color:'#7C6CF0', fontWeight:700, textDecoration:'underline', textUnderlineOffset:2 }}>Email us</a>
             </p>
             <a href="mailto:team@dizko.ai" aria-label="Email dizko support" title="Email dizko support"
@@ -421,7 +422,7 @@ export default function Login({ onLogin }) {
 
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-        input::placeholder { color: #A1A1AA !important; }
+        input::placeholder { color: #71717A !important; }
         input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #FAFAFA inset !important; -webkit-text-fill-color: #18181B !important; }
       `}</style>
     </div>
