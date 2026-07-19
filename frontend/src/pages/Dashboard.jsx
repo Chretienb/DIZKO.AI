@@ -15,8 +15,9 @@ import Cover from '../components/Cover.jsx'
 import ProjectCard from '../components/ProjectCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import Hero from '../components/dashboard/Hero.jsx'
-import welcomeImg   from '../assets/marketing/synth-desk.jpg'
-import noProjectsImg from '../assets/marketing/vinyl-lifestyle.jpg'
+import welcomeImg      from '../assets/marketing/synth-desk.jpg'
+import noProjectsVideo from '../assets/marketing/boombox-loop.mp4'
+import noProjectsPoster from '../assets/marketing/boombox-poster.jpg'
 import crewImg      from '../assets/crew-mixer.jpg'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -326,16 +327,30 @@ export default function PageDashboard({ openModal, user, playTrack }) {
                   </div>
                 ))}
               </div>
+            ) : (!showArchive && !q) ? (
+              <div style={{ position:'relative', overflow:'hidden', borderRadius:'var(--r-3)',
+                border:'1px solid var(--border)', minHeight:320, display:'flex', flexDirection:'column',
+                alignItems:'center', justifyContent:'flex-end', textAlign:'center', padding:'28px 20px' }}>
+                <video autoPlay loop muted playsInline poster={noProjectsPoster}
+                  style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }}>
+                  <source src={noProjectsVideo} type="video/mp4"/>
+                </video>
+                <div style={{ position:'absolute', inset:0,
+                  background:'linear-gradient(to top, rgba(13,13,15,.92) 0%, rgba(13,13,15,.55) 45%, rgba(13,13,15,.15) 100%)' }}/>
+                <div style={{ position:'relative' }}>
+                  <div style={{ fontSize:17, fontWeight:600, color:'#fff', letterSpacing:'-.4px', marginBottom:6 }}>No projects in sight</div>
+                  <div style={{ fontSize:13, color:'rgba(255,255,255,.65)', lineHeight:1.6 }}>Create a project to see it here.</div>
+                </div>
+              </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center',
                 padding:'30px 20px', background:'var(--surface)', border:'1px solid var(--border)',
                 borderRadius:'var(--r-3)' }}>
-                {!showArchive && <img src={noProjectsImg} alt="" style={{ width:'100%', maxWidth:340, aspectRatio:'16/10', objectFit:'cover', borderRadius:'var(--r-2)', display:'block', marginBottom:18 }}/>}
-                <div style={{ fontSize:17, fontWeight:600, color:'var(--t1)', letterSpacing:'-.4px', marginBottom:6, paddingTop: showArchive ? 10 : 0 }}>
-                  {q ? 'Nothing matches your search' : showArchive ? 'Nothing in the archive' : 'No projects in sight'}
+                <div style={{ fontSize:17, fontWeight:600, color:'var(--t1)', letterSpacing:'-.4px', marginBottom:6 }}>
+                  {q ? 'Nothing matches your search' : 'Nothing in the archive'}
                 </div>
-                <div style={{ fontSize:13, color:'var(--t3)', lineHeight:1.6, paddingBottom: showArchive ? 10 : 0 }}>
-                  {q ? 'Try a different name.' : showArchive ? 'Archived projects will show up here.' : 'Create a project to see it here.'}
+                <div style={{ fontSize:13, color:'var(--t3)', lineHeight:1.6 }}>
+                  {q ? 'Try a different name.' : 'Archived projects will show up here.'}
                 </div>
               </div>
             )}
