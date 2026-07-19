@@ -90,7 +90,7 @@ export default function PageAbout() {
           <Value Icon={Sliders} title="Studio-grade"
             body="No toys. Our bounce uses a real measurement-driven mix engine — EQ, panning, reverb and proper loudness." />
           <Value Icon={Sparkle} title="Authentically made"
-            body="Every stem gets its BPM, key, and instrument detected automatically — and screened for AI-generated audio. We're for real musicians making real music." />
+            body="Every stem gets its BPM, key, and instrument detected automatically, and screened for AI-generated audio. We build for real musicians making real music." />
         </div>
       </div>
 

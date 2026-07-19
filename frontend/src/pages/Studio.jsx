@@ -2641,7 +2641,7 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
                     textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Drop your first stem</div>
                   <div style={{ fontSize:18, fontWeight:700, color:'#fff', marginBottom:8, letterSpacing:'-.3px' }}>No tracks yet</div>
                   <div style={{ fontSize:13, color:'rgba(255,255,255,.68)', lineHeight:1.55, marginBottom:22 }}>
-                    Upload audio and dizko's AI takes over — BPM, key, and instrument detected automatically, and every stem is screened for AI-generated audio. Music stays authentic here.
+                    Upload audio and let dizko's AI take over. BPM, key, and instrument are detected automatically, and every stem is screened for AI-generated audio, keeping the music authentically yours.
                   </div>
                   <Btn onClick={() => openModal('upload', { project:activeProject })}>+ Upload first stem</Btn>
                 </div>

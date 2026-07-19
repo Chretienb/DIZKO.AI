@@ -293,7 +293,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
                 Your next hit starts here
               </h2>
               <p style={{ margin:'0 0 20px', fontSize:14, color:'rgba(255,255,255,.75)', lineHeight:1.55, maxWidth:440 }}>
-                Create your first project and bring your ideas to life. Collaborate, record, and make music together — every stem screened for AI-generated audio, because the music should be real.
+                Create your first project and bring your ideas to life. Collaborate, record, and make music together. Every stem is screened for AI-generated audio, because the music should be real.
               </p>
               <Button variant="brand" size="lg" onClick={() => openModal('new-project', {})}>
                 <Plus/>
