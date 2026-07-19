@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { showcaseApi, projects as projectsApi, files as filesApi, auth as authApi } from './lib/api.js'
 import { C, Avatar, Spinner } from './components/ui/index.jsx'
+import { Button } from './components/ui/button.jsx'
+import { Input } from './components/ui/input.jsx'
+import { Separator } from './components/ui/separator.jsx'
+import { Plus, X, Camera } from 'lucide-react'
 import { track } from './lib/posthog.js'
 
 const LINK_PRESETS = ['Spotify', 'Apple Music', 'YouTube', 'SoundCloud', 'Bandcamp', 'Instagram']
@@ -15,6 +19,15 @@ function embedToUrl(embed) {
   if (prov === 'apple')   return `https://music.apple.com/${payload}`
   if (prov === 'youtube') return payload.startsWith('list/') ? `https://www.youtube.com/playlist?list=${payload.slice(5)}` : `https://youtu.be/${payload}`
   return ''
+}
+
+// A profile can now show several music embeds — prefer the array; fall back
+// to the legacy single embed for profiles saved before this existed.
+function profileMusicUrls(p) {
+  const embeds = Array.isArray(p?.music_embeds) && p.music_embeds.length
+    ? p.music_embeds
+    : (p?.music_embed ? [p.music_embed] : (p?.spotify_embed ? [`spotify:${p.spotify_embed}`] : []))
+  return embeds.map(embedToUrl).filter(Boolean)
 }
 
 // One shared loading row — the brand equalizer spinner + label — so every
@@ -50,7 +63,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const [displayName, setDisplayName] = useState(cp.display_name || user?.full_name || '')
   const [bio, setBio]                 = useState(cp.bio || '')
   const [links, setLinks]             = useState(Array.isArray(cp.links) ? cp.links.join('\n') : '')
-  const [spotify, setSpotify]         = useState(embedToUrl(cp.music_embed || (cp.spotify_embed ? `spotify:${cp.spotify_embed}` : '')))
+  const [musicUrls, setMusicUrls]     = useState(() => profileMusicUrls(cp))
   const [avatar, setAvatar]           = useState(cp.avatar_url || user?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
@@ -80,7 +93,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         setDisplayName(pr.display_name || user?.full_name || '')
         setBio(pr.bio || '')
         setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
-        setSpotify(embedToUrl(pr.music_embed || (pr.spotify_embed ? `spotify:${pr.spotify_embed}` : '')))
+        setMusicUrls(profileMusicUrls(pr))
         setAvatar(pr.avatar_url || user?.avatar_url || null)
         setIsPublic(!!pr.profile_public)
       }
@@ -115,6 +128,10 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   }, [pickProject, items])
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(null), 2500) }
+
+  const setMusicUrlAt  = (idx, val) => setMusicUrls(list => list.map((u, i) => i === idx ? val : u))
+  const addMusicUrl    = () => setMusicUrls(list => [...list, ''])
+  const removeMusicUrl = (idx) => setMusicUrls(list => list.filter((_, i) => i !== idx))
 
   // Preview a library file (these are the producer's own files — play directly).
   const togglePreview = (f) => {
@@ -158,7 +175,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
         links: links.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8),
-        music_url: spotify.trim(),
+        music_urls: musicUrls.map(u => u.trim()).filter(Boolean),
         ...overrides,
       }
       const r = await showcaseApi.updateProfile(patch)
@@ -257,6 +274,12 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const label = { fontSize:12, fontWeight:700, color:C.t2, marginBottom:6, display:'block' }
   const input = { width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.bg, color:C.t1, fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box' }
 
+  // ── styles (profile mode — newer premium tokens, matching Dashboard/Community) ──
+  const cardV2      = { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)', padding:'clamp(16px,4vw,22px)', marginBottom:16, boxShadow:'var(--shadow-1)' }
+  const cardTitleV2 = { fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--brand)', marginBottom:16 }
+  const labelV2     = { fontSize:12.5, fontWeight:600, color:'var(--t2)', marginBottom:7, display:'block' }
+  const textareaV2  = { width:'100%', padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--t1)', fontSize:13.5, fontFamily:'inherit', boxSizing:'border-box', resize:'vertical' }
+
   return (
     <div style={overlay}>
       <input ref={avatarInput} type="file" accept="image/*" onChange={pickAvatar} style={{ display:'none' }} />
@@ -279,72 +302,95 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
             /* ── Left column: identity / visibility / about ── */
             <div className="pe-col">
             {/* ── Identity ── */}
-            <div style={card}>
-              <div style={{ display:'flex', gap:18, alignItems:'flex-start', flexWrap:'wrap' }}>
+            <div style={cardV2}>
+              <div style={{ display:'flex', gap:20, alignItems:'flex-start', flexWrap:'wrap' }}>
                 {/* Photo (click to replace) */}
                 <button onClick={() => avatarInput.current?.click()} title="Change photo"
                   style={{ position:'relative', border:'none', background:'none', padding:0, cursor:'pointer', borderRadius:'50%', flexShrink:0 }}>
-                  <Avatar name={displayName || user?.full_name} url={avatar} size={84} />
-                  <span style={{ position:'absolute', bottom:0, right:0, width:28, height:28, borderRadius:'50%', background:C.coral,
-                    border:`2px solid ${C.surface}`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>
-                    {uploadingAvatar
-                      ? <span style={{ fontSize:11 }}>…</span>
-                      : <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>}
+                  <Avatar name={displayName || user?.full_name} url={avatar} size={88} />
+                  <span style={{ position:'absolute', bottom:0, right:0, width:28, height:28, borderRadius:'50%', background:'var(--brand)',
+                    border:'2px solid var(--surface)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>
+                    {uploadingAvatar ? <span style={{ fontSize:11 }}>…</span> : <Camera size={13}/>}
                   </span>
                 </button>
 
-                <div style={{ flex:1, minWidth:200 }}>
-                  <label style={label}>Display name</label>
-                  <input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} placeholder="Your creator name" style={{ ...input, marginBottom:14 }} />
+                <div style={{ flex:1, minWidth:220 }}>
+                  <label style={labelV2}>Display name</label>
+                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} placeholder="Your creator name" className="mb-4"/>
 
-                  <label style={label}>Handle {handleHint && <span style={{ marginLeft:8, fontWeight:500 }}>{handleHint}</span>}</label>
+                  <label style={labelV2}>Handle {handleHint && <span style={{ marginLeft:8, fontWeight:500 }}>{handleHint}</span>}</label>
                   <div style={{ display:'flex', gap:8 }}>
                     <div style={{ position:'relative', flex:1 }}>
-                      <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:C.t3, fontSize:13.5 }}>@</span>
-                      <input value={handle} onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                        placeholder="yourname" maxLength={30} style={{ ...input, paddingLeft:26 }} />
+                      <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--t3)', fontSize:13.5, zIndex:1 }}>@</span>
+                      <Input value={handle} onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                        placeholder="yourname" maxLength={30} style={{ paddingLeft:26 }}/>
                     </div>
-                    <button onClick={saveHandle} disabled={!handle || handleState === 'taken' || handleState === 'invalid' || handle === liveHandle}
-                      style={{ ...primaryBtn, opacity: (!handle || handleState==='taken' || handleState==='invalid' || handle===liveHandle) ? .5 : 1 }}>Save</button>
+                    <Button onClick={saveHandle} disabled={!handle || handleState === 'taken' || handleState === 'invalid' || handle === liveHandle}>
+                      Save
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* ── Visibility ── */}
-            <div style={card}>
+            <div style={cardV2}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:13.5, fontWeight:700, color:C.t1 }}>{isPublic ? 'Profile is public' : 'Profile is private'}</div>
-                  <div style={{ fontSize:12, color:C.t3, marginTop:2 }}>
+                  <div style={{ fontSize:14, fontWeight:650, color:'var(--t1)' }}>{isPublic ? 'Profile is public' : 'Profile is private'}</div>
+                  <div style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>
                     {liveHandle
-                      ? <>dizko.ai/u/{liveHandle}{isPublic && <a href={`/u/${liveHandle}`} target="_blank" rel="noreferrer" style={{ color:C.coral, marginLeft:8, textDecoration:'none', fontWeight:600 }}>view ↗</a>}</>
+                      ? <>dizko.ai/u/{liveHandle}{isPublic && <a href={`/u/${liveHandle}`} target="_blank" rel="noreferrer" style={{ color:'var(--brand)', marginLeft:8, textDecoration:'none', fontWeight:600 }}>view ↗</a>}</>
                       : 'Claim a handle above to go public'}
                   </div>
                 </div>
-                <button onClick={togglePublic} aria-label="Toggle public" style={{ width:48, height:28, borderRadius:14, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
-                  background: isPublic ? C.coral : 'rgba(var(--fg),.18)', transition:'background .2s' }}>
-                  <span style={{ position:'absolute', top:3, left: isPublic?23:3, width:22, height:22, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.3)', transition:'left .2s cubic-bezier(.4,0,.2,1)' }} />
+                <button onClick={togglePublic} aria-label="Toggle public" style={{ width:44, height:26, borderRadius:14, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
+                  background: isPublic ? 'var(--brand)' : 'var(--border-2, rgba(var(--fg),.18))', transition:'background .2s' }}>
+                  <span style={{ position:'absolute', top:3, left: isPublic?21:3, width:20, height:20, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.3)', transition:'left .2s cubic-bezier(.4,0,.2,1)' }} />
                 </button>
               </div>
             </div>
 
             {/* ── About ── */}
-            <div style={card}>
-              <div style={cardTitle}>About</div>
-              <div style={{ marginBottom:14 }}>
-                <label style={label}>Bio</label>
-                <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={3} placeholder="Tell people what you make…" style={{ ...input, resize:'vertical' }} />
-              </div>
-              <div style={{ marginBottom:14 }}>
-                <label style={label}>Links <span style={{ fontWeight:500, color:C.t3 }}>(one per line)</span></label>
-                <textarea value={links} onChange={e => setLinks(e.target.value)} rows={2} placeholder="instagram.com/you&#10;soundcloud.com/you" style={{ ...input, resize:'vertical' }} />
-              </div>
+            <div style={cardV2}>
+              <div style={cardTitleV2}>About</div>
               <div style={{ marginBottom:16 }}>
-                <label style={label}>Music <span style={{ fontWeight:500, color:C.t3 }}>(Spotify, Apple Music or YouTube — embeds on your page)</span></label>
-                <input value={spotify} onChange={e => setSpotify(e.target.value)} placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…" style={input} />
+                <label style={labelV2}>Bio</label>
+                <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={3} placeholder="Tell people what you make…" style={textareaV2}/>
               </div>
-              <button onClick={async () => {
+              <div style={{ marginBottom:20 }}>
+                <label style={labelV2}>Links <span style={{ fontWeight:500, color:'var(--t3)' }}>(one per line)</span></label>
+                <textarea value={links} onChange={e => setLinks(e.target.value)} rows={2} placeholder="instagram.com/you&#10;soundcloud.com/you" style={textareaV2}/>
+              </div>
+
+              <Separator className="mb-5"/>
+
+              <div style={{ marginBottom:20 }}>
+                <label style={labelV2}>Music <span style={{ fontWeight:500, color:'var(--t3)' }}>(Spotify, Apple Music or YouTube — embeds on your page)</span></label>
+                <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:6 }}>
+                  {musicUrls.length === 0 && (
+                    <Input value="" onChange={e => setMusicUrls([e.target.value])} placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…"/>
+                  )}
+                  {musicUrls.map((url, idx) => (
+                    <div key={idx} style={{ display:'flex', gap:7, alignItems:'center' }}>
+                      <Input value={url} onChange={e => setMusicUrlAt(idx, e.target.value)}
+                        placeholder="https://open.spotify.com/… · music.apple.com/… · youtu.be/…" className="flex-1"/>
+                      <button onClick={() => removeMusicUrl(idx)} aria-label="Remove link" title="Remove link"
+                        style={{ flexShrink:0, width:36, height:36, borderRadius:9, border:'1px solid var(--border)', background:'none',
+                          color:'var(--t3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <X size={15}/>
+                      </button>
+                    </div>
+                  ))}
+                  {musicUrls.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={addMusicUrl} className="self-start mt-1">
+                      <Plus size={14}/> Add another
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <Button variant="brand" className="w-full" disabled={saving} onClick={async () => {
                 // The handle field has its own inline Save button, but people
                 // naturally expect the big "Save profile" button to save
                 // everything on screen — including a handle they just typed.
@@ -357,10 +403,10 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                   try { await showcaseApi.setHandle(handle); setProfile(p => ({ ...p, handle })); setHandleState(null) }
                   catch (e) { flash(e.message || 'Could not save handle'); return }
                 }
-                try { await saveProfile(); track('profile_saved', { has_music: !!spotify.trim() }); handleClose() } catch {}
-              }} disabled={saving} style={{ ...primaryBtn, width:'100%', opacity:saving?.6:1 }}>
+                try { await saveProfile(); track('profile_saved', { has_music: musicUrls.some(u => u.trim()) }); handleClose() } catch {}
+              }}>
                 {saving ? 'Saving…' : 'Save profile'}
-              </button>
+              </Button>
             </div>
             </div>
             )}
