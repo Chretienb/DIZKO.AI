@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/badge.jsx'
 import { Input } from '../components/ui/input.jsx'
 import { Skeleton } from '../components/ui/skeleton.jsx'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs.jsx'
+import { Avatar } from '../components/ui/index.jsx'
 import { timeAgo } from '../lib/utils.js'
 import Cover from '../components/Cover.jsx'
 import ProjectCard from '../components/ProjectCard.jsx'
@@ -125,7 +126,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
 
   const people = (() => {
     const m = new Map()
-    collabs.forEach(c => { const nm = c.user?.full_name || c.user?.email?.split('@')[0] || 'Collaborator'; m.set(c.user_id || nm, { name:nm, role:c.role || 'Collaborator' }) })
+    collabs.filter(c => c.role !== 'owner').forEach(c => { const nm = c.user?.full_name || c.user?.email?.split('@')[0] || 'Collaborator'; m.set(c.user_id || nm, { name:nm, role:c.role || 'Collaborator' }) })
     Object.entries(uploaders).forEach(([uid, nm]) => { if (!m.has(uid)) m.set(uid, { name:nm, role:'Contributor' }) })
     return [...m.values()]
   })()
