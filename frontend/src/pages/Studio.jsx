@@ -537,11 +537,20 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: selectedDeviceId
-          ? { deviceId: { exact: selectedDeviceId }, echoCancellation: false, noiseSuppression: false }
-          : { echoCancellation: false, noiseSuppression: false },
+          ? { deviceId: { exact: selectedDeviceId }, channelCount: 1, echoCancellation: false, noiseSuppression: false }
+          : { channelCount: 1, echoCancellation: false, noiseSuppression: false },
       })
       const ctx = sharedPlaybackCtx()
       const source = ctx.createMediaStreamSource(stream)
+      // Some interfaces (Bluetooth headsets, certain USB mics) report a
+      // "stereo" stream with real signal in only one channel — the
+      // channelCount constraint above is a request, not a guarantee.
+      // Forcing a down-mix here is what actually protects it: same fix
+      // startPcmCapture's 1-channel ScriptProcessor already gets for free,
+      // just applied explicitly since this chain has no such node.
+      source.channelCount = 1
+      source.channelCountMode = 'explicit'
+      source.channelInterpretation = 'speakers'
       const fx = createFxChain(ctx, inputFx)
       source.connect(fx.input); fx.output.connect(ctx.destination)
       monitorRef.current = { stream, source, fx }
