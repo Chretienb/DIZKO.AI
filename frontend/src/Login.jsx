@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import logo   from './assets/logo.png'
-import studio from './assets/studio2.png'
+import studio from './assets/marketing/daw-controller.jpg'
 import { auth, setToken, setRefreshToken, publicApi } from './lib/api'
 import { supabase } from './lib/supabase'
 import { useIsMobile } from './lib/mobile'
