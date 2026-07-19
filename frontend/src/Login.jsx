@@ -179,9 +179,9 @@ export default function Login({ onLogin }) {
 
         {/* ══ Header row — logo left, tab toggle right, same rhythm as the Dashboard page header ══ */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-            <img src={logo} alt="" style={{ width: isMobile ? 26 : 28, height: isMobile ? 26 : 28, borderRadius:8, objectFit:'cover' }}/>
-            <span style={{ fontSize: isMobile ? 16 : 17, fontWeight:650, color:'var(--t1)', letterSpacing:'-.4px' }}>dizko</span>
+          <div style={{ display:'flex', alignItems:'center', gap:11 }}>
+            <img src={logo} alt="" style={{ width: isMobile ? 36 : 40, height: isMobile ? 36 : 40, borderRadius:10, objectFit:'cover' }}/>
+            <span style={{ fontSize: isMobile ? 22 : 25, fontWeight:650, color:'var(--t1)', letterSpacing:'-.5px' }}>dizko</span>
           </div>
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
             <div style={{ display:'flex', gap:18 }}>
