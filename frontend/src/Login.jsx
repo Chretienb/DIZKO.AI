@@ -64,31 +64,30 @@ const FIELD_ICON = {
 function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass }) {
   const on = focus === id
   return (
-    <div style={{ position:'relative', borderRadius:14, marginBottom:10,
-      background: on ? 'rgba(124,108,240,.07)' : 'rgba(255,255,255,.035)',
-      border:`1px solid ${on ? C.coral+'60' : 'rgba(255,255,255,.08)'}`,
-      boxShadow: on ? `0 0 0 3px ${C.coral}18` : 'none',
-      transition:'all .18s' }}>
-      <div style={{ padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>
-        <span style={{ flexShrink:0, display:'flex', color: on ? C.coral : 'rgba(255,255,255,.32)', transition:'color .18s' }}>
+    <div style={{ position:'relative', borderRadius:10, marginBottom:10,
+      background: on ? 'var(--brand-tint)' : 'var(--bg)',
+      border:`1px solid ${on ? 'var(--brand)' : 'var(--border)'}`,
+      transition:'all .15s' }}>
+      <div style={{ padding:'11px 14px', display:'flex', alignItems:'center', gap:11 }}>
+        <span style={{ flexShrink:0, display:'flex', color: on ? 'var(--brand)' : 'var(--t3)', transition:'color .15s' }}>
           {FIELD_ICON[id]}
         </span>
         <div style={{ flex:1, minWidth:0 }}>
-          <label htmlFor={id} style={{ display:'block', fontSize:9, fontWeight:800, letterSpacing:'.14em', textTransform:'uppercase', marginBottom:4,
-            color: on ? C.coral : 'rgba(255,255,255,.3)', transition:'color .18s' }}>{label}</label>
+          <label htmlFor={id} style={{ display:'block', fontFamily:'var(--font-mono)', fontSize:9, fontWeight:500, letterSpacing:'.12em', textTransform:'uppercase', marginBottom:3,
+            color: on ? 'var(--brand)' : 'var(--t3)', transition:'color .15s' }}>{label}</label>
           <input id={id} name={id} type={isPw ? (showPass ? 'text' : 'password') : type} value={val}
             autoComplete={isPw ? 'current-password' : id === 'name' ? 'name' : type === 'email' ? 'email' : undefined}
             onChange={e => set(e.target.value)} onFocus={() => setFocus(id)} onBlur={() => setFocus('')} required
             style={{ width:'100%', background:'transparent', border:'none', outline:'none',
-              color:'#fff', fontSize:15, fontFamily:'inherit', padding:0, caretColor:C.coral }}/>
+              color:'var(--t1)', fontSize:14.5, fontFamily:'inherit', padding:0, caretColor:'var(--brand)' }}/>
         </div>
         {isPw && (
           <button type="button" onClick={togglePass}
             style={{ background:'none', border:'none', cursor:'pointer', padding:0,
-              color: showPass ? C.coral : 'rgba(255,255,255,.25)', flexShrink:0, display:'flex', alignItems:'center' }}>
+              color: showPass ? 'var(--brand)' : 'var(--t4)', flexShrink:0, display:'flex', alignItems:'center' }}>
             {showPass
-              ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              : <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             }
           </button>
         )}
@@ -174,78 +173,81 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div style={{ minHeight:'100vh', position:'relative', overflowX:'hidden', overflowY:'auto',
-      fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
+    <div style={{ minHeight:'100vh', background:'var(--bg)', fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
+      <div style={{ maxWidth:1040, margin:'0 auto', padding: isMobile ? '20px 16px 40px' : '32px 24px 56px' }}>
 
-      {/* ══ Full-bleed photo backdrop ══ */}
-      <img src={studio} alt="" style={{ position:'fixed', inset:0,
-        width:'100%', height:'100%', objectFit:'cover', objectPosition:'center', zIndex:0 }}/>
-      <div style={{ position:'fixed', inset:0, zIndex:0,
-        background:'radial-gradient(120% 90% at 50% 100%, rgba(6,6,10,.97) 0%, rgba(6,6,10,.86) 45%, rgba(6,6,10,.6) 100%)' }}/>
-      <div style={{ position:'fixed', bottom:'-15%', left:'50%', transform:'translateX(-50%)', width:600, height:600,
-        borderRadius:'50%', background:`radial-gradient(circle, ${C.coral}22 0%, transparent 65%)`,
-        pointerEvents:'none', zIndex:0 }}/>
-
-      {/* ══ Top bar — logo + tab toggle, same on every breakpoint ══ */}
-      <div style={{ position:'relative', zIndex:2, padding: isMobile ? '20px 20px 0' : '28px 40px 0',
-        display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-          <img src={logo} alt="" style={{ width: isMobile ? 30 : 36, height: isMobile ? 30 : 36, borderRadius:10, objectFit:'cover', boxShadow:'0 3px 12px rgba(0,0,0,.4)' }}/>
-          <span style={{ fontSize: isMobile ? 16 : 18, fontWeight:900, color:'#fff', letterSpacing:'-.4px' }}>dizko</span>
-        </div>
-        {tab !== 'forgot' && tab !== 'forgot-sent' && (
-          <div style={{ display:'flex', gap:2, background:'rgba(255,255,255,.07)', backdropFilter:'blur(10px)', borderRadius:10, padding:3 }}>
-            {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
-              <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
-                padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
-                fontSize:12, fontWeight:600, transition:'all .18s',
-                background: tab===t ? 'rgba(255,255,255,.14)' : 'transparent',
-                color: tab===t ? '#fff' : 'rgba(255,255,255,.4)',
-              }}>{label}</button>
-            ))}
+        {/* ══ Header row — logo left, tab toggle right, same rhythm as the Dashboard page header ══ */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <img src={logo} alt="" style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius:9, objectFit:'cover' }}/>
+            <span style={{ fontSize: isMobile ? 17 : 19, fontWeight:650, color:'var(--t1)', letterSpacing:'-.4px' }}>dizko</span>
           </div>
-        )}
-      </div>
+          {tab !== 'forgot' && tab !== 'forgot-sent' && (
+            <div style={{ display:'flex', gap:2, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:3 }}>
+              {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
+                <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
+                  padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
+                  fontSize:12.5, fontWeight:600, transition:'all .15s',
+                  background: tab===t ? 'var(--surface-3)' : 'transparent',
+                  color: tab===t ? 'var(--t1)' : 'var(--t3)',
+                }}>{label}</button>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* ══ Centered glass card ══ */}
-      <div style={{ position:'relative', zIndex:2, minHeight: isMobile ? undefined : 'calc(100vh - 90px)',
-        display:'flex', alignItems:'center', justifyContent:'center', padding: isMobile ? '28px 16px 24px' : '40px 24px' }}>
-        <div style={{ width:'100%', maxWidth:440, background:'rgba(14,13,18,.6)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
-          border:'1px solid rgba(255,255,255,.1)', borderRadius:20, boxShadow:'0 24px 64px rgba(0,0,0,.5)',
-          padding: isMobile ? '26px 22px' : '38px 40px' }}>
+        {/* ══ Hero card — same treatment as Dashboard's "Welcome to Dizko" hero:
+            photo + gradient, eyebrow/heading/tagline bottom-left, contained
+            in a bordered rounded card instead of a full-bleed backdrop ══ */}
+        <div style={{ position:'relative', overflow:'hidden', borderRadius:'var(--r-3)',
+          border:'1px solid var(--border)', boxShadow:'var(--shadow-1)', minHeight: isMobile ? 220 : 280 }}>
+          <div style={{ position:'absolute', inset:0, background:`#000 center/cover no-repeat url(${studio})` }}/>
+          <div style={{ position:'absolute', inset:0,
+            background:'linear-gradient(180deg, rgba(13,13,15,.5) 0%, rgba(13,13,15,.88) 65%, rgba(13,13,15,.97) 100%)' }}/>
+          <div style={{ position:'relative', minHeight: isMobile ? 220 : 280, display:'flex', flexDirection:'column',
+            justifyContent:'flex-end', padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, letterSpacing:'.16em',
+              textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Welcome to dizko</div>
+            <h1 style={{ margin:'0 0 8px', fontSize: isMobile ? 26 : 34, fontWeight:650, letterSpacing:'-1px', color:'#fff' }}>
+              You create. Dizko keeps it together.
+            </h1>
+            <p style={{ margin:0, fontSize:13.5, color:'rgba(255,255,255,.72)', lineHeight:1.55, maxWidth:440 }}>
+              Auto-tagged stems, AI-screened uploads, one-click export to your DAW — everything in one place.
+            </p>
+          </div>
+        </div>
+
+        {/* ══ Auth card ══ */}
+        <div style={{ maxWidth:440, margin: isMobile ? '20px auto 0' : '28px auto 0' }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)',
+            boxShadow:'var(--shadow-1)', padding: isMobile ? '22px 20px' : '28px 32px' }}>
 
           {/* Heading */}
           {tab !== 'forgot' && tab !== 'forgot-sent' ? (
-            <div style={{ marginBottom: isMobile ? 22 : 28 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.coral, textTransform:'uppercase',
-                letterSpacing:'.14em', marginBottom:12 }}>
-                {tab === 'signin' ? '— Welcome back' : '— Create account'}
+            <div style={{ marginBottom:22 }}>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase',
+                letterSpacing:'.14em', marginBottom:10 }}>
+                {tab === 'signin' ? 'Welcome back' : 'Create account'}
               </div>
-              <h2 style={{ margin:0, fontSize: isMobile ? 28 : 36, fontWeight:900, lineHeight:1.08, letterSpacing:'-1.4px',
-                color:'#fff' }}>
-                {tab === 'signin'
-                  ? <>Your music <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>awaits.</span></>
-                  : <>Start your <span style={{ background:C.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>session.</span></>
-                }
+              <h2 style={{ margin:0, fontSize:24, fontWeight:650, lineHeight:1.1, letterSpacing:'-.6px',
+                color:'var(--t1)' }}>
+                {tab === 'signin' ? 'Your music awaits.' : 'Start your session.'}
               </h2>
-              <p style={{ margin:'10px 0 0', fontSize:12.5, color:'rgba(255,255,255,.5)', lineHeight:1.55 }}>
-                Auto-tagged stems, AI-screened uploads, one-click export to your DAW — everything in one place.
-              </p>
             </div>
           ) : (
-            <div style={{ marginBottom:26 }}>
+            <div style={{ marginBottom:22 }}>
               {tab === 'forgot-sent' ? null : (
                 <button onClick={() => { setTab('signin'); setFormError('') }}
                   style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none',
-                    color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', marginBottom:18, padding:0 }}>
+                    color:'var(--t3)', fontSize:13, cursor:'pointer', marginBottom:16, padding:0 }}>
                   <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
                   Back
                 </button>
               )}
-              <h2 style={{ margin:'0 0 8px', fontSize:28, fontWeight:900, color:'#fff', letterSpacing:'-1.2px' }}>
+              <h2 style={{ margin:'0 0 8px', fontSize:22, fontWeight:650, color:'var(--t1)', letterSpacing:'-.5px' }}>
                 {tab === 'forgot' ? 'Reset password.' : 'Check your inbox.'}
               </h2>
-              <p style={{ margin:0, fontSize:14, color:'rgba(255,255,255,.4)', lineHeight:1.6 }}>
+              <p style={{ margin:0, fontSize:13.5, color:'var(--t3)', lineHeight:1.6 }}>
                 {tab === 'forgot'
                   ? "Enter your email and we'll send a reset link."
                   : `We sent a link to ${email || 'your email'}. Click it to set a new password.`}
@@ -287,9 +289,9 @@ export default function Login({ onLogin }) {
                     {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
                   </button>
                   <div style={{ display:'flex', alignItems:'center', gap:12, margin:'14px 0 6px' }}>
-                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
-                    <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.28)', letterSpacing:'.06em' }}>OR</span>
-                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.08)' }} />
+                    <div style={{ flex:1, height:1, background:'var(--border)' }} />
+                    <span style={{ fontSize:11, fontWeight:600, color:'var(--t4)', letterSpacing:'.06em' }}>OR</span>
+                    <div style={{ flex:1, height:1, background:'var(--border)' }} />
                   </div>
                 </>
               )}
@@ -312,9 +314,9 @@ export default function Login({ onLogin }) {
                 <div style={{ textAlign:'right', marginTop:2 }}>
                   <button type="button" onClick={() => { setTab('forgot'); setFormError('') }}
                     style={{ background:'none', border:'none', fontSize:12, fontWeight:600,
-                      color:'rgba(255,255,255,.28)', cursor:'pointer', padding:0, transition:'color .15s' }}
-                    onMouseEnter={e=>e.currentTarget.style.color=C.coral}
-                    onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.28)'}>
+                      color:'var(--t4)', cursor:'pointer', padding:0, transition:'color .15s' }}
+                    onMouseEnter={e=>e.currentTarget.style.color='var(--brand)'}
+                    onMouseLeave={e=>e.currentTarget.style.color='var(--t4)'}>
                     Forgot password?
                   </button>
                 </div>
@@ -329,11 +331,11 @@ export default function Login({ onLogin }) {
               )}
 
               <button type="submit" disabled={loading || !!socialLoading}
-                style={{ marginTop:6, width:'100%', padding:'15px', borderRadius:14, border:'none',
-                  background: loading ? 'rgba(255,255,255,.06)' : C.grad,
-                  color: loading ? 'rgba(255,255,255,.3)' : '#fff',
-                  fontSize:14, fontWeight:800, cursor: loading ? 'default' : 'pointer',
-                  boxShadow: loading ? 'none' : `0 8px 28px ${C.coral}35`,
+                style={{ marginTop:6, width:'100%', padding:'14px', borderRadius:10, border:'none',
+                  background: loading ? 'var(--surface-3)' : 'var(--grad)',
+                  color: loading ? 'var(--t4)' : '#fff',
+                  fontSize:14, fontWeight:700, cursor: loading ? 'default' : 'pointer',
+                  boxShadow: loading ? 'none' : 'var(--shadow-1)',
                   transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
                   opacity: socialLoading ? 0.35 : 1, letterSpacing:'-.2px' }}>
                 {loading
@@ -352,57 +354,58 @@ export default function Login({ onLogin }) {
           {/* Switch tab link */}
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
             <p style={{ margin:'20px 0 0', textAlign:'center', fontSize:13,
-              color:'rgba(255,255,255,.25)' }}>
+              color:'var(--t4)' }}>
               {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
               <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
                 style={{ background:'none', border:'none', fontSize:13, fontWeight:700,
-                  color:'rgba(255,255,255,.6)', cursor:'pointer', padding:0,
+                  color:'var(--t2)', cursor:'pointer', padding:0,
                   transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='#fff'}
-                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.6)'}>
+                onMouseEnter={e=>e.currentTarget.style.color='var(--t1)'}
+                onMouseLeave={e=>e.currentTarget.style.color='var(--t2)'}>
                 {tab === 'signin' ? 'Create a free account →' : 'Sign in →'}
               </button>
             </p>
           )}
-        </div>
-      </div>
-
-      {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
-      <div style={{ position:'relative', zIndex:2, padding: isMobile ? '0 16px 24px' : '0 40px 32px',
-        display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
-        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 12 : 18, flexWrap:'wrap', justifyContent:'center', maxWidth:560 }}>
-          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,.25)' }}>Works with</span>
-          {[
-            ['Ableton', <svg key="a" width={15} height={15} viewBox="0 0 20 20" fill="none">{[0,7,14].map(x => [0,7,14].map(y => <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1} fill={x===14&&y===14?'rgba(255,255,255,.25)':'#fff'} opacity={x===14&&y===14?1:x===14||y===14?0.45:0.85}/>))}</svg>],
-            ['Logic Pro', <img key="l" src="https://cdn.simpleicons.org/apple/ffffff" width={14} height={14} alt="" style={{ opacity:.8 }}/>],
-            ['FL Studio', <svg key="f" width={15} height={15} viewBox="0 0 20 20" fill="none"><path d="M10 1L19 10L10 19L1 10Z" fill="#FF8C00"/><path d="M10 4L16 10L10 16L4 10Z" fill="#FFA500"/></svg>],
-            ['Pro Tools', <img key="p" src="https://cdn.simpleicons.org/protools/ffffff" width={15} height={15} alt="" style={{ opacity:.8 }}/>],
-            ['GarageBand', <img key="g" src="https://cdn.simpleicons.org/apple/F7931E" width={14} height={14} alt="" style={{ opacity:.8 }}/>],
-            ['Cubase', <img key="c" src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={15} height={15} alt="" style={{ opacity:.85 }}/>],
-          ].map(([label, icon]) => (
-            <div key={label} style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {icon}
-              <span style={{ fontSize:11.5, fontWeight:600, color:'rgba(255,255,255,.5)' }}>{label}</span>
-            </div>
-          ))}
+          </div>
         </div>
 
-        <p style={{ margin:0, textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
-          {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
-            <span key={label}>
-              <a href={href} style={{ color:'rgba(255,255,255,.3)', textDecoration:'none', transition:'color .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.7)'}
-                onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.3)'}>{label}</a>
-              {i < arr.length-1 && <span style={{ color:'rgba(255,255,255,.12)', margin:'0 8px' }}>·</span>}
-            </span>
-          ))}
-        </p>
+        {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
+        <div style={{ padding: isMobile ? '24px 0 0' : '32px 0 0',
+          display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 12 : 18, flexWrap:'wrap', justifyContent:'center', maxWidth:560 }}>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--t4)' }}>Works with</span>
+            {[
+              ['Ableton', <svg key="a" width={15} height={15} viewBox="0 0 20 20" fill="none">{[0,7,14].map(x => [0,7,14].map(y => <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1} fill={x===14&&y===14?'var(--t4)':'var(--t2)'} opacity={x===14&&y===14?1:x===14||y===14?0.6:1}/>))}</svg>],
+              ['Logic Pro', <img key="l" src="https://cdn.simpleicons.org/apple/ffffff" width={14} height={14} alt="" style={{ opacity:.7 }}/>],
+              ['FL Studio', <svg key="f" width={15} height={15} viewBox="0 0 20 20" fill="none"><path d="M10 1L19 10L10 19L1 10Z" fill="#FF8C00"/><path d="M10 4L16 10L10 16L4 10Z" fill="#FFA500"/></svg>],
+              ['Pro Tools', <img key="p" src="https://cdn.simpleicons.org/protools/ffffff" width={15} height={15} alt="" style={{ opacity:.7 }}/>],
+              ['GarageBand', <img key="g" src="https://cdn.simpleicons.org/apple/F7931E" width={14} height={14} alt="" style={{ opacity:.7 }}/>],
+              ['Cubase', <img key="c" src="https://cdn.simpleicons.org/steinberg/C8A0E8" width={15} height={15} alt="" style={{ opacity:.75 }}/>],
+            ].map(([label, icon]) => (
+              <div key={label} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                {icon}
+                <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t3)' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ margin:0, textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
+            {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
+              <span key={label}>
+                <a href={href} style={{ color:'var(--t4)', textDecoration:'none', transition:'color .15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.color='var(--t2)'}
+                  onMouseLeave={e=>e.currentTarget.style.color='var(--t4)'}>{label}</a>
+                {i < arr.length-1 && <span style={{ color:'var(--border)', margin:'0 8px' }}>·</span>}
+              </span>
+            ))}
+          </p>
+        </div>
       </div>
 
       <style>{`
         @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-        input::placeholder { color: rgba(255,255,255,.25) !important; }
-        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #16161f inset !important; -webkit-text-fill-color: #fff !important; }
+        input::placeholder { color: var(--t4) !important; }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px var(--bg) inset !important; -webkit-text-fill-color: var(--t1) !important; }
       `}</style>
     </div>
   )
