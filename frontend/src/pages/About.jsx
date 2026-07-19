@@ -89,8 +89,8 @@ export default function PageAbout() {
             body="Collaboration should be instant. Your crew sees the same project, the same stems, the same mix — in real time." />
           <Value Icon={Sliders} title="Studio-grade"
             body="No toys. Our bounce uses a real measurement-driven mix engine — EQ, panning, reverb and proper loudness." />
-          <Value Icon={Sparkle} title="AI-assisted"
-            body="Every stem gets its BPM, key, and instrument detected automatically — and dizko flags it if a stem clashes with what your collaborators already uploaded." />
+          <Value Icon={Sparkle} title="Authentically made"
+            body="Every stem gets its BPM, key, and instrument detected automatically — and screened for AI-generated audio. We're for real musicians making real music." />
         </div>
       </div>
 

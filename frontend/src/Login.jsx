@@ -223,7 +223,7 @@ export default function Login({ onLogin }) {
             </h1>
             <p style={{ margin:0, fontSize:15, color:'rgba(255,255,255,.82)', lineHeight:1.65, maxWidth:360,
               textShadow:'0 1px 8px rgba(0,0,0,.6)' }}>
-              Every stem auto-tagged by BPM, key, and instrument. An instant reference bounce the moment it's ready. Real-time collaboration, full version history, and one-click export to your DAW — Ableton or Logic — all in one place, so nothing gets lost in a group chat again.
+              Every stem auto-tagged by BPM, key, and instrument — and screened for AI-generated audio, because the music should be yours. An instant reference bounce the moment it's ready. Real-time collaboration, full version history, and one-click export to your DAW — Ableton or Logic — all in one place, so nothing gets lost in a group chat again.
             </p>
           </div>
 
