@@ -15,8 +15,8 @@ import Cover from '../components/Cover.jsx'
 import ProjectCard from '../components/ProjectCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import Hero from '../components/dashboard/Hero.jsx'
-import astronautImg from '../assets/empty/astronaut-studio.jpg'
-import ufoImg       from '../assets/empty/ufo-no-projects.jpg'
+import welcomeImg   from '../assets/marketing/synth-desk.jpg'
+import noProjectsImg from '../assets/marketing/vinyl-lifestyle.jpg'
 import crewImg      from '../assets/crew-mixer.jpg'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         ) : (
           <motion.section {...rise(0.05)} aria-label="Get started" style={{ position:'relative', borderRadius:'var(--r-3)',
             overflow:'hidden', border:'1px solid var(--border)', boxShadow:'var(--shadow-1)', minHeight: isMobile ? 300 : 360 }}>
-            <div style={{ position:'absolute', inset:0, background:`#000 center/cover no-repeat url(${astronautImg})` }}/>
+            <div style={{ position:'absolute', inset:0, background:`#000 center/cover no-repeat url(${welcomeImg})` }}/>
             <div style={{ position:'absolute', inset:0,
               background:'linear-gradient(to top, rgba(13,13,15,.92) 0%, rgba(13,13,15,.45) 55%, rgba(109,90,230,.18) 100%)' }}/>
             <div style={{ position:'relative', display:'flex', flexDirection:'column', alignItems:'flex-start',
@@ -330,7 +330,7 @@ export default function PageDashboard({ openModal, user, playTrack }) {
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center',
                 padding:'30px 20px', background:'var(--surface)', border:'1px solid var(--border)',
                 borderRadius:'var(--r-3)' }}>
-                {!showArchive && <img src={ufoImg} alt="" style={{ width:'100%', maxWidth:340, borderRadius:'var(--r-2)', display:'block', marginBottom:18 }}/>}
+                {!showArchive && <img src={noProjectsImg} alt="" style={{ width:'100%', maxWidth:340, aspectRatio:'16/10', objectFit:'cover', borderRadius:'var(--r-2)', display:'block', marginBottom:18 }}/>}
                 <div style={{ fontSize:17, fontWeight:600, color:'var(--t1)', letterSpacing:'-.4px', marginBottom:6, paddingTop: showArchive ? 10 : 0 }}>
                   {q ? 'Nothing matches your search' : showArchive ? 'Nothing in the archive' : 'No projects in sight'}
                 </div>

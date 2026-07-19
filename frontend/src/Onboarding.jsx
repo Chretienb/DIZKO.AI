@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { projects as projectsApi } from './lib/api'
 import { useIsMobile } from './lib/mobile'
 import logo   from './assets/logo.png'
-import studio from './assets/studio2.png'
+import studio from './assets/marketing/artist-keyboard.jpg'
 import posthog from './lib/posthog.js'
 
 const C = {
