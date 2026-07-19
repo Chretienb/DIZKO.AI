@@ -65,11 +65,11 @@ const FIELD_ICON = {
 function LaneField({ id, type, label, val, set, focus, setFocus, isPw, showPass, togglePass }) {
   const on = focus === id
   return (
-    <div style={{ position:'relative', borderRadius:10, marginBottom:10,
+    <div style={{ position:'relative', borderRadius:10, marginBottom:8,
       background: on ? 'var(--brand-tint)' : 'var(--bg)',
       border:`1px solid ${on ? 'var(--brand)' : 'var(--border)'}`,
       transition:'all .15s' }}>
-      <div style={{ padding:'11px 14px', display:'flex', alignItems:'center', gap:11 }}>
+      <div style={{ padding:'8px 14px', display:'flex', alignItems:'center', gap:11 }}>
         <span style={{ flexShrink:0, display:'flex', color: on ? 'var(--brand)' : 'var(--t3)', transition:'color .15s' }}>
           {FIELD_ICON[id]}
         </span>
@@ -174,22 +174,23 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--bg)', fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased' }}>
-      <div style={{ maxWidth:1040, margin:'0 auto', padding: isMobile ? '20px 16px 40px' : '32px 24px 56px' }}>
+    <div style={{ height:'100vh', overflow: isMobile ? 'auto' : 'hidden', background:'var(--bg)',
+      fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased', display:'flex', flexDirection:'column' }}>
+      <div style={{ maxWidth:1040, width:'100%', margin:'0 auto', padding: isMobile ? '16px 16px 24px' : '20px 24px',
+        display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
 
         {/* ══ Header row — logo left, tab toggle right, same rhythm as the Dashboard page header ══ */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-            <img src={logo} alt="" style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius:9, objectFit:'cover' }}/>
-            <span style={{ fontSize: isMobile ? 17 : 19, fontWeight:650, color:'var(--t1)', letterSpacing:'-.4px' }}>dizko</span>
+            <img src={logo} alt="" style={{ width: isMobile ? 26 : 28, height: isMobile ? 26 : 28, borderRadius:8, objectFit:'cover' }}/>
+            <span style={{ fontSize: isMobile ? 16 : 17, fontWeight:650, color:'var(--t1)', letterSpacing:'-.4px' }}>dizko</span>
           </div>
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
-            <div style={{ display:'flex', gap:2, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:3 }}>
+            <div style={{ display:'flex', gap:18 }}>
               {[['signin','Sign in'],['signup','Sign up']].map(([t, label]) => (
                 <button key={t} onClick={() => { setTab(t); setFormError('') }} style={{
-                  padding:'6px 16px', borderRadius:8, border:'none', cursor:'pointer',
-                  fontSize:12.5, fontWeight:600, transition:'all .15s',
-                  background: tab===t ? 'var(--surface-3)' : 'transparent',
+                  padding:'4px 0', background:'none', border:'none', borderBottom: `1.5px solid ${tab===t ? 'var(--brand)' : 'transparent'}`,
+                  cursor:'pointer', fontSize:13, fontWeight:400, transition:'all .15s',
                   color: tab===t ? 'var(--t1)' : 'var(--t3)',
                 }}>{label}</button>
               ))}
@@ -199,40 +200,49 @@ export default function Login({ onLogin }) {
 
         {/* ══ Hero card — same treatment as Dashboard's "Welcome to Dizko" hero:
             photo + gradient, eyebrow/heading/tagline bottom-left, contained
-            in a bordered rounded card instead of a full-bleed backdrop ══ */}
+            in a bordered rounded card instead of a full-bleed backdrop. Fixed
+            (not flex-shrinkable) height — a shrinkable flex-basis let it
+            squeeze below its own content's height and overlap the section
+            below (reported live). The auth form below is kept compact
+            specifically so this card can be the bigger element on the page. ══ */}
         <div style={{ position:'relative', overflow:'hidden', borderRadius:'var(--r-3)',
-          border:'1px solid var(--border)', boxShadow:'var(--shadow-1)', minHeight: isMobile ? 220 : 280 }}>
+          border:'1px solid var(--border)', boxShadow:'var(--shadow-1)',
+          height: isMobile ? 190 : 260, flexShrink:0 }}>
           <video autoPlay loop muted playsInline poster={studioPoster}
             style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }}>
             <source src={studioVideo} type="video/mp4"/>
           </video>
           <div style={{ position:'absolute', inset:0,
             background:'linear-gradient(180deg, rgba(13,13,15,.5) 0%, rgba(13,13,15,.88) 65%, rgba(13,13,15,.97) 100%)' }}/>
-          <div style={{ position:'relative', minHeight: isMobile ? 220 : 280, display:'flex', flexDirection:'column',
-            justifyContent:'flex-end', padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:500, letterSpacing:'.16em',
-              textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>Welcome to dizko</div>
-            <h1 style={{ margin:'0 0 8px', fontSize: isMobile ? 26 : 34, fontWeight:650, letterSpacing:'-1px', color:'#fff' }}>
+          <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column',
+            justifyContent:'flex-end', padding: isMobile ? 16 : 24 }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.16em',
+              textTransform:'uppercase', color:'var(--brand)', marginBottom:6 }}>Welcome to dizko</div>
+            <h1 style={{ margin:'0 0 4px', fontSize: isMobile ? 19 : 23, fontWeight:650, letterSpacing:'-.6px', color:'#fff' }}>
               You create. Dizko keeps it together.
             </h1>
-            <p style={{ margin:0, fontSize:13.5, color:'rgba(255,255,255,.72)', lineHeight:1.55, maxWidth:440 }}>
-              Auto-tagged stems, AI-screened uploads, one-click export to your DAW — everything in one place.
-            </p>
+            {!isMobile && (
+              <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.72)', lineHeight:1.5, maxWidth:440 }}>
+                Auto-tagged stems, uploads screened for AI-generated audio, one-click export to your DAW — everything in one place.
+              </p>
+            )}
           </div>
         </div>
 
         {/* ══ Auth form — sits directly on the page, no card/border/shadow
-            around it, so it reads as part of the page rather than a modal ══ */}
-        <div style={{ maxWidth:400, margin: isMobile ? '28px auto 0' : '36px auto 0' }}>
+            around it, so it reads as part of the page rather than a modal.
+            Kept compact (small gaps/margins throughout) so the hero above can
+            be the visually bigger element. flex:1 + its own overflow:auto so
+            on a genuinely short viewport only this section scrolls. ══ */}
+        <div style={{ maxWidth:400, width:'100%', margin:'0 auto', flex:'1 1 auto', minHeight:0,
+          overflowY: isMobile ? 'visible' : 'auto', display:'flex', flexDirection:'column',
+          padding: isMobile ? '14px 0 0' : '12px 0' }}>
 
-          {/* Heading */}
+          {/* Heading — just the headline, no "Welcome back" eyebrow above it
+              (redundant with the near-identical line, reported live). */}
           {tab !== 'forgot' && tab !== 'forgot-sent' ? (
-            <div style={{ marginBottom:22 }}>
-              <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, color:'var(--brand)', textTransform:'uppercase',
-                letterSpacing:'.14em', marginBottom:10 }}>
-                {tab === 'signin' ? 'Welcome back' : 'Create account'}
-              </div>
-              <h2 style={{ margin:0, fontSize:24, fontWeight:650, lineHeight:1.1, letterSpacing:'-.6px',
+            <div style={{ marginBottom:14 }}>
+              <h2 style={{ margin:0, fontSize:22, fontWeight:650, lineHeight:1.1, letterSpacing:'-.6px',
                 color:'var(--t1)' }}>
                 {tab === 'signin' ? 'Your music awaits.' : 'Start your session.'}
               </h2>
@@ -279,19 +289,19 @@ export default function Login({ onLogin }) {
               </button>
             </div>
           ) : (
-            <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:6 }}>
 
               {/* Social sign-in — up top, white Google button */}
               {tab !== 'forgot' && (
                 <>
                   <button type="button" onClick={() => socialLogin('google')} disabled={!!socialLoading}
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'13px',
-                      borderRadius:14, border:'none', background:'#fff', color:'#333',
-                      fontFamily:'inherit', fontSize:14, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', padding:'11px',
+                      borderRadius:10, border:'none', background:'#fff', color:'#333',
+                      fontFamily:'inherit', fontSize:13.5, fontWeight:600, cursor: socialLoading ? 'default' : 'pointer', opacity: socialLoading ? .6 : 1, transition:'opacity .15s' }}>
                     {SOCIALS[0].icon}
                     {socialLoading === 'google' ? 'Redirecting…' : 'Continue with Google'}
                   </button>
-                  <div style={{ display:'flex', alignItems:'center', gap:12, margin:'14px 0 6px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, margin:'8px 0 2px' }}>
                     <div style={{ flex:1, height:1, background:'var(--border)' }} />
                     <span style={{ fontSize:11, fontWeight:600, color:'var(--t4)', letterSpacing:'.06em' }}>OR</span>
                     <div style={{ flex:1, height:1, background:'var(--border)' }} />
@@ -334,7 +344,7 @@ export default function Login({ onLogin }) {
               )}
 
               <button type="submit" disabled={loading || !!socialLoading}
-                style={{ marginTop:6, width:'100%', padding:'14px', borderRadius:10, border:'none',
+                style={{ marginTop:2, width:'100%', padding:'12px', borderRadius:10, border:'none',
                   background: loading ? 'var(--surface-3)' : 'var(--grad)',
                   color: loading ? 'var(--t4)' : '#fff',
                   fontSize:14, fontWeight:700, cursor: loading ? 'default' : 'pointer',
@@ -356,7 +366,7 @@ export default function Login({ onLogin }) {
 
           {/* Switch tab link */}
           {tab !== 'forgot' && tab !== 'forgot-sent' && (
-            <p style={{ margin:'20px 0 0', textAlign:'center', fontSize:13,
+            <p style={{ margin:'12px 0 0', textAlign:'center', fontSize:13,
               color:'var(--t4)' }}>
               {tab === 'signin' ? "New to dizko? " : 'Already have an account? '}
               <button onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setFormError('') }}
@@ -372,9 +382,9 @@ export default function Login({ onLogin }) {
         </div>
 
         {/* ══ Bottom strip — DAW compatibility + footer links ══ */}
-        <div style={{ padding: isMobile ? '24px 0 0' : '32px 0 0',
-          display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
-          <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 12 : 18, flexWrap:'wrap', justifyContent:'center', maxWidth:560 }}>
+        <div style={{ padding: isMobile ? '12px 0 0' : '10px 0 0', flexShrink:0,
+          display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+          {!isMobile && <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 12 : 18, flexWrap:'wrap', justifyContent:'center', maxWidth:560 }}>
             <span style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em', textTransform:'uppercase', color:'var(--t4)' }}>Works with</span>
             {[
               ['Ableton', <svg key="a" width={15} height={15} viewBox="0 0 20 20" fill="none">{[0,7,14].map(x => [0,7,14].map(y => <rect key={`${x}${y}`} x={x} y={y} width={5} height={5} rx={1} fill={x===14&&y===14?'var(--t4)':'var(--t2)'} opacity={x===14&&y===14?1:x===14||y===14?0.6:1}/>))}</svg>],
@@ -389,7 +399,7 @@ export default function Login({ onLogin }) {
                 <span style={{ fontSize:11.5, fontWeight:600, color:'var(--t3)' }}>{label}</span>
               </div>
             ))}
-          </div>
+          </div>}
 
           <p style={{ margin:0, textAlign:'center', fontSize:11, letterSpacing:'.02em' }}>
             {[['Privacy Policy','/privacy'],['Terms','/terms'],['Cookies','/cookies'],['Help','mailto:team@dizko.ai']].map(([label,href],i,arr)=>(
