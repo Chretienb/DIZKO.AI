@@ -30,6 +30,7 @@ const ProjectView          = lazy(ROUTE_LOADERS.projectView)
 const PublicProfile        = lazy(() => import('./PublicProfile.jsx'))
 const ProfileEditor        = lazy(() => import('./ProfileEditor.jsx'))
 const PageCrew             = lazy(() => import('./pages/Crew.jsx'))
+const PageCommunity        = lazy(() => import('./pages/Community.jsx'))
 const PageCrewJoin         = lazy(() => import('./pages/Crew.jsx').then(m => ({ default: m.PageCrewJoin })))
 
 // nav path → page-chunk key, for hover/idle prefetch.
@@ -923,6 +924,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                       // (backend auto-enrolls on first /crew/me) — no more
                       // gating this behind an invite-only flag.
                       { label:'dizko Crew', icon:'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z', onClick:() => navigate('/crew') },
+                      { label:'Community', icon:'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20', onClick:() => navigate('/community') },
                       { label:'Invite friends', icon:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6', onClick:() => openModal('invite', {}) },
                       { label:'Help',           icon:'M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/help') },
                       { label:'About',          icon:'M12 16v-4M12 8h.01M12 22a10 10 0 100-20 10 10 0 000 20z', onClick:() => navigate('/about') },
@@ -1018,6 +1020,7 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             <Route path="/analytics"     element={gate(<PageAnalyticsNew onGated={() => openModal('billing', {})} hasAccess={hasAccess} />)} />
             <Route path="/inbox"         element={<PageInbox openModal={openModal} user={user} />} />
             <Route path="/crew"          element={<PageCrew />} />
+            <Route path="/community"     element={<PageCommunity />} />
             <Route path="/crew/join/:code" element={<PageCrewJoin />} />
             <Route path="/profile"        element={<PublicProfile embedded />} />
             <Route path="/u/:handle"      element={<PublicProfile embedded />} />

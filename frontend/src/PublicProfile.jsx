@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { publicApi, showcaseApi, messagesApi } from './lib/api'
 import { getToken, timeAgo } from './lib/utils.js'
@@ -41,7 +40,6 @@ export default function PublicProfile({ embedded = false }) {
   const [tab, setTab]               = useState('tracks') // tracks | reposts
   const [reposts, setReposts]       = useState(null)
   const [repostsLoading, setRepostsLoading] = useState(false)
-  const [discoverOpen, setDiscoverOpen] = useState(false)
   const [spotifyExpanded, setSpotifyExpanded] = useState(false)
   const [railCollapsed, setRailCollapsed] = useState(() => { try { return localStorage.getItem('dizko_pubrail') === '0' } catch { return false } })
   const toggleRail = () => setRailCollapsed(v => { const n = !v; try { localStorage.setItem('dizko_pubrail', n ? '0' : '1') } catch {} ; return n })
@@ -71,14 +69,13 @@ export default function PublicProfile({ embedded = false }) {
   // view within the full grid, show it as its own focused view: the shared
   // beat is unambiguous, everything else on the showcase is one tap away via
   // "See all N tracks" rather than competing for attention in a scrolled-to
-  // position. Dashboard shortcuts open the overlays directly (?discover=1, ?share=1).
+  // position. Dashboard shortcuts open the overlay directly (?share=1).
   const [focusedItemId, setFocusedItemId] = useState(null)
   useEffect(() => {
     if (state !== 'ready') return
     const q = new URLSearchParams(window.location.search)
     setFocusedItemId(q.get('t') || null)
-    if (q.get('discover') === '1') setDiscoverOpen(true)
-    publicApi.prefetchDiscover?.()   // warm the Discover feed + reels so the panel opens instantly
+    publicApi.prefetchDiscover?.()   // warm the Discover feed + reels so /community opens instantly
     if (q.get('share') === '1') setShareCard({ kind: 'profile' })
   }, [state])
   const focusedItem = focusedItemId ? items.find(i => i.id === focusedItemId) : null
@@ -257,7 +254,7 @@ export default function PublicProfile({ embedded = false }) {
       {/* Sidebar — public-app nav on the RIGHT (desktop only). Simple, no logo. */}
       <aside className="pp-rail" style={{ position:'fixed', right:0, top:0, bottom:0, flexDirection:'column', gap:2,
         padding:'20px 16px 18px', borderLeft:'1px solid rgba(var(--fg),.08)', background:'transparent', zIndex:5, boxSizing:'border-box' }}>
-        {railNav('Discover', <MagnifyingGlass size={20} />, () => setDiscoverOpen(true))}
+        {railNav('Community', <MagnifyingGlass size={20} />, () => navigate('/community'))}
         {p?.is_self && railNav('Add tracks', <PhPlus size={20} />, () => navigate('/profile/tracks'))}
         {p?.is_self && railNav('Edit profile', <UserCircle size={20} />, () => navigate('/profile/edit'))}
         {railNav('Share', <ShareNetwork size={20} />, () => shareProfile())}
@@ -622,7 +619,7 @@ export default function PublicProfile({ embedded = false }) {
       {embedded && (
         <aside className="pp-actions">
           {[
-            { label:'Discover',     icon:<MagnifyingGlass size={19} />, onClick: () => setDiscoverOpen(true) },
+            { label:'Community',    icon:<MagnifyingGlass size={19} />, onClick: () => navigate('/community') },
             ...(p.is_self ? [
               { label:'Add tracks',   icon:<PhPlus size={19} />,     onClick: () => navigate('/profile/tracks') },
               { label:'Edit profile', icon:<UserCircle size={19} />, onClick: () => navigate('/profile/edit') },
@@ -648,29 +645,6 @@ export default function PublicProfile({ embedded = false }) {
           profile={{ handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }}
           canEditPhoto={!!p.is_self}
           onClose={() => setShareCard(null)} />
-      )}
-
-      {/* Discover — full-screen pop-in from the bottom-right (portaled to body so
-          it covers the sidebar instead of rendering inside the padded content) */}
-      {discoverOpen && createPortal(
-        <div style={{ position:'fixed', inset:0, zIndex:1100, background:'var(--bg)', color:'var(--t1)', display:'flex', flexDirection:'column',
-          transformOrigin:'bottom right', animation:'ppDiscover .3s cubic-bezier(.2,.75,.2,1)', fontFamily:'var(--font-ui)' }}>
-          <style>{`@keyframes ppDiscover{from{transform:scale(.4) translate(45%,45%);opacity:0}to{transform:scale(1) translate(0,0);opacity:1}}`}</style>
-          <div style={{ display:'flex', justifyContent:'flex-end', padding:'16px 22px 0' }}>
-            <button onClick={() => setDiscoverOpen(false)} aria-label="Close"
-              style={{ width:34, height:34, borderRadius:10, border:'none', cursor:'pointer', background:'rgba(var(--fg),.07)', color:'rgba(var(--fg),.7)', fontSize:17 }}>✕</button>
-          </div>
-          <div style={{ flex:1, overflowY:'auto', padding:'8px 24px 40px', maxWidth:920, width:'100%', margin:'0 auto', boxSizing:'border-box' }}>
-            <div style={{ textAlign:'center', marginBottom:26 }}>
-              <div style={{ fontSize:32, fontWeight:900, letterSpacing:'-.8px' }}>Discover</div>
-              <div style={{ fontSize:14, color:'rgba(var(--fg),.5)', marginTop:7 }}>Producers and fresh sounds across dizko 🎧</div>
-            </div>
-            <DiscoverProducers currentHandle={p?.handle} layout="grid" bare
-              navigate={(path) => { setDiscoverOpen(false); navigate(path); window.scrollTo(0, 0) }} />
-            <ReelsRow onOpen={(h) => { setDiscoverOpen(false); navigate(`/u/${h}`); window.scrollTo(0, 0) }} />
-          </div>
-        </div>,
-        document.body
       )}
 
       {/* Smooth sign-up nudge — calm, contextual, not a hard redirect */}
@@ -824,7 +798,7 @@ function DmThread({ profile, kind, isDemo, myId, onClose, onError }) {
 
 // Isolated so typing in the search box only re-renders this block — not the
 // whole profile (which made each keystroke feel laggy / letter-by-letter).
-function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = false }) {
+export function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = false }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
 
@@ -903,7 +877,7 @@ function DiscoverProducers({ currentHandle, navigate, layout = 'lane', bare = fa
 
 // "Reels" — a shuffled strip of playable audio from producers. Tap play to
 // listen, tap the card to jump to that producer's profile.
-function ReelsRow({ onOpen }) {
+export function ReelsRow({ onOpen }) {
   const audioRef = useRef(null)
   const [playingId, setPlayingId] = useState(null)
 

@@ -122,7 +122,7 @@ publicProfile.get('/search', readLimit, async (c) => {
     .eq('profile_public', true)
     .not('handle', 'is', null)
     .order('follower_count', { ascending: false })
-    .limit(24)
+    .limit(60)
   if (q.length >= 1) query = query.or(`handle.ilike.%${q}%,display_name.ilike.%${q}%`)
   const { data } = await query
 
