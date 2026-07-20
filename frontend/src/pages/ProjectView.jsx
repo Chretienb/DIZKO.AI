@@ -1089,7 +1089,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
           <div style={{ padding: isMobile ? '0 16px' : '0 24px' }}>
             <InlineStemPlayer
               track={playerFile}
-              playlist={parentFiles}
+              playlist={stemsForView}
               user={user}
               projectTitle={project?.title}
               autoPlay={playerAutoplay}
