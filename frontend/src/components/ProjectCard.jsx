@@ -15,6 +15,7 @@ export default function ProjectCard({ project, active = false, fav = false, onTo
       role="button" tabIndex={0}
       aria-label={`${p.title} — ${p.status || 'Draft'}`}
       onClick={() => onSelect?.(p)}
+      onDoubleClick={() => onOpen?.(p)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(p) } }}
       whileHover={{ y: -3 }}
       transition={{ duration: 0.28, ease: [0.25, 0.6, 0.3, 1] }}
