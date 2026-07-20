@@ -35,20 +35,24 @@ export async function isProjectOwner(projectId: string, userId: string): Promise
 
 /**
  * Song scope for a user in a project: null = unrestricted (the owner, or a
- * collaborator with full access); an array = only these folder (song) ids.
- * Tolerates the folder_ids column not existing yet (migration 038) — scoping
- * simply stays off until it lands.
+ * collaborator with full access); an array = only these folder (song) ids
+ * (an empty array means "no songs assigned" — sees nothing).
+ *
+ * Fails CLOSED, not open: a DB error or a missing collaborator row returns
+ * `[]`, never `null`. The caller has already been through assertProjectAccess,
+ * so this only decides what SLICE of the project they see — an error here
+ * must never widen that into full access.
  */
 export async function songScopeFor(projectId: string, userId: string): Promise<string[] | null> {
-  if (!projectId || !userId) return null
+  if (!projectId || !userId) return []
   const { data: project } = await supabase
     .from('projects').select('owner_id').eq('id', projectId).single()
   if ((project as any)?.owner_id === userId) return null
   const { data: collab, error } = await supabase
     .from('collaborators').select('folder_ids')
     .eq('project_id', projectId).eq('user_id', userId).eq('status', 'active').maybeSingle()
-  if (error) return null
-  const ids = (collab as any)?.folder_ids
+  if (error || !collab) return []
+  const ids = (collab as any).folder_ids
   return Array.isArray(ids) && ids.length > 0 ? ids : null
 }
 

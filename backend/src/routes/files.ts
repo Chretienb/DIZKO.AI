@@ -12,7 +12,7 @@ import { transcodeToPlaybackAsset, decodeToWav, playbackKeyFor, PLAYBACK_CONTENT
 import { submitForAiDetection } from '../lib/aiDetect'
 import { classifyInstrument } from '../lib/instrumentTagging'
 import { getUsersByIds } from '../lib/users'
-import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem, isProjectOwner } from '../lib/rbac'
+import { roleCanUpload, instrumentToRoleHint, assertProjectAccess, projectIdForStem, isProjectOwner, songScopeFor } from '../lib/rbac'
 import { notify, getProjectMemberIds } from '../lib/notificationService'
 import { canUploadStem, remainingStemSlots, freeTierLimitReached, getCreatorEntitlement, FREE_STEM_LIMIT } from '../lib/entitlement'
 import { withProjectLock } from '../lib/projectLock'
@@ -1296,9 +1296,16 @@ files.get('/:id', async (c) => {
   if (error) return c.json({ data: null, error: 'File not found', status: 404 }, 404)
 
   const stem = data as any
-  // Only members of the stem's project may read it (and get a signed URL)
+  // Only members of the stem's project may read it (and get a signed URL) —
+  // and a song-scoped collaborator only members of THEIR songs, same as the
+  // list endpoint. Without this check a stem id from outside their scope
+  // (however the client came to hold it) could still be fetched directly.
   const projectId = stem?.tracks?.project_id
   if (!projectId || !(await assertProjectAccess(projectId, c.var.user.id)))
+    return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
+
+  const scope = await songScopeFor(projectId, c.var.user.id)
+  if (scope && !(stem.folder_id && scope.includes(stem.folder_id)))
     return c.json({ data: null, error: 'Access denied', status: 403 }, 403)
 
   if (stem?.storage_path) stem.file_url = await getR2SignedUrl(stem.storage_path)
@@ -1426,8 +1433,13 @@ files.get('/', async (c) => {
   const { data, error } = await query
   if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
 
+  // Song-scoped collaborators only get stems inside their songs, same rule as
+  // /projects/:id/files — this route must not become the unscoped back door.
+  const scope = await songScopeFor(projectId, c.var.user.id)
+  const scoped = scope ? (data as any[]).filter(s => s.folder_id && scope.includes(s.folder_id)) : (data as any[])
+
   const enriched = await Promise.all(
-    (data as any[]).map(async (stem) => {
+    scoped.map(async (stem) => {
       const key = stem?.storage_path || r2KeyFromUrl(stem?.file_url)
       if (key) stem.file_url = await getR2SignedUrl(key)
       return stem
