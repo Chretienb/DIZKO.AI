@@ -637,6 +637,7 @@ export const showcaseApi = {
   downloadUrl:   (id)               => request('GET', `/showcase/items/${id}/download`),
   follow:        (userId)           => post(`/showcase/follow/${userId}`),
   unfollow:      (userId)           => del(`/showcase/follow/${userId}`),
+  followers:     ()                 => request('GET', '/showcase/me/followers'),
   like:          (itemId)           => post(`/showcase/items/${itemId}/like`),
   unlike:        (itemId)           => del(`/showcase/items/${itemId}/like`),
   comment:       (itemId, text, timestamp_sec, parent_id) => post(`/showcase/items/${itemId}/comment`, { text, timestamp_sec, parent_id }),

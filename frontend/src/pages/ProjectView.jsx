@@ -1502,10 +1502,38 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
               )
             })}
             {isOwner && (
-              <button onClick={() => { setNewSongInput(true); setMobileProjectsOpen(false) }}
-                style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'14px 20px', border:'none', borderTop:'1px solid var(--border)', background:'none', color:'var(--t3)', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>
-                + New Song
-              </button>
+              newSongInput ? (
+                <div style={{ padding:'12px 20px', borderTop:'1px solid var(--border)' }}>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input
+                      autoFocus
+                      value={newSongName}
+                      onChange={e => setNewSongName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') addSong(newSongName)
+                        if (e.key === 'Escape') { setNewSongInput(false); setNewSongName('') }
+                      }}
+                      placeholder="Song name"
+                      style={{ flex:1, height:40, border:'1px solid var(--brand)', borderRadius:9, padding:'0 12px', fontSize:14,
+                        fontFamily:'inherit', outline:'none', background:'var(--bg)', color:'var(--t1)', boxSizing:'border-box' }}
+                    />
+                    <button onClick={() => addSong(newSongName)} disabled={!newSongName.trim()}
+                      style={{ flexShrink:0, height:40, padding:'0 16px', borderRadius:9, border:'none', cursor: newSongName.trim() ? 'pointer' : 'default',
+                        background:'var(--brand)', color:'#fff', fontSize:13.5, fontWeight:600, fontFamily:'inherit', opacity: newSongName.trim() ? 1 : .5 }}>
+                      Add
+                    </button>
+                  </div>
+                  <button onClick={() => { setNewSongInput(false); setNewSongName('') }}
+                    style={{ marginTop:8, background:'none', border:'none', cursor:'pointer', color:'var(--t3)', fontSize:12, fontFamily:'inherit', padding:0 }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setNewSongInput(true)}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'14px 20px', border:'none', borderTop:'1px solid var(--border)', background:'none', color:'var(--t3)', fontSize:13, fontFamily:'inherit', cursor:'pointer' }}>
+                  + New Song
+                </button>
+              )
             )}
           </div>
         </BottomSheet>

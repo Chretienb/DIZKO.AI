@@ -69,6 +69,11 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
   const avatarInput = useRef()
 
+  // People following me — shown regardless of my own public/private status,
+  // since a follow is a fact about my account, not theirs to gate.
+  const [followers, setFollowers] = useState([])
+  const [followersLoading, setFollowersLoading] = useState(mode === 'profile')
+
   // add-from-library picker
   const [projList, setProjList]       = useState([])
   const [projQuery, setProjQuery]     = useState('')
@@ -99,6 +104,9 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
       }
     }).catch(() => {}).finally(() => setLoading(false))
     projectsApi.list().then(r => setProjList(r?.data || [])).catch(() => {})
+    if (mode === 'profile') {
+      showcaseApi.followers().then(r => setFollowers(r?.data || [])).catch(() => {}).finally(() => setFollowersLoading(false))
+    }
   }, [])
 
   // Debounced handle availability check.
@@ -350,6 +358,37 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                 </button>
               </div>
             </div>
+
+            {/* ── Followers ── */}
+            {(followersLoading || followers.length > 0) && (
+              <div style={cardV2}>
+                <div style={cardTitleV2}>Followers{followers.length > 0 ? ` · ${followers.length}` : ''}</div>
+                {followersLoading ? <Loading label="Loading followers…" pad="12px 0"/> : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                    {followers.map(f => {
+                      const clickable = !!f.handle
+                      const row = (
+                        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 4px', borderRadius:10,
+                          cursor: clickable ? 'pointer' : 'default' }}>
+                          <Avatar name={f.display_name} url={f.avatar_url} size={36} />
+                          <div style={{ minWidth:0, flex:1 }}>
+                            <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                              {f.display_name}
+                            </div>
+                            <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+                              {clickable ? `@${f.handle}` : 'Private profile'}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                      return clickable
+                        ? <a key={f.id} href={`/u/${f.handle}`} style={{ textDecoration:'none', color:'inherit' }}>{row}</a>
+                        : <div key={f.id}>{row}</div>
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── About ── */}
             <div style={cardV2}>

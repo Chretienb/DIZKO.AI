@@ -305,6 +305,43 @@ showcase.delete('/follow/:userId', async (c) => {
   return c.json({ data: { following: false }, error: null, status: 200 })
 })
 
+// ── GET /showcase/me/followers — who follows me ────────────────────────────────
+// Unlike /u/search and /u/:handle, this deliberately bypasses the
+// profile_public + handle gate: a follow is a fact about the viewer's own
+// account, not a disclosure of the follower's profile. So everyone who
+// followed me shows up with name/avatar — but only ones with a public,
+// handled profile get a `handle` to link to; the rest stay unclickable in
+// the UI (no page exists to send them to).
+showcase.get('/me/followers', async (c) => {
+  const me = c.var.user.id
+  const { data: rows } = await supabase
+    .from('follows').select('follower_id, created_at')
+    .eq('following_id', me).order('created_at', { ascending: false }).limit(200)
+
+  const ids = (rows ?? []).map((r: any) => r.follower_id)
+  if (!ids.length) return c.json({ data: [], error: null, status: 200 })
+
+  const [{ data: profs }, metas] = await Promise.all([
+    supabase.from('profiles').select('id, handle, display_name, avatar_url, profile_public').in('id', ids),
+    getUsersByIds(ids),
+  ])
+  const byId = new Map((profs ?? []).map((p: any) => [p.id, p]))
+
+  const data = (rows ?? []).map((r: any) => {
+    const p = byId.get(r.follower_id) as any
+    const meta = metas.get(r.follower_id)
+    const publicProfile = !!p?.profile_public && !!p?.handle
+    return {
+      id: r.follower_id,
+      display_name: p?.display_name || meta?.full_name || meta?.email?.split('@')[0] || 'Someone',
+      avatar_url: p?.avatar_url || meta?.avatar_url || null,
+      handle: publicProfile ? p.handle : null,
+      followed_at: r.created_at,
+    }
+  })
+  return c.json({ data, error: null, status: 200 })
+})
+
 // ── POST/DELETE /showcase/items/:id/like ──────────────────────────────────────
 showcase.post('/items/:id/like', async (c) => {
   const me = c.var.user.id
