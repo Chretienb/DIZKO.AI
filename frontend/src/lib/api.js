@@ -170,6 +170,11 @@ const post  = (path, body)  => request('POST',   path, body)
 const patch = (path, body)  => request('PATCH',  path, body)
 const del   = (path)        => request('DELETE', path)
 
+// ── Reports (Apple 1.2 — report objectionable content/users) ───────────────────
+export const reportsApi = {
+  submit: (target_type, target_id, reason, details) => post('/reports', { target_type, target_id, reason, details }),
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const auth = {
   login:         (email, password)           => post('/auth/login',    { email, password }),
@@ -178,6 +183,8 @@ export const auth = {
   updateProfile:    (body)       => request('PATCH', '/auth/profile', body),
   forgotPassword:   (email)      => post('/auth/forgot-password', { email }),
   updatePassword:   (password)   => post('/auth/update-password', { password }),
+  deleteAccount:       () => post('/auth/delete-account').finally(() => { setToken(null); setRefreshToken(null) }),
+  cancelDeleteAccount: () => post('/auth/delete-account/cancel'),
   uploadAvatar:  (file) => {
     const token = getToken()
     const form  = new FormData()

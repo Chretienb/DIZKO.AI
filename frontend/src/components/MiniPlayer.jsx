@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { C } from './ui/index.jsx'
-import { useIsMobile } from '../lib/mobile'
+import { useIsMobile, MOBILE_TAB_BAR_HEIGHT } from '../lib/mobile'
 import { getToken } from '../lib/utils.js'
 
 // ─── MINI PLAYER ───────────────────────────────────────────────────────────
@@ -216,11 +216,14 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay, bar
   const instrument = track?.instrument || null
   const meta       = [instrument, bpm, key].filter(Boolean).join(' · ')
 
-  // The bar sits flush at the bottom; the sidebar rail occupies the left edge,
-  // so offset the bar to start after it (52px mobile / 76px desktop).
-  const railW  = isMobile ? 52 : 76
+  // The bar sits flush at the bottom; the desktop rail occupies the left
+  // edge, so offset the bar to start after it. Mobile has no left rail (nav
+  // is a bottom tab bar now) — the bar spans full width there, sitting just
+  // above the tab bar instead.
+  const railW  = isMobile ? 0 : 76
+  const bottomOffset = isMobile ? `calc(${MOBILE_TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))` : 0
   // Panel height: on mobile fill almost the full screen, on desktop a fixed sheet
-  const panelH = isMobile ? `calc(100dvh - 72px)` : '500px'
+  const panelH = isMobile ? `calc(100dvh - 72px - ${MOBILE_TAB_BAR_HEIGHT}px - env(safe-area-inset-bottom))` : '500px'
 
   // In the studio the board's track rows carry their own transport, so we hide
   // the bottom bar there. The audio element is created in an effect (not in JSX),
@@ -243,7 +246,7 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay, bar
       <div style={{
         position:'fixed',
         left:railW, right:0,
-        bottom: 72,
+        bottom: isMobile ? `calc(72px + ${bottomOffset})` : 72,
         height: panelH,
         zIndex:1998,
         background:'#0e0e11',
@@ -357,10 +360,12 @@ export default function MiniPlayer({ track, playlist, user, onClose, onPlay, bar
 
       {/* ── Bar — always fixed at bottom, never moves ── */}
       <div style={{
-        position:'fixed', left:railW, right:0, bottom: 0,
+        position:'fixed', left:railW, right:0, bottom: bottomOffset,
         height:72, zIndex:2000,
+        // No backdrop-filter — var(--bg) is already opaque so the blur had
+        // nothing to blur, just GPU cost on a bar that's fixed through every
+        // scroll frame (contributor to the black flash on fast scroll).
         background:'var(--bg)',
-        backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)',
         borderTop:'1px solid rgba(var(--fg),.07)',
         display:'flex', flexDirection:'column',
       }}>

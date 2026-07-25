@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { hasConsented, setConsent } from '../lib/cookieConsent.js'
+import { useIsMobile, MOBILE_TAB_BAR_HEIGHT } from '../lib/mobile'
 
 /**
  * One-time cookie/storage notice. dizko keeps you signed in via local storage
@@ -9,15 +10,21 @@ import { hasConsented, setConsent } from '../lib/cookieConsent.js'
  */
 export default function CookieConsent() {
   const [show, setShow] = useState(() => !hasConsented())
+  // Rendered outside App.jsx's MobileCtx.Provider (see main.jsx), so it reads
+  // the standalone hook rather than the context.
+  const isMobile = useIsMobile()
   if (!show) return null
 
   const accept = () => { setConsent('accepted'); setShow(false) }
+  const bottomOffset = isMobile
+    ? `calc(16px + ${MOBILE_TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`
+    : 'calc(16px + env(safe-area-inset-bottom))'
 
   return (
     <div role="dialog" aria-label="Cookie notice" aria-live="polite"
       // Below the modal layer (z 1000) so it never overlaps and steals clicks
       // from an open dialog's buttons (e.g. the upload modal's "Upload N files").
-      style={{ position:'fixed', left:16, right:16, bottom:16, zIndex:900,
+      style={{ position:'fixed', left:16, right:16, bottom:bottomOffset, zIndex:900,
         maxWidth:520, margin:'0 auto', display:'flex', alignItems:'center', gap:14,
         flexWrap:'wrap', justifyContent:'center',
         background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14,

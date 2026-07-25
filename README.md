@@ -27,7 +27,9 @@ Live: **https://dizko.ai** (app at `app.dizko.ai`)
 - **Analytics.** YouTube fan-geography + venue recommendations, Last.fm artist data.
 - **Billing.** Stripe subscriptions (Pro / Studio / Label).
 
-See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for how it all fits together.
+See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for how it all fits together,
+or **[docs/MOBILE.md](./docs/MOBILE.md)** if you're working on the native iOS/Android
+app specifically (Capacitor wraps this same frontend — not a separate codebase).
 
 ---
 
@@ -249,5 +251,5 @@ project (e.g. via the Supabase SQL editor or `supabase db push`). Migrations are
 
 ## Conventions
 
-See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for code conventions (theming tokens,
-adding a route with its access guard, the API response envelope, etc.).
+See **[docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md)** for code conventions (theming
+tokens, adding a route with its access guard, the API response envelope, etc.).

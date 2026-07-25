@@ -28,6 +28,7 @@ export default function Clip({
   clip, stem, label, color, rowPosition, pixelsPerMs, durationMs, stemDurationMs, storedPeaks,
   selected, playheadSec, isPlaying,
   onSelect, onDragMove, onDragEnd, onContextMenu, onTrimEnd,
+  rowHeight = ROW_HEIGHT, rowGap = ROW_GAP,
 }) {
   const nodeRef  = React.useRef(null)
   const guideRef = React.useRef(null)
@@ -37,7 +38,7 @@ export default function Clip({
   const longPressTimer = React.useRef(null)
 
   const left = (clip.start_offset_ms || 0) * pixelsPerMs
-  const top  = rowPosition * (ROW_HEIGHT + ROW_GAP)
+  const top  = rowPosition * (rowHeight + rowGap)
   const width = Math.max(24, durationMs * pixelsPerMs)
   const minWidthPx = Math.max(4, MIN_CLIP_MS * pixelsPerMs)
 
@@ -167,7 +168,7 @@ export default function Clip({
       onContextMenu={onContextMenuNative}
       onClick={() => onSelect(clip.id)}
       style={{
-        position:'absolute', left, top, width, height:ROW_HEIGHT,
+        position:'absolute', left, top, width, height:rowHeight,
         borderRadius:12, overflow:'hidden', cursor:'grab', touchAction:'none',
         // Colored-glass card — the user's pick from three live variants
         // (vs. a neutral dark card with a color rail, and a fully saturated
@@ -198,9 +199,9 @@ export default function Clip({
         // corner with its own solid background, so the wave doesn't need to
         // dodge it (bottom-aligning it to do so read as off-center, reported
         // live).
-        <div style={{ height:ROW_HEIGHT, display:'flex', alignItems:'center' }}>
+        <div style={{ height:rowHeight, display:'flex', alignItems:'center' }}>
           <Waveform url={stem.file_url} color={color}
-            height={Math.round((ROW_HEIGHT - 24) * WAVE_HEIGHT_FRACTION)}
+            height={Math.round((rowHeight - 24) * WAVE_HEIGHT_FRACTION)}
             currentTime={isPlaying ? Math.max(0, playheadSec - (clip.start_offset_ms || 0) / 1000) : 0}
             duration={durationMs / 1000} isPlaying={isPlaying}
             trimStart={stemDurationMs > 0 ? (clip.trim_start_ms || 0) / stemDurationMs : 0}

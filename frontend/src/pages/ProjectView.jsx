@@ -556,7 +556,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // Skeleton mirroring the real three-column layout — same loading language as
   // the Dashboard/Inbox, no spinner, no layout jump when data lands.
   if (loading) return (
-    <div style={{ margin: isMobile ? '-16px' : '-24px', display:'flex', height: isMobile ? 'calc(100vh - 44px)' : '100vh', overflow:'hidden', background:'var(--bg)' }}>
+    <div style={{ margin: isMobile ? '-12px' : '-24px', display:'flex', height: isMobile ? 'calc(100vh - 44px)' : '100vh', overflow:'hidden', background:'var(--bg)' }}>
       {!isMobile && (
         <div style={{ width:210, background:'var(--surface)', borderRight:'1px solid var(--border)', padding:'16px', display:'flex', flexDirection:'column', gap:14, flexShrink:0 }}>
           <Skeleton style={{ width:72, height:10 }}/>
@@ -668,7 +668,7 @@ export default function ProjectView({ openModal, playTrack, addToast, user }) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{
-      margin: isMobile ? '-16px' : '-24px',
+      margin: isMobile ? '-12px' : '-24px',
       display:'flex',
       height: isMobile ? 'calc(100vh - 44px)' : '100vh',
       overflow:'hidden',

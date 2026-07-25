@@ -2,6 +2,8 @@
 
 Conventions and patterns to follow so changes stay consistent and safe.
 Read **[ARCHITECTURE.md](./ARCHITECTURE.md)** first for the mental model.
+Working on the native iOS/Android app specifically? See **[MOBILE.md](./MOBILE.md)** —
+it's the same frontend wrapped by Capacitor, with its own set of native-only gotchas.
 
 ---
 

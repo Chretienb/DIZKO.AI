@@ -69,6 +69,7 @@ export default function PageInbox({ openModal, user }) {
   const [loading, setLoading] = useState(true)
   const [q, setQ]             = useState('')
   const [menuFor, setMenuFor] = useState(null)
+  const [menuPos, setMenuPos] = useState(null)   // { top, right } in viewport coords — see openMenu
 
   const [selId, setSelId]     = useState(null)
   const [msgs, setMsgs]       = useState([])
@@ -134,6 +135,22 @@ export default function PageInbox({ openModal, user }) {
     const prev = msgs
     setMsgs(p => p.filter(x => x.id !== m.id))
     try { await messagesApi.deleteMessage(m.id) } catch { setMsgs(prev) }
+  }
+
+  // Anchors the per-thread options menu to the clicked button's actual
+  // screen position instead of the row (position:relative + absolute), which
+  // clipped/hid the menu for rows near the bottom of the list — the list
+  // container has overflow:hidden for its rounded corners, and on a phone
+  // only ~4-5 rows are visible at once so "near the bottom" was common
+  // (reported live). Flips upward if there's no room below.
+  const MENU_H = 138   // 3 rows now that Report joined Block/Delete
+  const openMenu = (e, userId) => {
+    e.stopPropagation()
+    if (menuFor === userId) { setMenuFor(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const top = (rect.bottom + MENU_H + 8 > window.innerHeight) ? rect.top - MENU_H - 4 : rect.bottom + 4
+    setMenuPos({ top, right: window.innerWidth - rect.right })
+    setMenuFor(userId)
   }
 
   const block = async (t) => {
@@ -241,14 +258,15 @@ export default function PageInbox({ openModal, user }) {
                 </div>
                 <Button variant="ghost" size="icon-sm" className="ib-menu shrink-0 text-[color:var(--t3)]"
                   aria-label="Conversation options"
-                  onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === t.user_id ? null : t.user_id) }}>
+                  onClick={(e) => openMenu(e, t.user_id)}>
                   <EllipsisVertical/>
                 </Button>
-                {menuFor === t.user_id && (
+                {menuFor === t.user_id && menuPos && (
                   <>
                     <div onClick={(e) => { e.stopPropagation(); setMenuFor(null) }} style={{ position:'fixed', inset:0, zIndex:5 }} />
-                    <div style={{ position:'absolute', top:44, right:10, zIndex:6, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:'var(--r-2)', boxShadow:'var(--shadow-2)', overflow:'hidden', minWidth:160 }}>
-                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'var(--t1)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Block user</button>
+                    <div style={{ position:'fixed', top:menuPos.top, right:menuPos.right, zIndex:6, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:'var(--r-2)', boxShadow:'var(--shadow-2)', overflow:'hidden', minWidth:160 }}>
+                      <button onClick={(e) => { e.stopPropagation(); setMenuFor(null); openModal('report', { targetType:'user', targetId:t.user_id, targetLabel:t.name }) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'var(--t1)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Report</button>
+                      <button onClick={(e) => { e.stopPropagation(); block(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', borderTop:'1px solid var(--border)', cursor:'pointer', background:'transparent', color:'var(--t1)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Block user</button>
                       <button onClick={(e) => { e.stopPropagation(); deleteChat(t) }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', borderTop:'1px solid var(--border)', cursor:'pointer', background:'transparent', color:'var(--danger)', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>Delete chat</button>
                     </div>
                   </>

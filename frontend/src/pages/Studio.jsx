@@ -2347,13 +2347,15 @@ export default function PageStudio({ openModal, playTrack, addToast, user }) {
   return (
     <>
       {/* ── Console header + transport — sticky DAW-style bar ── */}
-      {/* Sticky offset must cancel <main>'s own padding-top (52 mobile / 24
+      {/* Sticky offset must cancel <main>'s own padding-top (16 mobile / 24
           desktop): sticky top:0 measures from INSIDE that padding, so the
           header used to pin 24px below the viewport top and scrolled clips
-          showed through the open band above it (reported live). */}
-      <div ref={headerRef} style={{ position:'sticky', top: isMobile ? -52 : -24, zIndex:200, isolation:'isolate', background:C.bg,
+          showed through the open band above it (reported live). Horizontal
+          margin cancels main's actual 12px mobile gutter, not 16 — matches
+          the same fix applied to ProjectView's equivalent bleed container. */}
+      <div ref={headerRef} style={{ position:'sticky', top: isMobile ? -16 : -24, zIndex:200, isolation:'isolate', background:C.bg,
         paddingTop: isMobile ? 12 : 16, paddingBottom:16,
-        marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -16 : -24, marginRight: isMobile ? -16 : -24,
+        marginTop: isMobile ? -16 : -24, marginLeft: isMobile ? -12 : -24, marginRight: isMobile ? -12 : -24,
         paddingLeft: isMobile ? 16 : 24, paddingRight: isMobile ? 16 : 24 }}>
         {/* Sits higher (16px vs 24px top) with a tighter gap below — matches
             where the Projects page title lands. */}

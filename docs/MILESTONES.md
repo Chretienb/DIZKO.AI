@@ -21,7 +21,8 @@ The core product loop works end-to-end in production (`dizko.ai`):
 - ✅ Light/dark theming, responsive (desktop + mobile) UI
 - ✅ Deployed: Vercel (frontend) + Railway (backend), custom domain
 - ✅ Security: app-level RBAC guards (service-role bypasses RLS) + unit tests
-- ✅ Docs: README, ARCHITECTURE, CONTRIBUTING
+- ✅ Docs: README, ARCHITECTURE, CONTRIBUTING, MOBILE
+- 🔄 Native iOS app (Capacitor) — App Store-ready except Sign in with Apple + actual submission, see M6
 
 ---
 
@@ -97,6 +98,28 @@ test blocks merge.
 | Analytics/observability dashboards | | ⬜ |
 | Performance budget (Lighthouse), accessibility pass | | ⬜ |
 | Load/smoke test the critical paths (upload → mix → export) | | ⬜ |
+
+---
+
+## M6 — Native iOS app (App Store submission)
+*Goal: ship the same product as a real iOS app. See [MOBILE.md](./MOBILE.md) for the technical detail behind every row here.*
+
+| Item | Owner | Status |
+|---|---|---|
+| Capacitor wrapper set up (`frontend/ios`, `frontend/android`) | | ✅ |
+| Native-shell bugs fixed (pinch-zoom, scroll-surface conflict, safe-area insets, 100vh) | | ✅ |
+| Apple 3.1.1 compliance — no in-app purchases on iOS (`IS_NATIVE` gate on `ModalBilling`) | | ✅ |
+| Apple 5.1.1(v) — in-app self-service account deletion | | ✅ |
+| Apple 1.2 — UGC report mechanism | | ✅ |
+| Privacy Manifest (`PrivacyInfo.xcprivacy`) | | ✅ |
+| App icon + App Store screenshots + listing copy drafted (`app-store-assets/`) | | ✅ |
+| Sign in with Apple (Apple 4.8 — required since Google sign-in is offered) | | ⬜ |
+| Revert dev-only config (`server.url`, ATS exception) before archiving for release | | ⬜ |
+| Real device testing (Simulator-only so far) | | ⬜ |
+| Apple Developer Program enrollment | | ⬜ |
+| Actual App Store Connect submission | | ⬜ |
+
+**Exit criteria:** app is live on the App Store.
 
 ---
 

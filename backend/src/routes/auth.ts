@@ -7,6 +7,7 @@ import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join }          from 'path'
 import { tmpdir }        from 'os'
 import { supabase }      from '../lib/supabase'
+import { stripe }        from '../lib/stripe'
 import { requireAuth }   from '../middleware/auth'
 import { sanitize }      from '../middleware/sanitize'
 import { rateLimit }     from '../middleware/rateLimit'
@@ -164,6 +165,57 @@ auth.post('/logout', requireAuth, async (c) => {
   await supabase.auth.admin.signOut(userId).catch(() => null)
   clearAuthCookies(c)
   return c.json({ data: { message: 'Logged out' }, error: null, status: 200 })
+})
+
+// ── POST /auth/delete-account ─────────────────────────────────────────────────
+// Apple 5.1.1(v): account deletion must be initiable in-app, not just via
+// emailing support. Soft-delete: marks the row, cancels any live Stripe
+// subscription immediately, signs out everywhere. The account is still
+// visible in the DB (and can be un-deleted via the cancel endpoint below)
+// until runAccountDeletionPurge hard-deletes it after GRACE_DAYS.
+auth.post('/delete-account', requireAuth, async (c) => {
+  const userId = c.var.user.id
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('stripe_subscription_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const subId = (profile as any)?.stripe_subscription_id
+  if (subId) {
+    // Fire-and-forget-ish: don't block deletion on Stripe being slow/down —
+    // the customer.subscription.deleted webhook reconciles subscription_status
+    // either way, this is just to stop billing right away rather than waiting
+    // for the daily purge.
+    await stripe.subscriptions.cancel(subId).catch(e =>
+      console.error(`[delete-account] Stripe cancel failed for ${userId}:`, e.message)
+    )
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ deletion_requested_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+
+  await supabase.auth.admin.signOut(userId).catch(() => null)
+  clearAuthCookies(c)
+  return c.json({ data: { deletion_requested_at: new Date().toISOString(), grace_days: 30 }, error: null, status: 200 })
+})
+
+// ── POST /auth/delete-account/cancel ──────────────────────────────────────────
+// Undo within the grace period — logging back in during that window is how a
+// user reaches this (the frontend gates the app behind a "cancel deletion?"
+// screen when deletion_requested_at is set). Does not restore a canceled
+// Stripe subscription; they'd re-subscribe normally.
+auth.post('/delete-account/cancel', requireAuth, async (c) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ deletion_requested_at: null })
+    .eq('id', c.var.user.id)
+  if (error) return c.json({ data: null, error: error.message, status: 500 }, 500)
+  return c.json({ data: { canceled: true }, error: null, status: 200 })
 })
 
 // ── POST /auth/refresh ────────────────────────────────────────────────────────

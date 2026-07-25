@@ -72,14 +72,18 @@ export default function Welcome({ userName, onEnter }) {
 
   return (
     <div style={{
-      height: '100vh', width: '100vw',
+      height: '100dvh', width: '100vw',
       background: '#08080f',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: '40px 24px',
       fontFamily: 'var(--font-ui)',
       WebkitFontSmoothing: 'antialiased',
-      overflow: 'hidden', position: 'relative',
+      // No scroll fallback before — a short device (SE-sized phones) or
+      // dynamic mobile browser chrome could clip the CTA/fine-print at the
+      // bottom with no way to reach it (matches the fix already applied to
+      // Login.jsx's equivalent full-screen stack).
+      overflowY: 'auto', overflowX: 'hidden', position: 'relative',
       opacity: leaving ? 0 : 1,
       transform: leaving ? 'translateY(-16px)' : 'translateY(0)',
       transition: leaving ? 'opacity .5s ease-in, transform .5s ease-in' : 'none',

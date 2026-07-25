@@ -7,7 +7,8 @@ import { DEMO_PROFILES, getDemoProfile, demoToProfile, isDemoHandle } from './li
 import ShowcaseTrack from './components/ShowcaseTrack.jsx'
 import ShareCard from './components/ShareCard.jsx'
 import { Spinner, Btn, EmptyState, Avatar } from './components/ui/index.jsx'
-import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText } from '@phosphor-icons/react'
+import { House, ChatCircle, UserCircle, MagnifyingGlass, Plus as PhPlus, ShareNetwork, FileText, Flag } from '@phosphor-icons/react'
+import { ModalReport } from './components/modals.jsx'
 
 const C = { coral:'#6D5AE6', grad:'linear-gradient(135deg,#7C6CF0,#A78BFA)' }
 const BASE = '/api'
@@ -140,6 +141,12 @@ export default function PublicProfile({ embedded = false }) {
     return false
   }
 
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportProfile = () => {
+    if (!requireAccount({ action: 'report' })) return
+    setReportOpen(true)
+  }
+
   const toggleFollow = async () => {
     if (!requireAccount({ action: 'follow' })) return
     if (p.is_self) return
@@ -265,6 +272,7 @@ export default function PublicProfile({ embedded = false }) {
         {p?.is_self && railNav('Add tracks', <PhPlus size={20} />, () => navigate('/profile/tracks'))}
         {p?.is_self && railNav('Edit profile', <UserCircle size={20} />, () => navigate('/profile/edit'))}
         {railNav('Share', <ShareNetwork size={20} />, () => shareProfile())}
+        {!p?.is_self && railNav('Report', <Flag size={20} />, reportProfile)}
         {!getToken() && (
           <div style={{ marginTop:'auto' }}>
             <button onClick={() => navigate('/login?join=1')} className="pp-rail-join" style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', cursor:'pointer', background:'var(--t1)', color:'var(--bg)', fontSize:13.5, fontWeight:800, fontFamily:'inherit' }}>Join dizko</button>
@@ -490,6 +498,14 @@ export default function PublicProfile({ embedded = false }) {
       <div style={{ padding:'0 4px 18px' }}>
         {p.is_self ? (
           <div className="pp-self-actions">
+            {/* Desktop reaches this via the fixed side rail (railNav above),
+                which only renders at >=1080px — below that, this row is the
+                only way to it, and Edit was missing here entirely (reported
+                live: no way to edit your profile on phone width). */}
+            <button onClick={() => navigate('/profile/edit')} style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>
+              <UserCircle size={13} weight="bold" />
+              Edit profile
+            </button>
             <button onClick={() => navigate('/profile/tracks')} style={{ ...ghostBtn, border:'none', background:'rgba(var(--fg),.08)' }}>
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
               Add tracks
@@ -504,6 +520,10 @@ export default function PublicProfile({ embedded = false }) {
               {following ? 'Following' : 'Follow'}
             </button>
             <button onClick={() => contact('message')} style={ghostBtn}>Message</button>
+            <button onClick={reportProfile} title="Report this profile" aria-label="Report this profile"
+              style={{ ...ghostBtn, border:'none', background:'transparent', color:'rgba(var(--fg),.4)', width:32, padding:0, flex:'0 0 auto' }}>
+              <Flag size={15}/>
+            </button>
           </div>
         )}
       </div>
@@ -681,6 +701,11 @@ export default function PublicProfile({ embedded = false }) {
           onClose={() => setShareCard(null)} />
       )}
 
+      {reportOpen && (
+        <ModalReport targetType="user" targetId={p.id || handle} targetLabel={p.display_name}
+          onClose={() => setReportOpen(false)} />
+      )}
+
       {/* Smooth sign-up nudge — calm, contextual, not a hard redirect */}
       {authPrompt && (() => {
         const COPY = {
@@ -691,6 +716,7 @@ export default function PublicProfile({ embedded = false }) {
           message:  { t:`Message ${p.display_name}`,       s:'DM creators and line up your next collab.' },
           collab:   { t:`Collab with ${p.display_name}`,   s:'Invite creators to work on something together.' },
           repost:   { t:'Repost this track',               s:'Share it with your followers — the original stays credited.' },
+          report:   { t:'Report this profile',             s:'Sign in so our team can follow up if we need more info.' },
         }
         const c = COPY[authPrompt.action] || { t:'Join dizko', s:'Create a free account to like, follow, comment and download.' }
         return (

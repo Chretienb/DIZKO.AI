@@ -109,28 +109,45 @@ export const Btn = React.memo(function Btn({ children, onClick, style={}, varian
   </button>
 })
 
-// Session-wide avatar byte cache. Supabase serves avatar objects with
-// `cache-control: no-cache`, so every fresh <img> mount revalidates over the
-// network and the initials fallback flashes in while it waits — avatars
-// "disappearing" on row expands / popovers / re-renders (reported live).
-// Fetch each URL once per session into a blob: URL; every Avatar after that
-// paints instantly with zero network. URLs whose host blocks CORS (e.g.
-// googleusercontent) fall back to the direct <img> path, which those hosts
-// serve with long max-age anyway.
-const avatarBlobCache = new Map()   // url -> { url: blobUrl } | {} (direct fallback)
+// Session-wide avatar byte cache — Supabase-hosted avatars ONLY. Supabase
+// serves avatar objects with `cache-control: no-cache`, so every fresh <img>
+// mount revalidates over the network and the initials fallback flashes in
+// while it waits — avatars "disappearing" on row expands / popovers /
+// re-renders (reported live). Fetch each URL once per session into a
+// blob: URL; every Avatar after that paints instantly with zero network.
+//
+// Third-party hosts (Google OAuth photos on googleusercontent.com, etc.)
+// skip this path entirely and use the raw URL from the first render — a
+// SINGLE plain <img> request, same as any normal webpage hotlinking that
+// image. Trying fetch() first there (and falling back to <img> on failure,
+// as this used to) sends TWO requests for the same resource; against
+// Google's CDN specifically that double-hit was observed tripping some
+// anti-abuse/content-sniffing response that Chrome's Opaque Response
+// Blocking then rejects for BOTH requests — including the <img> fallback,
+// so the photo silently never appeared (reported live as "I don't see
+// people's profile pictures").
+const SUPABASE_HOST = (() => {
+  try { return new URL(import.meta.env.VITE_SUPABASE_URL).host } catch { return null }
+})()
+const avatarBlobCache = new Map()   // url -> { url: blobUrl }
 const avatarInflight  = new Set()
+function isOwnSupabaseUrl(url) {
+  try { return SUPABASE_HOST && new URL(url).host === SUPABASE_HOST } catch { return false }
+}
 function useAvatarSrc(url) {
   const [, force] = React.useReducer(x => x + 1, 0)
+  const cacheable = url && isOwnSupabaseUrl(url)
   React.useEffect(() => {
-    if (!url || avatarBlobCache.has(url) || avatarInflight.has(url)) return
+    if (!cacheable || avatarBlobCache.has(url) || avatarInflight.has(url)) return
     avatarInflight.add(url)
     fetch(url)
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.blob() })
       .then(b => avatarBlobCache.set(url, { url: URL.createObjectURL(b) }))
-      .catch(() => avatarBlobCache.set(url, {}))
+      .catch(() => {})   // leave uncached — render falls back to the raw url below
       .finally(() => { avatarInflight.delete(url); force() })
-  }, [url])
+  }, [url, cacheable])
   if (!url) return url
+  if (!cacheable) return url
   return avatarBlobCache.get(url)?.url || url
 }
 

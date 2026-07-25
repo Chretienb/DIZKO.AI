@@ -4,7 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale/user-scalable=no keep the native app shell feeling native
+         (no pinch-zoom on UI chrome, reported live as "why does it zoom in").
+         iOS Safari itself ignores this on regular web pages for accessibility
+         (has since iOS 10), so it only actually takes effect inside the
+         Capacitor WKWebView where it belongs — the mobile web experience is
+         unaffected. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>dizko.ai</title>
     <!-- App name everywhere the browser / OS reads it (tab, installed PWA, iOS home screen) -->
     <meta name="application-name" content="dizko.ai" />

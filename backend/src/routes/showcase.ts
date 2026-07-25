@@ -57,7 +57,7 @@ showcase.get('/me', async (c) => {
   const [{ data: prof }, { data: items }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed, music_embed, music_embeds')
+      .select('handle, display_name, bio, avatar_url, links, profile_public, follower_count, following_count, spotify_embed, music_embed, music_embeds, deletion_requested_at')
       .eq('id', me).maybeSingle(),
     supabase
       .from('showcase_items')

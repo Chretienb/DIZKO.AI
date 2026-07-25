@@ -16,6 +16,7 @@ import ProjectCard from '../components/ProjectCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import Hero from '../components/dashboard/Hero.jsx'
 import CoachMark from '../components/CoachMark.jsx'
+import NotificationBell from '../components/NotificationBell.jsx'
 import welcomeImg      from '../assets/marketing/synth-desk.jpg'
 import noProjectsVideo from '../assets/marketing/boombox-loop.mp4'
 import noProjectsPoster from '../assets/marketing/boombox-poster.jpg'
@@ -258,10 +259,16 @@ export default function PageDashboard({ openModal, user, playTrack }) {
         {/* ── Page header ── */}
         <motion.div {...rise(0)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, margin:'0 0 22px' }}>
           <h1 style={{ margin:0, fontSize:isMobile ? 22 : 26, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Dashboard</h1>
-          <Button ref={newProjectBtnRef} variant="brand" onClick={() => openModal('new-project', {})}>
-            <Plus/>
-            New Project
-          </Button>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {/* The bell used to live only in the sidebar, which mobile no
+                longer has (bottom tab bar + Settings sheet replaced it) —
+                without this it wasn't reachable from the main screen at all. */}
+            {isMobile && <NotificationBell user={user}/>}
+            <Button ref={newProjectBtnRef} variant="secondary" size="sm" onClick={() => openModal('new-project', {})}>
+              <Plus/>
+              New Project
+            </Button>
+          </div>
         </motion.div>
 
         {showProjectHint && !hasProjects && (

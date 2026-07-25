@@ -54,7 +54,8 @@ const TermsPage   = lazy(() => import('./pages/Legal.jsx').then(m => ({ default:
 const PrivacyPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.PrivacyPage })))
 const CookiesPage = lazy(() => import('./pages/Legal.jsx').then(m => ({ default: m.CookiesPage })))
 import NotificationBell, { NotificationsPage } from './components/NotificationBell.jsx'
-import { House, UsersThree, ChartBar, ChatCircle, UserCircle, Compass, Plus as PhPlus, Sun, Moon } from '@phosphor-icons/react'
+import { House, UsersThree, ChartBar, ChatCircle, UserCircle, Compass, Plus as PhPlus, Sun, Moon, Gear } from '@phosphor-icons/react'
+import { Bell, Star, UserPlus, HelpCircle, Info, FileText, ChevronRight } from 'lucide-react'
 import { toast as sonnerToast } from 'sonner'
 import { Toaster } from './components/ui/sonner.jsx'
 import { Avatar as SharedAvatar } from './components/ui/index.jsx'
@@ -63,7 +64,7 @@ import MiniPlayer from './components/MiniPlayer.jsx'
 import {
   ModalProject, ModalNewProject, ModalAccountSettings, ModalBilling,
   ModalKeyboardShortcuts, ModalMessage, ModalViewWork,
-  ModalNewTrack, ModalUpload, ModalUpgradeRequired,
+  ModalNewTrack, ModalUpload, ModalUpgradeRequired, ModalDeleteAccount, ModalReport,
 } from './components/modals.jsx'
 const PageAccount = lazy(() => import('./pages/Account.jsx'))
 const PageHelp    = lazy(() => import('./pages/Help.jsx'))
@@ -155,7 +156,7 @@ function useConfirm() {
 }
 import { projects as projectsApi, analytics as analyticsApi, files as filesApi, collaborators as collabsApi, invitations as invitationsApi, messagesApi, auth as authApi, smartBounce as smartBounceApi, notificationsApi, accessRequests, prefetch, venuesApi, youtubeApi, billingApi, foldersApi, cacheBust, showcaseApi } from './lib/api'
 import { supabase } from './lib/supabase'
-import { MobileCtx, useIsMobile } from './lib/mobile'
+import { MobileCtx, useIsMobile, MOBILE_TAB_BAR_HEIGHT } from './lib/mobile'
 import { uploadStem, setSupabaseToken } from './lib/supabase'
 
 // Module-level cache: url → ArrayBuffer
@@ -527,9 +528,16 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
   // My public-profile handle, for the sidebar Profile shortcut.
   const [myHandle, setMyHandle] = React.useState(null)
+  // Set once the user has requested account deletion (Account.jsx) — gates
+  // the whole app behind DeletionPendingScreen below until they either
+  // cancel (within the grace period) or the account is purged server-side.
+  const [deletionRequestedAt, setDeletionRequestedAt] = React.useState(null)
   React.useEffect(() => {
     if (!user?.id) return
-    showcaseApi.me().then(r => setMyHandle(r?.data?.profile?.handle || null)).catch(() => {})
+    showcaseApi.me().then(r => {
+      setMyHandle(r?.data?.profile?.handle || null)
+      setDeletionRequestedAt(r?.data?.profile?.deletion_requested_at || null)
+    }).catch(() => {})
   }, [user?.id])
   const goProfile = () => navigate('/profile')
 
@@ -798,6 +806,28 @@ export default function App({ onLogout, user, onProfileUpdate }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   useEffect(() => { setMobileNavOpen(false) }, [location.pathname])
 
+  // Shared between the desktop rail and the mobile bottom tab bar — one
+  // source of truth for the primary nav items so the two layouts can't drift.
+  const navItems = [
+    { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
+    { id:'studio',        path:'/studio',        label:'Studio',   Icon: StudioMic },
+    { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
+    { id:'inbox',         path:'/inbox',         label:'Inbox',    Icon: ChatCircle },
+    { id:'community',     path:'/community',     label:'Community', Icon: Compass },
+    { id:'profile',                              label:'Profile',  Icon: UserCircle, onClick: goProfile },
+    // Stats hidden from the rail for MVP — route + page kept, bring it back later.
+    // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
+  ]
+  // The bottom tab bar swaps Community for Settings — Community rides along
+  // in the desktop rail but doesn't make the cut for the phone's primary
+  // row, and Settings opens the same drawer that used to need a separate
+  // hamburger button (account, theme, notifications, invite, help, about,
+  // terms — everything that isn't one of the 5 primary destinations).
+  const tabBarItems = [
+    ...navItems.filter(n => n.id !== 'community'),
+    { id:'settings', label:'Settings', Icon: Gear, onClick: () => setMobileNavOpen(true) },
+  ]
+
   // ── Sidebar — musician-first, each nav item has its own track color ──────────
   const SidebarContent = () => (
     <>
@@ -826,21 +856,17 @@ export default function App({ onLogout, user, onProfileUpdate }) {
             </div>
           )}
 
-          {/* Nav — icon-only rail, or icon+label rows when expanded */}
-          <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: isMobile ? '12px 0 0' : (expanded ? '8px 10px 0' : '8px 14px 0'), flexShrink:0 }}>
-            {[
-              { id:'dashboard',     path:'/',              label:'Home',     Icon: House },
-              { id:'studio',        path:'/studio',        label:'Studio',   Icon: StudioMic },
-              { id:'collaborators', path:'/collaborators', label:'Crew',     Icon: UsersThree },
-              { id:'inbox',         path:'/inbox',         label:'Inbox',    Icon: ChatCircle },
-              { id:'community',     path:'/community',     label:'Community', Icon: Compass },
-              { id:'profile',                              label:'Profile',  Icon: UserCircle, onClick: goProfile },
-              // Stats hidden from the rail for MVP — route + page kept, bring it back later.
-              // { id:'analytics',     path:'/analytics',     label:'Stats',    Icon: ChartBar },
-            ].map(n => {
+          {/* Nav — icon-only rail, or icon+label rows when expanded. Desktop
+              only now — mobile's primary nav moved to a bottom tab bar
+              (native-app convention; a left rail read as "not a real app"
+              on a phone, reported live). This drawer is mobile's secondary
+              "More" menu now: account, theme, notifications, help. */}
+          {!isMobile && (
+          <nav style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4, padding: expanded ? '8px 10px 0' : '8px 14px 0', flexShrink:0 }}>
+            {navItems.map(n => {
               const onProfile = location.pathname.startsWith('/profile') || location.pathname.startsWith('/u/')
               const on = n.id === 'profile' ? onProfile : (!onProfile && currentNav?.id === n.id)
-              const sz = isMobile ? 38 : 44
+              const sz = 44
               return (
                 <button key={n.id} onClick={() => n.onClick ? n.onClick() : navigate(n.path)}
                   aria-label={n.label} aria-current={on ? 'page' : undefined} title={expanded ? n.label : undefined}
@@ -857,23 +883,22 @@ export default function App({ onLogout, user, onProfileUpdate }) {
                   onMouseLeave={e => { if (!on) { e.currentTarget.style.color='rgba(var(--fg),.42)'; e.currentTarget.style.background='transparent' } }}>
                   <span style={{ position:'relative', width:sz, height:sz, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
                     background: (!expanded && on) ? 'rgba(var(--fg),.1)' : 'transparent', transition:'background .12s' }}>
-                    <n.Icon size={isMobile ? 19 : 22} weight={on ? 'bold' : 'regular'} />
+                    <n.Icon size={22} weight={on ? 'bold' : 'regular'} />
                     {n.id === 'inbox' && inboxUnread > 0 && (
                       <span style={{ position:'absolute', top:2, right:2, minWidth:16, height:16, padding:'0 4px', borderRadius:8,
                         background:'#6D5AE6', color:'#fff', fontSize:9.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
                         lineHeight:1, border:'2px solid var(--bg)' }}>{inboxUnread > 99 ? '99+' : inboxUnread}</span>
                     )}
                   </span>
-                  {/* Collapsed desktop rail: icon only, no label (title tooltip covers
-                      discoverability instead). Mobile keeps its tab-bar-style label
-                      regardless — that's a different, always-compact layout. */}
-                  {(expanded || isMobile) && (
-                    <span style={{ fontSize: expanded ? 13.5 : 9, fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
+                  {/* Collapsed desktop rail: icon only, no label (title tooltip covers discoverability instead). */}
+                  {expanded && (
+                    <span style={{ fontSize:13.5, fontWeight:600, lineHeight:1, letterSpacing:'.01em', whiteSpace:'nowrap' }}>{n.label}</span>
                   )}
                 </button>
               )
             })}
           </nav>
+          )}
 
           {/* Divider */}
           <div style={{ height:1, background:'rgba(var(--fg),.07)', margin:'14px 16px', flexShrink:0 }}/>
@@ -951,9 +976,50 @@ export default function App({ onLogout, user, onProfileUpdate }) {
     </>
   )
 
+  // Blocks the whole app behind a plain cancel/log-out screen once deletion
+  // has been requested (Account.jsx) — Apple 5.1.1(v) requires deletion to
+  // actually complete, not just be "requested" forever, so this can't be
+  // dismissed except by canceling within the grace period or logging out.
+  if (deletionRequestedAt) {
+    const deleteDate = new Date(new Date(deletionRequestedAt).getTime() + 30 * 24 * 60 * 60 * 1000)
+    return (
+      <div style={{ height:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
+        background:C.outer, fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased', padding:24 }}>
+        <div style={{ maxWidth:420, width:'100%', background:C.surface, border:`1px solid ${C.border}`,
+          borderRadius:'var(--r-3)', padding:'28px 26px', textAlign:'center' }}>
+          <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(239,68,68,.12)',
+            border:'2px solid rgba(239,68,68,.22)', display:'flex', alignItems:'center', justifyContent:'center',
+            margin:'0 auto 16px' }}>
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+            </svg>
+          </div>
+          <h1 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:C.t1 }}>Account scheduled for deletion</h1>
+          <p style={{ margin:'0 0 22px', fontSize:13.5, color:C.t2, lineHeight:1.6 }}>
+            Your account and everything in it will be permanently deleted on{' '}
+            <strong style={{ color:C.t1 }}>{deleteDate.toLocaleDateString(undefined, { month:'long', day:'numeric', year:'numeric' })}</strong>.
+            Log back in before then to cancel.
+          </p>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={async () => { await authApi.cancelDeleteAccount().catch(() => {}); setDeletionRequestedAt(null) }}
+              style={{ flex:1, height:42, borderRadius:10, border:'none', cursor:'pointer',
+                background:'#ef4444', color:'#fff', fontSize:13.5, fontWeight:700, fontFamily:'inherit' }}>
+              Cancel deletion
+            </button>
+            <button onClick={onLogout}
+              style={{ flex:1, height:42, borderRadius:10, border:'none', cursor:'pointer',
+                background:'rgba(var(--fg),.06)', color:C.t2, fontSize:13.5, fontWeight:600, fontFamily:'inherit' }}>
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <MobileCtx.Provider value={isMobile}>
-    <div style={{ height:'100vh', display:'flex', overflow:'hidden', background:C.outer,
+    <div style={{ height: isMobile ? '100dvh' : '100vh', display:'flex', overflow:'hidden', background:C.outer,
       fontFamily:'var(--font-ui)',
       WebkitFontSmoothing:'antialiased', color:C.t1 }}>
 
@@ -965,29 +1031,97 @@ export default function App({ onLogout, user, onProfileUpdate }) {
           52px permanently to an icon strip ══════════════════════════════ */}
       {isMobile ? (
         <>
-          <button onClick={() => setMobileNavOpen(true)} aria-label="Open menu"
-            style={{ position:'fixed', top:10, left:10, zIndex:60, width:34, height:34, borderRadius:9,
-              border:'none', background:'rgba(var(--fg),.06)', color:'var(--t1)', cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)' }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-          </button>
+          {/* No floating hamburger anymore — the bottom tab bar's Settings
+              item opens this same drawer now (reported live: a leftover
+              hamburger read as redundant once the tab bar existed). */}
           {mobileNavOpen && (
             <>
-              <div onClick={() => setMobileNavOpen(false)} aria-hidden="true"
-                style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.82)', zIndex:500, animation:'fadeIn .15s ease' }}/>
-              <aside role="dialog" aria-modal="true" aria-label="Navigation"
-                style={{ position:'fixed', top:0, left:0, bottom:0, width:76, background:'var(--bg)', zIndex:501,
-                  display:'flex', flexDirection:'column', boxShadow:'6px 0 28px rgba(0,0,0,.5)', animation:'slideInNav .18s ease' }}>
-                <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu"
-                  style={{ margin:'10px 0 0 10px', width:30, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.06)',
-                    color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-                <SidebarContent />
+              {/* Above the bottom tab bar's z:1000 (not below, like before) —
+                  this is a modal overlay now, and needs to cover the tab bar
+                  rather than have the tab bar paint over its own bottom
+                  controls (theme/notifications/avatar), which is what a
+                  lower z-index did. */}
+              {/* Full-screen page, not a side drawer — a 76px-wide strip
+                  reused for this read as "a sidebar snuck back in" once the
+                  bottom tab bar existed (reported live). Settings gets the
+                  whole screen like Account/Help/About already do. */}
+              <div aria-hidden="true"
+                style={{ position:'fixed', inset:0, background:'var(--bg)', zIndex:1500, animation:'fadeIn .15s ease' }}/>
+              <aside role="dialog" aria-modal="true" aria-label="Settings"
+                style={{ position:'fixed', inset:0, background:'var(--bg)', zIndex:1501,
+                  display:'flex', flexDirection:'column', overflowY:'auto', animation:'slideUpNav .2s cubic-bezier(.32,.72,0,1)',
+                  paddingTop:'env(safe-area-inset-top)', paddingBottom:'env(safe-area-inset-bottom)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 6px' }}>
+                  <h1 style={{ margin:0, fontSize:22, fontWeight:650, color:'var(--t1)', letterSpacing:'-.7px' }}>Settings</h1>
+                  <button onClick={() => setMobileNavOpen(false)} aria-label="Close settings"
+                    style={{ width:30, height:30, borderRadius:8, border:'none', background:'rgba(var(--fg),.06)',
+                      color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+
+                <div style={{ maxWidth:560, width:'100%', margin:'0 auto', padding:'10px 16px 40px', boxSizing:'border-box' }}>
+                  {/* Same card-row language as /account (Row component there) —
+                      border+surface card, icon/label/sub, chevron, grouped
+                      under a mono uppercase eyebrow. Was a flat divided list
+                      before; this is the pattern the rest of the app already
+                      settled on for "settings", so Settings should look like
+                      it belongs to the same app. */}
+                  <button onClick={() => { setMobileNavOpen(false); navigate('/account') }}
+                    style={{ display:'flex', alignItems:'center', gap:13, width:'100%', padding:'14px', marginBottom:20,
+                      borderRadius:13, border:'1px solid var(--border)', background:'var(--surface)', cursor:'pointer',
+                      textAlign:'left', fontFamily:'inherit' }}>
+                    <SharedAvatar name={user?.full_name} url={user?.avatar_url} size={42} border="none"/>
+                    <span style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14.5, fontWeight:650, color:'var(--t1)', letterSpacing:'-.2px' }}>{user?.full_name || 'Account'}</div>
+                      <div style={{ fontSize:12, color:'var(--t4)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.email}</div>
+                    </span>
+                    <ChevronRight size={14} strokeWidth={2} style={{ flexShrink:0, color:'var(--t4)' }}/>
+                  </button>
+
+                  {[
+                    { eyebrow:'Preferences', rows:[
+                      { Icon:Bell, label:'Notifications', onClick:() => navigate('/notifications') },
+                      { Icon: resolvedTheme === 'dark' ? Moon : Sun, label:'Appearance', badge: resolvedTheme === 'dark' ? 'Dark' : 'Light', onClick:toggleTheme, keepOpen:true },
+                    ]},
+                    { eyebrow:'Community', rows:[
+                      { Icon:Star, label:'dizko Crew', sub:'Referral rewards', onClick:() => navigate('/crew') },
+                      { Icon:UserPlus, label:'Invite friends', onClick:() => openModal('invite', {}) },
+                    ]},
+                    { eyebrow:'Support', rows:[
+                      { Icon:HelpCircle, label:'Help', onClick:() => navigate('/help') },
+                      { Icon:Info, label:'About', onClick:() => navigate('/about') },
+                      { Icon:FileText, label:'Terms & Policies', onClick:() => navigate('/terms') },
+                    ]},
+                  ].map(group => (
+                    <div key={group.eyebrow} style={{ marginBottom:20 }}>
+                      <div style={{ fontFamily:'var(--font-mono)', fontSize:10, fontWeight:500, letterSpacing:'.14em',
+                        textTransform:'uppercase', color:'var(--brand)', marginBottom:10 }}>{group.eyebrow}</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                        {group.rows.map(row => (
+                          <button key={row.label} onClick={() => { if (!row.keepOpen) setMobileNavOpen(false); row.onClick() }}
+                            style={{ display:'flex', alignItems:'center', gap:13, width:'100%', padding:'13px 14px',
+                              borderRadius:13, border:'1px solid var(--border)', background:'var(--surface)', cursor:'pointer',
+                              textAlign:'left', fontFamily:'inherit' }}>
+                            <row.Icon size={17} strokeWidth={1.8} style={{ flexShrink:0, color:'var(--t3)' }}/>
+                            <span style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:13.5, fontWeight:500, color:'var(--t1)', letterSpacing:'-.1px' }}>{row.label}</div>
+                              {row.sub && <div style={{ fontSize:11.5, color:'var(--t4)', marginTop:2 }}>{row.sub}</div>}
+                            </span>
+                            {row.badge && (
+                              <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, fontWeight:500, color:'var(--t3)', flexShrink:0 }}>{row.badge}</span>
+                            )}
+                            <ChevronRight size={14} strokeWidth={2} style={{ flexShrink:0, color:'var(--t4)' }}/>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </aside>
               <style>{`
                 @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
-                @keyframes slideInNav { from { transform:translateX(-100%) } to { transform:translateX(0) } }
+                @keyframes slideUpNav { from { transform:translateY(24px); opacity:0 } to { transform:translateY(0); opacity:1 } }
               `}</style>
             </>
           )}
@@ -999,11 +1133,12 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════════════════════ */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height:'100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, height: isMobile ? '100dvh' : '100vh', background:C.bg, backgroundImage:'radial-gradient(ellipse at 20% 0%, rgba(99,102,241,.06) 0%, transparent 60%)' }}>
 
         <main id="main-content" tabIndex={-1} style={{ flex:1, overflowY:'auto', overflowX:'hidden', minWidth:0, background:C.bg,
-          padding: isMobile ? '52px 12px 14px' : '24px',
-          paddingBottom: nowPlaying ? 88 : 24, outline:'none' }}>
+          WebkitOverflowScrolling:'touch',
+          padding: isMobile ? 'calc(16px + env(safe-area-inset-top)) 12px 14px' : '24px',
+          paddingBottom: `calc(${isMobile ? MOBILE_TAB_BAR_HEIGHT : 0}px + ${nowPlaying ? 88 : 24}px + env(safe-area-inset-bottom))`, outline:'none' }}>
           <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><Spinner size={24}/></div>}>
           <Routes>
             <Route path="/"              element={<PageDashboardNew playing={playing} setPlay={setPlay} drag={drag} setDrag={setDrag} openModal={openModal} user={user} playTrack={playTrack} />} />
@@ -1040,6 +1175,50 @@ export default function App({ onLogout, user, onProfileUpdate }) {
 
       </div>
 
+      {/* ══ MOBILE BOTTOM TAB BAR — native-app convention; replaces the left
+          rail on phone widths (a left rail read as "not a real app" on a
+          phone, reported live). Settings opens the drawer that holds
+          everything else (account/theme/notifications/invite/help/about/
+          terms) — no separate hamburger button anymore. ═══════════════════ */}
+      {isMobile && (
+        <nav aria-label="Primary" style={{
+          position:'fixed', left:0, right:0, bottom:0, zIndex:1000,
+          height:`calc(${MOBILE_TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
+          paddingBottom:'env(safe-area-inset-bottom)',
+          display:'flex', alignItems:'stretch', justifyContent:'space-around',
+          // Opaque background, no backdrop-filter — blur on a fixed element
+          // that repaints on every scroll frame is expensive on mobile GPUs
+          // and was the likely cause of the black flash during fast scroll
+          // (reported live); it bought nothing visually since var(--bg) here
+          // is already fully opaque, nothing shows through to blur.
+          background:'var(--bg)', borderTop:'1px solid rgba(var(--fg),.08)',
+        }}>
+          {tabBarItems.map(n => {
+            const onProfile = location.pathname.startsWith('/profile') || location.pathname.startsWith('/u/')
+            const on = n.id === 'settings' ? mobileNavOpen
+              : n.id === 'profile' ? onProfile
+              : (!onProfile && currentNav?.id === n.id)
+            return (
+              <button key={n.id} onClick={() => n.onClick ? n.onClick() : navigate(n.path)}
+                aria-label={n.label} aria-current={on ? 'page' : undefined}
+                style={{ flex:1, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit',
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3,
+                  color: on ? 'var(--brand)' : 'rgba(var(--fg),.45)', transition:'color .12s' }}>
+                <span style={{ position:'relative', display:'flex' }}>
+                  <n.Icon size={22} weight={on ? 'bold' : 'regular'}/>
+                  {n.id === 'inbox' && inboxUnread > 0 && (
+                    <span style={{ position:'absolute', top:-3, right:-6, minWidth:15, height:15, padding:'0 3px', borderRadius:8,
+                      background:'#6D5AE6', color:'#fff', fontSize:9, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                      lineHeight:1, border:'2px solid var(--bg)' }}>{inboxUnread > 99 ? '99+' : inboxUnread}</span>
+                  )}
+                </span>
+                <span style={{ fontSize:9.5, fontWeight:600, letterSpacing:'.01em' }}>{n.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+      )}
+
       {/* ══ MODALS ═══════════════════════════════════════════════════════════ */}
       {nowPlaying && (
         <MiniPlayer
@@ -1062,6 +1241,8 @@ export default function App({ onLogout, user, onProfileUpdate }) {
       {modal?.type==='new-track'   && <ModalNewTrack   project={modal.data?.project}  onClose={closeModal} onCreated={() => {}} />}
       {modal?.type==='upload'      && <ModalUpload     project={modal.data?.project}  folderId={modal.data?.folderId} onClose={closeModal} user={user} addToast={addToast} updateToast={updateToast} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
       {modal?.type==='upgrade-required' && <ModalUpgradeRequired title={modal.data?.title} message={modal.data?.message} onClose={closeModal} onUpgrade={() => setModal({ type: 'billing', data: {} })} />}
+      {modal?.type==='delete-account'   && <ModalDeleteAccount onClose={closeModal} onDeleted={() => { onLogout(); navigate('/login') }} />}
+      {modal?.type==='report'           && <ModalReport targetType={modal.data?.targetType} targetId={modal.data?.targetId} targetLabel={modal.data?.targetLabel} onClose={closeModal} />}
       <Toaster position="top-right" offset={16} />
     </div>
     </MobileCtx.Provider>

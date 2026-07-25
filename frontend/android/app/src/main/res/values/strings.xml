@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dizko</string>
+    <string name="title_activity_main">Dizko</string>
+    <string name="package_name">ai.dizko.app</string>
+    <string name="custom_url_scheme">ai.dizko.app</string>
+</resources>

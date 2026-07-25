@@ -253,6 +253,19 @@ html, body, #root { height: 100%; margin: 0; padding: 0;
   font-family: var(--font-ui); }
 body { background-color: var(--outer) !important;
   transition: background-color .2s ease, color .2s ease; }
+/* Capacitor's native WKWebView wraps the page in its own UIScrollView by
+   default — without this, that native surface can pan/bounce independently
+   of our own overflow:auto containers (App.jsx's <main>, Login.jsx's page
+   column) and gets stuck mid-offset instead of springing back, since our
+   layout has nothing at the html/body level for it to legitimately scroll
+   (reported live as "can't scroll" + content shifted off the left edge).
+   Pinning html/body forces every scroll gesture through our own containers.
+   NOT position:fixed here — WebKit has a long-standing quirk where a fixed
+   <body> can itself block touch-drag from reaching nested overflow:auto
+   descendants, which would trade the offset bug for a "nothing scrolls at
+   all" bug. overflow:hidden with a definite height is enough to deny the
+   native surface any scrollable area, without that side effect. */
+html, body { overflow: hidden; overscroll-behavior: none; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 

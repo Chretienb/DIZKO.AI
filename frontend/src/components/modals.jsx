@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { C, Btn, Spinner, Avatar, LoadingBlock } from './ui/index.jsx'
 import { useConfirm } from '../lib/useConfirm.js'
-import { useIsMobile } from '../lib/mobile'
+import { useIsMobile, IS_NATIVE } from '../lib/mobile'
+import { Browser } from '@capacitor/browser'
 import { projects as projectsApi, files as filesApi, collaborators as collabsApi,
          invitations as invitationsApi, messagesApi, auth as authApi,
-         accessRequests, billingApi, foldersApi, cacheBust } from '../lib/api'
+         accessRequests, billingApi, foldersApi, cacheBust, reportsApi } from '../lib/api'
 import { supabase, uploadStem, setSupabaseToken } from '../lib/supabase'
 import { getToken, timeAgo, firstName } from '../lib/utils.js'
 import { collabName, collabInitials, collabEmail, collabColor } from '../lib/collab.js'
@@ -195,12 +196,19 @@ export function ModalProject({ project, onClose, openModal, playTrack, nowPlayin
                   fontSize:12, fontWeight:800, color }}>{collabInitials(c)}</div>
                 <span style={{ fontSize:10, color:C.t3, fontWeight:600 }}>{collabName(c).split(' ')[0]}</span>
                 {isOwner && (
+                  // 28px invisible tap zone around the 15px visual badge — the
+                  // badge itself was the whole hit target before, too small
+                  // to reliably thumb-tap over someone's avatar (reported live).
                   <button onClick={() => removeCollab(c.id)} disabled={removingId === c.id}
-                    style={{ position:'absolute', top:-3, right:-3, width:15, height:15, borderRadius:'50%',
-                      border:'1.5px solid #fff', background:'#ef4444', cursor:'pointer',
+                    aria-label={`Remove ${collabName(c)}`}
+                    style={{ position:'absolute', top:-10, right:-10, width:28, height:28, borderRadius:'50%',
+                      border:'none', background:'transparent', cursor:'pointer',
                       display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
-                    {removingId === c.id ? <Spinner size={6} color="#fff"/>
-                      : <svg width={6} height={6} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3}><path d="M18 6L6 18M6 6l12 12"/></svg>}
+                    <span style={{ width:15, height:15, borderRadius:'50%', border:'1.5px solid #fff', background:'#ef4444',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      {removingId === c.id ? <Spinner size={6} color="#fff"/>
+                        : <svg width={6} height={6} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3}><path d="M18 6L6 18M6 6l12 12"/></svg>}
+                    </span>
                   </button>
                 )}
               </div>
@@ -612,6 +620,34 @@ export function ModalBilling({ onClose, billingStatus, billingLoaded }) {
   ]
   const selected = PLANS.find(p => p.id === selPlan) ?? PLANS[0]
 
+  // Apple rejects apps that sell/upsell subscriptions in-app outside StoreKit
+  // (Guideline 3.1.1) — the web app keeps the real pricing + Stripe Checkout
+  // below untouched, but the native iOS/Android build gets this instead:
+  // no pricing, no buy button, just a handoff to the system browser where
+  // the same web checkout flow is unrestricted.
+  if (IS_NATIVE) {
+    return (
+      <Modal title="Upgrade your plan" onClose={onClose} accent={C.coral}>
+        <div style={{ textAlign:'center', padding:'8px 0 4px' }}>
+          <div style={{ width:56, height:56, borderRadius:'50%', background:`${C.coral}12`,
+            border:`2px solid ${C.coral}22`, display:'flex', alignItems:'center',
+            justifyContent:'center', margin:'0 auto 16px' }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.coral} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <p style={{ color:C.t2, fontSize:13.5, margin:'0 0 22px', lineHeight:1.6 }}>
+            Plans are managed on dizko.ai. Continue in Safari to upgrade — your account updates instantly, so you'll be all set back here.
+          </p>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={() => Browser.open({ url: 'https://app.dizko.ai/account' })} style={{ flex:1 }}>Continue in Safari</Btn>
+            <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Not now</Btn>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+
   async function handleCheckout(planId = selPlan) {
     setActing(true); setActingPlan(planId)
     setErr('')
@@ -888,6 +924,135 @@ export function ModalUpgradeRequired({ title, message, onClose, onUpgrade }) {
           <Btn onClick={() => { onClose(); onUpgrade?.() }} style={{ flex:1 }}>See plans</Btn>
           <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Not now</Btn>
         </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── MODAL: DELETE ACCOUNT ──────────────────────────────────────────────────
+// In-app self-service deletion — Apple 5.1.1(v) requires this be initiable
+// from within the app, an "email support" link alone doesn't satisfy it.
+// Two-tap confirm (useConfirm, same pattern as remove-collaborator/delete-
+// message elsewhere) rather than a typed-confirmation field — this is already
+// gated behind Account > this modal > this button, three deliberate taps in.
+export function ModalDeleteAccount({ onClose, onDeleted }) {
+  const { pending, arm } = useConfirm()
+  const [busy, setBusy] = useState(false)
+  const [err,  setErr]  = useState('')
+
+  const handleDelete = async () => {
+    if (!arm('delete')) return
+    setBusy(true); setErr('')
+    try {
+      await authApi.deleteAccount()
+      onDeleted()
+    } catch (e) {
+      setErr(e.message || 'Something went wrong — try again')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title="Delete your account" onClose={onClose} accent="#ef4444">
+      <div style={{ textAlign:'center', padding:'8px 0 4px' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(239,68,68,.12)',
+          border:'2px solid rgba(239,68,68,.22)', display:'flex', alignItems:'center',
+          justifyContent:'center', margin:'0 auto 16px' }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+          </svg>
+        </div>
+        <p style={{ color:C.t2, fontSize:13.5, margin:'0 0 8px', lineHeight:1.6 }}>
+          This permanently removes your profile, projects, stems, and showcase. Any active subscription is canceled immediately.
+        </p>
+        <p style={{ color:C.t3, fontSize:12, margin:'0 0 22px', lineHeight:1.6 }}>
+          You have 30 days to change your mind — just log back in and cancel. After that it can't be undone.
+        </p>
+        {err && (
+          <div style={{ padding:'9px 12px', borderRadius:9, background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',
+            color:'#ef4444', fontSize:12.5, marginBottom:14 }}>{err}</div>
+        )}
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={handleDelete} disabled={busy} type="button"
+            style={{ flex:1, height:42, borderRadius:10, border:'none', cursor: busy ? 'default' : 'pointer',
+              background:'#ef4444', color:'#fff', fontSize:13.5, fontWeight:700, fontFamily:'inherit', opacity: busy ? .6 : 1,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            {busy ? <><Spinner size={13} color="#fff"/> Deleting…</> : pending === 'delete' ? 'Tap again to confirm' : 'Delete my account'}
+          </button>
+          <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Cancel</Btn>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── MODAL: REPORT ──────────────────────────────────────────────────────────
+// Apple 1.2 (user-generated content) requires a way to report objectionable
+// content/users that's separate from a reporter's own block list — this
+// reaches the team directly (routes/reports.ts emails team@dizko.ai on
+// submit), not just a silent flag nobody looks at.
+const REPORT_REASONS = [
+  ['spam',                  'Spam'],
+  ['harassment',            'Harassment or bullying'],
+  ['inappropriate_content', 'Inappropriate content'],
+  ['impersonation',         'Impersonation'],
+  ['other',                 'Something else'],
+]
+
+export function ModalReport({ targetType, targetId, targetLabel, onClose }) {
+  const [reason,  setReason]  = useState(null)
+  const [details, setDetails] = useState('')
+  const [busy,    setBusy]    = useState(false)
+  const [err,     setErr]     = useState('')
+  const [done,    setDone]    = useState(false)
+
+  const submit = async () => {
+    if (!reason) { setErr('Choose a reason first.'); return }
+    setBusy(true); setErr('')
+    try {
+      await reportsApi.submit(targetType, targetId, reason, details.trim() || undefined)
+      setDone(true)
+    } catch (e) {
+      setErr(e.message || 'Something went wrong — try again')
+    }
+    setBusy(false)
+  }
+
+  if (done) {
+    return (
+      <Modal title="Report submitted" onClose={onClose} accent={C.coral}>
+        <ModalSuccess title="Thanks — we'll take a look"
+          body="Our team reviews every report by hand, usually within a day or two."
+          onClose={onClose} accent={C.coral}/>
+      </Modal>
+    )
+  }
+
+  return (
+    <Modal title={targetLabel ? `Report ${targetLabel}` : 'Report'} onClose={onClose} accent={C.coral}>
+      <MLabel>Reason</MLabel>
+      <div style={{ marginBottom:16 }}>
+        <PillSelect options={REPORT_REASONS.map(([, label]) => label)}
+          value={REPORT_REASONS.find(([code]) => code === reason)?.[1] ?? null}
+          onChange={label => setReason(REPORT_REASONS.find(([, l]) => l === label)?.[0] ?? null)} />
+      </div>
+      <MLabel>Details (optional)</MLabel>
+      <textarea value={details} onChange={e => setDetails(e.target.value.slice(0, 1000))} rows={4}
+        placeholder="Anything that'll help us understand what happened…"
+        style={{ width:'100%', resize:'vertical', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`,
+          background:C.surface2, color:C.t1, fontSize:13, fontFamily:'inherit', marginBottom:16 }}/>
+      {err && (
+        <div style={{ padding:'9px 12px', borderRadius:9, background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',
+          color:'#ef4444', fontSize:12.5, marginBottom:14 }}>{err}</div>
+      )}
+      <div style={{ display:'flex', gap:8 }}>
+        <button onClick={submit} disabled={busy} type="button"
+          style={{ flex:1, height:42, borderRadius:10, border:'none', cursor: busy ? 'default' : 'pointer',
+            background:C.coral, color:'#fff', fontSize:13.5, fontWeight:700, fontFamily:'inherit', opacity: busy ? .6 : 1,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          {busy ? <><Spinner size={13} color="#fff"/> Submitting…</> : 'Submit report'}
+        </button>
+        <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>Cancel</Btn>
       </div>
     </Modal>
   )
@@ -1931,9 +2096,14 @@ export function ModalUpload({ project, folderId, folderName, onClose, user, addT
                 {item.status === 'error'    && <div style={{ width:18, height:18, borderRadius:'50%', background:'#ef4444', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></div>}
                 {item.status === 'uploading' && <div style={{ flexShrink:0 }}><Spinner size={18}/></div>}
                 {item.status === 'queued' && !uploading && (
-                  <button onClick={() => removeFile(i)} style={{ background:'none', border:'none',
-                    cursor:'pointer', color:'#ccc', display:'flex', alignItems:'center',
-                    padding:3, borderRadius:6 }}>
+                  // Explicit 30px tap zone, not just the icon's own bounds
+                  // (was a 10px icon + 3px padding = ~16px effective target —
+                  // too small to reliably remove one file from a batch on a
+                  // phone, reported live).
+                  <button onClick={() => removeFile(i)} aria-label={`Remove ${item.file.name}`}
+                    style={{ background:'none', border:'none', width:30, height:30,
+                    cursor:'pointer', color:'#ccc', display:'flex', alignItems:'center', justifyContent:'center',
+                    padding:0, borderRadius:6, flexShrink:0 }}>
                     <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 )}

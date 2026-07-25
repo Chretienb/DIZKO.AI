@@ -1,16 +1,20 @@
 import React from 'react'
 import { C } from '../components/ui/index.jsx'
+import { MobileCtx } from '../lib/mobile.js'
 import Clip from './Clip.jsx'
 import Ruler from './Ruler.jsx'
 import ClipContextMenu from './ClipContextMenu.jsx'
 import { resolveClipPlacement } from './clipPlacement.js'
 import { getStemDurationSec, getClipDurationSec, computeTimelineDurationSec } from './clipScheduling.js'
 import { snapMs } from './snap.js'
-import { ROW_HEIGHT, ROW_GAP, DEFAULT_PIXELS_PER_MS, MIN_PIXELS_PER_MS, MAX_PIXELS_PER_MS, MIN_CLIP_MS, LANE_HEADER_WIDTH } from './timelineConstants.js'
+import { ROW_HEIGHT, ROW_HEIGHT_MOBILE, ROW_GAP, ROW_GAP_MOBILE, DEFAULT_PIXELS_PER_MS, MIN_PIXELS_PER_MS, MAX_PIXELS_PER_MS, MIN_CLIP_MS, LANE_HEADER_WIDTH, LANE_HEADER_WIDTH_MOBILE } from './timelineConstants.js'
 
 const HIGHLIGHT_BG = 'rgba(139,92,246,.10)'   // violet accent, matches the app's dark/violet/coral palette
 const HIGHLIGHT_BORDER = 'rgba(139,92,246,.35)'
-const RULER_ROW_HEIGHT = 29   // Ruler's own height (28) + its 1px bottom border — the header column's spacer must match exactly so lane rows line up with clip rows
+const RULER_HEIGHT = 28   // Ruler's own height — the header column's spacer must match exactly (+1 for its bottom border) so lane rows line up with clip rows
+const RULER_HEIGHT_MOBILE = 22
+const RULER_ROW_HEIGHT = RULER_HEIGHT + 1
+const RULER_ROW_HEIGHT_MOBILE = RULER_HEIGHT_MOBILE + 1
 
 const MuteGlyph = ({ muted }) => (
   <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
@@ -51,6 +55,10 @@ export default function Timeline({
   mutedIds, soloId, onToggleMute, onToggleSolo,
   durationOverrides,
 }) {
+  const isMobile = React.useContext(MobileCtx)
+  const laneHeaderWidth = isMobile ? LANE_HEADER_WIDTH_MOBILE : LANE_HEADER_WIDTH
+  const rowHeight = isMobile ? ROW_HEIGHT_MOBILE : ROW_HEIGHT
+  const rowGap = isMobile ? ROW_GAP_MOBILE : ROW_GAP
   const [pixelsPerMs, setPixelsPerMs] = React.useState(DEFAULT_PIXELS_PER_MS)
   const [contextMenu, setContextMenu] = React.useState(null)   // { clipId, x, y } | null
 
@@ -131,7 +139,7 @@ export default function Timeline({
     if (target < DEFAULT_PIXELS_PER_MS) setPixelsPerMs(Math.max(MIN_PIXELS_PER_MS, target))
   }, [totalDurationSec])
   const contentWidthPx = Math.max(600, (totalDurationSec * 1000 + 8000) * pixelsPerMs)   // trailing padding so there's always room to drop past the last clip
-  const contentHeightPx = displayTrackIndices.length * (ROW_HEIGHT + ROW_GAP)
+  const contentHeightPx = displayTrackIndices.length * (rowHeight + rowGap)
 
   const clearRowHighlight = () => {
     rowRefs.current.forEach(el => { if (el) { el.style.background = ''; el.style.borderColor = 'transparent' } })
@@ -151,7 +159,7 @@ export default function Timeline({
     const clip = clips.find(c => c.id === clipId)
     if (!clip) return
     const fromRow = rowPositionForTrackIndex(clip.track_index)
-    const targetRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.round(fromRow + dy / (ROW_HEIGHT + ROW_GAP))))
+    const targetRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.round(fromRow + dy / (rowHeight + rowGap))))
     highlightRow(targetRow)
   }
 
@@ -161,7 +169,7 @@ export default function Timeline({
     if (!clip) return
 
     const fromRow = rowPositionForTrackIndex(clip.track_index)
-    const targetRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.round(fromRow + dy / (ROW_HEIGHT + ROW_GAP))))
+    const targetRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.round(fromRow + dy / (rowHeight + rowGap))))
     const targetTrackIndex = displayTrackIndices[targetRow]
 
     const rawStartMs = Math.max(0, (clip.start_offset_ms || 0) + dx / pixelsPerMs)
@@ -280,7 +288,7 @@ export default function Timeline({
     const rect = scrollRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left + scrollRef.current.scrollLeft
     const y = e.clientY - rect.top + scrollRef.current.scrollTop
-    const rawRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.floor(y / (ROW_HEIGHT + ROW_GAP))))
+    const rawRow = Math.max(0, Math.min(displayTrackIndices.length - 1, Math.floor(y / (rowHeight + rowGap))))
     const trackIndex = displayTrackIndices[rawRow]
     const rawMs = Math.max(0, x / pixelsPerMs)
     const startOffsetMs = snapMs(rawMs, { bpm, snapOn })
@@ -317,35 +325,41 @@ export default function Timeline({
         .dz-timeline-scroll::-webkit-scrollbar-thumb { background: ${C.border2 || C.border}; border-radius: 6px; }
         .dz-timeline-scroll::-webkit-scrollbar-thumb:hover { background: ${C.t3}; }
       `}</style>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6, padding:'0 0 8px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', flexWrap:'wrap', gap:6, padding:'0 0 8px' }}>
         {/* Snap lives here now — the "TIMELINE" title strip it sat in was
             removed (a whole sticky bar spent on a label). */}
         {onToggleSnap && (
           <button onClick={onToggleSnap} aria-pressed={snapOn} title={snapOn ? 'Snap to grid (on)' : 'Snap to grid (off) — free placement'}
-            style={{ display:'flex', alignItems:'center', gap:5, height:26, padding:'0 10px', borderRadius:7, fontFamily:'inherit',
+            style={{ display:'flex', alignItems:'center', gap: isMobile ? 4 : 5, height: isMobile ? 22 : 26, padding: isMobile ? '0 8px' : '0 10px', borderRadius:7, fontFamily:'inherit',
               marginRight:'auto', border:'none', background: snapOn ? 'rgba(var(--fg),.09)' : 'rgba(var(--fg),.04)',
-              color: snapOn ? C.t1 : C.t3, fontSize:11, fontWeight:500, cursor:'pointer' }}>
+              color: snapOn ? C.t1 : C.t3, fontSize: isMobile ? 10 : 11, fontWeight:500, cursor:'pointer' }}>
             <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 3v11a5 5 0 0010 0V3"/><line x1="6" y1="3" x2="10" y2="3"/><line x1="14" y1="3" x2="18" y2="3"/></svg>
             Snap
           </button>
         )}
         {/* Borderless soft-fill buttons — same de-emphasis pass as the rest
-            of the console (no outlined/bold chrome). */}
+            of the console (no outlined/bold chrome). These used to be
+            desktop-only on mobile (assumed a touch swipe reaches either end
+            directly) — but a swipe that starts on a clip drags it instead of
+            panning the view (Clip.jsx's touchAction:none, needed for the
+            move gesture), so back-to-back clips leave nowhere to grab for a
+            plain scroll (reported live: "make it scrollable left/right
+            too"). Explicit buttons work regardless of what's under a finger. */}
         <button onClick={scrollToStart} aria-label="Scroll to start" title="Scroll to start"
-          style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer' }}>
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', width: isMobile ? 22 : 26, height: isMobile ? 22 : 26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer' }}>
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
         </button>
         <button onClick={scrollToEnd} aria-label="Scroll to end of song" title="Scroll to end of song"
-          style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer' }}>
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', width: isMobile ? 22 : 26, height: isMobile ? 22 : 26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer' }}>
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
         </button>
         <span style={{ width:5 }}/>
         <button onClick={zoomOut} aria-label="Zoom out" title="Zoom out"
-          style={{ width:26, height:26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize:14, fontWeight:500 }}>−</button>
+          style={{ width: isMobile ? 22 : 26, height: isMobile ? 22 : 26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize:14, fontWeight:500 }}>−</button>
         <button onClick={zoomIn} aria-label="Zoom in" title="Zoom in"
-          style={{ width:26, height:26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize:14, fontWeight:500 }}>+</button>
+          style={{ width: isMobile ? 22 : 26, height: isMobile ? 22 : 26, borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize:14, fontWeight:500 }}>+</button>
         <button onClick={zoomToFit} aria-label="Zoom to fit whole song" title="Zoom to fit whole song"
-          style={{ height:26, padding:'0 9px', borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize:11, fontWeight:500 }}>Fit</button>
+          style={{ height: isMobile ? 22 : 26, padding: isMobile ? '0 7px' : '0 9px', borderRadius:7, border:'none', background:'rgba(var(--fg),.05)', color:C.t2, cursor:'pointer', fontSize: isMobile ? 10 : 11, fontWeight:500 }}>Fit</button>
       </div>
 
       <div style={{ display:'flex', borderRadius:10, overflow:'hidden', border:`1px solid ${dragOverLibrary ? C.coral : C.border}` }}>
@@ -354,19 +368,20 @@ export default function Timeline({
             ROW_HEIGHT/ROW_GAP math, same top padding, same Ruler-height
             spacer at the top). Suno-style: color, name, mute, solo, always
             visible without needing to select a clip first. */}
-        <div style={{ width:LANE_HEADER_WIDTH, flexShrink:0, background:C.surface2, borderRight:`1px solid ${C.border}` }}>
-          <div style={{ height:RULER_ROW_HEIGHT, borderBottom:`1px solid ${C.border}` }}/>
-          <div style={{ position:'relative', height:Math.max(contentHeightPx, ROW_HEIGHT + ROW_GAP), padding:'6px 0' }}>
+        <div style={{ width:laneHeaderWidth, flexShrink:0, background:C.surface2, borderRight:`1px solid ${C.border}` }}>
+          <div style={{ height: isMobile ? RULER_ROW_HEIGHT_MOBILE : RULER_ROW_HEIGHT, borderBottom:`1px solid ${C.border}` }}/>
+          <div style={{ position:'relative', height:Math.max(contentHeightPx, rowHeight + rowGap), padding:'6px 0' }}>
             {displayTrackIndices.map((ti, i) => {
               const repStem = laneRepresentativeStem(ti)
               const color = repStem ? colorForStem(repStem) : 'rgba(var(--fg),.14)'
               const isMuted = repStem ? mutedIds?.has(repStem.id) : false
               const isSolo = repStem && soloId === repStem.id
+              const btnSize = isMobile ? 18 : 24
               return (
-                <div key={ti} style={{ position:'absolute', left:0, right:0, top:i * (ROW_HEIGHT + ROW_GAP), height:ROW_HEIGHT,
-                  display:'flex', alignItems:'center', gap:8, padding:'0 10px' }}>
-                  <span aria-hidden="true" style={{ width:4, height:ROW_HEIGHT - 26, borderRadius:2, background:color, flexShrink:0 }}/>
-                  <span style={{ flex:1, minWidth:0, fontSize:12, fontWeight:500, color: repStem ? C.t1 : C.t3,
+                <div key={ti} style={{ position:'absolute', left:0, right:0, top:i * (rowHeight + rowGap), height:rowHeight,
+                  display:'flex', alignItems:'center', gap: isMobile ? 4 : 8, padding: isMobile ? '0 5px' : '0 10px' }}>
+                  <span aria-hidden="true" style={{ width: isMobile ? 3 : 4, height:rowHeight - (isMobile ? 20 : 26), borderRadius:2, background:color, flexShrink:0 }}/>
+                  <span style={{ flex:1, minWidth:0, fontSize: isMobile ? 10 : 12, fontWeight:500, color: repStem ? C.t1 : C.t3,
                     overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {/* Display POSITION (i+1), not the raw stored track_index —
                         track_index can have gaps (a clip dragged to a high row
@@ -378,7 +393,7 @@ export default function Timeline({
                   </span>
                   {repStem && onToggleMute && (
                     <button onClick={() => onToggleMute(repStem.id)} aria-label={isMuted ? 'Unmute' : 'Mute'} aria-pressed={isMuted} title={isMuted ? 'Muted' : 'Mute'}
-                      style={{ width:24, height:24, borderRadius:7, flexShrink:0, border:`1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
+                      style={{ width:btnSize, height:btnSize, borderRadius:7, flexShrink:0, border:`1.5px solid ${isMuted ? '#f59e0b' : C.border}`,
                         background: isMuted ? '#f59e0b' : 'transparent', color: isMuted ? '#fff' : C.t3, cursor:'pointer',
                         display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <MuteGlyph muted={isMuted}/>
@@ -386,7 +401,7 @@ export default function Timeline({
                   )}
                   {repStem && onToggleSolo && (
                     <button onClick={() => onToggleSolo(repStem.id)} aria-label={isSolo ? 'Unsolo' : 'Solo'} aria-pressed={isSolo} title="Solo"
-                      style={{ width:24, height:24, borderRadius:7, flexShrink:0, border:`1.5px solid ${isSolo ? '#6366f1' : C.border}`,
+                      style={{ width:btnSize, height:btnSize, borderRadius:7, flexShrink:0, border:`1.5px solid ${isSolo ? '#6366f1' : C.border}`,
                         background: isSolo ? '#6366f1' : 'transparent', color: isSolo ? '#fff' : C.t3,
                         fontSize:10.5, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       S
@@ -398,17 +413,17 @@ export default function Timeline({
           </div>
         </div>
 
-        <div ref={scrollRef} className="dz-timeline-scroll" style={{ overflowX:'auto', overflowY:'hidden', flex:1, minWidth:0 }}
+        <div ref={scrollRef} className="dz-timeline-scroll" style={{ overflowX:'auto', overflowY:'hidden', flex:1, minWidth:0, WebkitOverflowScrolling:'touch' }}
           onDragOver={e => { e.preventDefault(); if (!dragOverLibrary) setDragOverLibrary(true) }}
           onDragLeave={e => { if (e.currentTarget === e.target) setDragOverLibrary(false) }}
           onDrop={onDropFromLibrary}>
-          <Ruler bpm={bpm} pixelsPerMs={pixelsPerMs} widthPx={contentWidthPx} onSeek={onSeek} />
+          <Ruler bpm={bpm} pixelsPerMs={pixelsPerMs} widthPx={contentWidthPx} onSeek={onSeek} height={isMobile ? RULER_HEIGHT_MOBILE : RULER_HEIGHT} />
 
-          <div style={{ position:'relative', width:contentWidthPx, height:Math.max(contentHeightPx, ROW_HEIGHT + ROW_GAP), padding:'6px 0' }}>
+          <div style={{ position:'relative', width:contentWidthPx, height:Math.max(contentHeightPx, rowHeight + rowGap), padding:'6px 0' }}>
             {/* Row backgrounds — imperative refs for drag-highlight, no re-render on hover */}
             {displayTrackIndices.map((ti, i) => (
               <div key={ti} ref={el => { rowRefs.current[i] = el }}
-                style={{ position:'absolute', left:0, right:0, top:i * (ROW_HEIGHT + ROW_GAP), height:ROW_HEIGHT,
+                style={{ position:'absolute', left:0, right:0, top:i * (rowHeight + rowGap), height:rowHeight,
                   borderRadius:8, border:'1.5px solid transparent', transition:'background .08s, border-color .08s' }}/>
             ))}
 
@@ -426,7 +441,7 @@ export default function Timeline({
                 <Clip key={clip.id}
                   clip={clip} stem={stem} label={labelForStem(stem)} color={colorForStem(stem)}
                   storedPeaks={peaksForStem ? peaksForStem(stem) : null}
-                  rowPosition={rowPositionForTrackIndex(clip.track_index)}
+                  rowPosition={rowPositionForTrackIndex(clip.track_index)} rowHeight={rowHeight} rowGap={rowGap}
                   pixelsPerMs={pixelsPerMs} durationMs={durationMsForClip(clip, stem)} stemDurationMs={stemDurationMs(stem)}
                   selected={selectedClipId === clip.id}
                   playheadSec={playheadSec} isPlaying={isPlaying}

@@ -172,10 +172,18 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div style={{ height:'100vh', overflow: isMobile ? 'auto' : 'hidden', background:'var(--bg)',
-      fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased', display:'flex', flexDirection:'column' }}>
+    <div style={{ height: isMobile ? '100dvh' : '100vh', overflow: isMobile ? 'auto' : 'hidden', background:'var(--bg)',
+      fontFamily:'var(--font-ui)', WebkitFontSmoothing:'antialiased', display:'flex', flexDirection:'column',
+      // Native wrapper (Capacitor) draws behind the status bar / home indicator —
+      // the equivalent web build never needed this since the browser chrome
+      // already carved out that space (reported live: header under the clock,
+      // no way to scroll to it). flex:1/minHeight:0 below pinned this column to
+      // exactly 100dvh, which is also why nothing scrolled — content taller than
+      // the safe area had nowhere to go. Letting it size to its natural content
+      // height instead means THIS wrapper's own overflow:auto can scroll it.
+      paddingTop: isMobile ? 'env(safe-area-inset-top)' : 0, paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : 0 }}>
       <div style={{ maxWidth:1040, width:'100%', margin:'0 auto', padding: isMobile ? '16px 16px 24px' : '20px 24px',
-        display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
+        display:'flex', flexDirection:'column', flex: isMobile ? 'none' : 1, minHeight: isMobile ? 'auto' : 0 }}>
 
         {/* ══ Header row — logo left, tab toggle right, same rhythm as the Dashboard page header ══ */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexShrink:0 }}>
@@ -233,8 +241,12 @@ export default function Login({ onLogin }) {
             literal white card. No separate "New to dizko?" link here — the
             Sign in/Sign up toggle at the top of the page already covers it. ══ */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--r-3)', boxShadow:'var(--shadow-1)',
-          padding: isMobile ? '20px 18px' : '26px 32px', flex:'1 1 auto', minHeight:0,
-          overflowY:'auto', display:'flex', flexDirection:'column' }}>
+          padding: isMobile ? '20px 18px' : '26px 32px', flex: isMobile ? 'none' : '1 1 auto', minHeight: isMobile ? 'auto' : 0,
+          // Own scroll container on desktop (fixed-height panel next to the
+          // hero). On mobile the whole page scrolls as one column instead —
+          // a second nested scroller here fought with that (see the page-level
+          // wrapper's comment above).
+          overflowY: isMobile ? 'visible' : 'auto', display:'flex', flexDirection:'column' }}>
 
           {/* Heading */}
           {tab !== 'forgot' && tab !== 'forgot-sent' ? (

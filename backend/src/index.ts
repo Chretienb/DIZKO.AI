@@ -45,6 +45,7 @@ import youtubeRoutes          from './routes/youtube'
 import billingRoutes          from './routes/billing'
 import crewRoutes             from './routes/crew'
 import webhookRoutes          from './routes/webhooks'
+import reportRoutes           from './routes/reports'
 import { startCleanupJob }   from './lib/cleanupJob'
 import { startPayoutJob }    from './lib/payoutJob'
 import { runSmartBounce }    from './lib/smartBounce'
@@ -109,6 +110,7 @@ app.route('/invitations', invitationRoutes)
 app.route('/files', fileRoutes)
 app.route('/analytics', analyticsRoutes)
 app.route('/messages',      messageRoutes)
+app.route('/reports',       reportRoutes)
 app.route('/notifications',   notificationRoutes)
 app.route('/access-requests', accessRequestRoutes)
 app.route('/assistant',       assistantRoutes)

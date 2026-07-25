@@ -15,22 +15,30 @@ const link    = 'text-[var(--brand)] no-underline hover:underline'
 function LegalLayout({ title, children }) {
   const navigate = useNavigate()
   useEffect(() => { window.scrollTo(0, 0) }, [title])
-  // If we arrived here from the public app, offer a way straight back.
+  // If we arrived here from the public app, prefer going straight back to
+  // that exact place. Otherwise fall back to router history — plain <a
+  // href> links (Login's footer, Welcome's footer) never set pubReturn, and
+  // this page previously had NO back affordance at all in that case (dead
+  // end, reported live: "there is not going back").
   const [pubReturn] = useState(() => { try { return sessionStorage.getItem('dizko_pub_return') } catch { return null } })
-  const goBack = () => { try { sessionStorage.removeItem('dizko_pub_return') } catch {} ; navigate(pubReturn) }
+  const goBack = () => {
+    if (pubReturn) { try { sessionStorage.removeItem('dizko_pub_return') } catch {} ; navigate(pubReturn); return }
+    navigate(-1)
+  }
 
   return (
     <div className="min-h-screen" style={{ background:'var(--bg)', color:'var(--t1)', fontFamily:'var(--font-ui)' }}>
 
-      {/* Nav */}
-      <div className="sticky top-0 z-10" style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)' }}>
-        <div className="mx-auto flex max-w-[760px] items-center justify-between px-6 py-3.5">
+      {/* Nav — paddingTop clears the status bar/notch in the native app shell,
+          where this sticky bar would otherwise render underneath it (reported
+          live: overlapping the clock, "it buggs"). No isMobile check needed —
+          env(safe-area-inset-top) is just 0 on web/desktop. */}
+      <div className="sticky top-0 z-10" style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', paddingTop:'env(safe-area-inset-top)' }}>
+        <div className="mx-auto flex max-w-[760px] items-center justify-between px-6 py-3.5 gap-3">
           <div className="flex items-center gap-3">
-            {pubReturn && (
-              <button onClick={goBack} aria-label="Back" title="Back"
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[15px]"
-                style={{ border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--t1)' }}>✕</button>
-            )}
+            <button onClick={goBack} aria-label="Back" title="Back"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[15px]"
+              style={{ border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--t1)' }}>✕</button>
             <button onClick={() => navigate('/')} className="flex items-center gap-2 border-none bg-transparent p-0">
               <img src={logo} alt="dizko.ai" className="h-6"/>
             </button>

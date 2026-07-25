@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../components/ui/index.jsx'
-import { UserPen, CreditCard, Keyboard, LogOut, ChevronRight, Mail } from 'lucide-react'
+import { UserPen, CreditCard, Keyboard, LogOut, ChevronRight } from 'lucide-react'
 
 // Quiet settings row — plain icon, label + sub, optional status text, chevron.
 // No tinted chips, no glows: hover is a soft background, color only where it
@@ -129,22 +129,20 @@ export default function PageAccount({ user, billingStatus, currentPlanLabel, tri
         />
       </div>
 
-      {/* ── Delete account — handled by the team via email ── */}
+      {/* ── Delete account — self-service, in-app (Apple 5.1.1(v)) ── */}
       <div style={{ marginTop:20, padding:'16px 18px', borderRadius:13, border:'1px solid var(--border)', background:'var(--surface)' }}>
         <div style={{ fontSize:13.5, fontWeight:600, color:'var(--t1)', marginBottom:6 }}>Want to delete your account?</div>
         <div style={{ fontSize:12.5, color:'var(--t3)', lineHeight:1.6, marginBottom:12 }}>
-          Deleting your account permanently removes your profile, projects, stems, and showcase — this can’t be undone.
-          For your security we handle deletions by hand, so just email us and we’ll fully remove your data within 30 days.
+          Permanently removes your profile, projects, stems, and showcase — you'll have 30 days to change your mind before it's final.
           See our <a href="/privacy" target="_blank" rel="noreferrer" style={{ color:'var(--brand)', textDecoration:'none', fontWeight:500 }}>Privacy Policy</a> for details.
         </div>
-        <a href="mailto:team@dizko.ai?subject=Delete%20my%20account&body=Please%20delete%20my%20Dizko%20account%20associated%20with%20this%20email."
+        <button onClick={() => openModal('delete-account', {})}
           style={{ display:'inline-flex', alignItems:'center', gap:8, height:34, padding:'0 14px', borderRadius:99, border:'1px solid var(--border)',
-            background:'transparent', color:'var(--t1)', textDecoration:'none', fontSize:12.5, fontWeight:500, transition:'border-color .12s' }}
+            background:'transparent', color:'var(--danger, #ef4444)', cursor:'pointer', fontFamily:'inherit', fontSize:12.5, fontWeight:500, transition:'border-color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--t4)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}>
-          <Mail size={14} strokeWidth={1.8} aria-hidden="true" style={{ color:'var(--t3)' }}/>
-          team@dizko.ai
-        </a>
+          Delete my account
+        </button>
       </div>
     </div>
   )
