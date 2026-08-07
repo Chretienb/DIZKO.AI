@@ -7,7 +7,6 @@ import { getUsersByIds } from '../lib/users'
 import { getR2SignedUrl, r2KeyFromUrl } from '../lib/r2'
 import { notify } from '../lib/notificationService'
 import { censorProfanity } from '../lib/profanity'
-import { getCreatorEntitlement, subscriptionRequired } from '../lib/entitlement'
 import type { HonoVariables } from '../types'
 
 // Parse a Spotify / Apple Music / YouTube link into a stored "<provider>:<payload>".
@@ -119,7 +118,6 @@ showcase.patch('/me', sanitize, async (c) => {
   if ('display_name' in b)   patch.display_name = b.display_name ? String(b.display_name).slice(0, 60) : null
   if ('bio' in b)            patch.bio          = b.bio ? String(b.bio).slice(0, 500) : null
   if ('avatar_url' in b)     patch.avatar_url   = b.avatar_url ? String(b.avatar_url).slice(0, 1000) : null
-  if ('profile_public' in b) patch.profile_public = !!b.profile_public
   if ('links' in b && Array.isArray(b.links)) {
     patch.links = (b.links as unknown[])
       .filter(l => typeof l === 'string' && (l as string).length < 200)
@@ -154,16 +152,6 @@ showcase.patch('/me', sanitize, async (c) => {
       patch.music_embed = embed
       patch.spotify_embed = embed.startsWith('spotify:') ? embed.slice('spotify:'.length) : null
       patch.music_embeds = [embed]
-    }
-  }
-
-  // Going public is a paid feature, and needs a handle for the profile URL.
-  if (patch.profile_public === true) {
-    const ent = await getCreatorEntitlement(me)
-    if (!ent.entitled) return c.json(subscriptionRequired('make your profile public'), 402)
-    const { data: prof } = await supabase.from('profiles').select('handle').eq('id', me).maybeSingle()
-    if (!prof || !(prof as any).handle) {
-      return c.json({ data: null, error: 'Claim a handle before making your profile public.', status: 400 }, 400)
     }
   }
 

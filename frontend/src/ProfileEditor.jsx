@@ -42,11 +42,11 @@ function Loading({ label = 'Loading…', pad = '40px 0' }) {
 }
 
 // Producer-facing editor for the public showcase profile. Claim a handle, edit
-// name/bio/links, replace the photo (which updates the account pfp too), flip
-// the profile public, and curate which library files appear at /u/<handle>.
+// name/bio/links, replace the photo (which updates the account pfp too), and
+// curate which library files appear at /u/<handle>. Every profile is public.
 // mode: 'tracks' → curate the showcase (Add tracks screen); 'profile' → edit
-// identity/bio/links/visibility (Edit profile screen). Split so each lives on
-// its own screen instead of one crowded editor.
+// identity/bio/links (Edit profile screen). Split so each lives on its own
+// screen instead of one crowded editor.
 export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = 'tracks' }) {
   const navigate = useNavigate()
   const cached = showcaseApi.meCache()   // last snapshot → instant paint
@@ -66,7 +66,6 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
   const [musicUrls, setMusicUrls]     = useState(() => profileMusicUrls(cp))
   const [avatar, setAvatar]           = useState(cp.avatar_url || user?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [isPublic, setIsPublic]       = useState(!!cp.profile_public)
   const avatarInput = useRef()
 
   // People following me — shown regardless of my own public/private status,
@@ -100,7 +99,6 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
         setLinks(Array.isArray(pr.links) ? pr.links.join('\n') : '')
         setMusicUrls(profileMusicUrls(pr))
         setAvatar(pr.avatar_url || user?.avatar_url || null)
-        setIsPublic(!!pr.profile_public)
       }
     }).catch(() => {}).finally(() => setLoading(false))
     projectsApi.list().then(r => setProjList(r?.data || [])).catch(() => {})
@@ -191,15 +189,6 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
       flash('Saved')
     } catch (e) { flash(e.message || 'Could not save'); throw e }
     finally { setSaving(false) }
-  }
-
-  const togglePublic = async () => {
-    const next = !isPublic
-    if (next && !profile?.handle && !handle) { flash('Claim a handle first'); return }
-    setIsPublic(next)
-    if (next) track('profile_made_public')
-    try { await saveProfile({ profile_public: next }) }
-    catch { setIsPublic(!next) }
   }
 
   const addItem = async (stem) => {
@@ -341,21 +330,15 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
               </div>
             </div>
 
-            {/* ── Visibility ── */}
+            {/* ── Public profile ── */}
             <div style={cardV2}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:650, color:'var(--t1)' }}>{isPublic ? 'Profile is public' : 'Profile is private'}</div>
-                  <div style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>
-                    {liveHandle
-                      ? <>dizko.ai/u/{liveHandle}{isPublic && <a href={`/u/${liveHandle}`} target="_blank" rel="noreferrer" style={{ color:'var(--brand)', marginLeft:8, textDecoration:'none', fontWeight:600 }}>view ↗</a>}</>
-                      : 'Claim a handle above to go public'}
-                  </div>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontSize:14, fontWeight:650, color:'var(--t1)' }}>Profile is public</div>
+                <div style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>
+                  {liveHandle
+                    ? <>dizko.ai/u/{liveHandle}<a href={`/u/${liveHandle}`} target="_blank" rel="noreferrer" style={{ color:'var(--brand)', marginLeft:8, textDecoration:'none', fontWeight:600 }}>view ↗</a></>
+                    : 'Claim a handle above to publish your page'}
                 </div>
-                <button onClick={togglePublic} aria-label="Toggle public" style={{ width:44, height:26, borderRadius:14, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
-                  background: isPublic ? 'var(--brand)' : 'var(--border-2, rgba(var(--fg),.18))', transition:'background .2s' }}>
-                  <span style={{ position:'absolute', top:3, left: isPublic?21:3, width:20, height:20, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.3)', transition:'left .2s cubic-bezier(.4,0,.2,1)' }} />
-                </button>
               </div>
             </div>
 
@@ -376,7 +359,7 @@ export default function ProfileEditor({ user, onClose, onProfileUpdate, mode = '
                               {f.display_name}
                             </div>
                             <div style={{ fontSize:11.5, color:'var(--t3)' }}>
-                              {clickable ? `@${f.handle}` : 'Private profile'}
+                              {clickable ? `@${f.handle}` : 'No public profile yet'}
                             </div>
                           </div>
                         </div>
